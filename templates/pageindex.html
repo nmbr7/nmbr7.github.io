@@ -44,6 +44,7 @@
   </head>
 
   <body>
+    {% include "snippets/theme-toggle.html" %}
     <div class="container">
       <main>
         {% block content %} {% for page in paginator.pages %}
@@ -67,7 +68,6 @@
         {% endif %} {% endblock content %}
       </main>
     </div>
-    {% block teaser %} {% endblock teaser %} {% include "snippets/footer.html"
-    %} {% include "snippets/analytics.html" %}
+    {% block teaser %} {% endblock teaser %} {% include "snippets/analytics.html" %}
   </body>
 </html>

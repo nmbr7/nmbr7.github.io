@@ -1,5 +1,4 @@
 +++
-path="security"
 template = "blogs.html"
 sort_by = "date"
 transparent = true

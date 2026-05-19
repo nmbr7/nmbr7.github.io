@@ -1,0 +1,12 @@
+{% extends "pageindex.html" %}
+
+{% block content %}
+<article>
+  <h1 class="r-header">Tags</h1>
+  <ul class="notes-list">
+    {% for term in terms %}
+      <li><a href="{{ term.permalink }}">{{ term.name }}</a> <span class="tag-count">({{ term.pages | length }})</span></li>
+    {% endfor %}
+  </ul>
+</article>
+{% endblock content %}

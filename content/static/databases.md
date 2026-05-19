@@ -1,7 +1,7 @@
 +++
 title = "Database Systems"
 path = "databases"
-render = false
+render = true
 +++
 
 <span class='library-heading'>Research Paper Summaries</span>

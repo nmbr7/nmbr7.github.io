@@ -1,7 +1,7 @@
 +++
 title = "Hey there, I'm Suhail"
 path = "about"
-render = false
+render = true
 +++
 
 I like building stuff. ❤ Open-source, System programming and Linux.

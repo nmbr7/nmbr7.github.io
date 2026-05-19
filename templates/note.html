@@ -1,0 +1,7 @@
+{% extends "pageindex.html" %}
+{% block content %}
+<article class="note-page">
+  <h1 class="r-header">{{ page.title }}</h1>
+  {{ page.content | safe }}
+</article>
+{% endblock content %}

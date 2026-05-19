@@ -6,6 +6,21 @@ render = true
 
 <div class='r-row'>
 
+<a href="/projects">
+ <div class='r-link'>
+  <span class='r-name'>Projects</span>
+    <div class='r-row-sub'>Personal and open source projects.</div>
+ </div>
+</a>
+
+<a href="/notes">
+ <div class='r-link'>
+  <span class='r-name'>Notes & References</span>
+    <div class='r-row-sub'>Notes researched and curated with AI across database, distributed, hardware, OS, and programming. May contain mistakes.</div>
+ </div>
+</a>
+
+
 <a href="/databases">
  <div class='r-link'>
   <span class='r-name'>Database Systems</span>

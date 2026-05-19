@@ -1,0 +1,67 @@
+{% extends "pageindex.html" %}
+
+{% block content %}
+<article>
+  <h1 class="r-header">{{ section.title }}</h1>
+
+  {% if section.path == "/notes/" %}
+  <div class="notes-disclaimer">
+    These notes are researched and curated with the help of AI across database,
+    distributed, hardware, OS, and programming topics. Treat them as a starting point —
+    they may contain mistakes. Verify before relying on them.
+  </div>
+  {% endif %}
+
+  {% if section.subsections %}
+    <ul class="topic-list">
+      {% for sub_path in section.subsections %}
+        {% set sub = get_section(path=sub_path) %}
+        {% if sub.path != "/notes/reference/" %}
+        <li>
+          <a href="{{ sub.permalink }}" class="topic-title">{{ sub.title }}</a>
+          <span class="topic-meta">{{ sub.pages | length }} notes</span>
+          {% if sub.description %}
+          <div class="topic-desc">{{ sub.description }}</div>
+          {% endif %}
+        </li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+
+    {% for sub_path in section.subsections %}
+      {% set sub = get_section(path=sub_path) %}
+      {% if sub.path == "/notes/reference/" %}
+      <div class="reference-section">
+        <h2 class="reference-heading">Reference</h2>
+        <ul class="topic-list reference-list">
+          {% for page in sub.pages %}
+          <li>
+            <a href="{{ page.permalink }}" class="topic-title">{{ page.title }}</a>
+            {% if page.taxonomies.tags %}
+            <span class="topic-meta">{{ page.taxonomies.tags | join(sep=" · ") }}</span>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  {% if section.pages %}
+  <ul class="topic-list">
+    {% for page in section.pages %}
+      <li>
+        <a href="{{ page.permalink }}" class="topic-title">{{ page.title }}</a>
+        {% if page.taxonomies.tags %}
+        <span class="topic-meta">{{ page.taxonomies.tags | join(sep=" · ") }}</span>
+        {% endif %}
+        {% if page.description %}
+        <div class="topic-desc">{{ page.description }}</div>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</article>
+{% endblock content %}

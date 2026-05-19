@@ -1,7 +1,7 @@
 +++
 title = "Programming Language References"
 path = "languages"
-render = false
+render = true
 +++
 
 <span class='library-heading'>Rust</span><span> </span><a href="https://www.rust-lang.org"><img src='/Link.svg' width=15px></a>

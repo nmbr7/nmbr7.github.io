@@ -1,20 +1,19 @@
-# The URL the site will be built for
 base_url = "https://nmbr7.github.io"
 
 title = "nmbr7"
 description = "Adventurer"
-generate_rss = true
+generate_feeds = true
 
-# Go through every links in all content and check if the links are valid
-check_external_links = false
-
-# Whether to automatically compile all Sass files in the sass directory
 compile_sass = true
 
-# Whether to do syntax highlighting
-# Theme can be customised by setting the `highlight_theme` variable to a theme supported by Zola
-highlight_code = true
-highlight_theme = "ayu-light"
+taxonomies = [
+    {name = "tags", feed = false},
+]
+
+
+[link_checker]
+skip_anchor_prefixes = []
+internal_level = "warn"
 
 [extra]
 author = "Suhailr7"

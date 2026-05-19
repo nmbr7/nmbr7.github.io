@@ -1,7 +1,7 @@
 +++
 title = "Performance Engineering References"
 path = "perf"
-render = false
+render = true
 +++
 
 <span class='library-heading'>Linux</span>

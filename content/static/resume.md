@@ -1,7 +1,7 @@
 +++
 title = "Resume"
 path = "resume"
-render = false
+render = true
 +++
 
 <div >
