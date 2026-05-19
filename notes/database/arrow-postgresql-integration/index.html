@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Arrow Postgresql Integration</h1>
+  <h1 id="advanced-arrow-format-and-row-to-columnar-conversion">Advanced Arrow Format and Row-to-Columnar Conversion</h1>
+<p><strong>Date</strong>: 2026-01-22
+<strong>Context</strong>: Building pg_arrow, a Rust library to read PostgreSQL data files directly and convert to Apache Arrow format. Initial page header parsing is complete.</p>
+<h2 id="summary">Summary</h2>
+<p>Comprehensive survey of advanced Arrow concepts (schema metadata, dictionary encoding, extension types), PostgreSQL-specific challenges (TOAST, MVCC, HOT chains, alignment), performance optimization techniques, and analysis of how similar projects (DuckDB postgres_scanner, pg_analytics) solve these problems.</p>
+<hr />
+<h2 id="techniques-evaluated">Techniques Evaluated</h2>
+<h3 id="1-arrow-schema-metadata">1. Arrow Schema Metadata</h3>
+<ul>
+<li><strong>Description</strong>: Store PostgreSQL-specific metadata (type OIDs, typmod, relation info) in Arrow schema for round-trip fidelity</li>
+<li><strong>Pros</strong>:
+<ul>
+<li>Preserves full PostgreSQL type information</li>
+<li>Enables writing back to PostgreSQL</li>
+<li>Self-documenting output</li>
+</ul>
+</li>
+<li><strong>Cons</strong>:
+<ul>
+<li>Non-standard metadata keys</li>
+<li>Increased schema size</li>
+</ul>
+</li>
+<li><strong>Verdict</strong>: ✅ Chosen - Essential for PostgreSQL compatibility</li>
+</ul>
+<p><strong>Implementation example</strong>:</p>
+<pre><code data-lang="rust">use arrow::datatypes::{Field, DataType, Schema};
+use std::collections::HashMap;
+
+let field = Field::new(&quot;id&quot;, DataType::Int32, false)
+    .with_metadata(HashMap::from([
+        (&quot;pg:typoid&quot;.to_string(), &quot;23&quot;.to_string()),
+        (&quot;pg:typmod&quot;.to_string(), &quot;-1&quot;.to_string()),
+        (&quot;pg:attnum&quot;.to_string(), &quot;1&quot;.to_string()),
+    ]));
+
+let schema = Schema::new(vec![field])
+    .with_metadata(HashMap::from([
+        (&quot;pg:oid&quot;.to_string(), &quot;16384&quot;.to_string()),
+        (&quot;pg:relname&quot;.to_string(), &quot;users&quot;.to_string()),
+    ]));
+</code></pre>
+<hr />
+<h3 id="2-dictionary-encoding">2. Dictionary Encoding</h3>
+<ul>
+<li><strong>Description</strong>: Store low-cardinality string columns as indices into a dictionary of unique values</li>
+<li><strong>Pros</strong>:
+<ul>
+<li>10-100x memory reduction for low-cardinality columns</li>
+<li>Faster comparisons and grouping</li>
+<li>Standard Arrow feature</li>
+</ul>
+</li>
+<li><strong>Cons</strong>:
+<ul>
+<li>Overhead for high-cardinality columns</li>
+<li>Dictionary building cost</li>
+<li>Cross-batch dictionary coordination</li>
+</ul>
+</li>
+<li><strong>Best suited for</strong>: Status fields, country codes, categories</li>
+<li><strong>Used by</strong>: DuckDB (adaptive), ClickHouse, Parquet</li>
+<li><strong>Verdict</strong>: ✅ Chosen - Use adaptive heuristic (dictionary if <code>unique_count/total &lt; 0.1</code>)</li>
+</ul>
+<p><strong>Implementation strategy</strong>:</p>
+<pre><code data-lang="rust">use std::collections::HashMap;
+
+struct ColumnStats {
+    unique_values: HashMap&lt;String, usize&gt;,
+    total_count: usize,
+}
+
+impl ColumnStats {
+    fn should_use_dictionary(&amp;self) -&gt; bool {
+        let cardinality_ratio = self.unique_values.len() as f64 / self.total_count as f64;
+        cardinality_ratio &lt; 0.1 // Use dictionary if &lt; 10% unique
+    }
+}
+</code></pre>
+<hr />
+<h3 id="3-extension-types-for-postgresql-specific-types">3. Extension Types for PostgreSQL-Specific Types</h3>
+<ul>
+<li><strong>Description</strong>: Use Arrow extension types to represent NUMERIC, UUID, INET, geometric types, etc.</li>
+<li><strong>Pros</strong>:
+<ul>
+<li>Type-safe representation</li>
+<li>Metadata preserved</li>
+<li>Arrow ecosystem compatible</li>
+</ul>
+</li>
+<li><strong>Cons</strong>:
+<ul>
+<li>Consumers must understand extensions</li>
+<li>Complex implementation per type</li>
+</ul>
+</li>
+<li><strong>Key mappings</strong>:
+<ul>
+<li>UUID → FixedSizeBinary(16) + extension</li>
+<li>NUMERIC → Decimal128 (if precision ≤ 38) or Utf8 + extension</li>
+<li>INET/CIDR → Utf8 or custom extension</li>
+<li>JSON/JSONB → Utf8 (consider LargeUtf8 for JSONB)</li>
+</ul>
+</li>
+<li><strong>Verdict</strong>: ✅ Chosen - Required for type fidelity</li>
+</ul>
+<p><strong>Example</strong>:</p>
+<pre><code data-lang="rust">// UUID extension type
+let uuid_type = DataType::Extension(
+    &quot;postgresql.uuid&quot;.to_string(),
+    Box::new(DataType::FixedSizeBinary(16)),
+    None,
+);
+
+// NUMERIC with precision &gt; 38 (Decimal128 limit)
+let high_precision_numeric = DataType::Extension(
+    &quot;postgresql.numeric&quot;.to_string(),
+    Box::new(DataType::Utf8),
+    Some(serde_json::json!({
+        &quot;precision&quot;: 100,
+        &quot;scale&quot;: 20
+    }).to_string()),
+);
+</code></pre>
+<hr />
+<h3 id="4-memory-mapping-vs-buffered-i-o">4. Memory Mapping vs Buffered I/O</h3>
+<table><thead><tr><th>Aspect</th><th>mmap()</th><th>Buffered read()</th></tr></thead><tbody>
+<tr><td><strong>Kernel caching</strong></td><td>✅ Automatic</td><td>Manual</td></tr>
+<tr><td><strong>Large files (&gt;RAM)</strong></td><td>✅ Supported</td><td>✅ Supported</td></tr>
+<tr><td><strong>Predictability</strong></td><td>❌ Page faults</td><td>✅ Controlled</td></tr>
+<tr><td><strong>Safety</strong></td><td>❌ SIGBUS risk</td><td>✅ Error handling</td></tr>
+<tr><td><strong>Live databases</strong></td><td>❌ Unsafe</td><td>⚠️ Possible with care</td></tr>
+</tbody></table>
+<p><strong>Verdict</strong>: Use buffered I/O initially for safety; mmap as optimization for static files</p>
+<hr />
+<h3 id="5-mvcc-visibility-handling-options">5. MVCC Visibility Handling Options</h3>
+<h4 id="option-a-ignore-visibility-unsafe-snapshot">Option A: Ignore visibility (unsafe snapshot)</h4>
+<ul>
+<li>❌ <strong>Rejected</strong> - Inconsistent results, uncommitted data</li>
+</ul>
+<h4 id="option-b-hint-bit-only-visibility">Option B: Hint-bit-only visibility</h4>
+<ul>
+<li><strong>Description</strong>: Use <code>HEAP_XMIN_COMMITTED</code>/<code>INVALID</code> bits, skip ambiguous tuples</li>
+<li><strong>Verdict</strong>: 🔮 Consider Later - Useful for approximate reads</li>
+</ul>
+<h4 id="option-c-full-mvcc-with-clog">Option C: Full MVCC with CLOG</h4>
+<ul>
+<li><strong>Description</strong>: Implement complete visibility rules including CLOG consultation</li>
+<li><strong>Verdict</strong>: 🔮 Consider Later - Needed for production correctness</li>
+</ul>
+<h4 id="option-d-require-stopped-postgresql">Option D: Require stopped PostgreSQL</h4>
+<ul>
+<li><strong>Description</strong>: Only read from shut down databases</li>
+<li><strong>Pros</strong>: No visibility concerns, all committed data is hinted</li>
+<li><strong>Cons</strong>: Limited use cases</li>
+<li><strong>Verdict</strong>: ✅ <strong>Chosen for initial implementation</strong></li>
+</ul>
+<p><strong>Visibility check code</strong> (simplified):</p>
+<pre><code data-lang="rust">const HEAP_XMIN_COMMITTED: u16 = 0x0100;
+const HEAP_XMIN_INVALID: u16 = 0x0200;
+const HEAP_XMAX_COMMITTED: u16 = 0x0400;
+const HEAP_XMAX_INVALID: u16 = 0x0800;
+
+fn is_tuple_visible_simple(t_infomask: u16) -&gt; bool {
+    // For stopped database with hint bits
+    let xmin_committed = (t_infomask &amp; HEAP_XMIN_COMMITTED) != 0;
+    let xmin_invalid = (t_infomask &amp; HEAP_XMIN_INVALID) != 0;
+    let xmax_invalid = (t_infomask &amp; HEAP_XMAX_INVALID) != 0;
+
+    xmin_committed &amp;&amp; !xmin_invalid &amp;&amp; xmax_invalid
+}
+</code></pre>
+<hr />
+<h3 id="6-toast-handling-options">6. TOAST Handling Options</h3>
+<h4 id="option-a-skip-toast-columns">Option A: Skip TOAST columns</h4>
+<ul>
+<li>❌ <strong>Rejected</strong> - Data loss</li>
+</ul>
+<h4 id="option-b-inline-toast-resolution">Option B: Inline TOAST resolution</h4>
+<ul>
+<li><strong>Description</strong>: Resolve TOAST pointers during page scan</li>
+<li><strong>Pros</strong>: Complete data, simple API</li>
+<li><strong>Cons</strong>: Performance impact, requires TOAST table access</li>
+<li><strong>Verdict</strong>: ✅ <strong>Chosen</strong> - Required for correctness</li>
+</ul>
+<h4 id="option-c-lazy-toast-resolution">Option C: Lazy TOAST resolution</h4>
+<ul>
+<li><strong>Description</strong>: Return TOAST pointers, resolve on demand</li>
+<li><strong>Verdict</strong>: 🔮 Consider Later - Optimization for selective queries</li>
+</ul>
+<p><strong>TOAST detection</strong>:</p>
+<pre><code data-lang="rust">const VARTAG_EXTERNAL: u8 = 0x01;
+const VARTAG_INDIRECT: u8 = 0x02;
+const VARTAG_COMPRESSED: u8 = 0x03;
+
+fn is_toast_pointer(varlena_data: &amp;[u8]) -&gt; bool {
+    if varlena_data.len() &lt; 1 {
+        return false;
+    }
+
+    let tag = varlena_data[0];
+    matches!(tag, VARTAG_EXTERNAL | VARTAG_INDIRECT)
+}
+</code></pre>
+<hr />
+<h3 id="7-recordbatch-sizing-strategy">7. RecordBatch Sizing Strategy</h3>
+<p><strong>Analysis</strong>:</p>
+<ul>
+<li>Too small (&lt;1024 rows): High overhead, poor vectorization</li>
+<li>Too large (&gt;100K rows): Memory pressure, streaming delays</li>
+<li>Sweet spot: 8192-65536 rows OR 256KB-1MB data</li>
+</ul>
+<p><strong>Verdict</strong>: ✅ Adaptive sizing: <code>target_batch_bytes / avg_row_bytes</code>, clamped to [1024, 65536]</p>
+<pre><code data-lang="rust">struct BatchSizer {
+    target_bytes: usize, // 256KB default
+    min_rows: usize,     // 1024
+    max_rows: usize,     // 65536
+}
+
+impl BatchSizer {
+    fn calculate_batch_size(&amp;self, avg_row_bytes: usize) -&gt; usize {
+        if avg_row_bytes == 0 {
+            return self.min_rows;
+        }
+
+        let target_rows = self.target_bytes / avg_row_bytes;
+        target_rows.clamp(self.min_rows, self.max_rows)
+    }
+}
+</code></pre>
+<hr />
+<h3 id="8-parallel-processing-strategies">8. Parallel Processing Strategies</h3>
+<h4 id="page-level-parallelism">Page-level parallelism</h4>
+<ul>
+<li><strong>Pros</strong>: Good for many small pages</li>
+<li><strong>Cons</strong>: Merge overhead, memory per thread</li>
+<li><strong>Verdict</strong>: ✅ <strong>Chosen</strong> - Use rayon for page iteration</li>
+</ul>
+<pre><code data-lang="rust">use rayon::prelude::*;
+
+fn convert_pages_parallel(pages: Vec&lt;Page&gt;) -&gt; Result&lt;Vec&lt;RecordBatch&gt;&gt; {
+    pages
+        .par_iter()
+        .map(|page| convert_page_to_batch(page))
+        .collect::&lt;Result&lt;Vec&lt;_&gt;&gt;&gt;()
+}
+</code></pre>
+<h4 id="column-level-parallelism">Column-level parallelism</h4>
+<ul>
+<li><strong>Verdict</strong>: 🔮 Consider Later - Optimization for wide tables</li>
+</ul>
+<hr />
+<h3 id="9-null-bitmap-conversion">9. Null Bitmap Conversion</h3>
+<ul>
+<li><strong>Implementation note</strong>: PostgreSQL and Arrow both use LSB-first bit packing with <code>1 = valid</code></li>
+<li><strong>Verdict</strong>: ✅ Direct conversion possible</li>
+</ul>
+<pre><code data-lang="rust">fn convert_null_bitmap(pg_bitmap: &amp;[u8], natts: usize) -&gt; Vec&lt;u8&gt; {
+    // PostgreSQL null bitmap: 1 = null (inverted!)
+    // Arrow validity bitmap: 1 = valid
+
+    let num_bytes = (natts + 7) / 8;
+    let mut arrow_bitmap = vec![0u8; num_bytes];
+
+    for i in 0..natts {
+        let pg_is_null = (pg_bitmap[i / 8] &amp; (1 &lt;&lt; (i % 8))) != 0;
+        if !pg_is_null {
+            arrow_bitmap[i / 8] |= 1 &lt;&lt; (i % 8);
+        }
+    }
+
+    arrow_bitmap
+}
+</code></pre>
+<hr />
+<h3 id="10-hot-chain-following">10. HOT Chain Following</h3>
+<ul>
+<li><strong>Description</strong>: Follow Heap-Only-Tuple chains to find visible tuple version</li>
+<li><strong>Verdict</strong>: ✅ <strong>Chosen</strong> - Required for updated tables</li>
+</ul>
+<pre><code data-lang="rust">const HEAP_HOT_UPDATED: u16 = 0x4000;
+const HEAP_ONLY_TUPLE: u16 = 0x8000;
+
+fn follow_hot_chain(page: &amp;Page, initial_offset: u16) -&gt; Option&lt;u16&gt; {
+    let mut current_offset = initial_offset;
+
+    loop {
+        let tuple = page.get_tuple(current_offset)?;
+        let t_infomask = tuple.t_infomask;
+
+        if (t_infomask &amp; HEAP_HOT_UPDATED) == 0 {
+            // End of chain
+            return Some(current_offset);
+        }
+
+        // Follow ctid to next version
+        let (block, offset) = tuple.t_ctid;
+        if block != page.block_number {
+            // Chain left the page
+            return Some(current_offset);
+        }
+
+        current_offset = offset;
+    }
+}
+</code></pre>
+<hr />
+<h2 id="postgresql-specific-implementation-details">PostgreSQL-Specific Implementation Details</h2>
+<h3 id="tuple-header-structure">Tuple Header Structure</h3>
+<pre><code data-lang="rust">#[repr(C)]
+struct HeapTupleHeaderData {
+    t_xmin: u32,      // Creating transaction
+    t_xmax: u32,      // Deleting transaction
+    t_cid_xvac: u32,  // Command ID or vacuum XID
+    t_ctid: ItemPointerData, // (block: u32, offset: u16)
+    t_infomask2: u16, // Flags + natts
+    t_infomask: u16,  // Flags
+    t_hoff: u8,       // Offset to data
+    // Null bitmap follows if HEAP_HASNULL set
+}
+
+// Key constants
+const HEAP_HASNULL: u16 = 0x0001;
+const HEAP_HASVARWIDTH: u16 = 0x0002;
+const HEAP_HASEXTERNAL: u16 = 0x0004;  // Has TOAST pointer
+const HEAP_XMIN_COMMITTED: u16 = 0x0100;
+const HEAP_XMIN_INVALID: u16 = 0x0200;
+const HEAP_XMAX_COMMITTED: u16 = 0x0400;
+const HEAP_XMAX_INVALID: u16 = 0x0800;
+const HEAP_HOT_UPDATED: u16 = 0x4000;
+const HEAP_ONLY_TUPLE: u16 = 0x8000;
+</code></pre>
+<h3 id="alignment-handling">Alignment Handling</h3>
+<pre><code data-lang="rust">fn align_offset(offset: usize, alignment: usize) -&gt; usize {
+    (offset + alignment - 1) &amp; !(alignment - 1)
+}
+
+fn read_attribute_with_alignment(
+    data: &amp;[u8],
+    mut offset: usize,
+    attr: &amp;PgAttribute,
+) -&gt; (usize, &amp;[u8]) {
+    // Apply alignment for non-varlena types
+    if attr.attlen &gt; 0 &amp;&amp; attr.attalign &gt; 1 {
+        offset = align_offset(offset, attr.attalign as usize);
+    }
+
+    // Read the value
+    let value = match attr.attlen {
+        len if len &gt; 0 =&gt; &amp;data[offset..offset + len as usize],
+        -1 =&gt; read_varlena(data, offset),
+        -2 =&gt; read_cstring(data, offset),
+        _ =&gt; panic!(&quot;Invalid attlen&quot;),
+    };
+
+    let next_offset = offset + value.len();
+    (next_offset, value)
+}
+</code></pre>
+<h3 id="numeric-conversion">NUMERIC Conversion</h3>
+<p>PostgreSQL NUMERIC uses base-10000 digits:</p>
+<pre><code data-lang="rust">const NBASE: i16 = 10000;
+
+struct NumericVar {
+    ndigits: i16,  // Number of base-10000 digits
+    weight: i16,   // Position of first digit (10000^weight)
+    sign: i16,     // 0x0000 = positive, 0x4000 = negative
+    dscale: i16,   // Display scale (decimal places)
+    digits: Vec&lt;i16&gt;, // Base-10000 digits
+}
+
+fn pg_numeric_to_arrow_decimal128(numeric_data: &amp;[u8]) -&gt; Result&lt;i128&gt; {
+    let ndigits = read_i16(&amp;numeric_data[0..2]);
+    let weight = read_i16(&amp;numeric_data[2..4]);
+    let sign = read_i16(&amp;numeric_data[4..6]);
+    let dscale = read_i16(&amp;numeric_data[6..8]);
+
+    let mut result: i128 = 0;
+    let digits = &amp;numeric_data[8..];
+
+    // Convert base-10000 to base-10
+    for i in 0..ndigits {
+        let digit = read_i16(&amp;digits[(i * 2) as usize..((i + 1) * 2) as usize]) as i128;
+        result = result * (NBASE as i128) + digit;
+    }
+
+    // Adjust for scale: multiply by 10^dscale
+    let scale_factor = 10_i128.pow(dscale as u32);
+    result *= scale_factor;
+
+    // Apply sign
+    if sign == 0x4000 {
+        result = -result;
+    }
+
+    Ok(result)
+}
+</code></pre>
+<hr />
+<h2 id="key-papers-resources">Key Papers &amp; Resources</h2>
+<h3 id="foundational">Foundational</h3>
+<ul>
+<li>"The Design and Implementation of Modern Column-Oriented Database Systems" - Abadi, Boncz, et al., Foundations and Trends in Databases 2013</li>
+<li>"MonetDB/X100: Hyper-Pipelining Query Execution" - Boncz et al., CIDR 2005</li>
+<li>"Apache Arrow and the Future of Data Processing" - Arrow PMC, 2022</li>
+</ul>
+<h3 id="postgresql-internals">PostgreSQL Internals</h3>
+<ul>
+<li>PostgreSQL Documentation: <a rel="external" href="https://www.postgresql.org/docs/current/storage-page-layout.html">Database Physical Storage</a></li>
+<li>"Inside the PostgreSQL Tuple Header" - Bruce Momjian</li>
+<li>PostgreSQL source: <code>src/include/storage/bufpage.h</code>, <code>src/include/access/htup_details.h</code></li>
+</ul>
+<h3 id="performance">Performance</h3>
+<ul>
+<li>"Everything You Always Wanted to Know About Compiled and Vectorized Queries" - Kersten et al., VLDB 2018</li>
+<li>"Arrow Flight: A Fast, Large-Scale Data Transport" - SIGMOD 2019</li>
+</ul>
+<h3 id="related-projects">Related Projects</h3>
+<ul>
+<li><a rel="external" href="https://github.com/duckdb/postgres_scanner">DuckDB postgres_scanner</a></li>
+<li><a rel="external" href="https://github.com/paradedb/paradedb">pg_analytics (ParadeDB)</a></li>
+<li><a rel="external" href="https://github.com/pgcentralfoundation/pgrx">pgrx (Rust PostgreSQL extensions)</a></li>
+<li><a rel="external" href="https://github.com/apache/arrow-rs">arrow-rs</a></li>
+</ul>
+<hr />
+<h2 id="architectural-decisions">Architectural Decisions</h2>
+<h3 id="1-storage-access">1. Storage Access</h3>
+<p><strong>Decision</strong>: Direct file reading (not protocol-based like DuckDB scanner)</p>
+<ul>
+<li>✅ Enables offline/backup access</li>
+<li>✅ No PostgreSQL server needed</li>
+<li>❌ Must handle MVCC and TOAST ourselves</li>
+</ul>
+<h3 id="2-initial-scope">2. Initial Scope</h3>
+<p><strong>Decision</strong>: Require PostgreSQL to be stopped</p>
+<ul>
+<li>✅ Simplifies visibility handling</li>
+<li>✅ All committed data will have hint bits set</li>
+<li>❌ Limited to offline analysis</li>
+</ul>
+<h3 id="3-toast-handling">3. TOAST Handling</h3>
+<p><strong>Decision</strong>: Implement full resolution</p>
+<ul>
+<li>✅ Required for data completeness</li>
+<li>🔮 Defer lazy resolution as optimization</li>
+</ul>
+<h3 id="4-batch-sizing">4. Batch Sizing</h3>
+<p><strong>Decision</strong>: Adaptive based on row width</p>
+<ul>
+<li>Target: 256KB batches</li>
+<li>Clamp rows: [1024, 65536]</li>
+</ul>
+<h3 id="5-type-mapping">5. Type Mapping</h3>
+<p><strong>Decision</strong>: Use extension types for PostgreSQL-specific types</p>
+<ul>
+<li>Preserve type OIDs in metadata</li>
+<li>Fall back to string for unsupported precisions</li>
+</ul>
+<hr />
+<h2 id="implementation-roadmap">Implementation Roadmap</h2>
+<h3 id="short-term-next-phases">Short-term (Next phases)</h3>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Complete tuple header parsing</li>
+<li><input disabled="" type="checkbox"/>
+Implement fixed-width type decoders (int, float, bool)</li>
+<li><input disabled="" type="checkbox"/>
+Implement varlena parsing (strings)</li>
+<li><input disabled="" type="checkbox"/>
+Build Arrow RecordBatch construction</li>
+</ul>
+<h3 id="medium-term">Medium-term</h3>
+<ul>
+<li><input disabled="" type="checkbox"/>
+TOAST pointer detection and resolution</li>
+<li><input disabled="" type="checkbox"/>
+Array type support</li>
+<li><input disabled="" type="checkbox"/>
+NUMERIC/Decimal conversion</li>
+<li><input disabled="" type="checkbox"/>
+Parallel page scanning</li>
+</ul>
+<h3 id="long-term-research-needed">Long-term / Research needed</h3>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Full MVCC implementation with CLOG</li>
+<li><input disabled="" type="checkbox"/>
+Streaming reads from live databases</li>
+<li><input disabled="" type="checkbox"/>
+Predicate pushdown optimization</li>
+<li><input disabled="" type="checkbox"/>
+Arrow Flight service wrapper</li>
+<li><input disabled="" type="checkbox"/>
+Delta/incremental conversion using WAL</li>
+</ul>
+<h3 id="performance-optimizations-to-investigate">Performance optimizations to investigate</h3>
+<ul>
+<li><input disabled="" type="checkbox"/>
+SIMD for null bitmap processing</li>
+<li><input disabled="" type="checkbox"/>
+io_uring for async page reads (Linux)</li>
+<li><input disabled="" type="checkbox"/>
+Memory arena allocation for tuple parsing</li>
+<li><input disabled="" type="checkbox"/>
+Vectorized type decoding</li>
+</ul>
+<h3 id="postgresql-version-compatibility">PostgreSQL version compatibility</h3>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Test page format differences across versions 12-17</li>
+<li><input disabled="" type="checkbox"/>
+Handle version-specific TOAST compression (pglz vs lz4 in PG14+)</li>
+<li><input disabled="" type="checkbox"/>
+Handle NUMERIC infinity values (PG14+)</li>
+</ul>
+<hr />
+<h2 id="comparison-with-existing-projects">Comparison with Existing Projects</h2>
+<h3 id="duckdb-postgres-scanner-vs-pg-arrow">DuckDB postgres_scanner vs pg_arrow</h3>
+<table><thead><tr><th>Aspect</th><th>DuckDB Scanner</th><th>pg_arrow</th></tr></thead><tbody>
+<tr><td><strong>Access method</strong></td><td>Protocol (libpq)</td><td>Direct file</td></tr>
+<tr><td><strong>PostgreSQL state</strong></td><td>Must be running</td><td>Can be stopped</td></tr>
+<tr><td><strong>MVCC</strong></td><td>Delegated to PG</td><td>Must implement</td></tr>
+<tr><td><strong>TOAST</strong></td><td>Delegated to PG</td><td>Must implement</td></tr>
+<tr><td><strong>Performance</strong></td><td>Network overhead</td><td>Direct I/O</td></tr>
+<tr><td><strong>Use cases</strong></td><td>Live queries</td><td>Backup analysis, forensics</td></tr>
+<tr><td><strong>Complexity</strong></td><td>Lower</td><td>Higher</td></tr>
+</tbody></table>
+<h3 id="pg-analytics-paradedb-approach">pg_analytics (ParadeDB) Approach</h3>
+<ul>
+<li>Uses PostgreSQL extension interface (pgrx)</li>
+<li>Converts on-the-fly within PostgreSQL</li>
+<li>Has access to PostgreSQL internals</li>
+<li>Different use case than pg_arrow</li>
+</ul>
+<hr />
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://nmbr7.github.io/notes/database/arrow-format/">Arrow Format</a> — Foundational Arrow memory layout this integration targets</li>
+<li><a href="https://nmbr7.github.io/notes/database/wal-incremental-conversion/">WAL-Based Incremental Conversion</a> — Extends pg_arrow with live CDC capabilities using PostgreSQL WAL</li>
+<li><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/">HyPer/Umbra/CedarDB</a> — Columnar execution engines relevant to Arrow conversion performance</li>
+<li><a href="https://nmbr7.github.io/notes/programming/rust-low-level/">Rust Low-Level Programming</a> — Unsafe Rust patterns used in pg_arrow's direct file access and FFI</li>
+</ul>
+<hr />
+<p><em>Last updated: 2026-01-22</em></p>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

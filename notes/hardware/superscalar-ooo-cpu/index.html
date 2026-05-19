@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Superscalar OOO CPU</h1>
+  <h1 id="superscalar-out-of-order-cpu-microarchitecture">Superscalar Out-of-Order CPU Microarchitecture</h1>
+<p>Expert reference for designing and building production-grade superscalar OoO processors. Covers pipeline internals, branch prediction, memory subsystem, modern microarch case studies (Apple M1–M5, AMD Zen 4/5, Intel Golden Cove/Lion Cove, Qualcomm Oryon, ARM Cortex-X925, IBM POWER10, RISC-V), workloads by deployment domain (cloud, serverless, HPC, supercomputers), and a practical design guide.</p>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/#1-pipeline-overview">Pipeline Overview</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/#2-frontend">Frontend: Fetch, Branch Prediction, Decode</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/#3-rename-allocation-rob">Rename, Allocation, ROB</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/#4-issue-queue-reservation-stations">Issue Queue / Reservation Stations</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/#5-execution-units">Execution Units</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/#6-memory-subsystem">Memory Subsystem</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/#7-speculative-execution-security">Speculative Execution &amp; Security</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/#8-production-case-studies-2020-2025">Production Case Studies 2020–2025</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/#9-workloads-by-deployment-domain">Workloads by Deployment Domain</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/#10-noc-and-cache-coherence">NoC and Cache Coherence</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/#11-power-and-frequency">Power and Frequency</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/#12-building-a-production-grade-superscalar">Building a Production-Grade Superscalar</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/#13-key-references">Key References</a></li>
+</ol>
+<hr />
+<h2 id="1-pipeline-overview">1. Pipeline Overview</h2>
+<p>A modern superscalar OoO processor executes instructions out of program order to hide latency and exploit instruction-level parallelism (ILP). The pipeline has three logical phases: <strong>in-order frontend</strong> (fetch, decode, rename), <strong>out-of-order engine</strong> (issue, execute), and <strong>in-order backend</strong> (commit/retire).</p>
+<pre><code>In-Order Frontend
+┌──────────┐   ┌───────────┐   ┌──────────┐   ┌──────────┐   ┌────────┐
+│  Fetch   │──▶│ Predecode │──▶│  Decode  │──▶│  Rename  │──▶│ Alloc  │
+│ (BPred + │   │  (µop     │   │ (µop     │   │  (RAT +  │   │ (ROB + │
+│  I-cache)│   │  split)   │   │  crack)  │   │  PRF)    │   │  IQ)   │
+└──────────┘   └───────────┘   └──────────┘   └──────────┘   └────────┘
+                                                                    │
+                                        Out-of-Order Engine         │
+                              ┌─────────────────────────────────────┘
+                              ▼
+                    ┌──────────────────┐
+                    │   Issue Queue    │──▶ Wakeup/Select
+                    │ (Reservation     │
+                    │  Stations)       │
+                    └──────────────────┘
+                              │
+              ┌───────────────┼───────────────────┐
+              ▼               ▼                   ▼
+         ┌─────────┐   ┌───────────┐      ┌───────────┐
+         │  INT    │   │   FP/     │      │  Load /   │
+         │  ALU    │   │   SIMD    │      │  Store    │
+         │  Units  │   │  Units    │      │  Units    │
+         └─────────┘   └───────────┘      └───────────┘
+              │               │                   │
+              └───────────────┴───────────────────┘
+                              │ Writeback
+                              ▼
+                    ┌──────────────────┐
+                    │   ROB Retire     │ (in-order commit)
+                    └──────────────────┘
+</code></pre>
+<h3 id="pipeline-width-comparison">Pipeline Width Comparison</h3>
+<table><thead><tr><th>Microarch</th><th style="text-align: right">Fetch</th><th style="text-align: right">Decode</th><th style="text-align: right">Rename</th><th style="text-align: right">Issue</th><th style="text-align: right">Retire</th><th style="text-align: right">ROB</th><th style="text-align: right">PRF-INT</th><th style="text-align: right">PRF-FP</th></tr></thead><tbody>
+<tr><td>Apple M1 Firestorm</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">~350</td><td style="text-align: right">~360</td><td style="text-align: right">~384</td></tr>
+<tr><td>Apple M2 Avalanche</td><td style="text-align: right">9</td><td style="text-align: right">9</td><td style="text-align: right">9</td><td style="text-align: right">9</td><td style="text-align: right">8</td><td style="text-align: right">~370</td><td style="text-align: right">~390</td><td style="text-align: right">~400</td></tr>
+<tr><td>Apple M3 Everest</td><td style="text-align: right">9</td><td style="text-align: right">9</td><td style="text-align: right">9</td><td style="text-align: right">9</td><td style="text-align: right">8</td><td style="text-align: right">~380</td><td style="text-align: right">~410</td><td style="text-align: right">~420</td></tr>
+<tr><td>Apple M4 (2024)</td><td style="text-align: right">10</td><td style="text-align: right">10</td><td style="text-align: right">10</td><td style="text-align: right">10</td><td style="text-align: right">10</td><td style="text-align: right">~400+</td><td style="text-align: right">~450</td><td style="text-align: right">~450</td></tr>
+<tr><td>AMD Zen 4</td><td style="text-align: right">8</td><td style="text-align: right">4+4</td><td style="text-align: right">6</td><td style="text-align: right">6</td><td style="text-align: right">6</td><td style="text-align: right">256</td><td style="text-align: right">192</td><td style="text-align: right">192</td></tr>
+<tr><td>AMD Zen 5</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">320</td><td style="text-align: right">224</td><td style="text-align: right">320</td></tr>
+<tr><td>Intel Golden Cove</td><td style="text-align: right">6</td><td style="text-align: right">6</td><td style="text-align: right">6</td><td style="text-align: right">6</td><td style="text-align: right">6</td><td style="text-align: right">512</td><td style="text-align: right">280</td><td style="text-align: right">332</td></tr>
+<tr><td>Intel Lion Cove (2024)</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">576</td><td style="text-align: right">~320</td><td style="text-align: right">~384</td></tr>
+<tr><td>ARM Cortex-X4</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">320</td><td style="text-align: right">224</td><td style="text-align: right">256</td></tr>
+<tr><td>ARM Cortex-X925 (2024)</td><td style="text-align: right">10</td><td style="text-align: right">10</td><td style="text-align: right">10</td><td style="text-align: right">10</td><td style="text-align: right">10</td><td style="text-align: right">~350</td><td style="text-align: right">~256</td><td style="text-align: right">~288</td></tr>
+<tr><td>IBM POWER10</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">256</td><td style="text-align: right">256</td><td style="text-align: right">256</td></tr>
+<tr><td>Qualcomm Oryon (2024)</td><td style="text-align: right">10</td><td style="text-align: right">10</td><td style="text-align: right">10</td><td style="text-align: right">10</td><td style="text-align: right">10</td><td style="text-align: right">~350</td><td style="text-align: right">~300</td><td style="text-align: right">~300</td></tr>
+</tbody></table>
+<p>ROB size is the primary driver of memory-level parallelism (MLP): to tolerate 200-cycle DRAM latency, the ROB must be large enough to hold 200 cycles × retire-width in-flight instructions. Intel's 576-entry ROB (Lion Cove) is the current x86 maximum.</p>
+<hr />
+<h2 id="2-frontend">2. Frontend</h2>
+<h3 id="2-1-branch-prediction">2.1 Branch Prediction</h3>
+<p>Branch misprediction costs 15–25 cycles in modern pipelines. The frontend spends a disproportionate fraction of silicon on prediction.</p>
+<p><strong>TAGE (Tagged Geometric History Branch Predictor)</strong><br />
+Seznec &amp; Michaud, JILP 2006. Uses N components (typically 4–8), each indexed by XOR of PC and a geometric-length slice of global branch history (history lengths form a geometric series: 2, 4, 8, 16, 32, …, 256+). Each entry holds a 3-bit counter (prediction), a partial tag (collision detection), and a 2-bit usefulness counter <code>u</code>.</p>
+<p>Prediction logic:</p>
+<ol>
+<li>All components hit → provider = longest matching history component; altpred = second-longest.</li>
+<li>No match → base bimodal predictor.</li>
+<li>On mispredict: allocate new entry in a longer-history component (only if <code>u=0</code> to avoid displacing useful entries). Periodically reset all <code>u</code> bits (prevents staleness).</li>
+</ol>
+<p>TAGE dominates on correlated branches (loops, switch dispatch). Achieves &lt;3% MPKI on SPEC CPU 2006.</p>
+<p><strong>TAGE-SC-L</strong> (Seznec, MICRO 2011):<br />
+Adds Statistical Corrector (SC) to catch predictor bias that TAGE misses (e.g., branches that are globally 80% taken but locally periodic), and a Loop Predictor for counted loops. Loop predictor stores iteration count; after a sufficient training period, overrides TAGE with 100% confidence.</p>
+<p><strong>ITTAGE</strong> (Indirect Target TAGE, Seznec 2014):<br />
+Same tagged geometric structure, but each entry stores a predicted target address rather than a taken/not-taken counter. Handles virtual dispatch, computed jumps, switch tables. Needs more bits per entry; smaller capacity than TAGE.</p>
+<p><strong>BTB Hierarchy:</strong></p>
+<table><thead><tr><th>Level</th><th style="text-align: right">Entries</th><th style="text-align: right">Latency</th><th>Notes</th></tr></thead><tbody>
+<tr><td>L0/µBTB</td><td style="text-align: right">64–256</td><td style="text-align: right">1 cycle</td><td>Immediate loop redirect, overlaps fetch</td></tr>
+<tr><td>L1 BTB</td><td style="text-align: right">1K–4K</td><td style="text-align: right">2–3 cycles</td><td>Most taken branches</td></tr>
+<tr><td>L2 BTB</td><td style="text-align: right">6K–16K</td><td style="text-align: right">4–6 cycles</td><td>Call/return, indirect targets</td></tr>
+<tr><td>RAS</td><td style="text-align: right">32–64</td><td style="text-align: right">0 cycles</td><td>Return address stack, speculative push/pop</td></tr>
+</tbody></table>
+<p>Real BTB sizes:</p>
+<ul>
+<li>AMD Zen 4: 1024-entry L1, 6144-entry L2, 512-entry RAS</li>
+<li>AMD Zen 5: enlarged BTB, improved ITTAGE</li>
+<li>Intel Golden Cove: ~12K BTB, TAGE 12 components, ITTAGE 16 components</li>
+<li>Apple M1–M4: undisclosed but estimated 200-entry L0 BTB, deep multi-component TAGE — eliminates most branch bubbles empirically</li>
+<li>Qualcomm Oryon: reportedly deepest history depth in industry (2024)</li>
+<li>ARM Cortex-X925: enlarged BTB vs X4, loop predictor added</li>
+</ul>
+<p><strong>Return Address Stack (RAS):</strong><br />
+Speculative push on CALL, pop on RET. On mispredict recovery, restore snapshot of RAS taken at the checkpoint. 64-entry RAS covers most real programs' call depth.</p>
+<p><strong>Fetch-Directed Prefetching:</strong><br />
+Use branch predictor output (predicted next PC) to prefetch I-cache lines 4–8 cycles ahead. Decouples I-cache miss from fetch stall for sequential streams.</p>
+<h3 id="2-2-instruction-cache">2.2 Instruction Cache</h3>
+<p><strong>VIPT (Virtually Indexed Physically Tagged):</strong><br />
+Index bits derived from virtual address (fast, no TLB needed), tags from physical address (correct, no aliasing). Aliasing-free when index bits fall entirely within the page offset (bits [11:0] for 4KB pages): L1I ≤ 32KB with 64B lines uses bits [11:6] as index — safe. L1I &gt; 32KB with direct-map uses higher index bits and can alias. Solution: restrict to set-associative with degree ≥ (cache_size / page_size).</p>
+<p><strong>µop Cache (Decoded ICache):</strong><br />
+Stores pre-decoded µops, bypasses fetch + full decode for hot code. Critical for x86 because decode is expensive (variable-length CISC). Apple does not publicly disclose but likely has equivalent (non-x86 ARM is cheaper to decode, so µop cache less critical but still reduces power).</p>
+<table><thead><tr><th>Microarch</th><th style="text-align: right">µop cache entries</th><th style="text-align: right">Bandwidth</th></tr></thead><tbody>
+<tr><td>AMD Zen 4</td><td style="text-align: right">4096</td><td style="text-align: right">6 µops/cycle</td></tr>
+<tr><td>AMD Zen 5</td><td style="text-align: right">4096+</td><td style="text-align: right">8 µops/cycle</td></tr>
+<tr><td>Intel Golden Cove</td><td style="text-align: right">4096</td><td style="text-align: right">6 µops/cycle</td></tr>
+<tr><td>Intel Lion Cove</td><td style="text-align: right">~6000</td><td style="text-align: right">8 µops/cycle</td></tr>
+</tbody></table>
+<h3 id="2-3-decode">2.3 Decode</h3>
+<p><strong>x86 Decode Complexity:</strong><br />
+Variable-length instructions (1–15 bytes). Length finding is the hard part — requires scanning for prefix bytes, ModRM, SIB, displacement, immediate. Predecoder marks instruction boundaries; main decoder cracks into µops.</p>
+<p><strong>µop Cracking:</strong></p>
+<ul>
+<li>Simple instructions: 1 µop (ADD, MOV, LEA)</li>
+<li>Memory operand: 2 µops (load + ALU, or AGU + store)</li>
+<li>Complex (ENTER, CPUID, RDRAND): 10–100+ µops via Microcode ROM (MSROM)</li>
+<li>String ops (REP MOVS): sequenced from MSROM</li>
+</ul>
+<p><strong>Macro-Fusion:</strong><br />
+Adjacent instruction pairs fused into single µop at decode:</p>
+<ul>
+<li>x86: CMP/TEST + Jcc → 1 µop (eliminates a compare µop)</li>
+<li>ARM: ADD/SUB + B.cond → 1 µop</li>
+</ul>
+<p><strong>Move Elimination:</strong><br />
+Register-to-register moves (MOV rax, rbx) handled in rename by writing an alias in the RAT rather than dispatching an execution µop. Zero latency, no execution port consumed. ARM: most MOV instructions eliminated this way.</p>
+<hr />
+<h2 id="3-rename-allocation-rob">3. Rename, Allocation, ROB</h2>
+<h3 id="3-1-register-renaming">3.1 Register Renaming</h3>
+<p>Goal: eliminate false dependencies (WAR, WAW hazards) while preserving RAW (true data) dependencies.</p>
+<p><strong>RAT (Register Alias Table):</strong><br />
+Maps each architectural register (e.g., 16 GPRs on x86-64) to a physical register number. Updated at rename. Lookup: source regs → physical source tags; destination reg → allocate new physical reg from free list.</p>
+<p><strong>RRAT (Retirement RAT):</strong><br />
+Committed state of RAT (updated at retire). Used for fast recovery: on mispredict, copy RRAT → RAT and restore free list by releasing all physical registers allocated since the checkpoint. Requires one RAT snapshot per speculative branch (checkpointing) for fast recovery, or ROB walk for slow recovery.</p>
+<p><strong>Physical Register File (PRF):</strong><br />
+Centralized storage for all in-flight values. PRF-INT and PRF-FP are separate (different access patterns, different operand widths). PRF must be large enough to hold: all architectural registers + all in-flight instructions that haven't retired + rename slots.</p>
+<p>Typical sizing: ROB_size + arch_reg_count + rename_width × pipeline_depth ≈ PRF size.</p>
+<p><strong>Free List:</strong><br />
+FIFO of available physical register IDs. Allocate at rename, free at retire (after freeing the old physical reg that the instruction overwrites).</p>
+<h3 id="3-2-rob-reorder-buffer">3.2 ROB (Reorder Buffer)</h3>
+<p>Circular buffer indexed by ROB tail (alloc) and ROB head (retire). Each entry contains:</p>
+<pre><code>struct ROBEntry {
+    uint64_t  pc;           // instruction PC for precise exceptions
+    uint8_t   phys_dest;    // new physical destination register
+    uint8_t   old_phys;     // previous physical reg (freed at commit)
+    bool      completed;    // execution finished
+    bool      store;        // is this a store (needs SQ drain at commit)
+    bool      load;         // is this a load (for replay tracking)
+    bool      branch;       // is this a branch
+    bool      exception;    // fault pending
+    uint8_t   exception_code;
+};
+</code></pre>
+<p><strong>Retirement:</strong> Instructions retire in-order from ROB head. On completion (completed=true at head), free old_phys, advance head. Exceptions trigger precise replay from faulting PC.</p>
+<p><strong>ROB Sizing Rationale:</strong><br />
+To find MLP = N outstanding cache misses while executing at IPC=W, need ROB ≥ N × latency_per_miss_in_cycles × W / N = latency × W. For 200-cycle DRAM, 8-wide retire: ROB ≥ 200 × 8 / 10 (assuming 10% memory instructions) ≈ 160 minimum. In practice, larger is always better — 500+ ROB lets the CPU overlap many independent DRAM accesses.</p>
+<h3 id="3-3-branch-checkpointing">3.3 Branch Checkpointing</h3>
+<p>At every predicted branch, snapshot the entire RAT (fast copy of ~16–32 mappings). On mispredict detected at execute: restore RAT snapshot, free all physical regs allocated after the branch, flush ROB after the branch, redirect fetch to correct PC. Latency: ~15–20 cycles mispredict penalty. Without checkpointing, recovery requires ROB walk from head to misspeculated branch — slower but less area.</p>
+<hr />
+<h2 id="4-issue-queue-reservation-stations">4. Issue Queue / Reservation Stations</h2>
+<h3 id="4-1-unified-vs-distributed">4.1 Unified vs. Distributed</h3>
+<p><strong>Unified (Tomasulo-style):</strong><br />
+All µops from all execution classes wait in one pool. Every cycle, scan entire IQ for ready µops. Advantages: maximum flexibility, naturally age-ordered. Disadvantage: O(N) wakeup broadcast + O(N log N) select logic at high N; hard to pipeline at &gt;4GHz with &gt;64 entries.</p>
+<p><strong>Distributed (clustered):</strong><br />
+Separate issue queues per execution class (INT, FP, MEM). Each cluster has its own wakeup/select. Advantages: smaller per-cluster CAM, shorter critical path. Disadvantage: steering at dispatch must predict execution class; imbalanced clusters reduce utilization.</p>
+<p>Modern practice: distributed with small clusters. Zen 4 has separate INT/FP/AGU queues; Intel Golden Cove has separate integer/FP/memory schedulers.</p>
+<h3 id="4-2-wakeup-and-select">4.2 Wakeup and Select</h3>
+<p><strong>Wakeup:</strong><br />
+When an instruction completes (or speculatively, 1 cycle before it will complete), broadcast its destination physical register tag on the wakeup bus. All entries in the IQ compare their source tags against the broadcast. Matching entries decrement their "sources remaining" count; when count = 0, mark as ready.</p>
+<p><strong>Select:</strong><br />
+Among all ready µops, pick the highest-priority ones (one per execution port per cycle). Priority: oldest instruction wins (age-ordered select, implemented as priority encoder with age bits). Instruction is selected, issued to register read stage, then executes.</p>
+<p><strong>Critical Path:</strong><br />
+Wakeup → select → register read → ALU execute must complete in one clock cycle. This is the most timing-critical path in the core and determines maximum frequency. Typical: 128–256 entry unified IQ limits clock to ~3.5–4.0 GHz at 5nm; smaller distributed 32–64 entry clusters can hit 4.5–5.5 GHz.</p>
+<h3 id="4-3-speculative-wakeup-and-replay">4.3 Speculative Wakeup and Replay</h3>
+<p>L1D hit latency is known (e.g., 4 cycles). On load issue, speculatively wake up all dependent instructions to arrive at execute exactly when the load data should arrive. If the load hits L1D: data arrives, dependents execute correctly. If the load misses L1D: data arrives late; kill the speculatively woken dependents, replay them when data is ready.</p>
+<p><strong>Replay cost:</strong> ~10–15 cycles for an L1 miss that triggers replay. Frequent misses → replay storm → effective IPC collapse on memory-bound workloads.</p>
+<hr />
+<h2 id="5-execution-units">5. Execution Units</h2>
+<h3 id="5-1-execution-port-layout-typical-p-core">5.1 Execution Port Layout (Typical P-Core)</h3>
+<table><thead><tr><th>Port</th><th>Unit</th><th style="text-align: right">Latency</th><th>Reciprocal Throughput</th></tr></thead><tbody>
+<tr><td>INT ALU ×4</td><td>ADD/SUB/AND/OR/XOR/shift/compare</td><td style="text-align: right">1 cycle</td><td>4/cycle</td></tr>
+<tr><td>INT ALU ×2</td><td>LEA 3-component, bit manipulation (POPCNT/BMI2)</td><td style="text-align: right">1–3 cycles</td><td>2/cycle</td></tr>
+<tr><td>INT MUL ×2</td><td>IMUL 64-bit</td><td style="text-align: right">3 cycles</td><td>2/cycle</td></tr>
+<tr><td>INT DIV ×1</td><td>IDIV (variable, SRT algorithm)</td><td style="text-align: right">20–90 cycles</td><td>1/N cycles</td></tr>
+<tr><td>FP/SIMD ×2–4</td><td>FMA 128/256/512-bit</td><td style="text-align: right">4–5 cycles</td><td>2–4/cycle</td></tr>
+<tr><td>AGU LD ×2</td><td>Load address generation + L1D access</td><td style="text-align: right">4 cycles</td><td>2/cycle</td></tr>
+<tr><td>AGU ST ×1</td><td>Store address + data write to SQ</td><td style="text-align: right">1+1 cycles</td><td>1/cycle</td></tr>
+<tr><td>Branch ×1–2</td><td>Conditional branch resolution</td><td style="text-align: right">1 cycle</td><td>1–2/cycle</td></tr>
+</tbody></table>
+<h3 id="5-2-fp-simd-throughput-comparison">5.2 FP/SIMD Throughput Comparison</h3>
+<table><thead><tr><th>Microarch</th><th>FP units</th><th>SIMD width</th><th style="text-align: right">DP FLOP/cycle</th><th style="text-align: right">SP FLOP/cycle</th></tr></thead><tbody>
+<tr><td>Apple M4 (2024)</td><td>4 FMA</td><td>128-bit NEON</td><td style="text-align: right">8</td><td style="text-align: right">16</td></tr>
+<tr><td>AMD Zen 4</td><td>2 FMA</td><td>256-bit (AVX-512)</td><td style="text-align: right">16</td><td style="text-align: right">32</td></tr>
+<tr><td>AMD Zen 5</td><td>2 FMA</td><td>256-bit unified</td><td style="text-align: right">16</td><td style="text-align: right">32</td></tr>
+<tr><td>Intel Golden Cove</td><td>2 FMA</td><td>512-bit (AVX-512)</td><td style="text-align: right">32</td><td style="text-align: right">64</td></tr>
+<tr><td>Intel Lion Cove (2024)</td><td>2 FMA</td><td>512-bit (AVX-512)</td><td style="text-align: right">32</td><td style="text-align: right">64</td></tr>
+<tr><td>ARM Cortex-X925</td><td>4 FMA</td><td>128-bit SVE</td><td style="text-align: right">8</td><td style="text-align: right">16</td></tr>
+<tr><td>Qualcomm Oryon</td><td>4 FMA</td><td>128-bit NEON</td><td style="text-align: right">8</td><td style="text-align: right">16</td></tr>
+<tr><td>IBM POWER10</td><td>4 FMA + MMA</td><td>128-bit VSX + 4×4 accum</td><td style="text-align: right">32+ (MMA)</td><td style="text-align: right">64+</td></tr>
+</tbody></table>
+<p>Note: Zen 5 avoids AVX-512 frequency throttle issue (Intel CPUs drop 200–400 MHz under heavy AVX-512); Zen 5 executes 512-bit operations as two fused 256-bit ops internally, no frequency penalty.</p>
+<h3 id="5-3-divider-design">5.3 Divider Design</h3>
+<p>Division uses iterative algorithms (SRT — Sweeney, Robertson, Tocher). SRT-4 produces 2 bits/cycle; a 64-bit divider takes ~30 cycles. Pipelined only partially — most cores allow one divide per cluster per latency. Avoid division in hot paths; replace with multiplication by reciprocal when divisor is loop-invariant.</p>
+<hr />
+<h2 id="6-memory-subsystem">6. Memory Subsystem</h2>
+<h3 id="6-1-load-queue-and-store-queue">6.1 Load Queue and Store Queue</h3>
+<p><strong>Load Queue (LQ):</strong><br />
+~100–192 entries. Tracks every in-flight load: virtual address, physical address (after TLB), data (when available), ROB index. Used for: (1) store-to-load forwarding lookup, (2) memory ordering violation detection (load-load/load-store ordering), (3) replay on cache miss.</p>
+<p><strong>Store Queue (SQ):</strong><br />
+~60–100 entries. Holds stores from issue until commit. At commit, stores drain to L1D (or store buffer → L1D). Fields: address, data, byte-enable mask, ROB index.</p>
+<p><strong>CAM (Content-Addressable Memory):</strong><br />
+LQ and SQ use CAM for address lookup (compare load address against all SQ entries simultaneously). CAM is area/power expensive — limits practical LQ/SQ sizes.</p>
+<h3 id="6-2-store-to-load-forwarding-stlf">6.2 Store-to-Load Forwarding (STLF)</h3>
+<p>When a load issues: CAM-search SQ for any matching store (same address, sufficient data width). If match: forward data directly from SQ, 4–5 cycle latency (vs 4-cycle L1 hit — similar). If partial overlap or size mismatch: wait for store to commit to memory, then re-issue load (~20+ cycles extra).</p>
+<p>STLF hit rate critical for code with local stack frames (push/pop patterns, local variable stores followed by loads). Compilers exploit this — stack-allocated return values forward perfectly.</p>
+<h3 id="6-3-memory-disambiguation">6.3 Memory Disambiguation</h3>
+<p><strong>Conservative:</strong> Stall load until all older stores have known addresses (no STLF unless address computed). Safe, loses parallelism.</p>
+<p><strong>Speculative load issue:</strong> Issue load assuming no conflict with older unknown-address stores. On load completion, re-check SQ for forwarding. On conflict: replay the load (memory order violation).</p>
+<p><strong>Store Sets (Chrysos &amp; Emer, ISCA 1998):</strong><br />
+Hardware learns which (load PC, store PC) pairs historically conflict. Maintains SSIT (Store Set ID Table) and LFST (Last Fetched Store Table). Loads predicted to conflict with specific stores stall until those stores compute addresses. Eliminates most replays at cost of some unnecessary stalls.</p>
+<h3 id="6-4-cache-hierarchy">6.4 Cache Hierarchy</h3>
+<pre><code>                    ┌─────────────┐
+         P-core     │  L1I Cache  │  64KB–192KB, VIPT, 4-cycle
+                    │  L1D Cache  │  32KB–128KB, VIPT, 4-cycle
+                    └──────┬──────┘
+                           │
+                    ┌──────▼──────┐
+         Per-core   │  L2 Cache   │  512KB–16MB, PIPT, 12–15 cycle
+                    └──────┬──────┘
+                           │
+                    ┌──────▼──────┐
+         Shared     │  L3 Cache   │  8MB–128MB, PIPT, 40–60 cycle
+                    └──────┬──────┘
+                           │
+                    ┌──────▼──────┐
+                    │    DRAM     │  DDR5/LPDDR5X/HBM3, 80–200 cycle
+                    └─────────────┘
+</code></pre>
+<p><strong>Per-Microarch Numbers:</strong></p>
+<table><thead><tr><th>Microarch</th><th>L1I</th><th>L1D</th><th>L2</th><th>L3</th></tr></thead><tbody>
+<tr><td>Apple M1 P-core</td><td>192KB</td><td>128KB</td><td>12MB (cluster, 4P shared)</td><td>—</td></tr>
+<tr><td>Apple M2 P-core</td><td>192KB</td><td>128KB</td><td>16MB (cluster, 4P shared)</td><td>—</td></tr>
+<tr><td>Apple M3 P-core</td><td>192KB</td><td>128KB</td><td>16MB</td><td>—</td></tr>
+<tr><td>Apple M4 P-core</td><td>192KB</td><td>128KB</td><td>16MB</td><td>—</td></tr>
+<tr><td>AMD Zen 4</td><td>32KB</td><td>32KB</td><td>1MB</td><td>32MB/CCD</td></tr>
+<tr><td>AMD Zen 4 + 3D V-Cache</td><td>32KB</td><td>32KB</td><td>1MB</td><td>96–128MB stacked</td></tr>
+<tr><td>AMD Zen 5</td><td>32KB</td><td>48KB</td><td>1MB</td><td>32MB/CCD</td></tr>
+<tr><td>Intel Golden Cove</td><td>32KB</td><td>48KB</td><td>2MB</td><td>3MB/core</td></tr>
+<tr><td>Intel Lion Cove</td><td>64KB</td><td>48KB</td><td>2.5MB</td><td>3MB/core</td></tr>
+<tr><td>ARM Cortex-X925</td><td>64KB</td><td>64KB</td><td>1.5MB</td><td>shared (varies)</td></tr>
+<tr><td>Qualcomm Oryon</td><td>192KB</td><td>96KB</td><td>12MB (cluster)</td><td>—</td></tr>
+<tr><td>IBM POWER10</td><td>32KB</td><td>32KB</td><td>2MB</td><td>8MB/core + 32MB eDRAM</td></tr>
+</tbody></table>
+<p>Apple's extremely large L2 (12–16MB shared) is a key architectural differentiator — most working sets fit, nearly eliminating L3 latency from the critical path.</p>
+<p><strong>MSHR (Miss Status Holding Registers):</strong><br />
+Track outstanding cache misses, coalesce multiple accesses to same line. MLP = number of simultaneously outstanding misses ≈ MSHR count. L1: 16–32 MSHRs, L2: 32–64, L3: 64–256. Critical for memory-bandwidth-bound workloads.</p>
+<h3 id="6-5-prefetchers">6.5 Prefetchers</h3>
+<table><thead><tr><th>Prefetcher</th><th>Mechanism</th><th>Best For</th></tr></thead><tbody>
+<tr><td>Stride</td><td>Detect constant stride between successive loads from same PC</td><td>DAXPY, matrix row traversal</td></tr>
+<tr><td>Stream</td><td>Sequential cache line prefetch ahead of access stream</td><td>Memcpy, linear scan</td></tr>
+<tr><td>GHB (Nesbit &amp; Smith, HPCA 2004)</td><td>Global history buffer correlates load PC histories</td><td>Indirect pointer patterns</td></tr>
+<tr><td>SMS (Srinath et al., HPCA 2007)</td><td>Spatial footprint prediction: which lines in a region get touched</td><td>Struct-of-arrays, tiled access</td></tr>
+<tr><td>AMPM</td><td>Aggressive/conservative dual stream + memory pressure feedback</td><td>Mixed patterns</td></tr>
+<tr><td>Bingo</td><td>PC + address offset signature → spatial footprint</td><td>Irregularly-strided spatial</td></tr>
+<tr><td>Pythia (Bera et al., MICRO 2021)</td><td>Reinforcement learning per-PC policy, online training</td><td>Complex/irregular patterns</td></tr>
+</tbody></table>
+<p>Modern CPUs tier prefetchers: simple stride prefetcher in L1, complex SMS/Bingo/RL-based in L2/LLC hardware. Apple M-series aggressive prefetcher is effective even on pointer-chasing (uses large stride at cache-line granularity with lookahead).</p>
+<h3 id="6-6-tlb-hierarchy">6.6 TLB Hierarchy</h3>
+<pre><code>ITLB:  64–192 entries, fully associative, 1 cycle hit
+DTLB:  64–96 entries, fully associative, 1 cycle hit
+L2TLB: 1K–8K entries, 4–8 way set-assoc, 8–12 cycle hit
+PWC:   Page Walker Cache — caches PML4/PDPT/PD intermediate table entries
+       Eliminates 1–3 of 4 memory accesses during page walk on miss
+</code></pre>
+<p><strong>Huge Pages:</strong> 2MB and 1GB pages (x86), 2MB and 1GB (ARM). Single DTLB entry covers 2MB instead of 4KB → 512× coverage improvement. Critical for large heap applications (JVM, databases). OS transparent huge page (THP) daemon or <code>madvise(MADV_HUGEPAGE)</code>.</p>
+<p><strong>AMD Coalesced TLBs (Zen 4+):</strong> Single DTLB entry can cover 2MB range when 512 consecutive 4KB pages are physically contiguous. No software change needed; hardware detects the pattern.</p>
+<p><strong>TLB Shootdown:</strong> When a page mapping changes, must invalidate TLB entries on all cores. x86: software IPI + INVLPG on each core. ARM: broadcast TLBI instruction. AMD Zen 4 enterprise: hardware page table walker with reduced shootdown cost. High cost in VM environments with frequent <code>mmap</code>/<code>munmap</code>.</p>
+<h3 id="6-7-memory-ordering-models">6.7 Memory Ordering Models</h3>
+<table><thead><tr><th>ISA</th><th>Model</th><th>Key Property</th></tr></thead><tbody>
+<tr><td>x86-64</td><td>TSO (Total Store Order)</td><td>Loads can pass older stores to different addresses; all other orders preserved</td></tr>
+<tr><td>AArch64</td><td>Weakly Ordered (+ ARMv8.4-A FEAT_LRCPC3)</td><td>All reorders allowed; barriers (DMB/DSB) + acquire/release (LDAR/STLR/LDAPR)</td></tr>
+<tr><td>RISC-V</td><td>RVWMO (+ Ztso optional)</td><td>Weakly ordered with explicit FENCE; annotations per instruction</td></tr>
+<tr><td>Apple Silicon</td><td>ARM architecture, but hardware is TSO-like</td><td>Empirically observed strong ordering; no extra barriers needed for most patterns</td></tr>
+</tbody></table>
+<hr />
+<h2 id="7-speculative-execution-security">7. Speculative Execution &amp; Security</h2>
+<h3 id="7-1-speculative-execution-mechanisms">7.1 Speculative Execution Mechanisms</h3>
+<ul>
+<li><strong>Branch speculation:</strong> Execute past predicted branches; rollback on mispredict.</li>
+<li><strong>Load speculation:</strong> Issue loads before all older store addresses are known; re-check on completion.</li>
+<li><strong>Memory-level speculation:</strong> Reorder loads past stores to different addresses (TSO permits this).</li>
+<li><strong>Value prediction:</strong> Speculate on load values (rare in production; Gabbay &amp; Mendelson 1997). Not deployed in current mainstream CPUs due to complexity.</li>
+</ul>
+<h3 id="7-2-spectre-meltdown-family-2018-2024">7.2 Spectre/Meltdown Family (2018–2024)</h3>
+<table><thead><tr><th>Variant</th><th>CVE</th><th>Mechanism</th><th>Mitigation</th><th style="text-align: center">Typical Perf Cost</th></tr></thead><tbody>
+<tr><td>Spectre v1</td><td>CVE-2017-5753</td><td>Bounds-check bypass, array OOB</td><td><code>array_index_mask_nospec</code>, <code>lfence</code> barriers</td><td style="text-align: center">5–15%</td></tr>
+<tr><td>Spectre v2</td><td>CVE-2017-5715</td><td>Indirect branch target injection (BTB poisoning)</td><td>retpoline / eIBRS + IBPB</td><td style="text-align: center">5–30%</td></tr>
+<tr><td>Meltdown</td><td>CVE-2017-5754</td><td>Rogue data cache load (kernel VA access)</td><td>KPTI (kernel page table isolation)</td><td style="text-align: center">5–30% on syscall-heavy</td></tr>
+<tr><td>Spectre v4</td><td>CVE-2018-3639</td><td>Speculative store bypass</td><td>SSBD (prctl or MSR)</td><td style="text-align: center">2–8%</td></tr>
+<tr><td>MDS/RIDL/Fallout</td><td>CVE-2018-12130</td><td>Microarchitectural data sampling via fill buffers</td><td>MDS_CLEAR (VERW on context switch)</td><td style="text-align: center">2–10%</td></tr>
+<tr><td>L1TF</td><td>CVE-2018-3620</td><td>L1 terminal fault via EPT/SMM</td><td>L1D flush on VM entry + VMX changes</td><td style="text-align: center">5–15% on VM switch</td></tr>
+<tr><td>TAA</td><td>CVE-2019-11135</td><td>TSX Asynchronous Abort</td><td>Disable TSX (microcode) or VERW</td><td style="text-align: center">0–3%</td></tr>
+<tr><td>Downfall (GDS)</td><td>CVE-2022-40982</td><td>Gather Data Sampling via AVX gather</td><td>GFDS microcode update</td><td style="text-align: center">10–50% on gather-heavy</td></tr>
+<tr><td>Inception</td><td>CVE-2023-20569</td><td>Phantom speculation on AMD Zen</td><td>Microcode + IBPB</td><td style="text-align: center">varies</td></tr>
+<tr><td>Spectre BHI/BHB</td><td>CVE-2022-0001</td><td>Branch History Injection bypasses eIBRS</td><td>eIBRS+IBPB or SW BHI_DIS_S</td><td style="text-align: center">5–20%</td></tr>
+</tbody></table>
+<p><strong>Hardware mitigations:</strong> Intel Ice Lake+ has hardware IBRS (near-zero cost), M3/M4 have hardware mitigations for most variants. Older microarchitectures (Skylake, Broadwell) carry heavier software mitigation overhead.</p>
+<hr />
+<h2 id="8-production-case-studies-2020-2025">8. Production Case Studies 2020–2025</h2>
+<h3 id="8-1-apple-silicon-m1-m5">8.1 Apple Silicon: M1 → M5</h3>
+<p><strong>Apple M1 (Firestorm P-core, TSMC N5, 2020):</strong><br />
+8-wide decode, ROB ~350, PRF-INT ~360, PRF-FP ~384. Industry-leading at launch — nearly double the instruction window of competing designs. LPDDR4X 68 GB/s. 192KB L1I, 128KB L1D, 12MB shared L2 (4P-core cluster). Eliminated x86 instruction decode complexity (ARM), redirecting transistors to execution resources.</p>
+<p><strong>M2 (Avalanche, TSMC N5P, 2022):</strong><br />
+9-wide decode, ROB ~370. LPDDR5 100 GB/s. 16MB shared L2. Improved branch predictor. ~18% IPC gain over M1.</p>
+<p><strong>M3 (Everest, TSMC N3B, 2023):</strong><br />
+9-wide, ROB ~380. First 3nm. Added hardware ray tracing and mesh shading on GPU die. Improved prefetcher. Branch predictor trained on larger history. ~20% perf/watt gain over M2.</p>
+<p><strong>M4 (TSMC N3E, 2024):</strong><br />
+10-wide decode, ROB ~400+. 120 GB/s LPDDR5X. 16MB shared L2. Second-gen 3nm process (N3E, higher yield than N3B). Introduced in iPad Pro (May 2024), MacBook Pro/Air/Mac mini (late 2024).</p>
+<ul>
+<li>M4 Pro: 14-core (10P+4E), 24–120GB unified memory, 273 GB/s bandwidth, 48MB system-level cache</li>
+<li>M4 Max: 16-core CPU (12P+4E), 546 GB/s bandwidth, up to 128GB</li>
+<li>M4 Ultra: dual-M4-Max connected via UltraFusion (die-to-die), 1092 GB/s, 192GB</li>
+</ul>
+<p><strong>M5 (2025, TSMC N2 or N3P, expected):</strong><br />
+Not yet released as of knowledge cutoff. Expected: 10–12 wide decode, TSMC N2 (2nm-class GAA) if timeline holds, further enlarged branch predictor and ROB, LPDDR5X+ at 140–160 GB/s. Likely 15–25% IPC gain over M4. ARM v9.4A features (SVE2, TME, RME).</p>
+<p><strong>Apple architectural insight:</strong><br />
+Massive shared L2 + unified memory = no NUMA. Single memory controller eliminates cross-domain latency. Very large ROB exploits long DRAM latency to find MLP aggressively. Trades clock frequency (3.2–4.0 GHz) for width and instruction window depth.</p>
+<h3 id="8-2-qualcomm-oryon-snapdragon-x-elite-2024">8.2 Qualcomm Oryon (Snapdragon X Elite, 2024)</h3>
+<p>Custom ARM v8.7A implementation (not a Cortex license), designed by Nuvia (acquired by Qualcomm 2021). 10-wide decode, ROB ~350, 192KB L1I, 96KB L1D, 12MB shared L2 per 4-core cluster. 4×128b NEON FMA units. LPDDR5X at 135 GB/s. Reportedly best branch predictor history depth in shipping silicon (2024). First Windows-on-ARM CPU achieving broad x86 parity (Prism x86 emulation layer). Laptop-focused power envelope (15–25W).</p>
+<h3 id="8-3-amd-zen-4-zen-5-2022-2024">8.3 AMD Zen 4 / Zen 5 (2022–2024)</h3>
+<p><strong>Zen 4 (Raphael/Genoa, TSMC N5, 2022):</strong><br />
+4+4 decode (split integer+FP pipelines), 6-wide rename, 256-entry ROB, 4096 µop cache. DDR5/LPDDR5. 3D V-Cache option: 64–128MB stacked L3 using hybrid bonding (direct Cu-to-Cu). Massive gaming workload improvements (pointer-chasing from large L3). CCD (compute chiplet, 5nm) + IOD (I/O die, 6nm) chiplet design via Infinity Fabric.</p>
+<p><strong>Zen 5 (Granite Ridge/Strix Point, TSMC N4P, 2024):</strong><br />
+8-wide decode (eliminated the 4+4 split), 8-wide rename, 320 ROB. FP throughput doubled: 2×256b AVX-512 fused → 512b effective, no frequency penalty. Improved ITTAGE for indirect branch prediction. Better L2 prefetcher with context-aware distance. Strix Point: Zen 5 + RDNA 3.5 iGPU + XDNA 2 NPU on single die (4 TOPS → 50 TOPS NPU). Desktop variant adds 3D V-Cache option (up to 128MB L3).</p>
+<h3 id="8-4-intel-golden-cove-lion-cove-2021-2024">8.4 Intel Golden Cove / Lion Cove (2021–2024)</h3>
+<p><strong>Golden Cove (Alder Lake/Raptor Lake, Intel 7 / TSMC N5, 2021–2022):</strong><br />
+512-entry ROB (largest x86 at launch), 6-wide decode, 4096 µop cache. Full AVX-512 (2×512b FMA). 12K BTB, TAGE with 12 components. Hybrid design: Golden Cove P-cores + Gracemont E-cores (in-order, dense, efficient).</p>
+<p><strong>Lion Cove (Lunar Lake, TSMC N3B, 2024):</strong><br />
+576-entry ROB (new x86 record), 8-wide decode, enlarged µop cache, new FP execution tile. Eliminated HyperThreading: doubled physical per-core resources instead (full 8-wide without SMT contention). 2×512b AVX-512 FMA + AMX-FP16. L1I 64KB, L1D 48KB, L2 2.5MB. On-package LPDDR5X (8GB stacked on SoC package): 68 GB/s at extremely low latency, laptop-optimized.</p>
+<p><strong>Arrow Lake (Core Ultra 200, 2024):</strong><br />
+Lion Cove P-core + Skymont E-core on separate tiles. Disaggregated multi-tile design: CPU tile (TSMC N3) + GPU tile + SoC tile + IO tile (Intel 6). No HyperThreading on P-cores. Launched with firmware issues; subsequent microcode updates significantly improved performance. Strong contender post-patches for desktop workloads.</p>
+<h3 id="8-5-arm-cortex-x925-armv9-2a-2024">8.5 ARM Cortex-X925 (ARMv9.2A, 2024)</h3>
+<p>10-wide decode (vs 8-wide in X4), ROB ~350, 64KB L1I + 64KB L1D (doubled vs X4). 4× FMLA units, SVE2 capable (512-bit or variable-length), loop predictor added. Used in:</p>
+<ul>
+<li>Snapdragon 8 Gen 4 (Qualcomm, pairing with Oryon-variant small cores)</li>
+<li>Samsung Exynos 2500 (4nm)</li>
+<li>MediaTek Dimensity 9400: all-X925 big cores (4+4 X925 without traditional mid-tier), aggressive high-perf configuration targeting Apple M4 competition in mobile.</li>
+</ul>
+<h3 id="8-6-ibm-power10-samsung-7nm-2021">8.6 IBM POWER10 (Samsung 7nm, 2021)</h3>
+<p>SMT8 per physical core (8 hardware threads share execution resources), 12–15 cores per chip. Matrix Math Assist (MMA): 4×4 int8 / bfloat16 outer-product accumulators, enabling matrix multiply without GPUs. OpenCAPI / OMI (Open Memory Interface) for attached DDR5 DIMMs. 64KB L1I, 2MB L2, 8MB L3 per core, optional 32MB Centaur eDRAM L4. Enterprise RAS: chipkill ECC, redundant execution paths, hot-plug. AI inference on POWER10 competitive with GPU for batch-size-1 enterprise workloads.</p>
+<h3 id="8-7-risc-v-high-performance-2024-2025">8.7 RISC-V High-Performance (2024–2025)</h3>
+<p><strong>SiFive P870 (2025 samples):</strong><br />
+Claimed 13-wide OoO issue, targeting TSMC 3nm. If realized, would be widest RISC-V core in production. RVV 1.0, RISC-V B/M/A extensions.</p>
+<p><strong>Ventana Veyron V2:</strong><br />
+16-core OoO chiplet, 12-wide issue, RVV 1.0, cloud-targeting (Marvell OCTEON 10 DPU integration). Targets Neoverse V2 class performance.</p>
+<p><strong>XiangShan Kunminghu (2024):</strong><br />
+Most advanced open-source OoO RISC-V. 6-wide decode, 256-entry ROB, TAGE-SC-L branch predictor, SMS prefetcher, full RVV 1.0. Perf target: ~80–85% of Apple M3 per GHz on SPEC CPU 2006. RTL open on GitHub (Chisel). Xu et al., MICRO 2022.</p>
+<p><strong>Esperanto ET-SoC-1:</strong><br />
+1088 RISC-V cores on single die (ML inference, not general OoO), shows RISC-V scaling to extreme core counts.</p>
+<hr />
+<h2 id="9-workloads-by-deployment-domain">9. Workloads by Deployment Domain</h2>
+<h3 id="9-1-cloud-server">9.1 Cloud / Server</h3>
+<p><strong>JIT-heavy workloads (JVM, V8, CLR):</strong></p>
+<ul>
+<li>iTLB pressure: JIT-compiled code footprint = 10–100s MB → frequent iTLB misses. Solution: huge pages for JIT code region (<code>mmap</code> with <code>MAP_HUGETLB</code>, jemalloc huge-page support).</li>
+<li>Branch predictor pollution: polymorphic virtual dispatch generates ITTAGE entries for each call-site target combination. Megamorphic call sites (&gt;3 targets) collapse prediction → ~20-cycle mispredict every call. JIT uses inline caches to reduce megamorphism.</li>
+<li>µop cache misuse: large hot code → µop cache evicts → full decode on every pass. JIT compilers keep hot methods small to fit in µop cache.</li>
+</ul>
+<p><strong>Vectorized database engines (DuckDB, ClickHouse, Velox):</strong></p>
+<ul>
+<li>AVX-512 critical for filter evaluation, hash aggregation, sort.</li>
+<li>L3 bandwidth-bound on full-table scans: need &gt;100 GB/s effective bandwidth → prefer AMD (32MB/CCD L3) or 3D V-Cache (96MB L3).</li>
+<li>Prefetcher effectiveness: sequential column scan → stream prefetcher covers it. Hash probe on small hash table (fits L2/L3): no prefetch needed. Large hash table (DRAM-size): software prefetch (<code>_mm_prefetch</code>) in loop body, typically 16–32 entries ahead.</li>
+<li>SIMD gather/scatter: Intel Downfall GDS mitigation cost matters if AVX gather is used heavily.</li>
+</ul>
+<p><strong>Virtualization overhead:</strong></p>
+<ul>
+<li>VM entry/exit: ~1000–3000 cycles per exit (VMCS load/store, TLB flush with non-global VMID)</li>
+<li>KPTI: adds ~2 cycles to every syscall path (page-table switch), ~50–200 cycles for syscall-intensive workloads</li>
+<li>Posted interrupts: APIC interrupt delivery without VM exit → amortizes interrupt cost for high-frequency I/O (NVMe, DPDK)</li>
+<li>Hardware-assisted IOTLB: VT-d Process Address Space ID (PASID) allows shared IOMMU context between VM and host</li>
+</ul>
+<p><strong>NUMA effects:</strong></p>
+<ul>
+<li>Cross-socket memory access: 2–3× latency (100ns local DDR5 → 300ns cross-socket via Infinity Fabric or UPI)</li>
+<li>Thread migration: OS scheduler must keep threads on NUMA node where their memory was allocated</li>
+<li>Tools: <code>numactl --cpunodebind=0 --membind=0</code>, <code>taskset</code>, <code>libnuma</code>, <code>hwloc</code></li>
+</ul>
+<p><strong>SMT utilization:</strong></p>
+<ul>
+<li>SMT doubles logical cores. Throughput gain: 20–40% for throughput workloads, near 0% for latency-sensitive single-threaded.</li>
+<li>Shared resources under SMT: L1/L2 caches (partition by usage), branch predictor (shared, pollution between threads), issue queue (shared, reduced per-thread bandwidth).</li>
+<li>Intel removed HT on Lion Cove P-cores: on a single thread, full physical resources available → higher single-thread performance.</li>
+</ul>
+<h3 id="9-2-containers-serverless">9.2 Containers / Serverless</h3>
+<p><strong>Cold start penalty:</strong></p>
+<ul>
+<li>Branch predictor: state from previous tenant in BTB/TAGE → indirect branch mispredictions for first ~10K instructions of new function</li>
+<li>L1/L2 cache: cold → 50–200 cycle miss per unique cache line in working set</li>
+<li>Combined: first invocation 10–100× slower than warm invocation for small serverless functions</li>
+<li>Mitigation: profile-guided BTB warming (prefetch predicted branches), keep functions warm via periodic pings</li>
+</ul>
+<p><strong>Context switch cost:</strong></p>
+<ul>
+<li>Save/restore FP/SIMD state: 256 bytes (AVX) or 1024 bytes (AVX-512 + AMX) per context</li>
+<li>Linux lazy FPU restore: skip restore until FPU first used by new process (saves 50–200ns when FPU not used)</li>
+<li>TLB flush on address space switch: full flush or ASID/PCID tagging (x86 PCID, ARM ASID) to avoid full TLB flush</li>
+</ul>
+<p><strong>Container isolation overhead:</strong></p>
+<ul>
+<li>cgroup v2 CPU accounting: ~1–5% overhead from scheduler hooks</li>
+<li>seccomp BPF filter: ~1–3% on syscall-heavy workloads (JIT the filter via eBPF helps)</li>
+<li>Network namespace: adds one veth pair hop, ~1–5µs RTT overhead within node</li>
+</ul>
+<h3 id="9-3-desktop-gaming">9.3 Desktop / Gaming</h3>
+<p><strong>Single-thread IPC dominance:</strong></p>
+<ul>
+<li>Game engines: extremely branch-heavy, irregular control flow (AI, physics, scene graph traversal), pointer-chasing (entity component system)</li>
+<li>Branch predictor quality &gt; raw throughput for interactive latency</li>
+<li>Apple M4 and Qualcomm Oryon competitive with Intel/AMD for game-style workloads despite lower frequency</li>
+</ul>
+<p><strong>Prefetcher effectiveness:</strong></p>
+<ul>
+<li>Pointer chasing (linked list, tree traversal): defeats stride and stream prefetchers. Software prefetch (<code>__builtin_prefetch</code>) on known traversal patterns.</li>
+<li>SMS prefetcher helps for struct-heavy access patterns where spatial locality exists within cache regions</li>
+<li>Large L3 (AMD 3D V-Cache) = fewer DRAM accesses → more effective than raw prefetch for gaming</li>
+</ul>
+<p><strong>iGPU bandwidth contention:</strong></p>
+<ul>
+<li>Apple M4: 120 GB/s LPDDR5X shared between P-core cluster, E-cores, and GPU. GPU uses 30–60 GB/s during 3D workload → CPU gets 60–90 GB/s effective, rarely a bottleneck</li>
+<li>AMD Strix Point: 51.2 GB/s DDR5 total, RDNA 3.5 iGPU uses significant fraction → CPU memory throughput constrained under GPU load</li>
+</ul>
+<h3 id="9-4-hpc">9.4 HPC</h3>
+<p><strong>Memory bandwidth (STREAM benchmark):</strong></p>
+<table><thead><tr><th>Platform</th><th>Memory Type</th><th style="text-align: right">STREAM Triad (GB/s)</th></tr></thead><tbody>
+<tr><td>AMD EPYC Genoa (Zen 4, 12-channel DDR5)</td><td>DDR5-4800</td><td style="text-align: right">~460</td></tr>
+<tr><td>Intel Sapphire Rapids (8-channel DDR5)</td><td>DDR5-4800</td><td style="text-align: right">~300</td></tr>
+<tr><td>Apple M4 Max</td><td>LPDDR5X</td><td style="text-align: right">~350 (2×channels)</td></tr>
+<tr><td>NVIDIA Grace CPU (72 Neoverse V2 + HBM3)</td><td>HBM3</td><td style="text-align: right">~500</td></tr>
+<tr><td>AMD MI300A (CPU+GPU, HBM3)</td><td>HBM3</td><td style="text-align: right">~3200</td></tr>
+<tr><td>Fugaku (A64FX)</td><td>HBM2</td><td style="text-align: right">~1024/socket</td></tr>
+</tbody></table>
+<p><strong>Roofline model:</strong><br />
+Most HPC kernels are bandwidth-bound, not compute-bound. DGEMM: compute-bound (high arithmetic intensity). STREAM: bandwidth-bound (AI = 1 FLOP/8 bytes). Sparse matrix-vector (SpMV): bandwidth-bound, low AI.</p>
+<p><strong>AVX-512 frequency throttling (Intel):</strong><br />
+Heavy AVX-512 → frequency drops 200–400 MHz. Critical for mixed workloads: ensure AVX-512 heavy kernels run on dedicated cores or accept frequency impact. Zen 5 avoids this (256-bit internal FMA, no throttle).</p>
+<p><strong>Cache blocking:</strong><br />
+Tile matrix operations so A, B, C submatrices fit in L2/L3. DGEMM: block size ~256×256 for 16MB L2. FFT: radix-split to fit working set in L2. Polyhedral transformation (Pluto, LLVM Polly) automates tiling for affine loop nests.</p>
+<p><strong>NUMA for HPC:</strong><br />
+hwloc topology detection → bind threads to cores on same NUMA node as memory allocation → eliminate cross-socket traffic. <code>likwid-pin</code> for explicit affinity. <code>OMP_PROC_BIND=close</code> + <code>OMP_PLACES=cores</code>.</p>
+<h3 id="9-5-supercomputers-top500-2024">9.5 Supercomputers (Top500, 2024)</h3>
+<p><strong>Frontier → El Capitan (HPE Cray, AMD):</strong></p>
+<ul>
+<li>Frontier (#1 HPL 2022–2023): AMD MI250X GPU + EPYC Trento CPU, Slingshot-11 network. 1.1 ExaFLOP/s HPL.</li>
+<li>El Capitan (#1 HPL 2024): AMD MI300A APU — Zen 4 CPU + CDNA3 GPU + 128GB HBM3 on single package. No PCIe CPU-GPU bottleneck. ~2 ExaFLOP/s HPL. CPU memory coherent with GPU — eliminates <code>cudaMemcpy</code> overhead.</li>
+</ul>
+<p><strong>Fugaku (ARM A64FX, Fujitsu/RIKEN, 2020–):</strong></p>
+<ul>
+<li>48 cores A64FX per node, HBM2 directly attached to CPU die (not DDR), ~1 TB/s bisection bandwidth per node</li>
+<li>Tofu-D interconnect: 6D torus with dynamic routing, 23 Gbps per link</li>
+<li>SVE 512-bit (variable-length SIMD), 4× 512b FMA units per core</li>
+<li>Designed for simulation workloads: weather modeling, molecular dynamics, material science</li>
+</ul>
+<p><strong>Aurora (Argonne, Intel Ponte Vecchio + Xeon SPR):</strong></p>
+<ul>
+<li>Intel Xe-HPC (Ponte Vecchio): tiled GPU with compute, cache, HBM, and Rambo cache tiles bonded via EMIB</li>
+<li>Sapphire Rapids CPUs as host; Intel Fabric (derived from Omni-Path) for network</li>
+<li>Challenged by software stack maturity at launch</li>
+</ul>
+<p><strong>Network Fabrics:</strong></p>
+<table><thead><tr><th>Fabric</th><th style="text-align: right">Bandwidth</th><th>Topology</th><th style="text-align: right">Latency</th></tr></thead><tbody>
+<tr><td>Slingshot-11 (HPE)</td><td style="text-align: right">200 Gb/s</td><td>Dragonfly+</td><td style="text-align: right">~0.5µs MPI</td></tr>
+<tr><td>Infiniband NDR</td><td style="text-align: right">400 Gb/s</td><td>Fat-tree</td><td style="text-align: right">~0.3µs MPI</td></tr>
+<tr><td>Cray Aries</td><td style="text-align: right">16×96 Gb/s</td><td>Dragonfly</td><td style="text-align: right">~1µs MPI</td></tr>
+<tr><td>HPE Cray EX Slingshot-12</td><td style="text-align: right">400 Gb/s</td><td>Dragonfly+</td><td style="text-align: right">~0.4µs</td></tr>
+</tbody></table>
+<p><strong>Near-Memory Compute:</strong></p>
+<ul>
+<li>NVIDIA Grace Hopper: Grace CPU (Neoverse V2, 72 cores) + Hopper GPU, connected via NVLink-C2C at 900 GB/s, 96GB HBM3 on GPU die + 480GB LPDDR5X on CPU, coherent memory</li>
+<li>Samsung UPMEM: PIM (Processing-In-Memory) DIMMs with 16 cores per DRAM die, eliminates data movement for embarrassingly parallel workloads</li>
+<li>CXL Type-3: memory expander devices with compute (FPGA or simple processor) — emerging for in-memory analytics</li>
+</ul>
+<hr />
+<h2 id="10-noc-and-cache-coherence">10. NoC and Cache Coherence</h2>
+<h3 id="10-1-interconnect-topologies">10.1 Interconnect Topologies</h3>
+<pre><code>Ring (≤16 cores):
+  C0 — C1 — C2 — C3 — ... — C15 — (back to C0)
+  Bisection BW: 2× ring link width
+  Pros: simple, low latency for neighboring nodes
+  Cons: diameter grows with N, congestion at high core counts
+
+2D Mesh (16–128 cores):
+  C0 — C1 — C2 — C3
+  |    |    |    |
+  C4 — C5 — C6 — C7
+  |    |    |    |
+  ...
+  Bisection BW: 4 × (N/2) links along cut
+  Pros: scales well, used in Sapphire Rapids (60 tiles), Neoverse N2, Graviton 3
+  Cons: corner-to-corner latency O(√N)
+
+Torus:
+  Mesh + wrap-around links → maximum hop count halved
+  Used in custom HPC ASICs, Fujitsu A64FX, IBM Blue Gene
+</code></pre>
+<h3 id="10-2-cache-coherence-protocols">10.2 Cache Coherence Protocols</h3>
+<p><strong>MESI states:</strong></p>
+<ul>
+<li><strong>M</strong> (Modified): dirty, exclusive. Cache has only copy, memory stale.</li>
+<li><strong>E</strong> (Exclusive): clean, exclusive. Cache has only copy, memory up-to-date.</li>
+<li><strong>S</strong> (Shared): clean, possibly shared with other caches.</li>
+<li><strong>I</strong> (Invalid): not present.</li>
+</ul>
+<p><strong>MESIF (Intel):</strong><br />
+Adds <strong>F</strong> (Forward) state: one of the Shared copies is designated forwarder. When another cache requests the line, the Forward cache supplies it directly (peer-to-peer) without DRAM access. Reduces LLC bandwidth pressure.</p>
+<p><strong>MOESI (AMD):</strong><br />
+Adds <strong>O</strong> (Owned) state: dirty line that is shared. Owner supplies data to requesters without first writing back to memory. Reduces write-back traffic in producer-consumer patterns.</p>
+<p><strong>Directory-Based Coherence:</strong><br />
+Scales beyond snoopy broadcast. Each cache line has a directory entry listing which caches have copies. On miss, directory sends targeted invalidations/supplies to only relevant caches. Intel: inclusive L3 acts as snoop filter (if not in L3, not in any L1/L2). AMD: sparse directory per CCD + Infinity Fabric.</p>
+<p><strong>Inclusive vs. Non-Inclusive L3:</strong></p>
+<ul>
+<li>Inclusive: L3 holds superset of L1/L2 content → acts as snoop filter → simpler protocol. Downside: 30–50% of L3 capacity "wasted" on lines that are live in L1/L2.</li>
+<li>Non-inclusive/exclusive: more effective L3 capacity, but requires explicit snoop filter structure.</li>
+</ul>
+<h3 id="10-3-cxl-compute-express-link-2024-status">10.3 CXL (Compute Express Link) — 2024 Status</h3>
+<ul>
+<li><strong>CXL 1.1 / 2.0</strong> (PCIe 5.0 physical): CXL.cache (device caches host memory), CXL.mem (host accesses device memory), CXL.io (standard PCIe). Additional latency: ~100–200ns over DDR5.</li>
+<li><strong>CXL 2.0</strong> (2022): memory pooling via CXL switch, hot-plug memory.</li>
+<li><strong>CXL 3.0</strong> (2023 spec): multi-level fabric, peer-to-peer coherence between endpoints, back-invalidation (device can push invalidations to host).</li>
+<li><strong>Production 2024</strong>: Samsung CXL DRAM DIMMs (CMM-D), Micron CZ120, SK Hynix. Cloud providers (AWS, Google, Meta) deploying CXL for memory tiering — put cold memory on CXL devices at lower $/GB, reduce DDR5 DIMM count.</li>
+</ul>
+<hr />
+<h2 id="11-power-and-frequency">11. Power and Frequency</h2>
+<h3 id="11-1-power-model">11.1 Power Model</h3>
+<pre><code>P_total = P_dynamic + P_static
+
+P_dynamic = α × C × V² × f
+  α: activity factor (fraction of transistors switching per cycle, ~0.1–0.3)
+  C: total gate capacitance
+  V: supply voltage
+  f: frequency
+
+P_static (leakage) = I_leak × V
+  Grows with temperature, node scaling (worse at smaller nodes)
+  At 3nm: leakage ≈ 15–30% of total power
+</code></pre>
+<p><strong>Voltage-frequency (VF) curve:</strong> Frequency increases ~linearly with voltage. Power increases quadratically. At 5nm, typical core: 1.0V → 3.5 GHz, 1.2V → 5.0 GHz, 1.3V → 5.5 GHz (rough estimates; varies by design and binning).</p>
+<h3 id="11-2-boost-algorithms">11.2 Boost Algorithms</h3>
+<p><strong>Intel Turbo Boost / Thermal Velocity Boost (TVB):</strong><br />
+Monitor per-core temperature (DTS), package TDP, PL1/PL2 power limits. Boost frequency when headroom exists. TVB adds frequency bonus at lower temperatures.</p>
+<p><strong>AMD Precision Boost 2:</strong><br />
+Continuous per-core boost using telemetry (current draw, temperature, PPT/TDC/EDC limits). Finer granularity than Intel — adjusts per-millisecond. PBO (Precision Boost Overdrive) allows exceeding TDP limits with appropriate cooling.</p>
+<p><strong>Apple Adaptive Boost:</strong><br />
+Undisclosed algorithm. M4 Max P-cores run at 4.4 GHz sustained; boost behavior tied to thermal headroom of fanless/active cooling. M4 MacBook Pro (fan) sustains higher frequencies than M4 iPad Pro (fanless).</p>
+<h3 id="11-3-dark-silicon">11.3 Dark Silicon</h3>
+<p>Esmaeilzadeh et al. (ISCA 2011): at 22nm, only 21% of a chip can be powered at maximum frequency within a fixed power budget; fraction worsens with scaling. At 5nm, estimated &gt;50% of chip must be power-gated at any instant. Implication: can't run all functional units simultaneously at maximum frequency.</p>
+<p><strong>Design responses:</strong></p>
+<ul>
+<li>Heterogeneous cores: ARM big.LITTLE / DynamIQ, Intel P+E, Apple P+E (2–4 P-cores + 4–8 E-cores). E-cores: 20–40% area, 15–20% power of P-cores, 60–70% IPC.</li>
+<li>Specialized accelerators: NPU (Apple 38 TOPS Neural Engine on M4), ISP, media encode/decode engines, ray-tracing unit. These are far more efficient (TOPS/W) than general-purpose SIMD for their specific workloads.</li>
+</ul>
+<h3 id="11-4-clock-distribution">11.4 Clock Distribution</h3>
+<p><strong>Clock Tree Synthesis (CTS):</strong><br />
+Goal: deliver rising edge simultaneously to all flip-flops in a clock domain within &lt;10ps skew at 4 GHz (~2.5ns period = 0.4% skew budget). H-tree: hierarchical binary tree, equal wire lengths; ideal but ignores placement. Modern: H-tree skeleton + active deskew (delay elements) + mesh (distribute load at leaf level).</p>
+<p><strong>Clock gating:</strong><br />
+Insert enable-controlled clock gates at register file banks, FP units, cache banks. When inactive: clock off, dynamic power savings 20–40%.</p>
+<p><strong>Clock Domain Crossing (CDC):</strong><br />
+Core runs at one frequency (e.g., 4.0 GHz), uncore/mesh at another (e.g., 1.8 GHz). Data crossing domains uses async FIFO (typically 4–8 entries), two-flop synchronizer for control signals. Metastability failure rate ≈ 1/MTBF = f_s × f_d × exp(-t_resolve / τ); must be &lt;10⁻¹⁵ events/second.</p>
+<hr />
+<h2 id="12-building-a-production-grade-superscalar">12. Building a Production-Grade Superscalar</h2>
+<h3 id="12-1-rtl-language-selection">12.1 RTL Language Selection</h3>
+<table><thead><tr><th>Language</th><th>Paradigm</th><th>Pros</th><th>Cons</th><th>Best For</th></tr></thead><tbody>
+<tr><td>SystemVerilog</td><td>Declarative HDL</td><td>Industry standard, full EDA tool support, IEEE standardized</td><td>Verbose, many footguns, no native metaprogramming</td><td>Production tapeout, IP licensing</td></tr>
+<tr><td>Chisel (Scala DSL)</td><td>Functional HDL</td><td>Parameterizable generators, metaprogramming, FIRRTL IR</td><td>JVM toolchain overhead, Scala learning curve</td><td>Research (BOOM, Rocket, XiangShan)</td></tr>
+<tr><td>SpinalHDL (Scala DSL)</td><td>Object-oriented HDL</td><td>More features than Chisel, native data types, clock domain types</td><td>Smaller community, less documentation</td><td>Fast prototyping, clean designs</td></tr>
+<tr><td>Bluespec BSV</td><td>Rule-based HDL</td><td>Formal rule semantics, automatic scheduling, correctness by construction</td><td>Academic, limited commercial EDA support</td><td>Correctness-critical blocks (coherence, TLB)</td></tr>
+<tr><td>Amaranth (Python)</td><td>Python DSL</td><td>Rapid iteration, good for hobbyists</td><td>Immature ecosystem, slow synthesis</td><td>Small blocks, learning</td></tr>
+</tbody></table>
+<h3 id="12-2-open-source-reference-designs">12.2 Open-Source Reference Designs</h3>
+<p><strong>BOOM (Berkeley Out-of-Order Machine):</strong><br />
+Chisel, full OoO RISC-V, supports multiple configurations (small/medium/large). Celio et al. 2017. Used in research papers. Active maintenance under CHIPS Alliance. Branch predictor: TAGE-SC-L implementation available. Good starting point for understanding full OoO design; code is complex but well-documented.</p>
+<p><strong>CVA6 / Ariane:</strong><br />
+SystemVerilog, 6-stage in-order-ish OoO (limited window), taped out in GF22nm. OpenHW Group CORE-V family. Supports Linux boot. Simpler than BOOM — good for understanding the interface between core and memory system without full OoO complexity.</p>
+<p><strong>NaxRiscv:</strong><br />
+SpinalHDL, modern OoO design, very clean and readable codebase. Active development 2023–2025. Best code quality among OSS designs for learning actual OoO microarchitecture implementation. Branch predictor: GSHARE + BTB, ITTAGE in progress.</p>
+<p><strong>XiangShan (Yanqi Lake / Kunminghu):</strong><br />
+Chisel, most advanced open-source OoO RISC-V. 6-wide decode, TAGE-SC-L, SMS prefetcher, full RVV 1.0. Closest to commercial performance. Xu et al., MICRO 2022. GitHub: <code>OpenXiangShan/XiangShan</code>. Requires significant compute for simulation.</p>
+<p><strong>Rocket Chip:</strong><br />
+Chisel, in-order, 5-stage, modular. Best starting point for learning pipeline discipline, cache interface, TLB, and Linux boot before adding OoO complexity. Includes TileLink interconnect, which scales to multi-core.</p>
+<h3 id="12-3-simulation-and-verification-toolchain">12.3 Simulation and Verification Toolchain</h3>
+<pre><code>Layer          Tool                   Purpose
+─────────────────────────────────────────────────────────────────
+ISA golden     Spike (RISC-V)         Fast functional reference model for co-simulation
+RTL sim (OSS)  Verilator              Cycle-accurate C++ model, 10–100× faster than event-driven
+RTL sim (comm) Synopsys VCS / Cadence Xcelium  Industry standard; needed for complex UVM testbenches
+Full system    QEMU + DPI cosim       Device models + CPU RTL via VPI/DPI bridge
+Arch-level     gem5 (Binkert 2011)    Configurable OoO model, branch predictors, caches; good for design space exploration before RTL
+Formal (OSS)   SymbiYosys + Yosys    Bounded model checking, property checking with SVA/PSL
+Formal (comm)  JasperGold / VC Formal Full formal verification, equivalence checking
+Coverage       gcov/lcov (sw), SystemVerilog functional coverage (hw)
+</code></pre>
+<p><strong>Co-simulation pattern (Spike + Verilator):</strong><br />
+Each cycle, check that RTL core's register state matches Spike. Divergence → log differing instruction + state → root cause. This catches RTL bugs that don't manifest as crashes.</p>
+<h3 id="12-4-physical-design-flow-open-source-path">12.4 Physical Design Flow (Open-Source Path)</h3>
+<pre><code>Step            OSS Tool              Commercial Equivalent
+──────────────────────────────────────────────────────────────
+RTL → Netlist   Yosys + ABC           Synopsys Design Compiler / Cadence Genus
+Floorplan       OpenROAD              Cadence Innovus / Synopsys ICC2
+Place &amp; Route   OpenROAD (TritonRoute) Innovus / ICC2
+STA             OpenSTA               Synopsys PrimeTime
+DRC/LVS         KLayout + Magic       Mentor Calibre
+GDS streaming   KLayout               Cadence Virtuoso
+PDK (free)      SKY130 (130nm)        TSMC N3/N5 (commercial)
+               GF180MCU (180nm)
+</code></pre>
+<p><strong>Critical path from RTL to GDS:</strong></p>
+<ol>
+<li>Synthesis: map RTL → standard cell library gates; optimize for speed/area/power; generate gate-level netlist</li>
+<li>Floorplan: place IO pads, macros (SRAM, PLL), define power grid (VDD/VSS stripes)</li>
+<li>Place: legal placement of all standard cells in rows</li>
+<li>CTS (Clock Tree Synthesis): build clock distribution network, meet skew targets</li>
+<li>Route: connect all nets, meet DRC rules (min width, min spacing, via rules)</li>
+<li>STA: verify all setup/hold timing constraints across all corners (PVT: process/voltage/temperature)</li>
+<li>Signoff: DRC/LVS clean, antenna check, IR drop analysis</li>
+<li>GDS tape-out: submit to foundry</li>
+</ol>
+<h3 id="12-5-fpga-prototyping">12.5 FPGA Prototyping</h3>
+<table><thead><tr><th>Platform</th><th style="text-align: right">LUT Count</th><th>Suitable For</th><th style="text-align: right">Cost/hr</th></tr></thead><tbody>
+<tr><td>AWS F1 (UltraScale+)</td><td style="text-align: right">1.3M LUTs</td><td>IP prototyping, software bring-up</td><td style="text-align: right">$1–5</td></tr>
+<tr><td>Xilinx VU9P</td><td style="text-align: right">2.5M LUTs</td><td>Moderate OoO core @ 50–100 MHz</td><td style="text-align: right">$2000–3000 (purchase)</td></tr>
+<tr><td>Xilinx VU19P</td><td style="text-align: right">9M LUTs</td><td>Large SoC or multi-core</td><td style="text-align: right">$10000+</td></tr>
+<tr><td>Intel Stratix 10</td><td style="text-align: right">2.7M LUTs</td><td>Alternative FPGA vendor</td><td style="text-align: right">similar</td></tr>
+</tbody></table>
+<p>Multi-FPGA: complex SoCs require multiple FPGAs (separate FPGA for CPU, memory controller, peripherals) connected via SerDes links. Cadence Protium, Synopsys ZeBu: commercial emulation platforms, 10–100× faster than FPGA simulation.</p>
+<h3 id="12-6-tape-out-paths">12.6 Tape-Out Paths</h3>
+<table><thead><tr><th>Program</th><th>Die Area</th><th style="text-align: right">Cost</th><th>PDK</th><th>Turn-Around</th></tr></thead><tbody>
+<tr><td>Tiny Tapeout</td><td>160×100 µm</td><td style="text-align: right">$100–300</td><td>SKY130 130nm</td><td>Biannual</td></tr>
+<tr><td>eFabless Chipignite</td><td>10mm²</td><td style="text-align: right">~$10K</td><td>TSMC / SKY130</td><td>~6 months</td></tr>
+<tr><td>MOSIS (educational)</td><td>varies</td><td style="text-align: right">academic rates</td><td>various</td><td>varies</td></tr>
+<tr><td>Europractice</td><td>5–25mm²</td><td style="text-align: right">€5K–30K</td><td>TSMC N28/N22, GF22</td><td>1–2 years</td></tr>
+<tr><td>IMEC industrial</td><td>full reticle</td><td style="text-align: right">$1M+</td><td>TSMC N3/N2</td><td>2–3 years</td></tr>
+</tbody></table>
+<h3 id="12-7-practical-build-order">12.7 Practical Build Order</h3>
+<pre><code>Step  What                         Why / Validation Gate
+────────────────────────────────────────────────────────────────
+1.    In-order 5-stage RISC-V      Establish pipeline discipline, hazard handling, TLB,
+      (Rocket-derived or NaxRiscv  L1 cache with MSHR. Boot Linux on QEMU+Verilator.
+      in-order variant)
+
+2.    Add physical register file   Understand precise exceptions, RRAT, free list.
+      + ROB (keep in-order issue)  Validate co-sim against Spike.
+
+3.    Add issue queue + wakeup/    Most complex part. Start: unified 32-entry, 1 exec port.
+      select (single port)        Expand to distributed 64-entry per cluster, then 4 ports.
+
+4.    Add L1D/L2 cache MSHR       Single-core cache coherence, store queue, STLF.
+      + store queue               Run memory ordering torture tests (litmus tests).
+
+5.    Add branch predictor         Start: gshare 8K entries. Then TAGE 4 components.
+                                   Measure MPKI on SPEC CPU traces.
+
+6.    Add hardware prefetcher      Stride prefetcher first. Measure DRAM BW utilization.
+
+7.    Multi-core + MESI snoopy     2–4 cores, ring interconnect, snoopy coherence.
+      coherence                   Run concurrent litmus tests, coherence stress tests.
+
+8.    FPGA synthesis + Linux boot  Full validation: compile kernel, run benchmarks,
+                                   achieve coremark/dhrystone targets.
+
+9.    Performance profiling        Tune ROB/PRF/IQ sizing via gem5 design space exploration.
+      + tuning                    Target specific SPEC CPU workloads.
+</code></pre>
+<hr />
+<h2 id="13-key-references">13. Key References</h2>
+<ol>
+<li>
+<p>Tomasulo, R.M. (1967). "An efficient algorithm for exploiting multiple arithmetic units." <em>IBM Journal of Research and Development</em> 11(1): 25–33.</p>
+</li>
+<li>
+<p>Smith, J.E., Pleszkun, A.R. (1988). "Implementing Precise Interrupts in Pipelined Processors." <em>IEEE Transactions on Computers</em> 37(5): 562–573.</p>
+</li>
+<li>
+<p>Yeh, T.-Y., Patt, Y.N. (1992). "Alternative Implementations of Two-Level Adaptive Branch Prediction." <em>ISCA</em> 19: 124–134.</p>
+</li>
+<li>
+<p>Sohi, G.S., Vajapeyam, S. (1987). "Tradeoffs in Instruction Format Design for Horizontal Architectures." <em>ASPLOS</em> II: 15–25.</p>
+</li>
+<li>
+<p>Kessler, R.E. (1999). "The Alpha 21264 Microprocessor." <em>IEEE Micro</em> 19(2): 24–36.</p>
+</li>
+<li>
+<p>Tendler, J.M. et al. (2002). "POWER4 System Microarchitecture." <em>IBM Journal of Research and Development</em> 46(1): 5–25.</p>
+</li>
+<li>
+<p>Chrysos, G.Z., Emer, J.S. (1998). "Memory Dependence Prediction Using Store Sets." <em>ISCA</em> 25: 142–153.</p>
+</li>
+<li>
+<p>Nesbit, K.J., Smith, J.E. (2004). "Data Cache Prefetching Using a Global History Buffer." <em>HPCA</em>: 96–105.</p>
+</li>
+<li>
+<p>Seznec, A., Michaud, P. (2006). "A Case for (Partially) Tagged GEometric History Length Branch Prediction." <em>JILP</em> 8: 2–23.</p>
+</li>
+<li>
+<p>Srinath, S. et al. (2007). "Feedback Directed Prefetching: Improving the Performance and Bandwidth-Efficiency of Hardware Prefetchers." <em>HPCA</em>.</p>
+</li>
+<li>
+<p>Binkert, N. et al. (2011). "The gem5 Simulator." <em>ACM SIGARCH Computer Architecture News</em> 39(2): 1–7.</p>
+</li>
+<li>
+<p>Esmaeilzadeh, H. et al. (2011). "Dark Silicon and the End of Multicore Scaling." <em>ISCA</em> 38: 365–376.</p>
+</li>
+<li>
+<p>Seznec, A. (2011). "A New Case for the TAGE Branch Predictor." <em>MICRO</em> 44: 117–127. (TAGE-SC-L)</p>
+</li>
+<li>
+<p>Lam, M.S., Wilson, R.P. (1992). "Limits of Control Flow on Parallelism." <em>ISCA</em> 19: 46–57.</p>
+</li>
+<li>
+<p>Ferdman, M. et al. (2012). "Clearing the Clouds: A Study of Emerging Scale-Out Workloads on Modern Hardware." <em>ASPLOS</em> XVII: 37–48.</p>
+</li>
+<li>
+<p>Gochman, S. et al. (2003). "The Intel Pentium M Processor: Microarchitecture and Performance." <em>Intel Technology Journal</em> 7(2).</p>
+</li>
+<li>
+<p>Celio, C. et al. (2017). "The Berkeley Out-of-Order Machine (BOOM): An Industry-Competitive, Synthesizable, Parameterized RISC-V Processor." <em>UCB/EECS-2017-2</em>.</p>
+</li>
+<li>
+<p>Bera, R. et al. (2021). "Pythia: A Customizable Hardware Prefetching Framework Using Online Reinforcement Learning." <em>MICRO</em> 54: 1121–1137.</p>
+</li>
+<li>
+<p>Xu, Y. et al. (2022). "Towards Developing High Performance RISC-V Processors Using Agile Methodology." <em>MICRO</em> 55: 1–13. (XiangShan)</p>
+</li>
+<li>
+<p>Seznec, A. (2014). "TAGE-SC-L Branch Predictors Again." <em>5th JILP Workshop on Computer Architecture Competitions (JWAC-5)</em>.</p>
+</li>
+<li>
+<p>Kim, J. et al. (2019). "Revisiting Virtual Memory Translation for Hardware Prefetchers." <em>ISCA</em> 46: 840–852.</p>
+</li>
+<li>
+<p>Gabbay, F., Mendelson, A. (1997). "Speculative Execution Based on Value Prediction." <em>Technion Tech Report CS0974</em>.</p>
+</li>
+<li>
+<p>Fog, A. (continuously updated). "Microarchitecture of Intel, AMD and VIA CPUs." <em>agner.org/optimize/microarchitecture.pdf</em>. (Definitive source for x86 µarch tables)</p>
+</li>
+<li>
+<p>AMD. (2024). "Software Optimization Guide for AMD EPYC 9004 Series Processors (Zen 4)." AMD Publication 57647.</p>
+</li>
+<li>
+<p>Intel. (2024). "Intel Core Ultra (Series 2) — Microarchitecture Overview (Lion Cove)." Intel Architecture Disclosure.</p>
+</li>
+</ol>
+<hr />
+<p><em>Last updated: 2026-04-23</em></p>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

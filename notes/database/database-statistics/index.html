@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Database Statistics</h1>
+  <h1 id="database-statistics-collection-estimation-techniques">Database Statistics Collection &amp; Estimation Techniques</h1>
+<p>Expert reference for how databases collect, store, and use statistics for query optimization. Covers sampling algorithms, histogram construction, NDV estimation, multi-column stats, learned cardinality, and system-specific implementations.</p>
+<hr />
+<h2 id="1-why-statistics-matter">1. Why Statistics Matter</h2>
+<p>The query optimizer is a cost-based search over plan space. Cost = f(cardinality, I/O model, CPU model). Bad cardinality → wrong join order → 100–10000× slower plans.</p>
+<p>Statistics feed:</p>
+<ul>
+<li><strong>Selectivity estimation</strong>: fraction of rows surviving a predicate</li>
+<li><strong>Cardinality estimation</strong>: output row count of each operator</li>
+<li><strong>Cost model</strong>: bytes read, pages fetched, CPU cycles</li>
+<li><strong>Join ordering</strong>: DPhyp/DPccp need accurate row counts to prune search space</li>
+</ul>
+<p>Cardinality error compounds through joins. If each of 5 join inputs is off by 2×, final error can be 32×. Leis et al. (VLDB 2015) showed PostgreSQL frequently exceeds 1000× Q-error on 3+ table joins.</p>
+<p><strong>Q-error</strong> (Moerkotte et al. 2009):</p>
+<pre><code>Q-error(est, actual) = max(est/actual, actual/est)  ≥ 1
+</code></pre>
+<p>Q-error = 1 is perfect. Most papers target Q-error &lt; 2 for 90th percentile.</p>
+<hr />
+<h2 id="2-what-gets-collected">2. What Gets Collected</h2>
+<h3 id="table-level">Table-Level</h3>
+<ul>
+<li>Row count (n)</li>
+<li>Dead tuple count (PostgreSQL: n_dead_tup)</li>
+<li>Page count, average tuple width</li>
+</ul>
+<h3 id="column-level">Column-Level</h3>
+<ul>
+<li><strong>NDV</strong> (number of distinct values): drives join selectivity</li>
+<li><strong>Null fraction</strong>: rows where col IS NULL</li>
+<li><strong>MCV</strong> (most common values): list of (value, frequency) pairs</li>
+<li><strong>Histogram</strong>: distribution of non-MCV values</li>
+<li><strong>Correlation</strong>: physical sort order correlation with logical sort (-1 to 1)</li>
+<li><strong>Average width</strong> in bytes</li>
+</ul>
+<h3 id="multi-column">Multi-Column</h3>
+<ul>
+<li>Functional dependencies between column sets</li>
+<li>MCV lists over column combinations</li>
+<li>Joint histograms (grid or STHoles)</li>
+</ul>
+<h3 id="index-statistics">Index Statistics</h3>
+<ul>
+<li>Per-level page counts</li>
+<li>Fill factor, leaf page count</li>
+<li>Per-column histogram for index columns</li>
+</ul>
+<hr />
+<h2 id="3-sampling-algorithms">3. Sampling Algorithms</h2>
+<h3 id="bernoulli-sampling">Bernoulli Sampling</h3>
+<p>Each row included independently with probability p. Produces expected pN rows. Variance = p(1-p)N. Good statistical properties, poor cache behavior (random row access).</p>
+<h3 id="system-sampling">System Sampling</h3>
+<p>Selects full pages with probability p. All rows on selected pages included. Better I/O locality, worse statistical properties (row correlation within page). PostgreSQL ANALYZE uses this for heap tables.</p>
+<h3 id="reservoir-sampling-vitter-algorithm-r-1985">Reservoir Sampling — Vitter Algorithm R (1985)</h3>
+<p>For stream of unknown length N, maintain reservoir of size k:</p>
+<pre><code data-lang="c">// Algorithm R — O(N) time, O(k) space
+for (i = 0; i &lt; k; i++) reservoir[i] = stream[i];
+for (i = k; i &lt; N; i++) {
+    j = rand() % (i + 1);
+    if (j &lt; k) reservoir[j] = stream[i];
+}
+</code></pre>
+<p>Each element has exactly k/N probability of inclusion. Unbiased.</p>
+<p><strong>Algorithm Z</strong> (Vitter 1985): Skip-based optimization. Computes gap between accepted samples using the negative hypergeometric distribution. Reduces comparisons from O(N) to O(k(1 + log(N/k))). PostgreSQL ANALYZE uses Algorithm Z.</p>
+<h3 id="block-level-sampling">Block-Level Sampling</h3>
+<p>Sample at block/page granularity, then scan all rows on sampled blocks. Used by PostgreSQL for large tables where row-level sampling would require full heap scan anyway. Switches strategy based on table size relative to target sample.</p>
+<h3 id="postgresql-analyze-internals">PostgreSQL ANALYZE Internals</h3>
+<pre><code>sample_size = min(300 × default_statistics_target, 30000)  # default target = 100
+</code></pre>
+<ol>
+<li>Estimate table size from pg_class.relpages</li>
+<li>If table fits in sample, scan entire table</li>
+<li>Otherwise: block sampling — randomly select pages, read all tuples</li>
+<li>From raw sample, compute:
+<ul>
+<li>Null fraction: nulls / total</li>
+<li>MCV: sort by frequency, take top <code>statistics_target</code> values</li>
+<li>Histogram: from non-MCV values, partition into <code>statistics_target</code> equi-depth buckets</li>
+<li>NDV: Haas-Stokes estimator (see §5)</li>
+<li>Correlation: Spearman rank correlation between physical and logical order</li>
+</ul>
+</li>
+</ol>
+<p><code>default_statistics_target</code> (default 100) controls bucket count and MCV list length. Range: 1–10000. Higher = more accurate, slower ANALYZE, larger pg_statistic rows.</p>
+<h3 id="sample-size-selection">Sample Size Selection</h3>
+<p>For NDV estimation error ε with probability δ, required sample size:</p>
+<pre><code>n ≈ (NDV / ε²) × ln(1/δ)
+</code></pre>
+<p>For selectivity estimation of predicate with selectivity s, error ε:</p>
+<pre><code>n ≈ 1 / (s × ε²)    (rare predicates need larger samples)
+</code></pre>
+<p>Practical compromise: fixed sample sizes (PostgreSQL 300×target, SQL Server 20K–8M adaptive).</p>
+<hr />
+<h2 id="4-histogram-types">4. Histogram Types</h2>
+<h3 id="equi-width-histograms">Equi-Width Histograms</h3>
+<p>Domain [min, max] split into B equal-width buckets. Each bucket stores row count. Simple construction, poor for skewed data. Rarely used in production databases.</p>
+<pre><code>bucket_width = (max - min) / B
+bucket_idx(v) = floor((v - min) / bucket_width)
+</code></pre>
+<h3 id="equi-depth-equi-height-histograms">Equi-Depth (Equi-Height) Histograms</h3>
+<p>Buckets contain equal number of rows. Better accuracy for skewed distributions.</p>
+<p>Construction from sorted sample of size S:</p>
+<pre><code>rows_per_bucket = S / B
+boundary[i] = sample[i × rows_per_bucket]
+</code></pre>
+<p>Each bucket stores: <code>(lower_bound, upper_bound, row_count, distinct_count, null_count)</code>.</p>
+<p>Selectivity for point predicate <code>col = v</code>:</p>
+<ul>
+<li>Find bucket containing v</li>
+<li><code>sel = 1 / distinct_count_in_bucket</code> (uniformity assumption within bucket)</li>
+</ul>
+<p>Selectivity for range <code>a ≤ col ≤ b</code>:</p>
+<ul>
+<li>Sum partial/full buckets spanning [a, b]</li>
+<li>Partial bucket: linear interpolation within bucket bounds</li>
+</ul>
+<p><strong>PostgreSQL histogram</strong>: equi-depth, stores only upper bounds (lower = previous bucket's upper). Null values excluded. MCVs excluded before histogram construction — histogram represents non-MCV distribution.</p>
+<p><strong>CockroachDB histogram</strong>: equi-depth, up to 200 buckets, stores <code>(upper_bound, eq_rows, range_rows, distinct_range_rows)</code> per bucket.</p>
+<h3 id="v-optimal-histograms-ioannidis-kang-vldb-1988">V-Optimal Histograms — Ioannidis &amp; Kang (VLDB 1988)</h3>
+<p>Minimize total variance of approximation error. Each bucket minimizes:</p>
+<pre><code>V = Σ_buckets Σ_{v in bucket} (freq(v) - avg_freq_in_bucket)²
+</code></pre>
+<p>Optimal via dynamic programming O(N²B) for N distinct values and B buckets. Better than equi-depth for heavy-tailed distributions. Impractical for large N without approximation.</p>
+<h3 id="maxdiff-histograms-poosala-et-al-vldb-1996">MaxDiff Histograms — Poosala et al. (VLDB 1996)</h3>
+<p>Place bucket boundaries where adjacent frequency differences are largest (max "diff"). Captures sudden frequency changes well. Used as baseline in many benchmark papers.</p>
+<p>For sorted distinct values v₁..vₙ with frequencies f₁..fₙ:</p>
+<pre><code>diff(i) = |f_i - f_{i-1}|  or  |f_i × v_i - f_{i-1} × v_{i-1}|  (area-based)
+</code></pre>
+<p>Select top B-1 diff positions as bucket boundaries.</p>
+<h3 id="wavelet-histograms-vitter-et-al-vldb-1998">Wavelet Histograms — Vitter et al. (VLDB 1998)</h3>
+<p>Apply Haar wavelet transform to frequency distribution. Retain top-k coefficients by magnitude (largest impact on reconstruction). Coefficient thresholding = automatic error-minimizing histogram. Supports point queries and prefix-sum range queries efficiently.</p>
+<pre><code>Haar transform of [f₁, f₂, f₃, f₄]:
+L1: [(f₁+f₂)/2, (f₃+f₄)/2, (f₁-f₂)/2, (f₃-f₄)/2]
+L2: [(f₁+f₂+f₃+f₄)/4, (f₁+f₂-f₃-f₄)/4, ...]
+</code></pre>
+<p>Theoretical optimality for L2 error with k coefficients. Rarely implemented in production due to complexity.</p>
+<h3 id="compressed-histogram">Compressed Histogram</h3>
+<p>MCVs stored separately; histogram covers remaining non-MCV values. PostgreSQL uses this. Ensures heavy hitters get exact frequency, long tail gets histogram approximation.</p>
+<hr />
+<h2 id="5-distinct-value-ndv-estimation">5. Distinct Value (NDV) Estimation</h2>
+<h3 id="naive-counting">Naive Counting</h3>
+<p>Exact NDV from full scan. O(N) time, O(NDV) space. Impractical for large tables.</p>
+<h3 id="good-turing-estimator">Good-Turing Estimator</h3>
+<p>From sample of size n containing d distinct values, f₁ = singletons (values seen once):</p>
+<pre><code>estimated_new_distinct_in_unseen = f₁ / n
+</code></pre>
+<p>Assumes unseen portion has similar singleton density.</p>
+<h3 id="haas-stokes-estimator-1995-postgresql">Haas-Stokes Estimator (1995) — PostgreSQL</h3>
+<p>Used by PostgreSQL. Given sample of size n from population of size N:</p>
+<ul>
+<li>d = distinct values in sample</li>
+<li>f₁ = values appearing exactly once in sample</li>
+<li>f₂ = values appearing exactly twice in sample</li>
+</ul>
+<pre><code>D̂ = d / (1 - (f₁/n) × (1 - n/N))
+
+# Correction for large f₁:
+if f₁ &gt; 0:
+    D̂ = d - f₁ × (1 - n/N) × ln(1 - n/N) × ... [full formula in pg source: analyze.c:5200]
+</code></pre>
+<p>In PostgreSQL source: <code>estimate_ndistinct()</code> in <code>src/backend/statistics/analyze.c</code>.</p>
+<h3 id="probabilistic-counting-flajolet-martin-1985">Probabilistic Counting — Flajolet &amp; Martin (1985)</h3>
+<p>Hash each element to bit string. Record position of lowest set bit (= log₂(1/hash)). Max position seen ≈ log₂(NDV). Multiple hash functions, take median of estimates.</p>
+<p>Estimation:</p>
+<pre><code>NDV ≈ 2^(max_trailing_zeros) / φ   where φ ≈ 0.77351
+</code></pre>
+<p>Error ≈ 78% with single hash. Reduce with multiple parallel counters.</p>
+<h3 id="hyperloglog-flajolet-et-al-2007">HyperLogLog — Flajolet et al. (2007)</h3>
+<p>State of the art for streaming NDV. Uses 2^b registers (b = 4..16), each storing max leading zeros seen:</p>
+<pre><code data-lang="c">uint8_t M[1 &lt;&lt; b];  // b=14 → 16384 registers, ~12KB
+
+for each element x:
+    h = hash64(x)
+    j = h &gt;&gt; (64 - b)          // first b bits = register index
+    w = h &amp; ((1 &lt;&lt; (64-b))-1)  // remaining bits
+    M[j] = max(M[j], leading_zeros(w) + 1)
+
+// Harmonic mean estimate:
+Z = 1.0 / Σ_j (2^(-M[j]))
+E = α_m × m² × Z              // α_m ≈ 0.7213 for large m
+</code></pre>
+<p>Relative error: 1.04 / √(2^b). At b=14: ≈ 0.8% error with 12KB memory.</p>
+<p>Bias corrections for small range (linear counting) and large range (large-range correction). Merge property: <code>union(HLL1, HLL2)</code> = elementwise max of registers. CockroachDB uses HLL for NDV.</p>
+<h3 id="hyperloglog-heule-et-al-2013-google">HyperLogLog++ — Heule et al. (2013, Google)</h3>
+<p>Improvements over HLL:</p>
+<ol>
+<li>64-bit hashes (vs 32-bit) eliminates large-cardinality saturation</li>
+<li>Bias correction via empirical lookup table for small-cardinality range</li>
+<li>Sparse representation for low-cardinality sets (dense only after threshold)</li>
+</ol>
+<p>Used in BigQuery, Redshift, Spark.</p>
+<h3 id="kmv-k-minimum-values-sketches">KMV (k-Minimum Values) Sketches</h3>
+<p>Maintain the k smallest hash values seen. NDV estimate:</p>
+<pre><code>NDV ≈ (k-1) / max(k_th_smallest_hash)   [normalized to [0,1]]
+</code></pre>
+<p>Error: 1/√(k-2). Merges by union of hash sets + take k smallest. Used in some OLAP systems.</p>
+<hr />
+<h2 id="6-most-common-values-mcv">6. Most Common Values (MCV)</h2>
+<h3 id="misra-gries-heavy-hitters-1982">Misra-Gries Heavy Hitters (1982)</h3>
+<p>Find all items with frequency &gt; n/k using only k counters. Stream algorithm:</p>
+<pre><code>if item in counters: counters[item]++
+elif len(counters) &lt; k: counters[item] = 1
+else: decrement all counters by 1, remove zeros
+</code></pre>
+<p>Guarantees: any item with frequency &gt; n/k is in output. Over-estimates by at most n/k.</p>
+<h3 id="count-min-sketch-cormode-muthukrishnan-2005">Count-Min Sketch — Cormode &amp; Muthukrishnan (2005)</h3>
+<p>d × w matrix of counters, d independent hash functions mapping to [0,w):</p>
+<pre><code data-lang="c">// Update:
+for i in range(d): CMS[i][h_i(x)] += 1
+
+// Query frequency of x:
+return min(CMS[i][h_i(x)] for i in range(d))
+</code></pre>
+<p>Error bound: point query ≤ true_freq + ε×N with probability 1-δ where d=ln(1/δ), w=e/ε.</p>
+<p>Space: O(ε⁻¹ log δ⁻¹). Merges by elementwise addition.</p>
+<h3 id="space-saving-metwally-et-al-2005">Space Saving — Metwally et al. (2005)</h3>
+<p>Always maintain exactly k (element, count, error) triples. On new element:</p>
+<ul>
+<li>If in table: increment count</li>
+<li>Else: replace minimum-count element, new count = old_min + 1, error = old_min</li>
+</ul>
+<p>Exact frequencies for any element with true frequency &gt; N/(k+1). Better than Misra-Gries in practice.</p>
+<h3 id="postgresql-mcv-storage">PostgreSQL MCV Storage</h3>
+<p><code>pg_statistic</code> per-column row. Five "slots" (stakind 1..5):</p>
+<table><thead><tr><th>stakind</th><th>content</th></tr></thead><tbody>
+<tr><td>1</td><td>MCV: stavalues = array of values, stanumbers = frequencies</td></tr>
+<tr><td>2</td><td>Histogram: stavalues = bucket boundaries (equi-depth), stanumbers = NULL</td></tr>
+<tr><td>3</td><td>Correlation: stanumbers[1] = Spearman correlation coeff</td></tr>
+<tr><td>4</td><td>MCV of array elements (for array columns)</td></tr>
+<tr><td>5</td><td>Range histogram (for range types)</td></tr>
+</tbody></table>
+<p>staop = operator used for comparison (e.g., <code>&lt;</code> OID for ordering).</p>
+<p>Selectivity combining MCV + histogram:</p>
+<pre><code>if v in MCV_list:
+    return MCV_frequency[v]
+else:
+    histogram_fraction = (1 - Σ MCV_frequencies) / histogram_total_rows
+    return histogram_fraction × histogram_selectivity(v)
+</code></pre>
+<hr />
+<h2 id="7-multi-column-statistics">7. Multi-Column Statistics</h2>
+<h3 id="independence-assumption-failure">Independence Assumption Failure</h3>
+<p>Without multi-column stats, optimizer assumes independence:</p>
+<pre><code>sel(A=a AND B=b) = sel(A=a) × sel(B=b)
+</code></pre>
+<p>For correlated columns (city, country), this massively underestimates selectivity. For mutually exclusive values, overestimates.</p>
+<h3 id="grid-histograms">Grid Histograms</h3>
+<p>2D grid over (col_A, col_B) domain. Each cell stores row count. O(B²) cells for B buckets per dimension. Curse of dimensionality limits to 2-3 columns.</p>
+<h3 id="stholes-bruno-et-al-sigmod-2001">STHoles — Bruno et al. (SIGMOD 2001)</h3>
+<p>Adaptive query-feedback histogram. Holes (sub-rectangles) carved into existing buckets based on observed query results. Converges to accurate distribution after enough queries. Space-efficient for sparse distributions.</p>
+<pre><code>STHoles structure:
+Rectangle [a1,b1]×[a2,b2] with count C
+  └── Hole1 [a1&#39;,b1&#39;]×[a2&#39;,b2&#39;] with count C1
+  └── Hole2 [a1&#39;&#39;,b1&#39;&#39;]×[a2&#39;&#39;,b2&#39;&#39;] with count C2
+</code></pre>
+<h3 id="functional-dependencies-postgresql-10">Functional Dependencies — PostgreSQL 10+</h3>
+<p><code>CREATE STATISTICS s ON (city, country) FROM t;</code></p>
+<p>Stores degree of dependency: fraction of (city, country) pairs where knowing city determines country.</p>
+<pre><code>degree(A→B) = 1 - NDV(A,B) / NDV(A)   ∈ [0, 1]
+</code></pre>
+<p>At query time: if predicate on A and B, and strong A→B dependency exists:</p>
+<pre><code>sel(A=a AND B=b) ≈ sel(A=a)   # instead of sel(A=a) × sel(B=b)
+</code></pre>
+<p>PostgreSQL stores up to 32 FD coefficients per statistics object.</p>
+<h3 id="mcv-lists-postgresql-12">MCV Lists — PostgreSQL 12+</h3>
+<p><code>CREATE STATISTICS s (mcv) ON (city, country) FROM t;</code></p>
+<p>Stores top-k (city, country) value pairs with joint frequencies. Direct lookup for common combinations. Fallback to independence for non-MCV combinations.</p>
+<h3 id="postgresql-extended-statistics-summary">PostgreSQL Extended Statistics — Summary</h3>
+<table><thead><tr><th>Type</th><th>Keyword</th><th>What it captures</th></tr></thead><tbody>
+<tr><td>FD</td><td>DEPENDENCIES</td><td>A functionally determines B</td></tr>
+<tr><td>MCV</td><td>MCV</td><td>Joint most-common value frequencies</td></tr>
+<tr><td>NDV</td><td>NDISTINCT</td><td>Correlated distinct counts</td></tr>
+</tbody></table>
+<p><code>CREATE STATISTICS name (dependencies, mcv, ndistinct) ON col1, col2 FROM tbl;</code></p>
+<p>Stats collected by ANALYZE when <code>CREATE STATISTICS</code> exists. Planner checks <code>pg_statistic_ext_data</code> at selectivity estimation time.</p>
+<h3 id="cockroachdb-multi-column-stats">CockroachDB Multi-Column Stats</h3>
+<p>Automatically collects stats on prefix columns of each index. For index on (a, b, c), collects stats for (a), (a,b), (a,b,c). Used in selectivity propagation when multi-column predicates match index prefix.</p>
+<hr />
+<h2 id="8-auto-statistics-and-refresh">8. Auto-Statistics and Refresh</h2>
+<h3 id="postgresql-autovacuum-analyze">PostgreSQL autovacuum ANALYZE</h3>
+<p>Trigger condition:</p>
+<pre><code>n_mod_since_analyze &gt; autovacuum_analyze_threshold + autovacuum_analyze_scale_factor × reltuples
+# defaults: threshold=50, scale_factor=0.2 → trigger after 20% + 50 rows changed
+</code></pre>
+<p>autovacuum worker runs ANALYZE asynchronously. Manual <code>ANALYZE</code> forces immediate collection.</p>
+<p>Stale detection: <code>pg_stat_user_tables.last_analyze</code> + <code>n_mod_since_analyze</code>. No automatic staleness detection per-column.</p>
+<h3 id="sql-server-auto-update-statistics">SQL Server Auto-Update Statistics</h3>
+<p>Pre-2014 (compatibility ≤ 70): trigger at 20% row changes.</p>
+<p>SQL Server 2014+ (trace flag 2371, default for compat ≥ 130):</p>
+<pre><code>threshold = sqrt(1000 × table_row_count)    # dynamic threshold
+</code></pre>
+<p>For 1M row table: threshold ≈ 31,623 rows (3.2%) instead of 200,000 (20%). Better for large tables.</p>
+<p>Async auto-update (default): plan compiled with old stats, update queued. Next execution uses new stats. <code>AUTO_UPDATE_STATISTICS_ASYNC = ON</code>.</p>
+<p>Filtered statistics: <code>CREATE STATISTICS s ON t(col) WHERE status = 'active'</code> — only triggers update when filtered subset changes.</p>
+<h3 id="cockroachdb-auto-stats">CockroachDB Auto-Stats</h3>
+<p>Worker goroutine checks tables periodically. Refresh condition:</p>
+<pre><code>rows_changed / total_rows &gt; 0.2   OR   rows_changed &gt; 500
+</code></pre>
+<p>Probabilistic trigger: avoids thundering herd on large clusters. Adaptive throttling: backs off if cluster load high. Stats refresh runs as low-priority background job.</p>
+<p><strong>Statistics Forecasting</strong>: When ≥3 historical collections exist, fits linear regression on (timestamp, row_count) pairs. Extrapolates current row count for cardinality estimation when stats are slightly stale. Prevents plan regression during gradual table growth.</p>
+<h3 id="oracle-dbms-stats">Oracle DBMS_STATS</h3>
+<p><code>GATHER_AUTO</code> (default): Oracle tracks column usage via <code>SYS.COL_USAGE$</code>. Only collects stats on columns that appear in WHERE/GROUP BY/ORDER BY. Saves work on wide tables.</p>
+<p><code>GATHER_STALE</code>: Re-collects when &gt;10% of rows changed (tracked via monitoring).</p>
+<p>Auto sample size: <code>DBMS_STATS.AUTO_SAMPLE_SIZE</code> — Oracle adaptively chooses sample size per column based on NDV. NDV-heavy columns get larger samples.</p>
+<p>Online stats during bulk load:</p>
+<pre><code data-lang="sql">INSERT /*+ GATHER_OPTIMIZER_STATISTICS */ INTO t SELECT ...
+</code></pre>
+<p>Collects stats in single pass during INSERT, no separate ANALYZE needed.</p>
+<p>Histogram types in Oracle:</p>
+<ul>
+<li><strong>Frequency</strong>: ≤254 distinct values, exact frequency per value</li>
+<li><strong>Top-Frequency</strong>: &gt;254 distinct values but top-N covers &gt;99% of data</li>
+<li><strong>Height-Balanced</strong>: equi-depth for skewed large-cardinality columns</li>
+<li><strong>Hybrid</strong>: top-N MCVs exact + height-balanced for remainder</li>
+</ul>
+<h3 id="mysql-innodb-persistent-statistics">MySQL InnoDB Persistent Statistics</h3>
+<p><code>innodb_stats_persistent = ON</code> (default): stats survive restart, stored in <code>mysql.innodb_table_stats</code> / <code>mysql.innodb_index_stats</code>.</p>
+<p><code>innodb_stats_sample_pages</code> (default 20): pages sampled per index for NDV estimation. Higher = more accurate, slower <code>ANALYZE TABLE</code>.</p>
+<p><code>innodb_stats_method</code>:</p>
+<ul>
+<li><code>nulls_equal</code>: NULLs count as one group (default)</li>
+<li><code>nulls_unequal</code>: each NULL counts as distinct</li>
+<li><code>nulls_ignored</code>: NULLs excluded from NDV</li>
+</ul>
+<p>Index dive vs statistics: for range predicates, MySQL performs "index dives" (B-tree probes) to count records in range when <code>eq_range_index_dive_limit</code> not exceeded. More accurate than histogram for selective ranges.</p>
+<hr />
+<h2 id="9-sketch-based-techniques">9. Sketch-Based Techniques</h2>
+<h3 id="count-min-sketch-applications-beyond-mcv">Count-Min Sketch (Applications Beyond MCV)</h3>
+<p>Frequency estimation for any value in O(1) amortized. Used for:</p>
+<ul>
+<li>Join cardinality: <code>Σ_v min(CMS_R[v], CMS_S[v])</code> ≈ join output size</li>
+<li>Correlation detection: compare <code>P(A=a,B=b)</code> from joint CMS vs product of marginals</li>
+<li>Heavy hitter detection as basis for MCV</li>
+</ul>
+<h3 id="ams-sketch-alon-matias-szegedy-1996">AMS Sketch — Alon, Matias, Szegedy (1996)</h3>
+<p>Estimate second frequency moment F₂ = Σ fᵢ²:</p>
+<pre><code>F₂ ≈ (1/k) Σ_{i=1}^k (Σ_{j=1}^n h_i(a_j))²
+</code></pre>
+<p>where h_i : domain → {-1, +1} are 4-wise independent hash functions. F₂ captures data skew; F₂ / n = expected self-join size.</p>
+<h3 id="kll-sketch-karnin-lang-liberty-2016-vldb-2016">KLL Sketch — Karnin, Lang, Liberty (2016, VLDB 2016)</h3>
+<p>Near-optimal mergeable quantile sketch. O(ε⁻¹ log log 1/δ) space for ε-approximate quantiles.</p>
+<p>Construction: maintain multiple compactors at increasing levels. Each compactor holds b elements; when full, keeps every other element, pushes rest up.</p>
+<p>Better than Greenwald-Khanna (2001) for mergeability. Used in Apache DataSketches (Yahoo), Apache Spark 3.0+ for approximate quantiles.</p>
+<h3 id="t-digest-dunning-ertl-2019">T-Digest — Dunning &amp; Ertl (2019)</h3>
+<p>Cluster-based quantile approximation. Clusters (centroids) near median are dense; clusters near extremes are sparse. Better tail accuracy than KLL for extreme quantiles (p99.9+).</p>
+<pre><code>mean(cluster) = Σ xi / count(cluster)
+weight(cluster) = count(cluster)
+# New point x absorbed by nearest cluster if within weight limit
+</code></pre>
+<p>Used in Elasticsearch percentile aggregations, Prometheus histograms.</p>
+<h3 id="ddsketch-masson-et-al-2019">DDSketch — Masson et al. (2019)</h3>
+<p>Relative-error quantile sketch. Each bucket covers values in relative range [γ^i, γ^{i+1}). Bucket index:</p>
+<pre><code>i = ceil(log(x) / log(γ))
+</code></pre>
+<p>Guarantees relative error ≤ α for all quantiles. Mergeable. Deterministic (no randomness). Used in Datadog metrics.</p>
+<h3 id="mergeable-summaries-for-distributed-stats">Mergeable Summaries for Distributed Stats</h3>
+<p>HLL union: <code>HLL(A∪B)[j] = max(HLL(A)[j], HLL(B)[j])</code> — exact.<br />
+Count-Min union: <code>CMS(A∪B)[i][j] = CMS(A)[i][j] + CMS(B)[i][j]</code> — exact.<br />
+KLL/T-Digest merge: approximately correct (see original papers).</p>
+<p>Greenplum/Redshift distributed ANALYZE: each segment node computes local sketch, coordinator merges. For histograms: bucket boundaries agreed upfront, counts summed. For NDV: HLL merge.</p>
+<hr />
+<h2 id="10-learned-cardinality-estimation">10. Learned Cardinality Estimation</h2>
+<h3 id="why-traditional-methods-fail">Why Traditional Methods Fail</h3>
+<ul>
+<li>Independence assumption breaks for correlated columns</li>
+<li>Histograms can't capture multi-table correlations</li>
+<li>Each join output feeds next join: errors multiply</li>
+<li>JOB benchmark: PostgreSQL median Q-error = 5.6×, 95th = 1000× on complex joins</li>
+</ul>
+<h3 id="mscn-kipf-et-al-cidr-2019">MSCN — Kipf et al. (CIDR 2019)</h3>
+<p>Multi-Set Convolutional Network. First learned cardinality model.</p>
+<p>Input features: bitmask of tables, bitmask of joins, predicate features (column, operator, value normalized). Set-encoding via element-wise mean-pooling → fully connected layers → cardinality estimate.</p>
+<p>Trained on 10K–100K queries with true cardinalities as labels. Generalizes to unseen predicates within known schema. Fails on distribution shift (new value ranges).</p>
+<h3 id="neurocard-yang-et-al-neurips-2020">NeuroCard — Yang et al. (NeurIPS 2020)</h3>
+<p>Autoregressive density estimation over join results. Learn P(A=a, B=b, C=c, ...) as product of conditionals:</p>
+<pre><code>P(A,B,C) = P(A) × P(B|A) × P(C|A,B)
+</code></pre>
+<p>Model: MADE (Masked Autoencoder for Distribution Estimation) or Transformer. Each variable factored by column + table membership indicator (handles NULLs from outer joins).</p>
+<p>Cardinality estimate:</p>
+<pre><code>|σ_{pred}(R⋈S)| = |R⋈S| × Σ_{(a,b) satisfying pred} P(A=a, B=b)
+</code></pre>
+<p>10–100× better than PostgreSQL on JOB. Inference: Monte Carlo sampling from model. Slow if not batched.</p>
+<h3 id="deepdb-hilprecht-et-al-vldb-2020">DeepDB — Hilprecht et al. (VLDB 2020)</h3>
+<p>Sum-Product Network (SPN) learned from data. Decomposes joint distribution into products of marginals when columns are statistically independent:</p>
+<pre><code>If X ⊥ Y:  P(X, Y) = P(X) × P(Y)   [product node]
+Else:       P(X, Y) = Σ_i w_i × P_i(X, Y)  [sum node = mixture]
+</code></pre>
+<p>SPNs: exact inference in linear time in circuit size. Learns structure via recursive independence testing (RDC test). Better than NeuroCard for single-table; worse for complex multi-join.</p>
+<h3 id="bayescard-wu-cai-2021">BayesCard — Wu &amp; Cai (2021)</h3>
+<p>Bayesian network structure learning over table join columns. Learns P(C1, C2, ..., Ck) as DAG of conditional distributions. Inference via variable elimination.</p>
+<p>Advantage: interpretable, fast updates (add observations), calibrated uncertainty estimates.</p>
+<h3 id="flat-zhu-et-al-vldb-2021">FLAT — Zhu et al. (VLDB 2021)</h3>
+<p>Factorized Lightweight and Accurate cardinality estimator. Combines factorization decomposition with SPN-like structure. Learns across multiple tables using foreign key join semantics. Better accuracy-speed tradeoff than NeuroCard for OLAP workloads.</p>
+<h3 id="bao-marcus-et-al-vldb-2021">Bao — Marcus et al. (VLDB 2021)</h3>
+<p>Bandit-based plan selection, not pure cardinality estimation. Uses existing cardinality estimates, learns which plan hints work well for which query families. Thompson sampling over hint sets. Avoids worst plans without requiring accurate cardinality.</p>
+<h3 id="alece-han-et-al-sigmod-2023">ALECE — Han et al. (SIGMOD 2023)</h3>
+<p>Attention-based learned cardinality. Transformer-based model treating query predicates as attention tokens over column statistics. Handles distribution shift better via lightweight fine-tuning.</p>
+<h3 id="hybrid-approaches">Hybrid Approaches</h3>
+<p>Common production pattern:</p>
+<pre><code>if query is simple (single table, few predicates):
+    use traditional histogram + MCV
+else if learned model confidence high:
+    use learned estimate
+else:
+    fall back to histogram + cap at reasonable bound
+</code></pre>
+<p>No production database has fully replaced histograms with learned models as of 2026. PostgreSQL has research extensions (pg_plan_advsr for hint feedback, pg_learn for ML cardinality).</p>
+<h3 id="online-retraining">Online Retraining</h3>
+<p>Distribution shift detection: compare recent query true cardinalities vs model predictions. If rolling Q-error &gt; threshold, trigger retrain. Retrain on recent query log sample. Avoid catastrophic forgetting with replay buffer.</p>
+<hr />
+<h2 id="11-join-cardinality-estimation">11. Join Cardinality Estimation</h2>
+<h3 id="attribute-value-independence-avi">Attribute Value Independence (AVI)</h3>
+<p>Assumes join columns independent across tables:</p>
+<pre><code>|R⋈S on R.a=S.b| = |R| × |S| / max(NDV(R.a), NDV(S.b))
+</code></pre>
+<p>Underestimates when key-foreign-key joins have skewed keys. Overestimates when join columns correlated with filter predicates.</p>
+<h3 id="end-biased-sampling-estan-naughton-sigmod-2006">End-Biased Sampling — Estan &amp; Naughton (SIGMOD 2006)</h3>
+<p>Sample join results directly: for each tuple in R, probe S using the join key. Estimate:</p>
+<pre><code>|R⋈S| = (1/p) × |sampled matches|
+</code></pre>
+<p>Avoids AVI assumption. Expensive: requires index on S. Used for initial statistics, not per-query.</p>
+<h3 id="wander-join-li-et-al-sigmod-2016">Wander Join — Li et al. (SIGMOD 2016)</h3>
+<p>Random walk over join graph for cardinality estimation. Start at random tuple in any relation, randomly follow join edges to adjacent relations. Each completed path = one sample from join result. Estimate:</p>
+<pre><code>|J| ≈ N / (Σ paths × (1/|start_rel|))
+</code></pre>
+<p>Handles acyclic and cyclic joins. Unbiased. O(k) per sample for k-way join. Practical for ≤ 5 tables.</p>
+<h3 id="bound-based-methods">Bound-Based Methods</h3>
+<p>Upper bound via containment assumption (each value in smaller table matches something in larger):</p>
+<pre><code>|R⋈S| ≤ min(|R| × max_freq(S.key), |S| × max_freq(R.key))
+</code></pre>
+<p>Used as sanity check to cap runaway estimates.</p>
+<hr />
+<h2 id="12-system-deep-dives">12. System Deep Dives</h2>
+<h3 id="postgresql-full-statistics-pipeline">PostgreSQL — Full Statistics Pipeline</h3>
+<p><strong>Schema</strong>: <code>pg_statistic</code> (one row per column), <code>pg_statistic_ext</code> (multi-column), <code>pg_statistic_ext_data</code>.</p>
+<p>Key functions in source:</p>
+<ul>
+<li><code>src/backend/commands/analyze.c</code>: main ANALYZE orchestration, heap sampling</li>
+<li><code>src/backend/statistics/statistics.c</code>: extended statistics collection</li>
+<li><code>src/backend/utils/adt/selfuncs.c</code>: selectivity estimation functions</li>
+<li><code>src/backend/statistics/analyze.c</code>: <code>estimate_ndistinct()</code></li>
+</ul>
+<p>Selectivity functions by operator family:</p>
+<ul>
+<li><code>eqsel()</code>: equality predicate selectivity — uses MCV lookup then histogram</li>
+<li><code>scalarltsel()</code>, <code>scalargtsel()</code>: range predicate — histogram bucket summation</li>
+<li><code>neqsel()</code>: inequality — 1 - eqsel</li>
+<li><code>matchingsel()</code>: LIKE/regex — heuristics (0.005 for anchored, 0.0001 for arbitrary)</li>
+<li><code>arraycontsel()</code>: array @&gt; operator</li>
+</ul>
+<p>Range histograms (stakind=4 for pg_range types): stores boundaries as range values, enables range overlap selectivity.</p>
+<h3 id="sql-server-statistics-blob">SQL Server — Statistics Blob</h3>
+<p>Statistics stored in sys.stats, data in STATBLOB binary column.</p>
+<p>Contents:</p>
+<ul>
+<li>Header: row count, modification counter, sample fraction</li>
+<li>Density vector: 1/NDV for each prefix of index columns (for multi-column stats)</li>
+<li>Histogram: up to 200 RANGE_HI_KEY rows, each with (RANGE_HI_KEY, EQ_ROWS, RANGE_ROWS, DISTINCT_RANGE_ROWS, AVG_RANGE_ROWS)</li>
+</ul>
+<p><code>DBCC SHOW_STATISTICS ('table', 'stat_name') WITH HISTOGRAM</code> — displays histogram.</p>
+<p>Incremental statistics (2014+): per-partition stats stored separately, global stats synthesized by merging. <code>CREATE STATISTICS ... WITH INCREMENTAL = ON</code>. Only modified partitions need refresh.</p>
+<p>Filtered statistics: selectivity for filtered index only accounts for matching rows. Optimizer uses filtered stats when query predicate matches filter definition.</p>
+<h3 id="oracle-column-usage-tracking">Oracle — Column Usage Tracking</h3>
+<p><code>SYS.COL_USAGE$</code> tracks which columns appear in WHERE clauses (equality, range, like, null checks). DBMS_STATS only collects histograms for used columns by default.</p>
+<p>Histogram decision: if NDV ≤ 254, use Frequency histogram (exact). If NDV &gt; 254 but top-N values cover &gt;99%, use Top-Frequency (like MCV + small tail). Otherwise Height-Balanced or Hybrid.</p>
+<p>Adaptive Cursor Sharing: if statistics cause a bad plan, Oracle detects via execution feedback (actual vs estimated rows), marks cursor bind-sensitive, re-optimizes with extended cardinality info. Relates to Adaptive Query Optimization (AQO) in PostgreSQL research.</p>
+<h3 id="snowflake-micro-partition-statistics">Snowflake — Micro-Partition Statistics</h3>
+<p>No explicit ANALYZE. Statistics collected during data load.</p>
+<p>Each micro-partition (≈16MB compressed, 50–500MB uncompressed) stores metadata:</p>
+<ul>
+<li>Per-column min/max values</li>
+<li>Per-column NDV approximation (HLL)</li>
+<li>Null count</li>
+<li>Overlap with other micro-partitions (for clustering)</li>
+</ul>
+<p>Query planning uses micro-partition metadata for partition pruning and cardinality estimation. Optimizer knows which micro-partitions to skip for range predicates.</p>
+<p>Automatic clustering: for frequently queried columns, Snowflake auto-clusters data to reduce micro-partition overlap, improving both data skipping and statistics accuracy.</p>
+<h3 id="clickhouse-granule-level-statistics">ClickHouse — Granule-Level Statistics</h3>
+<p>Traditional ClickHouse (pre-2023): only table-level stats (row count, compressed size). No column histograms. Relies on primary key index for range filtering.</p>
+<p>ClickHouse 23.11+: column statistics as optional index feature:</p>
+<pre><code data-lang="sql">ALTER TABLE t ADD STATISTICS col TYPE tdigest, uniq;
+</code></pre>
+<p>Types: <code>tdigest</code> (quantiles), <code>uniq</code> (HLL-based NDV), <code>count_min</code> (frequency), <code>minmax</code>.</p>
+<p>Collected via <code>ANALYZE TABLE t UPDATE STATISTICS (col)</code>.</p>
+<p>Mark-level statistics: each mark (8192 rows) has min/max in sparse index. <code>PREWHERE</code> clause evaluated cheaply to skip marks.</p>
+<h3 id="duckdb-statistics-collection">DuckDB — Statistics Collection</h3>
+<p>Statistics collected during query execution (adaptive/online):</p>
+<ul>
+<li>Collects base table stats during first full scan</li>
+<li>Propagates cardinality through operators during query optimization</li>
+<li>Uses HLL for NDV, samples for histograms</li>
+<li><code>PRAGMA enable_progress_bar</code> + <code>EXPLAIN ANALYZE</code> shows actual vs estimated</li>
+</ul>
+<p><code>duckdb_statistics('table', 'column')</code> system function — returns min, max, approx_distinct.</p>
+<p>Pushes statistics through expression rewrites: if after predicate pushdown column range is [a,b], histograms trimmed to that range before further selectivity estimation.</p>
+<hr />
+<h2 id="13-incremental-and-online-statistics">13. Incremental and Online Statistics</h2>
+<h3 id="problem">Problem</h3>
+<p>Full ANALYZE is expensive: requires scan of large fraction of table. For tables with 10B rows, even 1% sample = 100M rows.</p>
+<h3 id="reservoir-sampling-over-streams">Reservoir Sampling Over Streams</h3>
+<p>Maintain reservoir of size k, update on INSERT/DELETE:</p>
+<ul>
+<li>INSERT: add to reservoir with probability k/current_n (reservoir sampling)</li>
+<li>DELETE: if deleted row in reservoir, replace with random non-reservoir row (requires tracking)</li>
+</ul>
+<p>Deletions are hard — no efficient algorithm to maintain reservoir under arbitrary deletions without knowing total count.</p>
+<h3 id="ddsketch-t-digest-for-streaming-histograms">DDSketch / T-Digest for Streaming Histograms</h3>
+<p>Both support <code>add(value)</code> in O(1). No re-scan needed. Suitable for maintaining running distribution.</p>
+<p>Challenge: value deletions. Requires separate "delete" sketch (subtract from positive sketch). Works for Count-Min (subtraction is exact), less clean for T-Digest.</p>
+<h3 id="kll-sketch-streaming">KLL Sketch Streaming</h3>
+<p>KLL supports streaming additions naturally. No explicit support for deletions. Used in Spark Streaming stats, Flink window statistics.</p>
+<h3 id="postgresql-no-incremental-invalidate-re-scan">PostgreSQL: No Incremental — Invalidate + Re-Scan</h3>
+<p>PostgreSQL does not incrementally update statistics. autovacuum detects n_mod_since_analyze &gt; threshold, then runs full ANALYZE on the table. Simple but expensive for large tables.</p>
+<h3 id="sql-server-incremental-on-partitioned-tables">SQL Server Incremental on Partitioned Tables</h3>
+<p>Partitioned tables: per-partition statistics + global rollup. Only changed partitions need re-ANALYZE. Useful for append-only partition schemes (time-series data: new partition per day/month).</p>
+<h3 id="cockroachdb-change-tracking">CockroachDB Change Tracking</h3>
+<p>CRDB tracks row mutations per table range. When change threshold exceeded, stats refresh job queued. Refresh does full sampling scan (no incremental). Forecasting (§7) bridges gap between refreshes.</p>
+<hr />
+<h2 id="14-distributed-statistics-collection">14. Distributed Statistics Collection</h2>
+<h3 id="parallel-analyze">Parallel ANALYZE</h3>
+<p>Each worker node scans its local partitions, computes local reservoir samples. Coordinator:</p>
+<ol>
+<li>Merges reservoir samples (union + re-sample to target size)</li>
+<li>Computes global histogram from merged sample</li>
+<li>For NDV: merges per-node HLL sketches (elementwise max)</li>
+<li>For MCVs: union local MCVs, sum frequencies, sort by frequency, take top-k</li>
+</ol>
+<p>Greenplum: <code>ANALYZE</code> fans out to all segment nodes in parallel. Coordinator holds final stats.</p>
+<h3 id="hive-spark-cbo-statistics">Hive / Spark CBO Statistics</h3>
+<pre><code data-lang="sql">ANALYZE TABLE t COMPUTE STATISTICS;           -- table-level
+ANALYZE TABLE t COMPUTE STATISTICS FOR COLUMNS col1, col2;  -- column stats
+</code></pre>
+<p>Spark 2.2+ Cost-Based Optimizer uses these for join reordering (Adaptive Query Execution in Spark 3.0+ uses runtime stats for adaptive join strategies regardless).</p>
+<p>Hive stores stats in Metastore (MySQL/PostgreSQL backing store). Column stats: NDV, null count, max/min, avg length. No histogram by default (histograms added in Hive 3.0 via HLL-based approx).</p>
+<h3 id="trino-presto">Trino / Presto</h3>
+<p>Statistics sourced from Hive Metastore connector, or via connector-specific API (<code>ConnectorTableStatistics</code>, <code>ConnectorColumnStatistics</code>).</p>
+<p><code>ANALYZE</code> statement: <code>ANALYZE tablename WITH (partitions = ARRAY[...])</code> — delegates to connector.</p>
+<p>For Iceberg tables: statistics stored in table metadata files (iceberg-metadata.json), includes NDV (HLL), null count, min/max per column per snapshot.</p>
+<h3 id="apache-iceberg-table-statistics">Apache Iceberg Table Statistics</h3>
+<p>Column statistics in manifest files: per-column min/max, null count, nan count (for floats), lower/upper bounds as bytes.</p>
+<p>Puffin files (Iceberg spec v2): blob storage for large statistics objects (HLL sketches, theta sketches). NDV from theta sketch (Apache DataSketches / KMV variant).</p>
+<h3 id="google-spanner-statistics">Google Spanner Statistics</h3>
+<p>Spanner maintains <code>SPANNER_SYS.TABLE_STATISTICS</code> and <code>SPANNER_SYS.COLUMN_STATISTICS</code>. Auto-refresh. Collection via distributed sampling using Spanner's own read infrastructure. Stats used by Spanner query optimizer for join ordering.</p>
+<hr />
+<h2 id="15-benchmarks-and-accuracy-evaluation">15. Benchmarks and Accuracy Evaluation</h2>
+<h3 id="imdb-job-benchmark-leis-et-al-vldb-2015">IMDB / JOB Benchmark — Leis et al. (VLDB 2015)</h3>
+<p>Internet Movie Database: 21 tables, up to 113 foreign keys. 113 benchmark queries (JOB = Join Order Benchmark), 3–16 way joins.</p>
+<p>Findings:</p>
+<ul>
+<li>PostgreSQL: geometric mean Q-error ≈ 5.6× per join input; worst case &gt;1000×</li>
+<li>Commercial systems (SQL Server, DB2, Oracle): similar or worse on complex joins</li>
+<li>Even perfect cardinalities don't always produce optimal plans (cost model errors)</li>
+<li>Bad join orders cause 100–1000× slowdowns on complex queries</li>
+</ul>
+<p>Q-error distribution on JOB:</p>
+<pre><code>System          | p50  | p95   | max
+PostgreSQL 9.4  | 1.5× | 58×   | 7500×
+PostgreSQL 12   | 1.3× | 12×   | 960×
+Commercial DBs  | 1.2× | 30×   | 3000×
+NeuroCard       | 1.1× | 3.0×  | 50×
+</code></pre>
+<h3 id="stats-benchmark-han-et-al-sigmod-2021">STATS Benchmark — Han et al. (SIGMOD 2021)</h3>
+<p>8 tables from Stack Overflow, 146 queries, up to 8-way joins. Evaluates learned models in distribution shift settings.</p>
+<h3 id="ce-benchmark-components">CE Benchmark Components</h3>
+<ul>
+<li>Base table filters: single-column and multi-column predicates</li>
+<li>Join cardinalities: 2-way through N-way</li>
+<li>Correlation tests: correlated column groups</li>
+<li>Skew tests: Zipfian-distributed join keys</li>
+</ul>
+<h3 id="error-amplification-through-join-trees">Error Amplification Through Join Trees</h3>
+<p>For left-deep chain R1⋈R2⋈R3⋈R4, if each single-join cardinality has Q-error = q:</p>
+<pre><code>max Q-error(final) ≤ q^(n-1)   # in worst case
+</code></pre>
+<p>For q=2, n=4: max error = 8×. In practice, errors partially cancel, but tail errors remain large.</p>
+<hr />
+<h2 id="16-key-papers-reference">16. Key Papers Reference</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Topic</th></tr></thead><tbody>
+<tr><td>Vitter 1985, "Random Sampling with a Reservoir"</td><td>ACM Trans. Math. Software</td><td>Reservoir sampling Algorithm R, Z</td></tr>
+<tr><td>Ioannidis &amp; Kang 1988, "Optimal Histograms for Limiting Worst-Case Error"</td><td>VLDB</td><td>V-optimal histograms</td></tr>
+<tr><td>Haas et al. 1995, "Sampling-Based Estimation of the Number of Distinct Values"</td><td>VLDB</td><td>Haas-Stokes NDV estimator (PostgreSQL)</td></tr>
+<tr><td>Flajolet &amp; Martin 1985, "Probabilistic Counting Algorithms"</td><td>J. Comput. Syst. Sci.</td><td>Probabilistic counting for NDV</td></tr>
+<tr><td>Misra &amp; Gries 1982, "Finding Repeated Elements"</td><td>Sci. Comput. Program.</td><td>Heavy hitter streaming algorithm</td></tr>
+<tr><td>Poosala et al. 1996, "Improved Histograms for Selectivity Estimation"</td><td>SIGMOD</td><td>MaxDiff, comparative study of histograms</td></tr>
+<tr><td>Bruno, Chaudhuri &amp; Gravano 2001, "STHoles: A Multidimensional Workload-Aware Histogram"</td><td>SIGMOD</td><td>Adaptive multi-column histograms</td></tr>
+<tr><td>Vitter, Wang &amp; Iyer 1998, "Data Cube Approximation and Histograms via Wavelets"</td><td>VLDB</td><td>Wavelet histograms</td></tr>
+<tr><td>Cormode &amp; Muthukrishnan 2005, "An Improved Data Stream Summary: Count-Min Sketch"</td><td>J. Algorithms</td><td>Count-Min Sketch</td></tr>
+<tr><td>Metwally, Agrawal &amp; El Abbadi 2005, "Efficient Computation of Frequent and Top-k Elements"</td><td>ICDT</td><td>Space Saving algorithm</td></tr>
+<tr><td>Flajolet et al. 2007, "HyperLogLog: Analysis of Near-Optimal Cardinality Estimation"</td><td>DMTCS</td><td>HyperLogLog algorithm</td></tr>
+<tr><td>Heule, Nunkesser &amp; Hall 2013, "HyperLogLog in Practice"</td><td>EDBT</td><td>HyperLogLog++ (Google)</td></tr>
+<tr><td>Greenwald &amp; Khanna 2001, "Space-Efficient Online Computation of Quantile Summaries"</td><td>SIGMOD</td><td>GK quantile sketch</td></tr>
+<tr><td>Karnin, Lang &amp; Liberty 2016, "Optimal Quantile Approximation in Streams"</td><td>FOCS</td><td>KLL sketch</td></tr>
+<tr><td>Dunning &amp; Ertl 2019, "Computing Extremely Accurate Quantiles Using t-Digests"</td><td>arXiv</td><td>T-Digest</td></tr>
+<tr><td>Masson, Rim &amp; Lee 2019, "DDSketch: A Fast and Fully-Mergeable Quantile Sketch"</td><td>VLDB</td><td>DDSketch</td></tr>
+<tr><td>Alon, Matias &amp; Szegedy 1999, "The Space Complexity of Approximating the Frequency Moments"</td><td>J. Comput. Syst. Sci.</td><td>AMS sketch, F2 moment</td></tr>
+<tr><td>Estan &amp; Naughton 2006, "End-Biased Samples for Join Cardinality Estimation"</td><td>SIGMOD</td><td>Join sample estimation</td></tr>
+<tr><td>Leis et al. 2015, "How Good Are Query Optimizers?"</td><td>VLDB</td><td>JOB benchmark, Q-error analysis</td></tr>
+<tr><td>Kipf et al. 2019, "Learned Cardinalities: Estimating Correlated Joins with Deep Learning"</td><td>CIDR</td><td>MSCN, first learned cardinality model</td></tr>
+<tr><td>Yang et al. 2020, "NeuroCard: One Cardinality Estimator for All Tables"</td><td>NeurIPS</td><td>Autoregressive join cardinality</td></tr>
+<tr><td>Hilprecht et al. 2020, "DeepDB: Learn from Data, not from Queries"</td><td>VLDB</td><td>SPN-based learned stats</td></tr>
+<tr><td>Marcus et al. 2021, "Bao: Making Learned Query Optimization Practical"</td><td>SIGMOD</td><td>Bandit hint selection</td></tr>
+<tr><td>Li et al. 2016, "Wander Join: Online Aggregation via Random Walks"</td><td>SIGMOD</td><td>Random walk join cardinality</td></tr>
+<tr><td>Han et al. 2021, "Cardinality Estimation in DBMS: A Comprehensive Benchmark"</td><td>VLDB</td><td>STATS benchmark</td></tr>
+<tr><td>Moerkotte et al. 2009, "Preventing Bad Plans by Bounding the Impact of Cardinality Estimation Errors"</td><td>VLDB</td><td>Q-error metric definition</td></tr>
+</tbody></table>
+<hr />
+<h2 id="ascii-statistics-pipeline">ASCII: Statistics Pipeline</h2>
+<pre><code>Table Data
+    │
+    ▼ (reservoir sampling, block sampling)
+Sample S ──── size: min(300×target, 30000) rows
+    │
+    ├──► Null count ──────────────────────────► null_frac
+    │
+    ├──► Sort by value
+    │       │
+    │       ├──► Top-k by frequency ──────────► MCV list (values + frequencies)
+    │       │
+    │       └──► Remaining values
+    │               │
+    │               └──► Equi-depth partition ► Histogram (B buckets)
+    │
+    ├──► Haas-Stokes estimator ───────────────► NDV (ndistinct)
+    │
+    └──► Spearman rank correlation ───────────► correlation
+
+Multi-column stats (CREATE STATISTICS):
+    ├──► RDC independence test ───────────────► FD coefficients
+    ├──► Joint MCV computation ───────────────► MCV list over (col1, col2)
+    └──► Joint HLL ────────────────────────────► NDV for column group
+
+                    ┌──────────────────────────┐
+Stored in:          │ pg_statistic             │
+                    │  stakind 1: MCV          │
+                    │  stakind 2: histogram    │
+                    │  stakind 3: correlation  │
+                    └──────────────────────────┘
+</code></pre>
+<h2 id="ascii-hyperloglog-register-update">ASCII: HyperLogLog Register Update</h2>
+<pre><code>Element x
+    │
+    ▼
+ hash64(x) = 0b[b₆₃...b₀]
+    │
+    ├── first b bits ─────────► register index j  (j &lt; 2^b)
+    │
+    └── remaining 64-b bits ──► count leading zeros + 1 = ρ(w)
+
+M[j] = max(M[j], ρ(w))
+
+Estimate:
+    Z = 1.0 / Σ_j (2^(-M[j]))      (harmonic mean)
+    E = α_m × m² × Z
+    where α_m ≈ 0.7213/(1 + 1.079/m), m = 2^b
+
+Error ≈ 1.04/√m   (e.g., m=16384 → 0.81% error)
+</code></pre>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

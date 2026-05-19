@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Buffer Management Predictive Translation</h1>
+  <h1 id="buffer-management-predictive-translation">Buffer Management: Predictive Translation</h1>
+<p><strong>Paper:</strong> "Predictive Translation: High-Performance Buffer Management Without the Trade-Offs"
+Zinsmeister, Nguyen, Leis, Neumann — SIGMOD 2026, TU München</p>
+<hr />
+<h2 id="background-buffer-manager-design-space">Background: Buffer Manager Design Space</h2>
+<p>Storage-based DBMSs structure data into fixed-size pages (4–64KB) and rely on a <strong>buffer manager</strong> to cache frequently accessed pages in RAM. The primary operation is translating a logical <strong>page ID (PID)</strong> into an in-memory <strong>buffer frame</strong> address.</p>
+<h3 id="traditional-hash-table">Traditional: Hash Table</h3>
+<p>Every page request does: <code>hashtable.lookup(pid)</code> → frame address → page read.</p>
+<p>Used by PostgreSQL, MySQL (InnoDB), SQLite, Shore-MT. Simple, robust, portable.</p>
+<p><strong>Bottlenecks</strong> (analyzed via Shore-MT):</p>
+<ol>
+<li><strong>Dependent indirections</strong>: PID → bucket → control block → frame header → buffer frame. Each level depends on the result of the prior, serializing cache misses. Conflicts with superscalar execution.</li>
+<li><strong>Contended bucket latches</strong>: Exclusive latches on hot buckets cause cache-line invalidation and kill multi-core scalability.</li>
+</ol>
+<h3 id="modern-alternatives-and-their-problems">Modern Alternatives and Their Problems</h3>
+<table><thead><tr><th>Design</th><th>Mechanism</th><th>Problem</th></tr></thead><tbody>
+<tr><td><strong>Pointer swizzling</strong> (LeanStore)</td><td>Embed frame address directly in B-tree nodes</td><td>Invasive; requires modifying all data structure code; can't support multiple/cyclic references (no sibling pointers, no graph traversal)</td></tr>
+<tr><td><strong>LIPAH</strong></td><td>Fat pointer: (PID, hint address); fall back on mismatch</td><td>32-bit PIDs only → 17TB max database; still invasive</td></tr>
+<tr><td><strong>vmcache</strong></td><td>Use OS page table (TLB) for translation</td><td>Requires <code>exmap</code> kernel module; metadata ∝ SSD size (480GB overhead for 30TB SSD); hard to use sampling-based eviction; can't use huge pages freely</td></tr>
+</tbody></table>
+<hr />
+<h2 id="design-goals-section-2-2">Design Goals (Section 2.2)</h2>
+<ol>
+<li><strong>High performance</strong> — at most ~1 cache miss overhead for in-memory workloads</li>
+<li><strong>Low memory overhead</strong> — metadata ∝ buffer pool size, not storage size</li>
+<li><strong>Portability</strong> — no kernel modules, no data structure invasiveness</li>
+<li><strong>Multiple page references</strong> — cyclic references, sibling pointers, graph structures</li>
+<li><strong>Unlimited PIDs</strong> — 64-bit page ID space</li>
+</ol>
+<p>Traditional hash table satisfies goals 2–5 but not 1. The paper attacks goal 1 directly.</p>
+<hr />
+<h2 id="superscalar-execution-primer">Superscalar Execution Primer</h2>
+<p>Modern CPUs are superscalar: they can issue multiple independent loads in parallel.</p>
+<pre><code data-lang="cpp">// Dependent: serialized, ~2× latency
+T* ptr2 = *ptr1;    // must wait
+T data = *ptr2;     // depends on ptr1 result
+
+// Independent: parallel, ~1× latency
+T data1 = *ptr1;    // issued together
+T data2 = *ptr2;    // no dependency
+</code></pre>
+<p>The key insight: if hash table translation and page read are <strong>independent</strong>, the CPU can overlap them.</p>
+<hr />
+<h2 id="predictive-translation-core-idea">Predictive Translation (Core Idea)</h2>
+<p>Assign each PID a <strong>preferred buffer frame</strong> deterministically:</p>
+<pre><code>preferred_frame(pid) = hash(pid) % pool_size
+</code></pre>
+<p>This enables an <strong>optimistic fast path</strong>: speculatively read from the predicted address while the hash table lookup is in flight.</p>
+<pre><code data-lang="cpp">// Traditional (sequential)
+BufferFrame* bf = hashtable.lookup(pid);  // cache miss
+read(bf);                                  // depends on above
+
+// Predictive Translation (parallel)
+BufferFrame* pred = predictFrame(pid);    // cheap arithmetic
+BufferFrame* real = hashtable.lookup(pid); // cache miss (concurrent)
+if (isInPredictedFrame(real)):
+    read(pred)   // overlaps with lookup via superscalar exec
+else:
+    read(real)   // rare slow path
+</code></pre>
+<p>The CPU's <strong>branch predictor</strong> takes the fast path. On misprediction, the CPU flushes the speculative work and falls back — no correctness issue, just a performance penalty.</p>
+<p>The branch in the code doesn't trigger explicit parallelism: it merely gives the CPU the <em>opportunity</em> to speculate. No intrinsics or special instructions required.</p>
+<hr />
+<h2 id="managing-frame-conflicts-section-3-2">Managing Frame Conflicts (Section 3.2)</h2>
+<p>Multiple PIDs share the same preferred frame (e.g., PIDs 1, 11, 21 all prefer frame 1 in a 10-frame pool). Page <strong>lifecycle</strong> manages placement:</p>
+<pre><code>Arbitrary        Preferred
+Position         Position
+   |                 |
+   |-- 1. Load ----&gt; |  (if preferred frame is free)
+   |                 |
+   |&lt;-- 2. Promote --| (on 2nd+ access, probabilistically)
+   |                 |
+   |-- 3. Demote ----| (if hotter page wants the frame)
+   |                 |
+   4. Evict      4. Evict
+</code></pre>
+<p><strong>Key observations:</strong></p>
+<ul>
+<li>Cold pages are often one-hit wonders — don't waste preferred frames on them</li>
+<li>Hot pages get promoted because they're accessed frequently, increasing promotion probability naturally</li>
+<li>Promotion probability: 1/32 (no demotion needed), 1/512 (demotion required)</li>
+<li>Cost is amortized: empirically &lt; 1 byte copied per page access</li>
+</ul>
+<p><strong>Demotion</strong>: if a hotter page P wants the preferred frame currently held by P', the system allocates a new free frame for P', copies P' there, updates the translation layer, then moves P into the preferred slot.</p>
+<hr />
+<h2 id="hash-table-design-section-4">Hash Table Design (Section 4)</h2>
+<p>Requirements for predictive translation:</p>
+<ol>
+<li><strong>Lightweight</strong> — must not overwhelm the page read it's being interleaved with</li>
+<li><strong>Lock-free</strong> — otherwise translation blocks concurrent page access</li>
+</ol>
+<h3 id="chaining-with-inlined-first-slot">Chaining with Inlined First Slot</h3>
+<ul>
+<li>Use <strong>chaining</strong> (not Cuckoo/linear probing) — open-addressing relocates entries, requiring holding multiple latches simultaneously under contention</li>
+<li>Size table at <strong>2× pool capacity</strong> → expected fill factor ~50%, 77% of chains have length 1</li>
+<li><strong>Inline the first chain slot</strong> directly in the bucket array → first probe is a single array lookup, no pointer chase</li>
+<li><strong>Inline frame header</strong> into the hash table entry → eliminates one more indirection</li>
+</ul>
+<p>Chain length distribution at fill factor 0.75: 92% of chains have length ≤ 2. At fill factor 1.0: 97% have length ≤ 3.</p>
+<h3 id="optimistic-latching">Optimistic Latching</h3>
+<ul>
+<li>No mutex or reader-writer latch on buckets (both require a memory write per operation → cache invalidation)</li>
+<li>Use a <strong>version counter</strong>: incremented when the latch transitions out of exclusive mode</li>
+<li>Read path: (1) read version, (2) traverse chain, (3) validate version — if changed, retry</li>
+<li>Enables fully lock-free reads → superscalar overlap of hash lookup and page access</li>
+</ul>
+<p>Page state (shared/exclusive latch + version counter) packed into a single <code>std::atomic&lt;uint64_t&gt;</code>.</p>
+<hr />
+<h2 id="implementation-predicache-section-5">Implementation: PrediCache (Section 5)</h2>
+<p>Full pseudocode for the optimistic read:</p>
+<pre><code>readOptimistic(pid, callback):
+  pred = predictFrame(pid)
+  loop:
+    [fh, latchState] = ht.find(pid)
+
+    // Fast path: 3 conditions must hold
+    if fh != null &amp;&amp; isUnlatched(latchState) &amp;&amp; fh.isInPredictedFrame:
+        callback(pred, latchState)  // CPU overlaps this with ht.find above
+        if fh.latchState == latchState: return
+        else: continue  // version changed, retry
+
+    // Miss: not in cache yet
+    if fh == null:
+        loadFromStorage(pid); continue
+
+    // Slow path: use actual frame pointer
+    if isUnlatched(latchState):
+        callback(fh.framePtr, latchState)
+        if fh.latchState == latchState:
+            maybePromote(pid)  // probabilistic
+            return
+        else: continue
+</code></pre>
+<p>The critical point: the <code>callback(pred, ...)</code> call and <code>ht.find(pid)</code> are <strong>not explicitly parallelized</strong> anywhere. The branch on line 3 is what lets the CPU speculate — the hardware does the rest.</p>
+<h3 id="frame-vs-header-separation">Frame vs. Header Separation</h3>
+<p>Headers stored in hash table; frames in a separate memory pool. Reason: frames must be 512-byte aligned for direct I/O. Inlining headers before frames (LeanStore style) causes massive padding waste. Separation avoids this while still achieving low-indirection access.</p>
+<hr />
+<h2 id="evaluation-summary-section-6">Evaluation Summary (Section 6)</h2>
+<p><strong>Setup:</strong> AMD EPYC 9645P (96 cores/192 HT), 384GB RAM, Kioxia PCIe 5.0 NVMe SSD, Linux 6.8.</p>
+<h3 id="in-memory-results">In-Memory Results</h3>
+<table><thead><tr><th>Workload</th><th>PrediCache vs vmcache</th><th>PrediCache vs LeanStore</th></tr></thead><tbody>
+<tr><td>TPC-C (192T)</td><td>+34%</td><td>+19%</td></tr>
+<tr><td>Random Read</td><td>~equal</td><td>~equal</td></tr>
+<tr><td>Skewed YCSB</td><td>slightly better</td><td>better</td></tr>
+</tbody></table>
+<p>vmcache lag reasons:</p>
+<ul>
+<li>TPC-C page allocation triggers <code>exmap</code> syscalls</li>
+<li>vmcache page state array: 8 states per cache line → cache-line ping-pong on adjacent updates ("neworder problem")</li>
+<li>vmcache can't use huge pages freely</li>
+</ul>
+<p>LeanStore lag reasons: can't use sibling pointers (no multiple refs) → less efficient B-tree layout</p>
+<h3 id="out-of-memory-results">Out-of-Memory Results</h3>
+<p>All three modern designs converge when I/O dominates. Traditional hash table also competitive here — OOM hides its in-memory overhead.</p>
+<h3 id="ablation-random-read-single-thread-in-memory">Ablation (random read, single-thread in-memory)</h3>
+<table><thead><tr><th>Optimization</th><th>Throughput change</th></tr></thead><tbody>
+<tr><td>Optimistic latching</td><td>+7.4× at 192T (scalability)</td></tr>
+<tr><td>Inlined first slot</td><td>+24.8% (cache locality)</td></tr>
+<tr><td>Predictive translation</td><td>+20.6% (superscalar hiding)</td></tr>
+</tbody></table>
+<h3 id="microarchitectural-analysis-ipc-counters">Microarchitectural Analysis (IPC counters)</h3>
+<table><thead><tr><th>System</th><th>Cycles</th><th>Instructions</th><th>IPC</th><th>Frontend stalls</th></tr></thead><tbody>
+<tr><td>PrediCache</td><td>3510</td><td>1915</td><td><strong>0.55</strong></td><td>131</td></tr>
+<tr><td>vmcache</td><td>3939</td><td>1315</td><td>0.33</td><td>150</td></tr>
+<tr><td>Traditional</td><td>5090</td><td>1574</td><td>0.31</td><td>155</td></tr>
+</tbody></table>
+<p>PrediCache executes more instructions than vmcache but achieves 67% better IPC, resulting in fewer total cycles. The extra instructions (hash table work) are hidden by superscalar execution.</p>
+<h3 id="memory-overhead">Memory Overhead</h3>
+<table><thead><tr><th>Design</th><th>Overhead at 100× OOM</th></tr></thead><tbody>
+<tr><td>vmcache</td><td>~39% of buffer pool size</td></tr>
+<tr><td>PrediCache</td><td>~2–3% (proportional to pool, not storage)</td></tr>
+<tr><td>LeanStore</td><td>~2–3%</td></tr>
+</tbody></table>
+<p>vmcache must allocate frame headers for every page on the SSD, not just cached pages.</p>
+<h3 id="preferred-frame-hit-rate">Preferred Frame Hit Rate</h3>
+<table><thead><tr><th>Dataset size</th><th>Pages in preferred pos.</th><th>Accesses hitting predicted frame</th></tr></thead><tbody>
+<tr><td>0.5× pool</td><td>75%</td><td>96%</td></tr>
+<tr><td>3× pool</td><td>3%</td><td>91%</td></tr>
+</tbody></table>
+<p>Even at 3× OOM, 91% of accesses use prediction (hot B-tree inner nodes stay in preferred frames).</p>
+<hr />
+<h2 id="design-comparison-table">Design Comparison Table</h2>
+<table><thead><tr><th></th><th>impl.</th><th>#pages</th><th>metadata</th><th>perf</th><th>graph refs</th></tr></thead><tbody>
+<tr><td>Traditional</td><td>easy</td><td>unlimited</td><td>low</td><td>low</td><td>yes</td></tr>
+<tr><td>Ptr. swizzling</td><td>hard</td><td>unlimited</td><td>low</td><td>high</td><td><strong>no</strong></td></tr>
+<tr><td>LIPAH</td><td>medium</td><td><strong>32-bit only</strong></td><td>low</td><td>high</td><td>yes</td></tr>
+<tr><td>vmcache</td><td>medium†</td><td>limited by metadata</td><td><strong>high</strong></td><td>high</td><td>yes</td></tr>
+<tr><td><strong>Predictive Translation</strong></td><td><strong>easy</strong></td><td><strong>unlimited</strong></td><td><strong>low</strong></td><td><strong>high</strong></td><td><strong>yes</strong></td></tr>
+</tbody></table>
+<p>†requires OS modification; hard to support sampling-based eviction</p>
+<hr />
+<h2 id="key-papers">Key Papers</h2>
+<ul>
+<li>Zinsmeister et al., "Predictive Translation: High-Performance Buffer Management Without the Trade-Offs", SIGMOD 2026</li>
+<li>Leis et al., "Virtual-Memory Assisted Buffer Management" (vmcache), SIGMOD 2023</li>
+<li>Leis et al., "LeanStore: In-Memory Data Management beyond Main Memory" (pointer swizzling), ICDE 2018</li>
+<li>Chang et al., "Resource-Adaptive Query Execution with Paged Memory Management" (LIPAH), CIDR 2025</li>
+<li>Johnson et al., "Shore-MT: a scalable storage manager for the multicore era", EDBT 2009</li>
+<li>Leis et al., "Optimistic Lock Coupling", IEEE Data Eng. Bull. 2019</li>
+<li>Vöhringer &amp; Leis, "Write-Aware Timestamp Tracking" (WATT eviction), VLDB 2023</li>
+</ul>
+<hr />
+<h2 id="limitations-and-future-work">Limitations and Future Work</h2>
+<ul>
+<li>No native variable-size page support (orthogonal to transaction processing; tiered pool like Umbra/Bf-Tree is a starting point)</li>
+<li>Cloud-native cost model not yet explored (re-evaluating the 5-minute rule for cloud)</li>
+<li>Only single-node; disaggregated storage has different buffer management requirements</li>
+</ul>
+<hr />
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/">HyPer/Umbra/CedarDB</a> — Umbra's vmcache and pointer swizzling that this paper directly builds upon</li>
+<li><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a> — Cloud-native buffer management challenges mentioned as future work</li>
+<li><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/">MongoDB/WiredTiger Internals</a> — WiredTiger's cache and eviction policies are a production buffer management system</li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a> — Memory barriers and cache control instructions relevant to superscalar-aware buffer design</li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

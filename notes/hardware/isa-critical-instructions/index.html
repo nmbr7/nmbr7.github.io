@@ -1,0 +1,1910 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">ISA Critical Instructions</h1>
+  <h1 id="critical-isa-instructions-arm-aarch64-x86-64-and-risc-v">Critical ISA Instructions: ARM AArch64, x86-64, and RISC-V</h1>
+<p>Comprehensive reference for performance-critical instructions across the three dominant ISAs. Covers memory ordering, SIMD/vector, cache control, atomics, bit manipulation, cryptography, branch/control flow, system instructions, floating point, string operations, transactional memory, virtualization, and performance monitoring.</p>
+<p><strong>Last updated: 2026-03-20</strong></p>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/#1-cross-isa-fundamentals">Cross-ISA Fundamentals</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/#2-memory-ordering-and-barriers">Memory Ordering and Barriers</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/#3-simd-and-vector-processing">SIMD and Vector Processing</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/#4-cache-control">Cache Control</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/#5-atomics-and-lock-free-instructions">Atomics and Lock-Free Instructions</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/#6-bit-manipulation">Bit Manipulation</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/#7-cryptography-acceleration">Cryptography Acceleration</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/#8-branch-and-control-flow-security">Branch and Control Flow Security</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/#9-system-and-privileged-instructions">System and Privileged Instructions</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/#10-floating-point-and-precision">Floating Point and Precision</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/#11-string-and-memory-operations">String and Memory Operations</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/#12-transactional-memory">Transactional Memory</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/#virtualization">Virtualization</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/#14-performance-monitoring">Performance Monitoring</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/#15-compiler-mapping-c11-c-atomics-to-isa">Compiler Mapping: C11/C++ Atomics to ISA</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/#16-isa-extension-discovery">ISA Extension Discovery</a></li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/#17-key-papers-and-resources">Key Papers and Resources</a></li>
+</ol>
+<hr />
+<h2 id="1-cross-isa-fundamentals">1. Cross-ISA Fundamentals</h2>
+<h3 id="1-1-encoding-fixed-vs-variable-vs-compressed">1.1 Encoding: Fixed vs Variable vs Compressed</h3>
+<pre><code>ISA          Encoding         Instruction Width    Decode Complexity
+-----------  ---------------  -------------------  ------------------
+x86-64       Variable-length  1-15 bytes           High (prefix hell)
+AArch64      Fixed-width      4 bytes              Low (uniform)
+RISC-V       Fixed + C ext    4 bytes / 2 bytes    Low-Medium
+</code></pre>
+<p><strong>x86-64 variable-length encoding:</strong></p>
+<ul>
+<li>Legacy prefixes (up to 4), REX/VEX/EVEX prefix, opcode (1-3 bytes), ModR/M, SIB, displacement, immediate</li>
+<li>Intel APX (2024): introduces REX2 prefix for 32 GPRs, EVEX-extended legacy instructions, NDD (new data destination) 3-operand form, conditional stores (CFCMOV), suppressed flags (NF bit)</li>
+<li>Decode is the bottleneck: modern x86 CPUs have dedicated predecode stages, micro-op caches (uop cache / DSB on Intel, op cache on AMD), and loop stream detectors</li>
+<li>Macro-fusion: CMP+JCC fused into single uop on Intel/AMD (saves decode bandwidth)</li>
+</ul>
+<p><strong>AArch64 fixed-width encoding:</strong></p>
+<ul>
+<li>Every instruction is exactly 32 bits -- enormous simplification for fetch/decode</li>
+<li>Instruction field encoding is highly regular: bits [31:25] usually identify the instruction class</li>
+<li>Conditional execution via condition codes on select instructions (CSEL, CSINC, CSNEG, CCMP) rather than predicated execution of ARMv7</li>
+<li>Register encoding is uniform (5 bits for 32 GPRs X0-X30 + SP/ZR)</li>
+</ul>
+<p><strong>RISC-V encoding:</strong></p>
+<ul>
+<li>Base ISA (RV64I): 32-bit fixed-width instructions, extremely regular encoding</li>
+<li>C extension (Zca/Zcb/Zcf/Zcd): 16-bit compressed instructions for ~50% of common operations, reducing code size by ~25-30%</li>
+<li>Extensions add instructions but never change base encoding -- guaranteed backwards compatibility</li>
+<li>Custom instruction space (custom-0 through custom-3) reserved for domain-specific accelerators</li>
+</ul>
+<p><strong>Impact on performance:</strong></p>
+<ul>
+<li>x86 decode bottleneck: Intel's uop cache (since Sandy Bridge) holds ~1536 uops, bypassing the complex decoder for hot loops. When uop cache misses, the legacy decode pipeline (4-wide on P-cores, 6-wide on Lion Cove) becomes the bottleneck</li>
+<li>AArch64 decode advantage: Apple M-series achieves 8-wide decode trivially due to fixed encoding. Neoverse V2 (Grace) decodes 8 instructions/cycle</li>
+<li>RISC-V: SiFive P870 achieves 6-wide decode; the C extension complicates alignment but is manageable compared to x86</li>
+</ul>
+<h3 id="1-2-memory-model-comparison">1.2 Memory Model Comparison</h3>
+<pre><code>                  x86-64 (TSO)           AArch64 (Weakly Ordered)    RISC-V (RVWMO)
+                  ==================     ========================    =================
+Store-Store       Ordered (guaranteed)   Reorderable                 Reorderable
+Load-Load         Ordered (guaranteed)   Reorderable                 Reorderable
+Load-Store        Ordered (guaranteed)   Reorderable                 Reorderable
+Store-Load        REORDERABLE            Reorderable                 Reorderable
+Dependent loads   Ordered (guaranteed)   Ordered (guaranteed*)       Ordered (RISC-V 2024+)
+Atomics           Sequential consistent  Acquire/Release explicit    Acquire/Release explicit
+</code></pre>
+<p>*ARM has address dependency ordering but NOT control dependency ordering. The infamous "MP+dmb.sy+ctrl" litmus test shows that a branch dependent on a load does NOT order subsequent loads without an explicit ISB or DMB.</p>
+<p><strong>x86-64 Total Store Order (TSO):</strong></p>
+<ul>
+<li>Every load acts as if it has acquire semantics</li>
+<li>Every store acts as if it has release semantics</li>
+<li>Only Store-Load reordering is allowed (and store-buffer forwarding)</li>
+<li>LOCK prefix or MFENCE needed only for sequential consistency (StoreLoad barrier)</li>
+<li>This is why most x86 lock-free code "just works" -- the hardware is doing most of the fencing for you</li>
+<li>Gotcha: non-temporal stores (MOVNTI, MOVNTDQ) bypass TSO and are weakly ordered -- require SFENCE</li>
+</ul>
+<p><strong>AArch64 weakly-ordered model:</strong></p>
+<ul>
+<li>All four reorderings permitted unless explicitly prevented</li>
+<li>Load-Acquire (LDAR/LDAPR) and Store-Release (STLR) provide one-directional barriers</li>
+<li>ARMv8.3 adds LDAPR: load-acquire with weaker ordering than LDAR (acquire but can be reordered with earlier stores to different addresses -- "RCpc" semantics matching C++ memory_order_consume-like behavior)</li>
+<li>DMB/DSB/ISB for explicit barriers (see Section 2)</li>
+<li>Multi-copy atomicity: ARMv8 guarantees it -- a store visible to one non-originating core is visible to all</li>
+</ul>
+<p><strong>RISC-V RVWMO (Weak Memory Ordering):</strong></p>
+<ul>
+<li>Extremely relaxed: essentially only preserves syntactic data dependencies and same-address ordering</li>
+<li>fence instruction with fine-grained bits: fence rw,rw / fence r,r / fence w,w / fence rw,w etc.</li>
+<li>Ztso extension: provides TSO semantics for x86 binary translation (useful for QEMU, Rosetta-like scenarios)</li>
+<li>Zam extension (proposed): misaligned atomics support</li>
+<li>RISC-V 2024 ratified "Svnapot" and strengthened dependency ordering rules</li>
+</ul>
+<h3 id="1-3-register-files">1.3 Register Files</h3>
+<pre><code>ISA        GPRs    FP Regs       Vector Regs              Special
+--------   ------  ------------  -----------------------  ------------------
+x86-64     16*     16 XMM/YMM    32 ZMM (AVX-512)        FLAGS, RIP, segments
+AArch64    31      32 V (128b)   32 Z (scalable SVE)      NZCV, SP, PC (not GPR)
+RISC-V     32      32 F          32 V (scalable RVV)      zero (x0), pc
+</code></pre>
+<p>*Intel APX doubles GPRs to 32 (R16-R31) via REX2/extended EVEX. AMD has not yet adopted APX.</p>
+<hr />
+<h2 id="2-memory-ordering-and-barriers">2. Memory Ordering and Barriers</h2>
+<h3 id="2-1-x86-64-barriers">2.1 x86-64 Barriers</h3>
+<table><thead><tr><th>Instruction</th><th>Encoding</th><th>Effect</th><th>Latency (cycles)</th></tr></thead><tbody>
+<tr><td><code>MFENCE</code></td><td><code>0F AE F0</code></td><td>Full fence: all loads and stores before MFENCE complete before any loads/stores after</td><td>~33-40 (Intel), ~20 (AMD Zen4)</td></tr>
+<tr><td><code>SFENCE</code></td><td><code>0F AE F8</code></td><td>Store fence: all stores before SFENCE visible before any stores after</td><td>~4-6</td></tr>
+<tr><td><code>LFENCE</code></td><td><code>0F AE E8</code></td><td>Load fence: all loads before LFENCE complete before any loads after. Also serializes instruction stream (used for Spectre mitigation)</td><td>~4-6</td></tr>
+<tr><td><code>LOCK</code> prefix</td><td><code>F0</code></td><td>On atomic RMW: implicit full barrier (both acquire + release). Locks cache line in MESI exclusive state</td><td>~18-22 (uncontended), varies with contention</td></tr>
+</tbody></table>
+<p><strong>Microarchitectural details:</strong></p>
+<p><code>MFENCE</code> drains the store buffer completely. On Intel, it also acts as a dispatch serializing instruction (no younger uops execute until MFENCE retires). On AMD Zen4+, MFENCE is lighter -- it only waits for the store buffer to drain, not full serialization.</p>
+<p><code>LFENCE</code> was originally specified as a load fence only, but Intel's implementation makes it dispatch-serializing (no younger uops dispatched until all older uops retire). AMD made LFENCE dispatch-serializing starting with a microcode update (needed for Spectre v1 mitigation via <code>lfence</code> after bounds check). This is controlled by MSR <code>C001_1029[1]</code> (Serializing LFENCE) on AMD.</p>
+<p><code>SFENCE</code> only orders stores -- specifically, it ensures WC (write-combining) and NT stores are visible. Under TSO, regular stores are already ordered, so SFENCE is only needed after <code>MOVNTI</code>/<code>MOVNTDQ</code>/<code>MOVNTPS</code> etc.</p>
+<p><strong>Real-world usage:</strong></p>
+<pre><code data-lang="c">// Linux kernel: smp_mb() on x86
+// Since x86 TSO only reorders Store-Load, a LOCK&#39;ed instruction is
+// preferred over MFENCE (faster on most microarchitectures)
+#define smp_mb()    asm volatile(&quot;lock; addl $0,-4(%%rsp)&quot; ::: &quot;memory&quot;, &quot;cc&quot;)
+
+// Spectre v1 mitigation in kernel array bounds check
+if (index &lt; array_size) {
+    asm volatile(&quot;lfence&quot;);  // Prevent speculative load
+    value = array[index];
+}
+</code></pre>
+<h3 id="2-2-aarch64-barriers">2.2 AArch64 Barriers</h3>
+<table><thead><tr><th>Instruction</th><th>Effect</th><th>Variants</th></tr></thead><tbody>
+<tr><td><code>DMB</code> (Data Memory Barrier)</td><td>Orders memory accesses; does NOT stall execution</td><td><code>DMB ISH</code> (inner shareable), <code>DMB OSH</code> (outer shareable), <code>DMB SY</code> (full system), <code>DMB ISHLD</code> (load-load inner), <code>DMB ISHST</code> (store-store inner)</td></tr>
+<tr><td><code>DSB</code> (Data Synchronization Barrier)</td><td>Like DMB but also stalls execution until all memory accesses complete</td><td>Same variants as DMB: <code>DSB ISH</code>, <code>DSB SY</code>, etc.</td></tr>
+<tr><td><code>ISB</code> (Instruction Synchronization Barrier)</td><td>Flushes pipeline, ensuring all subsequent instructions are fetched fresh. Required after modifying system registers, page tables, or self-modifying code</td><td>No variants; always full</td></tr>
+<tr><td><code>LDAR</code> (Load-Acquire Register)</td><td>Load with acquire semantics: no subsequent memory access (load or store) can be reordered before this load</td><td><code>LDARB</code> (byte), <code>LDARH</code> (halfword), <code>LDAR</code> (word/doubleword)</td></tr>
+<tr><td><code>STLR</code> (Store-Release Register)</td><td>Store with release semantics: no preceding memory access can be reordered after this store</td><td><code>STLRB</code>, <code>STLRH</code>, <code>STLR</code></td></tr>
+<tr><td><code>LDAPR</code> (Load-Acquire RCpc)</td><td>Weaker acquire: prevents reordering of later loads/stores before this load, but allows reordering with earlier stores to different addresses</td><td>ARMv8.3-RCPC. <code>LDAPRB</code>, <code>LDAPRH</code></td></tr>
+</tbody></table>
+<p><strong>Shareability domains:</strong></p>
+<ul>
+<li><strong>NSH</strong> (non-shareable): only this core</li>
+<li><strong>ISH</strong> (inner shareable): all cores in the same inner shareable domain (typically all cores in a socket)</li>
+<li><strong>OSH</strong> (outer shareable): all cores across sockets / all bus masters</li>
+<li><strong>SY</strong> (system): everything including peripherals, DMA engines</li>
+</ul>
+<p>This matters enormously for multi-socket ARM servers (Ampere Altra, Neoverse N2/V2 based systems). Using <code>DMB ISH</code> instead of <code>DMB SY</code> avoids expensive cross-socket traffic for workloads confined to one socket.</p>
+<p><strong>DMB vs DSB:</strong></p>
+<ul>
+<li><code>DMB</code> orders memory accesses but allows the CPU to continue executing non-memory instructions speculatively</li>
+<li><code>DSB</code> stalls the pipeline until all prior memory accesses complete. Required before <code>ISB</code>, before <code>WFE</code>/<code>WFI</code>, and before TLB maintenance (<code>TLBI</code> followed by <code>DSB ISH</code> followed by <code>ISB</code>)</li>
+</ul>
+<p><strong>Real-world usage:</strong></p>
+<pre><code data-lang="c">// Linux kernel: smp_mb() on AArch64
+#define smp_mb()     asm volatile(&quot;dmb ish&quot; ::: &quot;memory&quot;)
+#define smp_rmb()    asm volatile(&quot;dmb ishld&quot; ::: &quot;memory&quot;)
+#define smp_wmb()    asm volatile(&quot;dmb ishst&quot; ::: &quot;memory&quot;)
+
+// TLB invalidation sequence (ARM Architecture Reference Manual)
+TLBI VAE1IS, Xt     // Invalidate TLB entry by VA, EL1, inner shareable
+DSB ISH              // Wait for TLBI to complete
+ISB                  // Ensure subsequent fetches see new translations
+
+// Spin-lock release (store-release is sufficient)
+STLR W0, [X1]       // Release lock -- all prior accesses visible before unlock
+</code></pre>
+<h3 id="2-3-risc-v-fences">2.3 RISC-V Fences</h3>
+<table><thead><tr><th>Instruction</th><th>Effect</th><th>Encoding bits</th></tr></thead><tbody>
+<tr><td><code>fence rw, rw</code></td><td>Full fence (all prior reads/writes complete before all subsequent reads/writes)</td><td>PI=1, PO=1, PR=1, PW=1, SI=1, SO=1, SR=1, SW=1</td></tr>
+<tr><td><code>fence r, r</code></td><td>Read-read fence (load-load ordering)</td><td>PR=1, SR=1</td></tr>
+<tr><td><code>fence w, w</code></td><td>Write-write fence (store-store ordering)</td><td>PW=1, SW=1</td></tr>
+<tr><td><code>fence rw, w</code></td><td>Release fence (prior reads/writes before subsequent writes)</td><td>PR=1, PW=1, SW=1</td></tr>
+<tr><td><code>fence r, rw</code></td><td>Acquire fence (prior reads before subsequent reads/writes)</td><td>PR=1, SR=1, SW=1</td></tr>
+<tr><td><code>fence.tso</code></td><td>TSO fence (orders all except store-load; equivalent to <code>fence rw,rw</code> minus StoreLoad)</td><td>Special encoding</td></tr>
+<tr><td><code>fence.i</code></td><td>Instruction fence: ensures subsequent instruction fetches see all prior stores (self-modifying code, JIT)</td><td>Separate Zifencei extension</td></tr>
+</tbody></table>
+<p><strong>RISC-V atomic ordering annotations:</strong>
+RISC-V AMO and LR/SC instructions carry <code>.aq</code> (acquire) and <code>.rl</code> (release) bits directly:</p>
+<ul>
+<li><code>amoadd.w.aq</code> -- atomic add with acquire</li>
+<li><code>amoadd.w.rl</code> -- atomic add with release</li>
+<li><code>amoadd.w.aqrl</code> -- atomic add with sequential consistency</li>
+<li>No annotation: relaxed ordering</li>
+</ul>
+<p><strong>The Ztso extension:</strong>
+When Ztso is implemented, the hardware provides TSO semantics for ALL memory accesses. <code>fence</code> instructions become no-ops (except <code>fence.i</code>). This is primarily useful for running x86 binaries under translation (similar to how Apple's Rosetta 2 relies on ARM's TSO mode via ACTLR_EL1.EnTSO on Apple Silicon).</p>
+<p><strong>Real-world usage:</strong></p>
+<pre><code data-lang="c">// Linux kernel: RISC-V memory barriers
+#define smp_mb()     asm volatile(&quot;fence rw, rw&quot; ::: &quot;memory&quot;)
+#define smp_rmb()    asm volatile(&quot;fence r, r&quot; ::: &quot;memory&quot;)
+#define smp_wmb()    asm volatile(&quot;fence w, w&quot; ::: &quot;memory&quot;)
+
+// Release store pattern (no dedicated load-acquire/store-release instructions
+// in base RISC-V, so we use fence + store):
+fence rw, w          // Release fence
+sw   a0, 0(a1)      // Store
+
+// Acquire load pattern:
+lw   a0, 0(a1)      // Load
+fence r, rw          // Acquire fence
+
+// With Zacas extension (2024 ratified): Compare-and-swap
+// amocas.d.aqrl rd, rs2, (rs1)  -- 64-bit CAS with full ordering
+</code></pre>
+<h3 id="2-4-summary-comparison-barrier-cost">2.4 Summary Comparison: Barrier Cost</h3>
+<pre><code>Operation              x86-64          AArch64              RISC-V
+--------------------   ----------      ------------------   ------------------
+Relaxed load           MOV (0 extra)   LDR (0 extra)       LD (0 extra)
+Acquire load           MOV (free)      LDAR (~1-3 extra)   LD + fence r,rw
+Release store          MOV (free)      STLR (~1-3 extra)   fence rw,w + SD
+Seq-cst load           MOV (free)      LDAR (~1-3 extra)   fence rw,rw + LD + fence r,rw
+Seq-cst store          MOV+MFENCE or   STLR (~1-3 extra)   fence rw,w + SD + fence rw,rw
+                       LOCK;MOV (~20+)
+Seq-cst RMW            LOCK CMPXCHG    LDAXR/STLXR loop    LR.aqrl/SC.aqrl
+Full barrier           MFENCE (~33)    DMB ISH (~10-30)     fence rw,rw (~10-30)
+</code></pre>
+<p>The key insight: x86-64's strong memory model makes relaxed/acquire/release essentially free (the hardware enforces TSO), but seq-cst stores are expensive (requiring MFENCE or LOCK prefix). ARM and RISC-V make relaxed access truly relaxed (better for data structures that don't need ordering), but you pay explicitly for every ordering constraint.</p>
+<hr />
+<h2 id="3-simd-and-vector-processing">3. SIMD and Vector Processing</h2>
+<h3 id="3-1-x86-64-sse-through-avx-512-and-apx">3.1 x86-64: SSE through AVX-512 and APX</h3>
+<p><strong>Evolution:</strong></p>
+<pre><code>Extension   Year   Width   Key Capability
+---------   ----   -----   ------------------------------------------
+SSE         1999   128b    4x float, integer ops via MMX/SSE2
+SSE2        2001   128b    2x double, 16x byte, full integer SIMD
+SSE4.1      2007   128b    PMULLD, DPPS, BLENDVPS, PTEST, INSERTPS
+SSE4.2      2008   128b    PCMPESTRI/PCMPISTRM (string processing), CRC32
+AVX         2011   256b    256-bit float (VEX encoding, non-destructive 3-operand)
+AVX2        2013   256b    256-bit integer (VPGATHERDD, VPERMD, VPSHUFB 256b)
+AVX-512     2016   512b    64-byte vectors, 8 mask registers (k0-k7), embedded broadcast, rounding
+AVX10.1     2024   256b*   AVX-512 instruction set at 256-bit minimum width, uniform across P/E cores
+AVX10.2     2025   256b+   BF16/FP16 arithmetic, minmax with NaN control, YMM convert
+</code></pre>
+<p>*AVX10 decouples the AVX-512 instruction set from 512-bit execution width. Intel Arrow Lake E-cores support AVX10.1/256, while P-cores support AVX10.1/512. This resolves the asymmetric-SIMD problem that plagued Alder Lake.</p>
+<p><strong>Key instruction categories:</strong></p>
+<p><strong>Data movement and shuffles:</strong></p>
+<pre><code>VMOVDQU64 zmm1, [mem]         // Unaligned 512-bit load
+VMOVDQA64 zmm1, [mem]         // Aligned 512-bit load (faults on unaligned)
+VPSHUFB   ymm1, ymm2, ymm3   // Byte shuffle (LUT lookup) -- the Swiss army knife
+VPERMD    ymm1, ymm2, ymm3   // Cross-lane 32-bit permute
+VPERMB    zmm1, zmm2, zmm3   // Byte permute (AVX-512 VBMI)
+VSHUFPS   ymm1, ymm2, ymm3   // Shuffle 32-bit floats with immediate control
+VBROADCASTSD ymm1, xmm2      // Broadcast scalar to all lanes
+</code></pre>
+<p><strong>Arithmetic:</strong></p>
+<pre><code>VPADDD    zmm1, zmm2, zmm3   // 16x 32-bit integer add
+VPMULLD   zmm1, zmm2, zmm3   // 16x 32-bit integer multiply (low 32 bits)
+VPMADD52LUQ zmm1, zmm2, zmm3 // 52-bit integer FMA (IFMA) -- used for big-number crypto
+VFMADD231PS zmm1, zmm2, zmm3 // 16x fused multiply-add (a*b+c) single-precision
+VPDPBUSD  zmm1, zmm2, zmm3   // Dot product of uint8*int8 accumulated to int32 (VNNI)
+VPDPWSSD  zmm1, zmm2, zmm3   // Dot product of int16*int16 accumulated to int32 (VNNI)
+</code></pre>
+<p><strong>Comparison and masking (AVX-512):</strong></p>
+<pre><code>VPCMPD    k1{k2}, zmm1, zmm2, imm8  // Compare 32-bit ints, result in mask register
+VPTESTMD  k1, zmm1, zmm2            // Test packed 32-bit, set mask where AND != 0
+KMOVW     k1, eax                    // Move GPR to mask register
+KANDW     k1, k2, k3                 // AND mask registers
+KNOTW     k1, k2                     // NOT mask register
+VMOVDQU32 zmm1{k1}{z}, [mem]        // Masked load: only load lanes where k1 bits are set
+                                     // {z} = zero-masking, without {z} = merge-masking
+</code></pre>
+<p><strong>Gather/Scatter:</strong></p>
+<pre><code>VPGATHERDD zmm1{k1}, [rax + zmm2*4]    // Gather 32-bit ints from scattered addresses
+VPSCATTERDD [rax + zmm2*4]{k1}, zmm1   // Scatter 32-bit ints to scattered addresses
+</code></pre>
+<p>Gather performance has improved dramatically: on Zen4, VPGATHERDD is ~3-4 cycles per element (8-element gather). On Intel Sapphire Rapids, dedicated gather hardware achieves similar throughput. Scatter is slower (~5-8 cycles per element) due to write conflicts.</p>
+<p><strong>String processing (SSE4.2):</strong></p>
+<pre><code>PCMPESTRI xmm1, xmm2, imm8   // Packed compare explicit-length strings, return index
+PCMPESTRM xmm1, xmm2, imm8   // Same, return mask
+PCMPISTRI xmm1, xmm2, imm8   // Packed compare implicit-length strings (null-terminated)
+</code></pre>
+<p>Used by glibc's <code>strlen</code>, <code>strcmp</code>, <code>strstr</code>. The <code>imm8</code> controls comparison mode: equal-any (character set membership), ranges (character ranges), equal-each (string compare), equal-ordered (substring search). Processes 16 bytes per instruction.</p>
+<p><strong>Conflict detection (AVX-512CD):</strong></p>
+<pre><code>VPCONFLICTD zmm1, zmm2        // For each lane, set bits indicating earlier lanes with same value
+</code></pre>
+<p>Critical for vectorizing histograms and scatter-with-conflicts. Without this, parallel histogram updates require serial execution.</p>
+<p><strong>AVX-512 frequency throttling:</strong>
+Intel CPUs (Skylake-SP through Ice Lake) reduce core frequency when executing 512-bit instructions. Three license levels:</p>
+<ul>
+<li>L0 (base): normal frequency</li>
+<li>L1 (AVX2 heavy): ~100-200 MHz reduction</li>
+<li>L2 (AVX-512 heavy): ~200-400 MHz reduction</li>
+</ul>
+<p>On Sapphire Rapids+, L2 penalty is significantly reduced. On Zen4 (AMD), there is NO frequency penalty for AVX-512 (AMD implements 512-bit as two 256-bit halves in the execution units but does not throttle frequency).</p>
+<p><strong>Performance considerations:</strong></p>
+<ul>
+<li>Transition penalties between SSE and AVX states were a major problem on Haswell-Broadwell (the "AVX-SSE transition penalty"). Solved since Skylake with VEX-encoded forms (VZEROUPPER still recommended at function boundaries)</li>
+<li>Memory alignment: unaligned loads/stores have near-zero penalty on modern CPUs (since Nehalem for Intel, since Zen1 for AMD), but crossing cache line boundaries (64B) or page boundaries (4KB) still costs ~3-10 extra cycles</li>
+<li>Port pressure: AVX-512 instructions often require specific execution ports. Intel Sapphire Rapids has 2 FMA units at 512-bit, but only 1 shuffle unit at 512-bit</li>
+</ul>
+<h3 id="3-2-aarch64-neon-sve-sve2-sme">3.2 AArch64: NEON, SVE, SVE2, SME</h3>
+<p><strong>NEON (Advanced SIMD):</strong></p>
+<ul>
+<li>Fixed 128-bit vectors in V0-V31 registers</li>
+<li>Operates on 8/16/32/64-bit integer and 16/32/64-bit float elements</li>
+<li>Key instructions:</li>
+</ul>
+<pre><code>LDR   Q0, [X1]              // Load 128-bit vector
+LD1   {V0.4S}, [X1]         // Load 4x 32-bit single-precision
+LD2   {V0.4S, V1.4S}, [X1]  // Load interleaved (de-interleave 2 streams)
+LD4   {V0.4S-V3.4S}, [X1]   // Load interleaved (de-interleave 4 streams -- AoS to SoA!)
+TBL   V0.16B, {V1.16B}, V2.16B  // Byte lookup table (like PSHUFB)
+ADDV  S0, V1.4S             // Horizontal add across all lanes -&gt; scalar
+SADDLV D0, V1.4S            // Widening horizontal add (4x32 -&gt; 64)
+FMLA  V0.4S, V1.4S, V2.S[0]    // Fused multiply-accumulate, lane broadcast
+SMULL V0.4S, V1.4H, V2.4H  // Signed widening multiply (4x16 -&gt; 4x32)
+USHR  V0.4S, V1.4S, #5     // Unsigned shift right (all lanes)
+CMGT  V0.4S, V1.4S, V2.4S  // Compare greater-than, result is mask (all-ones or all-zeros)
+</code></pre>
+<p><strong>SVE (Scalable Vector Extension) / SVE2:</strong></p>
+<ul>
+<li>Vector length agnostic (VLA): code written once works across implementations with 128b to 2048b vectors</li>
+<li>Hardware implementations: Fujitsu A64FX (512b), Neoverse V1/V2 (256b/128b), Apple M4 (128b NEON only, no SVE), Graviton3/4 (256b SVE2)</li>
+<li>16 predicate registers (P0-P15) for per-lane masking</li>
+<li>First-fault loads for safe speculative access</li>
+<li>Gather/scatter with full hardware support</li>
+<li>Loop control: <code>WHILELT</code>, <code>INCP</code>, <code>BRKA</code> for predicate-driven loop management</li>
+</ul>
+<pre><code>// SVE key instructions:
+LD1W   {Z0.S}, P0/Z, [X1]         // Predicated load (only load where P0 is true)
+ST1W   {Z0.S}, P0, [X1]           // Predicated store
+ADD    Z0.S, Z1.S, Z2.S           // Vector add (scalable width)
+FMLA   Z0.S, P0/M, Z1.S, Z2.S    // Predicated fused multiply-add (merging)
+WHILELT P0.S, X0, X1              // Set predicate lanes where loop index &lt; limit
+INCP   X0, P0.S                   // Increment X0 by count of true predicate lanes
+LD1W   {Z0.S}, P0/Z, [X1, Z2.S, UXTW #2]  // Gather load (scatter addressing)
+COMPACT Z0.S, P0, Z1.S            // Compact: collect active lanes contiguously
+SPLICE Z0.S, P0, Z1.S, Z2.S      // Splice two vectors using predicate as cut point
+CLASTA  X0, P0, X0, Z1.S          // Conditional extract: last active element
+MATCH   P0.H, P1/Z, Z0.H, Z1.H   // SVE2: find matching elements (string search!)
+BDEP   Z0.S, Z1.S, Z2.S           // SVE2 bitmanip: bit deposit (like PDEP)
+BEXT   Z0.S, Z1.S, Z2.S           // SVE2 bitmanip: bit extract (like PEXT)
+</code></pre>
+<p><strong>SVE VLA programming model:</strong></p>
+<pre><code data-lang="c">// Example: VLA vector addition (works for ANY vector length)
+void vec_add(float *a, float *b, float *c, int n) {
+    int i = 0;
+    svbool_t pg;
+    while (svptest_first(svptrue_b32(), pg = svwhilelt_b32(i, n))) {
+        svfloat32_t va = svld1_f32(pg, &amp;a[i]);
+        svfloat32_t vb = svld1_f32(pg, &amp;b[i]);
+        svst1_f32(pg, &amp;c[i], svadd_f32_x(pg, va, vb));
+        i += svcntw();  // Increment by hardware vector length
+    }
+}
+</code></pre>
+<p><strong>SME (Scalable Matrix Extension) -- ARMv9.2, 2023+:</strong></p>
+<ul>
+<li>Adds ZA tile register: a square matrix of (SVL/8)x(SVL/8) bytes</li>
+<li>Streaming SVE mode (SMSTART/SMSTOP): separate execution mode optimized for matrix ops</li>
+<li>Outer product instructions: <code>FMOPA ZA0.S, P0/M, Z0.S, Z1.S</code> -- rank-1 update of tile</li>
+<li>SME2 (2024): multi-vector instructions operating on groups of 2/4 SVE vectors, LUTI2/LUTI4 (lookup table), quantized INT8 outer products</li>
+<li>Graviton4 reportedly implements SME2</li>
+</ul>
+<h3 id="3-3-risc-v-v-extension-rvv">3.3 RISC-V: V Extension (RVV)</h3>
+<p><strong>Ratified in RISC-V V extension 1.0 (2021), widely available 2024+:</strong></p>
+<ul>
+<li>Similar to SVE: vector-length agnostic (VLEN is implementation-defined, 128b to 65536b)</li>
+<li>32 vector registers V0-V31</li>
+<li><code>vsetvli</code> / <code>vsetivli</code> / <code>vsetvl</code> instructions configure the vector unit dynamically:
+<ul>
+<li>SEW (Selected Element Width): 8/16/32/64 bits</li>
+<li>LMUL (Length MULtiplier): 1/2/4/8 (or fractional 1/2, 1/4, 1/8) -- groups registers for longer vectors</li>
+<li>VL (Vector Length): actual number of elements to process</li>
+</ul>
+</li>
+</ul>
+<pre><code>// RVV key instructions:
+vsetvli  t0, a0, e32, m4, ta, ma   // Set vector length: 32-bit elements, LMUL=4, tail-agnostic, mask-agnostic
+vle32.v  v0, (a1)                   // Vector load 32-bit elements
+vse32.v  v0, (a2)                   // Vector store
+vadd.vv  v4, v0, v8                 // Vector add (vector + vector)
+vadd.vx  v4, v0, t1                 // Vector add (vector + scalar broadcast)
+vadd.vi  v4, v0, 5                  // Vector add (vector + immediate)
+vfmacc.vv v0, v4, v8               // FP fused multiply-accumulate (v0 += v4 * v8)
+vmseq.vv v0, v4, v8                // Set mask where equal
+vluxei32.v v4, (a1), v8            // Gather: indexed load using 32-bit indices
+vsuxei32.v v4, (a1), v8            // Scatter: indexed store
+vslidedown.vx v4, v0, t0           // Slide elements down (cross-lane shift)
+vrgather.vv v4, v0, v8             // General permute (like VPERM)
+vcompress.vm v4, v0, v8            // Compress: collect masked elements (like SVE COMPACT)
+vredsum.vs v0, v4, v8              // Reduction: sum all elements
+vfredosum.vs v0, v4, v8            // Ordered FP reduction (deterministic)
+</code></pre>
+<p><strong>RVV LMUL register grouping:</strong>
+With LMUL=4, vector operations use groups of 4 registers (v0-v3 as one operand, v4-v7 as another). This effectively quadruples the vector length at the cost of reducing available register groups from 32 to 8.</p>
+<p><strong>Implementations:</strong></p>
+<ul>
+<li>SiFive P870/X390: RVV 1.0, VLEN=256 (expected 2025 silicon)</li>
+<li>T-Head C920: RVV 1.0, VLEN=128</li>
+<li>SpacemiT K1/X60: RVV 1.0, VLEN=256 (BananaPi BPI-F3)</li>
+<li>Tenstorrent Ascalon: RVV 1.0 (expected 2025-2026)</li>
+<li>Ventana Veyron V2: RVV 1.0, VLEN=128 (server-class, 2024)</li>
+</ul>
+<h3 id="3-4-simd-usage-in-real-systems">3.4 SIMD Usage in Real Systems</h3>
+<p><strong>Database engines (columnar scan, filtering, aggregation):</strong></p>
+<ul>
+<li>DuckDB: extensive use of AVX2 for columnar operations; <code>FilterExecutor</code> uses SIMD comparison + mask extraction for WHERE clauses; ALP (Adaptive Lossless floating-Point compression) uses SIMD for encode/decode</li>
+<li>ClickHouse: AVX2/AVX-512 for string operations (LIKE, hasToken), hash computation, aggregation kernels</li>
+<li>Velox (Meta): SIMD-optimized dictionary decoding, Parquet delta decoding, filter evaluation</li>
+<li>DataFusion: leverages Arrow's SIMD-optimized compute kernels</li>
+</ul>
+<p><strong>String processing:</strong></p>
+<ul>
+<li>simdjson: parses JSON at &gt;2 GB/s using AVX2/NEON; <code>VPSHUFB</code> for classifying characters, <code>VPMOVMSKB</code> for extracting structural character positions</li>
+<li>simdutf: UTF-8/UTF-16 validation and transcoding at 10+ GB/s</li>
+<li>Hyperscan (Intel): regex matching using AVX-512 and the <code>VPCMPESTRI</code>-family approach</li>
+</ul>
+<p><strong>Compression:</strong></p>
+<ul>
+<li>LZ4/ZSTD: SIMD for match finding (hash computation), literal copy</li>
+<li>Apache Arrow: SIMD for dictionary encoding/decoding, run-length decoding, null bitmap operations</li>
+</ul>
+<hr />
+<h2 id="4-cache-control">4. Cache Control</h2>
+<h3 id="4-1-prefetch-instructions">4.1 Prefetch Instructions</h3>
+<table><thead><tr><th>ISA</th><th>Instruction</th><th>Effect</th><th>Typical Use</th></tr></thead><tbody>
+<tr><td>x86-64</td><td><code>PREFETCHT0</code></td><td>Prefetch to L1/L2/L3</td><td>Pointer chasing, B-tree traversal</td></tr>
+<tr><td>x86-64</td><td><code>PREFETCHT1</code></td><td>Prefetch to L2/L3 (skip L1)</td><td>Streaming data ahead of consumption</td></tr>
+<tr><td>x86-64</td><td><code>PREFETCHT2</code></td><td>Prefetch to L3 only</td><td>Far-ahead prefetch</td></tr>
+<tr><td>x86-64</td><td><code>PREFETCHNTA</code></td><td>Prefetch non-temporal (minimize cache pollution)</td><td>Streaming reads, one-pass scans</td></tr>
+<tr><td>x86-64</td><td><code>PREFETCHW</code></td><td>Prefetch for write (request exclusive ownership)</td><td>Imminent write, reduces RFO latency</td></tr>
+<tr><td>AArch64</td><td><code>PRFM PLDL1KEEP, [addr]</code></td><td>Prefetch for load, L1, keep in cache</td><td>General prefetch</td></tr>
+<tr><td>AArch64</td><td><code>PRFM PLDL1STRM, [addr]</code></td><td>Prefetch for load, L1, streaming (don't pollute)</td><td>One-pass scan</td></tr>
+<tr><td>AArch64</td><td><code>PRFM PSTL1KEEP, [addr]</code></td><td>Prefetch for store, L1, keep</td><td>Write prefetch</td></tr>
+<tr><td>AArch64</td><td><code>PRFM PLDL2KEEP, [addr]</code></td><td>Prefetch for load, L2, keep</td><td>Farther-ahead prefetch</td></tr>
+<tr><td>RISC-V</td><td><code>prefetch.r offset(rs1)</code></td><td>Prefetch for read (Zicbop extension)</td><td>Read prefetch</td></tr>
+<tr><td>RISC-V</td><td><code>prefetch.w offset(rs1)</code></td><td>Prefetch for write (Zicbop extension)</td><td>Write prefetch</td></tr>
+<tr><td>RISC-V</td><td><code>prefetch.i offset(rs1)</code></td><td>Prefetch for instruction fetch</td><td>JIT code prefetch</td></tr>
+</tbody></table>
+<p><strong>Software prefetching in practice:</strong></p>
+<p>In B-tree traversal (as in database index lookups), software prefetch is critical. When descending a B-tree, the next node to visit depends on the key comparison at the current node. By the time you know which child to visit, the memory access is on the critical path.</p>
+<pre><code data-lang="c">// Prefetch-optimized B-tree lookup (used in production databases)
+void btree_lookup(Node *root, Key key) {
+    Node *node = root;
+    while (!node-&gt;is_leaf) {
+        int pos = binary_search(node-&gt;keys, node-&gt;num_keys, key);
+        Node *child = node-&gt;children[pos];
+        // Prefetch the child we&#39;re about to visit
+        __builtin_prefetch(child, 0, 3);  // read, high temporal locality
+        // Also prefetch the grandchild (speculative -- might be wrong)
+        if (child-&gt;children[0])
+            __builtin_prefetch(child-&gt;children[0], 0, 2);
+        node = child;
+    }
+}
+</code></pre>
+<p>Group prefetching (Masstree, ART): instead of processing one lookup at a time, batch multiple lookups and issue prefetches for all of them before processing any. This fills the memory pipeline and hides latency.</p>
+<p><strong>Hardware prefetcher interaction:</strong>
+Modern CPUs have aggressive hardware prefetchers (L1 stream prefetcher, L2 stride prefetcher, LLC spatial prefetcher). Software prefetch can conflict with or complement hardware prefetchers:</p>
+<ul>
+<li>Sequential scan: hardware prefetcher handles this well; software prefetch adds little value</li>
+<li>Pointer chasing: hardware prefetcher cannot predict; software prefetch is essential</li>
+<li>Random access with known pattern: software prefetch is the only option</li>
+</ul>
+<h3 id="4-2-cache-line-flush-and-writeback">4.2 Cache Line Flush and Writeback</h3>
+<table><thead><tr><th>ISA</th><th>Instruction</th><th>Effect</th><th>Persistence Guarantee</th></tr></thead><tbody>
+<tr><td>x86-64</td><td><code>CLFLUSH [addr]</code></td><td>Invalidate cache line from all levels. Serializing.</td><td>Written to memory</td></tr>
+<tr><td>x86-64</td><td><code>CLFLUSHOPT [addr]</code></td><td>Like CLFLUSH but weakly ordered (can be reordered with other CLFLUSHOPTs)</td><td>Written to memory, needs SFENCE for ordering</td></tr>
+<tr><td>x86-64</td><td><code>CLWB [addr]</code></td><td>Write back cache line but retain clean copy in cache</td><td>Written to memory/persistence domain, needs SFENCE</td></tr>
+<tr><td>x86-64</td><td><code>CLDEMOTE [addr]</code></td><td>Move cache line to a lower cache level (L1-&gt;L3)</td><td>No flush, just priority demotion</td></tr>
+<tr><td>AArch64</td><td><code>DC CIVAC, Xt</code></td><td>Clean and Invalidate by VA to PoC (Point of Coherency)</td><td>Flushed to memory</td></tr>
+<tr><td>AArch64</td><td><code>DC CVAC, Xt</code></td><td>Clean by VA to PoC (writeback, retain clean copy)</td><td>Flushed to memory</td></tr>
+<tr><td>AArch64</td><td><code>DC CVAP, Xt</code></td><td>Clean by VA to PoP (Point of Persistence) -- ARMv8.2</td><td>Flushed to persistence domain</td></tr>
+<tr><td>AArch64</td><td><code>DC CVADP, Xt</code></td><td>Clean by VA to PoDP (Point of Deep Persistence) -- ARMv8.5</td><td>Flushed to deepest persistence domain</td></tr>
+<tr><td>AArch64</td><td><code>DC IVAC, Xt</code></td><td>Invalidate by VA (discard without writeback) -- privileged</td><td>Data loss! Privileged only</td></tr>
+<tr><td>AArch64</td><td><code>DC ZVA, Xt</code></td><td>Zero entire cache line (without read-for-ownership)</td><td>Allocates zeroed line</td></tr>
+<tr><td>RISC-V</td><td><code>cbo.clean addr</code></td><td>Clean cache block (writeback) -- Zicbom extension</td><td>Flushed to next level</td></tr>
+<tr><td>RISC-V</td><td><code>cbo.flush addr</code></td><td>Flush cache block (writeback + invalidate) -- Zicbom</td><td>Flushed to memory</td></tr>
+<tr><td>RISC-V</td><td><code>cbo.inval addr</code></td><td>Invalidate cache block (may discard dirty data) -- Zicbom</td><td>Dangerous: may lose data</td></tr>
+<tr><td>RISC-V</td><td><code>cbo.zero addr</code></td><td>Zero cache block (allocate + zero) -- Zicboz</td><td>Zeroed in cache</td></tr>
+</tbody></table>
+<p><strong>Persistent memory (PMEM) / CXL implications:</strong>
+CLWB + SFENCE is the canonical sequence for ensuring durability to persistent memory (Intel Optane DC PMEM, CXL 2.0 memory). The eADR (extended Asynchronous DRAM Refresh) feature on Intel platforms guarantees that data in the CPU write-pending queue is flushed to PMEM on power failure, making SFENCE alone sufficient (no CLWB needed). Without eADR, the sequence is:</p>
+<pre><code>store [addr], data
+CLWB [addr]           // Write back to persistence domain
+SFENCE                // Ensure CLWB completes
+// Now data is durable
+</code></pre>
+<p>ARM's <code>DC CVAP</code> (Clean to Point of Persistence) is the equivalent for ARM-based persistent memory systems.</p>
+<h3 id="4-3-non-temporal-stores">4.3 Non-Temporal Stores</h3>
+<table><thead><tr><th>ISA</th><th>Instruction</th><th>Effect</th></tr></thead><tbody>
+<tr><td>x86-64</td><td><code>MOVNTI [mem], reg</code></td><td>Store 32/64-bit integer, bypass cache (write-combining)</td></tr>
+<tr><td>x86-64</td><td><code>MOVNTDQ [mem], xmm/ymm/zmm</code></td><td>Store 128/256/512-bit vector, bypass cache</td></tr>
+<tr><td>x86-64</td><td><code>MOVNTPS [mem], xmm/ymm/zmm</code></td><td>Store packed single-precision, bypass cache</td></tr>
+<tr><td>x86-64</td><td><code>MOVNTDQA xmm, [mem]</code></td><td>Non-temporal load from WC memory (SSE4.1)</td></tr>
+<tr><td>AArch64</td><td><code>STNP Xt, Xt2, [addr]</code></td><td>Store pair, non-temporal hint (advisory, may be ignored)</td></tr>
+<tr><td>AArch64</td><td><code>LDNP Xt, Xt2, [addr]</code></td><td>Load pair, non-temporal hint</td></tr>
+<tr><td>RISC-V</td><td><code>ntstore</code> (proposed)</td><td>No standard NT store yet; implementation-defined via custom extensions</td></tr>
+</tbody></table>
+<p><strong>When to use non-temporal stores:</strong></p>
+<ul>
+<li>Writing large buffers that won't be read again soon (memset of large allocations, log writes)</li>
+<li>Streaming writes in ETL pipelines, checkpointing</li>
+<li>Avoiding cache pollution in multi-tenant / mixed workloads</li>
+</ul>
+<p><strong>Gotchas:</strong></p>
+<ul>
+<li>x86 NT stores are weakly ordered (break TSO). SFENCE required before any subsequent operation that depends on the stored data being visible</li>
+<li>NT stores must write full cache lines (64 bytes) to be efficient; partial writes cause expensive read-modify-write on the WC buffer</li>
+<li>On ARM, STNP is merely a hint -- the hardware may ignore it entirely. Behavior varies significantly between implementations (Apple vs Cortex vs Neoverse)</li>
+</ul>
+<hr />
+<h2 id="5-atomics-and-lock-free-instructions">5. Atomics and Lock-Free Instructions</h2>
+<h3 id="5-1-x86-64-atomics">5.1 x86-64 Atomics</h3>
+<p><strong>The LOCK prefix:</strong>
+When applied to a read-modify-write instruction, LOCK ensures the operation is atomic with respect to all processors. Microarchitecturally:</p>
+<ol>
+<li>If the cache line is already in Modified/Exclusive state in L1, the LOCK is handled entirely in the cache (no bus lock) -- this is the common "cache lock" optimization since Pentium Pro</li>
+<li>If the line is Shared or Invalid, the core must acquire exclusive ownership (RFO -- Request For Ownership) and hold it during the RMW</li>
+<li>Split-lock (crossing cache line boundary): triggers a bus lock, which is catastrophically expensive (~100x slower). Intel Sapphire Rapids+ can generate #AC exception on split locks (controlled via MSR)</li>
+</ol>
+<pre><code>// Atomic instructions (all require LOCK prefix for atomicity):
+LOCK XADD  [mem], reg         // Atomic fetch-and-add. Returns old value.
+LOCK CMPXCHG [mem], reg       // Compare-and-exchange (CAS). Compare RAX with [mem];
+                               // if equal, store reg to [mem]. Sets ZF on success.
+LOCK CMPXCHG8B [mem]          // 64-bit CAS (EDX:EAX expected, ECX:EBX desired)
+LOCK CMPXCHG16B [mem]         // 128-bit CAS (RDX:RAX expected, RCX:RBX desired)
+                               // Critical for lock-free double-word operations
+LOCK XCHG  [mem], reg         // Atomic swap. XCHG always has implicit LOCK.
+LOCK BTS   [mem], imm/reg     // Atomic bit test-and-set (returns old bit value)
+LOCK BTC   [mem], imm/reg     // Atomic bit test-and-complement
+LOCK BTR   [mem], imm/reg     // Atomic bit test-and-reset
+LOCK ADD   [mem], imm/reg     // Atomic add (no return value, cheaper than XADD)
+LOCK INC   [mem]              // Atomic increment
+LOCK DEC   [mem]              // Atomic decrement
+</code></pre>
+<p><strong>CMPXCHG16B (Double-Width CAS):</strong>
+Essential for lock-free data structures that need to atomically update two adjacent 64-bit words (e.g., pointer + counter to solve the ABA problem, or lock-free deque with head + tail):</p>
+<pre><code data-lang="c">// Lock-free stack with ABA counter
+struct Node { Node* next; };
+struct TaggedPtr { Node* ptr; uint64_t tag; } __attribute__((aligned(16)));
+
+bool cas128(TaggedPtr *target, TaggedPtr expected, TaggedPtr desired) {
+    return __sync_bool_compare_and_swap((__int128*)target,
+                                         *(__int128*)&amp;expected,
+                                         *(__int128*)&amp;desired);
+}
+</code></pre>
+<p>Note: CMPXCHG16B requires 16-byte alignment. Misaligned access triggers #GP.</p>
+<h3 id="5-2-aarch64-atomics">5.2 AArch64 Atomics</h3>
+<p><strong>LL/SC (Load-Linked / Store-Conditional) -- ARMv8.0:</strong></p>
+<pre><code>// Load-exclusive / Store-exclusive (LL/SC paradigm)
+LDXR   W0, [X1]          // Load-exclusive 32-bit (marks exclusive monitor)
+STXR   W2, W0, [X1]      // Store-exclusive 32-bit (W2 = 0 if success, 1 if fail)
+LDXP   X0, X1, [X2]      // Load-exclusive pair (128-bit atomic load)
+STXP   W3, X0, X1, [X2]  // Store-exclusive pair (128-bit atomic store)
+
+// With ordering:
+LDAXR  W0, [X1]          // Load-acquire exclusive
+STLXR  W2, W0, [X1]      // Store-release exclusive
+
+// CAS loop example (pre-LSE):
+retry:
+    LDAXR  W0, [X1]       // Load current value (acquire)
+    ADD    W3, W0, #1     // Compute new value
+    STLXR  W2, W3, [X1]   // Try to store (release)
+    CBNZ   W2, retry      // Retry if store-exclusive failed
+</code></pre>
+<p><strong>LSE (Large System Extensions) -- ARMv8.1, mandatory in ARMv8.2+:</strong>
+LL/SC loops have two problems at scale: (1) spurious failures under contention, (2) livelock on large systems where cache line bouncing causes perpetual exclusive-monitor loss. LSE adds single-instruction atomic RMW operations:</p>
+<pre><code>CAS    W0, W1, [X2]       // Compare-and-swap: if [X2]==W0, then [X2]=W1
+CASP   X0, X1, X2, X3, [X4]  // CAS pair (128-bit CAS)
+CASA   W0, W1, [X2]       // CAS with acquire
+CASAL  W0, W1, [X2]       // CAS with acquire + release (seq-cst)
+SWP    W0, W1, [X2]       // Atomic swap: W1 = old [X2], [X2] = W0
+SWPA   W0, W1, [X2]       // Swap with acquire
+LDADD  W0, W1, [X2]       // Atomic load-add: W1 = old [X2], [X2] += W0
+LDADDA W0, W1, [X2]       // Load-add with acquire
+LDADDAL W0, W1, [X2]      // Load-add with acquire + release
+STADD  W0, [X2]           // Atomic add (no return value, like LOCK ADD)
+LDCLR  W0, W1, [X2]       // Atomic load-and-clear-bits (AND NOT)
+LDSET  W0, W1, [X2]       // Atomic load-and-set-bits (OR)
+LDEOR  W0, W1, [X2]       // Atomic load-and-XOR
+LDSMAX W0, W1, [X2]       // Atomic signed max
+LDSMIN W0, W1, [X2]       // Atomic signed min
+LDUMAX W0, W1, [X2]       // Atomic unsigned max
+LDUMIN W0, W1, [X2]       // Atomic unsigned min
+</code></pre>
+<p><strong>LSE2 (ARMv8.4):</strong></p>
+<ul>
+<li>Guarantees that naturally-aligned 64-bit loads/stores within a 16-byte aligned pair are single-copy atomic</li>
+<li>Enables CASP and LDXP/STXP to work without strict 16-byte alignment restrictions</li>
+</ul>
+<p><strong>FEAT_LSE128 (ARMv9.4):</strong></p>
+<ul>
+<li>128-bit single-copy atomic loads/stores and CAS without needing LL/SC:</li>
+<li><code>LDCLRP</code>, <code>LDSETP</code>, <code>SWPP</code> -- 128-bit atomic operations</li>
+</ul>
+<p><strong>FEAT_LRCPC3 (ARMv8.9):</strong></p>
+<ul>
+<li><code>LDIAPP</code> / <code>STILP</code>: load-acquire-pair / store-release-pair with RCpc semantics for better performance on release-consistent workloads</li>
+</ul>
+<p><strong>Performance comparison LL/SC vs LSE:</strong>
+On Apple M1/M2, LSE atomics are ~2-3x faster than LL/SC loops under contention. On Neoverse N2/V2, the difference is even larger (~3-5x) because the LL/SC exclusive monitor is more conservative on server designs. Linux kernel and glibc detect LSE at runtime via HWCAP.</p>
+<h3 id="5-3-risc-v-atomics">5.3 RISC-V Atomics</h3>
+<p><strong>A extension (RV64A) -- LR/SC:</strong></p>
+<pre><code>lr.w      rd, (rs1)        // Load-reserved word (sets reservation)
+sc.w      rd, rs2, (rs1)   // Store-conditional word (rd=0 if success)
+lr.d      rd, (rs1)        // Load-reserved doubleword (RV64)
+sc.d      rd, rs2, (rs1)   // Store-conditional doubleword
+
+// With ordering bits:
+lr.w.aq   rd, (rs1)        // Load-reserved with acquire
+sc.w.rl   rd, rs2, (rs1)   // Store-conditional with release
+lr.w.aqrl rd, (rs1)        // Load-reserved sequentially consistent
+</code></pre>
+<p><strong>A extension -- AMO (Atomic Memory Operations):</strong></p>
+<pre><code>amoadd.w  rd, rs2, (rs1)   // Atomic fetch-and-add word
+amoadd.d  rd, rs2, (rs1)   // Atomic fetch-and-add doubleword
+amoswap.w rd, rs2, (rs1)   // Atomic swap
+amoand.w  rd, rs2, (rs1)   // Atomic AND
+amoor.w   rd, rs2, (rs1)   // Atomic OR
+amoxor.w  rd, rs2, (rs1)   // Atomic XOR
+amomax.w  rd, rs2, (rs1)   // Atomic signed max
+amomaxu.w rd, rs2, (rs1)   // Atomic unsigned max
+amomin.w  rd, rs2, (rs1)   // Atomic signed min
+amominu.w rd, rs2, (rs1)   // Atomic unsigned min
+</code></pre>
+<p><strong>Zacas extension (ratified 2024):</strong>
+Adds CAS instructions that RISC-V was originally missing:</p>
+<pre><code>amocas.w  rd, rs2, (rs1)      // 32-bit compare-and-swap
+amocas.d  rd, rs2, (rs1)      // 64-bit compare-and-swap
+amocas.q  rd, rs2, (rs1)      // 128-bit compare-and-swap (RV64 only)
+// rd holds expected value (overwritten with actual value on failure)
+// rs2 holds desired value
+// With .aq, .rl, .aqrl ordering
+</code></pre>
+<p><strong>Zabha extension (ratified 2024):</strong>
+Adds byte and halfword atomic operations:</p>
+<pre><code>amoadd.b  rd, rs2, (rs1)   // Atomic byte add
+amoadd.h  rd, rs2, (rs1)   // Atomic halfword add
+amoswap.b rd, rs2, (rs1)   // Atomic byte swap
+amocas.b  rd, rs2, (rs1)   // Byte CAS (requires Zacas + Zabha)
+amocas.h  rd, rs2, (rs1)   // Halfword CAS
+</code></pre>
+<p>These are critical for compact lock-free data structures (e.g., per-byte flags in concurrent hash tables).</p>
+<h3 id="5-4-lock-free-data-structure-patterns">5.4 Lock-Free Data Structure Patterns</h3>
+<p><strong>ABA Problem and Solutions:</strong></p>
+<pre><code>// x86: CMPXCHG16B for tagged pointer
+struct TaggedPtr {
+    void *ptr;
+    uint64_t tag;  // Monotonically increasing counter
+};
+// CAS on the full 128-bit value -- tag prevents ABA
+
+// ARM: CASP (128-bit CAS via LSE)
+CASP X0, X1, X2, X3, [X4]  // Compare X0:X1 with [X4], store X2:X3 if equal
+
+// RISC-V: amocas.q (128-bit CAS via Zacas)
+amocas.q rd, rs2, (rs1)     // 128-bit CAS
+</code></pre>
+<p><strong>Ticket lock (simple, fair, scalable with proportional backoff):</strong></p>
+<pre><code>// x86: LOCK XADD for ticket acquisition
+LOCK XADD [ticket_counter], 1     // Atomically get-and-increment ticket
+// Spin until serving_counter == my_ticket
+
+// ARM (LSE): LDADDAL for ticket acquisition
+LDADDAL W0, W1, [X2]              // Atomically add 1, get old value with seq-cst
+
+// RISC-V: amoadd.w.aqrl
+amoadd.w.aqrl a0, a1, (a2)        // Atomically add, get old value
+</code></pre>
+<p><strong>MCS Lock (cache-line-local spinning):</strong>
+Each waiter spins on its own cache line, avoiding the thundering-herd problem of test-and-set locks. Requires CAS for enqueue and store-release for handoff.</p>
+<hr />
+<h2 id="6-bit-manipulation">6. Bit Manipulation</h2>
+<h3 id="6-1-population-count-leading-trailing-zeros">6.1 Population Count, Leading/Trailing Zeros</h3>
+<table><thead><tr><th>Operation</th><th>x86-64</th><th>AArch64</th><th>RISC-V (Zbb)</th></tr></thead><tbody>
+<tr><td>Population count (# of set bits)</td><td><code>POPCNT r64, r/m64</code></td><td><code>CNT Vn.8B, Vm.8B</code> (NEON) then reduce, or <code>FMOV</code> + <code>CNT</code> trick</td><td><code>cpop rd, rs1</code></td></tr>
+<tr><td>Count leading zeros</td><td><code>LZCNT r64, r/m64</code> (ABM/LZCNT)</td><td><code>CLZ Xd, Xn</code></td><td><code>clz rd, rs1</code></td></tr>
+<tr><td>Count trailing zeros</td><td><code>TZCNT r64, r/m64</code> (BMI1)</td><td><code>RBIT Xd, Xn</code> then <code>CLZ</code></td><td><code>ctz rd, rs1</code></td></tr>
+<tr><td>Bit reverse</td><td>No single instruction</td><td><code>RBIT Xd, Xn</code></td><td><code>rev8 rd, rs1</code> (byte-reverse only)</td></tr>
+<tr><td>Byte reverse (endian swap)</td><td><code>BSWAP r64</code></td><td><code>REV Xd, Xn</code> (64-bit), <code>REV16/REV32</code></td><td><code>rev8 rd, rs1</code></td></tr>
+<tr><td>Find first set (1-indexed)</td><td><code>BSF r64, r/m64</code> (legacy, undefined for 0 input)</td><td><code>CLZ</code> then subtract from 63</td><td><code>ctz</code> + 1</td></tr>
+</tbody></table>
+<p><strong>x86 POPCNT gotcha:</strong> On Sandy Bridge through Haswell, POPCNT has a false dependency on the destination register. The CPU thinks the output depends on the old value of the destination. Workaround: <code>xor ecx, ecx; popcnt ecx, eax</code> or compiler intrinsic with <code>-mpopcnt</code>.</p>
+<p><strong>AArch64 POPCNT equivalent:</strong>
+AArch64 lacks a scalar POPCNT. The canonical sequence:</p>
+<pre><code>FMOV D0, X0           // Move GPR to SIMD register
+CNT  V0.8B, V0.8B     // Count bits in each byte (8 results)
+ADDV B0, V0.8B        // Horizontal add of 8 bytes -&gt; total popcount
+FMOV W0, S0           // Move result back to GPR
+</code></pre>
+<p>This is 4 instructions vs 1 on x86. Some ARM implementations (Apple M-series) may fuse this sequence.</p>
+<h3 id="6-2-bit-extract-and-deposit-bmi2-sve2">6.2 Bit Extract and Deposit (BMI2 / SVE2)</h3>
+<table><thead><tr><th>Operation</th><th>x86-64 (BMI2)</th><th>AArch64 (SVE2 bitmanip)</th><th>RISC-V (Zbe -- proposed)</th></tr></thead><tbody>
+<tr><td>Parallel bit extract</td><td><code>PEXT r64, r64, r/m64</code></td><td><code>BEXT Z, Z, Z</code> (SVE2)</td><td><code>bext</code> (Zbe, not yet ratified)</td></tr>
+<tr><td>Parallel bit deposit</td><td><code>PDEP r64, r64, r/m64</code></td><td><code>BDEP Z, Z, Z</code> (SVE2)</td><td><code>bdep</code> (Zbe, not yet ratified)</td></tr>
+</tbody></table>
+<p><strong>PEXT/PDEP explained:</strong></p>
+<pre><code>PEXT: Extract bits from src where mask bits are 1, pack contiguously into dst
+  src  = 0b_1010_1100_0011_0101
+  mask = 0b_1111_0000_1111_0000
+  dst  = 0b_0000_0000_1010_0011  (extracted bits packed right-to-left)
+
+PDEP: Deposit contiguous bits from src into positions where mask bits are 1
+  src  = 0b_0000_0000_1010_0011
+  mask = 0b_1111_0000_1111_0000
+  dst  = 0b_1010_0000_0011_0000  (deposited into mask positions)
+</code></pre>
+<p><strong>AMD Zen1/Zen2 PDEP/PEXT microcoded -- extremely slow (~18-300 cycles depending on popcount of mask).</strong> Zen3+ implements in hardware (~3 cycles). Intel has always had fast PDEP/PEXT (~3 cycles since Haswell). This led to algorithms like "PEXT-based perfect hashing" being fast on Intel but unusable on AMD Zen1/2. Chess engines (Stockfish) notably had to maintain two code paths.</p>
+<h3 id="6-3-other-bit-manipulation">6.3 Other Bit Manipulation</h3>
+<table><thead><tr><th>Operation</th><th>x86-64</th><th>AArch64</th><th>RISC-V</th></tr></thead><tbody>
+<tr><td>Bit field extract</td><td><code>BEXTR r64, r/m64, r64</code> (BMI1)</td><td><code>UBFX Xd, Xn, #lsb, #width</code></td><td><code>Zbs: bext rd, rs1, rs2</code> (single bit)</td></tr>
+<tr><td>Bit test and set</td><td><code>BTS r/m, r/imm</code></td><td><code>UBFX</code> + <code>ORR</code> + <code>BFI</code></td><td><code>bset rd, rs1, rs2</code> (Zbs)</td></tr>
+<tr><td>Bit test and clear</td><td><code>BTR r/m, r/imm</code></td><td><code>UBFX</code> + <code>BIC</code> + <code>BFI</code></td><td><code>bclr rd, rs1, rs2</code> (Zbs)</td></tr>
+<tr><td>Bit test and invert</td><td><code>BTC r/m, r/imm</code></td><td><code>UBFX</code> + <code>EOR</code> + <code>BFI</code></td><td><code>binv rd, rs1, rs2</code> (Zbs)</td></tr>
+<tr><td>Single-bit extract</td><td><code>BT r/m, r/imm</code> (sets CF)</td><td><code>TBNZ</code>/<code>TBZ</code> (branch on bit)</td><td><code>bext rd, rs1, rs2</code> (Zbs)</td></tr>
+<tr><td>Reset lowest set bit</td><td><code>BLSR r64, r/m64</code> (BMI1)</td><td><code>SUB</code> + <code>AND</code></td><td>—</td></tr>
+<tr><td>Extract lowest set bit</td><td><code>BLSI r64, r/m64</code> (BMI1)</td><td><code>NEG</code> + <code>AND</code></td><td>—</td></tr>
+<tr><td>Set all bits below lowest set</td><td><code>BLSMSK r64, r/m64</code> (BMI1)</td><td><code>SUB</code> + <code>EOR</code></td><td>—</td></tr>
+<tr><td>Zero high bits</td><td><code>BZHI r64, r/m64, r64</code> (BMI2)</td><td><code>UBFX</code></td><td>—</td></tr>
+<tr><td>Rotate</td><td><code>ROR/ROL r, imm/cl</code></td><td><code>ROR Xd, Xn, #imm</code> / <code>RORV</code></td><td><code>ror rd, rs1, rs2</code> (Zbb), <code>rori</code></td></tr>
+<tr><td>Shift-and-add</td><td>—</td><td><code>ADD Xd, Xn, Xm, LSL #n</code> (barrel shifter!)</td><td><code>sh1add/sh2add/sh3add</code> (Zba)</td></tr>
+<tr><td>OR-combine</td><td>—</td><td><code>ORN Xd, Xn, Xm</code> (OR-NOT)</td><td><code>orn rd, rs1, rs2</code> (Zbb)</td></tr>
+<tr><td>AND-NOT</td><td><code>ANDN r64, r64, r/m64</code> (BMI1)</td><td><code>BIC Xd, Xn, Xm</code> (AND-NOT)</td><td><code>andn rd, rs1, rs2</code> (Zbb)</td></tr>
+<tr><td>Max/Min (integer)</td><td>—</td><td>—</td><td><code>max/maxu/min/minu</code> (Zbb)</td></tr>
+<tr><td>Sign/Zero extend</td><td><code>MOVSX/MOVZX</code></td><td><code>SXTB/SXTH/SXTW/UXTB/UXTH</code></td><td><code>sext.b/sext.h/zext.h</code> (Zbb)</td></tr>
+</tbody></table>
+<p><strong>AArch64's barrel shifter advantage:</strong>
+Every ARM data-processing instruction can include a free shift/rotate on one operand:</p>
+<pre><code>ADD X0, X1, X2, LSL #3    // X0 = X1 + (X2 &lt;&lt; 3) -- single instruction, single cycle
+</code></pre>
+<p>This is enormously useful for array indexing (<code>base + index * 8</code>), hash computation, and tree navigation. x86 has the LEA instruction (<code>lea rax, [rbx + rcx*8]</code>) which serves a similar purpose but only supports scales of 1, 2, 4, 8.</p>
+<p><strong>RISC-V Zba (address generation):</strong></p>
+<pre><code>sh1add rd, rs1, rs2    // rd = (rs1 &lt;&lt; 1) + rs2
+sh2add rd, rs1, rs2    // rd = (rs1 &lt;&lt; 2) + rs2
+sh3add rd, rs1, rs2    // rd = (rs1 &lt;&lt; 3) + rs2
+add.uw rd, rs1, rs2    // rd = zero_extend(rs1[31:0]) + rs2
+sh1add.uw              // rd = (zero_extend(rs1) &lt;&lt; 1) + rs2
+slli.uw rd, rs1, shamt // rd = zero_extend(rs1) &lt;&lt; shamt
+</code></pre>
+<p>These map directly to array indexing with element sizes of 2, 4, 8 bytes -- critical for eliminating multi-instruction sequences in pointer arithmetic.</p>
+<h3 id="6-4-real-world-bit-manipulation-usage">6.4 Real-World Bit Manipulation Usage</h3>
+<p><strong>Bitmap indexes (database systems):</strong></p>
+<pre><code data-lang="c">// POPCNT for counting set bits in a bitmap index (e.g., null bitmap in Arrow)
+uint64_t count_nulls(uint64_t *bitmap, int n_words) {
+    uint64_t count = 0;
+    for (int i = 0; i &lt; n_words; i++)
+        count += __builtin_popcountll(bitmap[i]);
+    return count;
+}
+
+// TZCNT for iterating set bits (finding non-null positions)
+while (word != 0) {
+    int pos = __builtin_ctzll(word);   // TZCNT
+    process(base + pos);
+    word &amp;= word - 1;                  // BLSR: clear lowest set bit
+}
+</code></pre>
+<p><strong>Cuckoo hashing (using PEXT for bucket indexing):</strong></p>
+<pre><code data-lang="c">// Hash to bucket using PEXT to extract specific bits
+uint32_t bucket = _pext_u64(hash_value, bucket_mask);
+</code></pre>
+<p><strong>Chess engines (bitboard manipulation):</strong>
+Stockfish uses POPCNT, LZCNT, TZCNT, PEXT extensively for move generation on 64-bit bitboards representing the chessboard.</p>
+<hr />
+<h2 id="7-cryptography-acceleration">7. Cryptography Acceleration</h2>
+<h3 id="7-1-aes-acceleration">7.1 AES Acceleration</h3>
+<table><thead><tr><th>ISA</th><th>Instructions</th><th>Rounds per instruction</th><th>Throughput</th></tr></thead><tbody>
+<tr><td>x86-64 (AES-NI)</td><td><code>AESENC</code>, <code>AESENCLAST</code>, <code>AESDEC</code>, <code>AESDECLAST</code>, <code>AESKEYGENASSIST</code>, <code>AESIMC</code></td><td>1 round</td><td>~1 cycle/round (pipelined), ~0.5 bytes/cycle per core</td></tr>
+<tr><td>x86-64 (VAES)</td><td><code>VAESENC ymm/zmm</code> (AVX-512 VAES)</td><td>1 round, 2x/4x parallel</td><td>~4-8 blocks/cycle with 512-bit</td></tr>
+<tr><td>AArch64 (ARMv8 Crypto)</td><td><code>AESE</code>, <code>AESMC</code> (mix columns), <code>AESD</code>, <code>AESIMC</code></td><td>1 round (split: sub+shift, then mix)</td><td>~1 round per 2 instructions</td></tr>
+<tr><td>RISC-V (Zkne/Zknd)</td><td><code>aes64es</code>, <code>aes64esm</code>, <code>aes64ds</code>, <code>aes64dsm</code>, <code>aes64ks1i</code>, <code>aes64ks2</code></td><td>1 round (RV64)</td><td>Implementation-dependent</td></tr>
+</tbody></table>
+<p><strong>x86 AES-NI detail:</strong></p>
+<pre><code>// AES-128 encryption (10 rounds)
+MOVDQU     xmm0, [plaintext]      // Load 128-bit block
+PXOR       xmm0, [round_key_0]    // Initial whitening
+AESENC     xmm0, [round_key_1]    // Round 1
+AESENC     xmm0, [round_key_2]    // Round 2
+...                                 // Rounds 3-9
+AESENCLAST xmm0, [round_key_10]   // Final round (no MixColumns)
+MOVDQU     [ciphertext], xmm0     // Store result
+</code></pre>
+<p>With VAES (AVX-512), you can process 4 AES blocks in parallel:</p>
+<pre><code>VAESENC zmm0, zmm0, zmm1          // 4 blocks x 1 round simultaneously
+</code></pre>
+<p>Combined with pipelining across multiple registers (processing 8-16 blocks in flight), modern x86 CPUs achieve &gt;30 GB/s AES-256-GCM per core.</p>
+<h3 id="7-2-sha-acceleration">7.2 SHA Acceleration</h3>
+<table><thead><tr><th>ISA</th><th>Instructions</th><th>Algorithm</th></tr></thead><tbody>
+<tr><td>x86-64 (SHA-NI)</td><td><code>SHA1RNDS4</code>, <code>SHA1NEXTE</code>, <code>SHA1MSG1</code>, <code>SHA1MSG2</code></td><td>SHA-1</td></tr>
+<tr><td>x86-64 (SHA-NI)</td><td><code>SHA256RNDS2</code>, <code>SHA256MSG1</code>, <code>SHA256MSG2</code></td><td>SHA-256</td></tr>
+<tr><td>x86-64 (SHA512)</td><td><code>VSHA512RNDS2</code>, <code>VSHA512MSG1</code>, <code>VSHA512MSG2</code></td><td>SHA-512 (AVX10.2/AVX-512SHA, 2024+)</td></tr>
+<tr><td>AArch64</td><td><code>SHA1C</code>, <code>SHA1H</code>, <code>SHA1M</code>, <code>SHA1P</code>, <code>SHA1SU0</code>, <code>SHA1SU1</code></td><td>SHA-1</td></tr>
+<tr><td>AArch64</td><td><code>SHA256H</code>, <code>SHA256H2</code>, <code>SHA256SU0</code>, <code>SHA256SU1</code></td><td>SHA-256</td></tr>
+<tr><td>AArch64</td><td><code>SHA512H</code>, <code>SHA512H2</code>, <code>SHA512SU0</code>, <code>SHA512SU1</code></td><td>SHA-512 (ARMv8.2-SHA)</td></tr>
+<tr><td>AArch64</td><td><code>SM3SS1</code>, <code>SM3TT1A/1B</code>, <code>SM3TT2A/2B</code>, <code>SM3PARTW1/2</code></td><td>SM3 (Chinese standard)</td></tr>
+<tr><td>AArch64</td><td><code>SM4E</code>, <code>SM4EKEY</code></td><td>SM4 (Chinese standard)</td></tr>
+<tr><td>RISC-V (Zknh)</td><td><code>sha256sig0/1</code>, <code>sha256sum0/1</code></td><td>SHA-256</td></tr>
+<tr><td>RISC-V (Zknh)</td><td><code>sha512sig0/1</code>, <code>sha512sum0/1</code></td><td>SHA-512</td></tr>
+</tbody></table>
+<h3 id="7-3-crc32-acceleration">7.3 CRC32 Acceleration</h3>
+<table><thead><tr><th>ISA</th><th>Instruction</th><th>Polynomial</th></tr></thead><tbody>
+<tr><td>x86-64 (SSE4.2)</td><td><code>CRC32 r32, r/m8/16/32/64</code></td><td>CRC-32C (Castagnoli, iSCSI polynomial)</td></tr>
+<tr><td>AArch64</td><td><code>CRC32B/H/W/X</code></td><td>CRC-32 (ISO 3309 polynomial)</td></tr>
+<tr><td>AArch64</td><td><code>CRC32CB/CH/CW/CX</code></td><td>CRC-32C (Castagnoli)</td></tr>
+<tr><td>RISC-V (Zbkc)</td><td><code>clmul</code>, <code>clmulh</code></td><td>Carryless multiply (build CRC from this)</td></tr>
+</tbody></table>
+<p><strong>CRC32 in practice:</strong></p>
+<ul>
+<li>PostgreSQL uses CRC-32C for WAL record checksums (hardware-accelerated on x86 via SSE4.2)</li>
+<li>RocksDB uses CRC-32C for block checksums</li>
+<li>iSCSI, NVMe use CRC-32C for data integrity</li>
+<li>Ethernet uses CRC-32 (different polynomial)</li>
+</ul>
+<p>RISC-V's approach with <code>clmul</code> (carryless multiplication) is more general -- you can build any CRC polynomial from it, plus it's useful for GCM (Galois/Counter Mode) in AES-GCM.</p>
+<h3 id="7-4-wider-crypto-extensions">7.4 Wider Crypto Extensions</h3>
+<p><strong>AArch64 additional:</strong></p>
+<ul>
+<li><code>FEAT_SM4</code>: SM4 block cipher acceleration (Chinese national standard)</li>
+<li><code>FEAT_SHA3</code>: SHA3 / Keccak acceleration</li>
+<li><code>FEAT_RNG</code>: hardware random number generation (<code>RNDR</code>, <code>RNDRRS</code> instructions)</li>
+</ul>
+<p><strong>x86-64 additional:</strong></p>
+<ul>
+<li><code>RDRAND</code>: hardware random number from DRNG (Digital Random Number Generator)</li>
+<li><code>RDSEED</code>: true entropy from hardware noise source</li>
+<li><code>GFNI</code> (Galois Field New Instructions): <code>GF2P8MULB</code>, <code>GF2P8AFFINEQB</code> -- general GF(2^8) operations, useful for Reed-Solomon, custom S-boxes</li>
+<li><code>VPCLMULQDQ</code> (CLMUL + AVX-512): carryless multiply for GCM at 512-bit width</li>
+</ul>
+<p><strong>RISC-V scalar crypto (Zkn/Zks -- ratified 2023):</strong></p>
+<ul>
+<li><code>Zbkb</code>: bit manipulation for crypto (brev8, zip/unzip, pack)</li>
+<li><code>Zbkc</code>: carryless multiply (clmul/clmulh)</li>
+<li><code>Zbkx</code>: crossbar permutations (xperm4/xperm8)</li>
+<li><code>Zkne</code>/<code>Zknd</code>: AES encrypt/decrypt</li>
+<li><code>Zknh</code>: SHA-256/SHA-512</li>
+<li><code>Zksed</code>: SM4 (ShangMi)</li>
+<li><code>Zksh</code>: SM3 (ShangMi hash)</li>
+</ul>
+<p><strong>RISC-V vector crypto (Zvkn/Zvks -- ratified 2024):</strong></p>
+<ul>
+<li><code>Zvkned</code>: Vector AES</li>
+<li><code>Zvknhb</code>: Vector SHA-256/SHA-512</li>
+<li><code>Zvkb</code>: Vector bit manipulation for crypto</li>
+<li><code>Zvkg</code>: Vector GHASH (for GCM)</li>
+<li><code>Zvksed</code>/<code>Zvksh</code>: Vector SM4/SM3
+These operate on RVV registers, enabling high-throughput parallel crypto.</li>
+</ul>
+<hr />
+<h2 id="8-branch-and-control-flow-security">8. Branch and Control Flow Security</h2>
+<h3 id="8-1-speculation-barriers">8.1 Speculation Barriers</h3>
+<table><thead><tr><th>ISA</th><th>Instruction</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>x86-64</td><td><code>LFENCE</code></td><td>Serializes instruction dispatch; prevents speculative execution past this point (Spectre v1 mitigation)</td></tr>
+<tr><td>x86-64</td><td><code>ENDBR64/ENDBR32</code></td><td>CET-IBT: marks valid indirect branch target (NOP on non-CET hardware)</td></tr>
+<tr><td>x86-64</td><td><code>INCSSPQ</code> / <code>RDSSPQ</code></td><td>CET-SS: shadow stack manipulation</td></tr>
+<tr><td>AArch64</td><td><code>CSDB</code></td><td>Conditional Speculation Dependency Barrier: ensures result of conditional is resolved before subsequent data-dependent instructions</td></tr>
+<tr><td>AArch64</td><td><code>SB</code> (ARMv8.5)</td><td>Speculation Barrier: prevents speculative execution of any subsequent instructions</td></tr>
+<tr><td>AArch64</td><td>`BTI {c</td><td>j</td></tr>
+<tr><td>AArch64</td><td><code>PACIA/PACIB/PACDA/PACDB</code></td><td>Pointer Authentication Code: sign a pointer using key A/B, data key A/B</td></tr>
+<tr><td>AArch64</td><td><code>AUTIA/AUTIB/AUTDA/AUTDB</code></td><td>Authenticate (verify) a signed pointer</td></tr>
+<tr><td>AArch64</td><td><code>BRAA/BRAB</code></td><td>Branch with pointer authentication (branch + verify in one instruction)</td></tr>
+<tr><td>AArch64</td><td><code>RETAA/RETAB</code></td><td>Return with pointer authentication (return + verify)</td></tr>
+<tr><td>RISC-V</td><td><code>fence.t</code> (proposed)</td><td>Temporal fence: speculation barrier (part of Zifencet, under development)</td></tr>
+<tr><td>RISC-V</td><td><code>Zicfiss</code> (ratified 2024)</td><td>Shadow Stack: <code>SSPUSH</code>, <code>SSPOPCHK</code>, <code>SSAMOSWAP</code> for return address protection</td></tr>
+<tr><td>RISC-V</td><td><code>Zicfilp</code> (ratified 2024)</td><td>Landing Pad: <code>LPAD</code> instruction marks valid indirect branch targets</td></tr>
+</tbody></table>
+<h3 id="8-2-pointer-authentication-arm-pac-deep-dive">8.2 Pointer Authentication (ARM PAC) -- Deep Dive</h3>
+<p><strong>How it works:</strong></p>
+<ol>
+<li>PAC uses unused high bits of a 64-bit pointer (typically bits [62:49] or [62:56] depending on virtual address size configuration)</li>
+<li>A cryptographic MAC (QARMA block cipher) is computed over: pointer value + context (SP or other modifier) + key (128-bit, stored in system registers)</li>
+<li>The MAC is stuffed into the unused high bits -- creating a "signed" pointer</li>
+<li>Before use, the pointer is authenticated: the MAC is recomputed and compared. If it matches, the high bits are restored. If not, the high bits are corrupted, causing a fault on dereference</li>
+</ol>
+<pre><code>// Function prologue (sign return address)
+PACIASP            // Sign LR using key A, context = SP
+STP X29, X30, [SP, #-16]!
+
+// Function epilogue (verify return address)
+LDP X29, X30, [SP], #16
+AUTIASP            // Verify LR; faults if corrupted
+RET
+
+// Signing arbitrary pointers:
+PACIA X0, X1       // Sign X0 using key A, context = X1
+AUTIA X0, X1       // Verify X0 using key A, context = X1
+// If verification fails, X0 gets bits [62:top] set to error pattern
+</code></pre>
+<p><strong>Performance:</strong></p>
+<ul>
+<li>PACIA/AUTIA: 1-3 cycles on Apple M-series (dedicated QARMA unit)</li>
+<li>On Neoverse V2: ~5 cycles</li>
+<li>Used by default in Apple's iOS/macOS toolchains, Android (starting with Pixel 6), Linux kernel (CONFIG_ARM64_PTR_AUTH)</li>
+</ul>
+<p><strong>Limitations:</strong></p>
+<ul>
+<li>PAC is probabilistic: with only ~7-15 bits of MAC, brute-force is feasible in ~2^7 to 2^15 attempts</li>
+<li>PAC can be bypassed if attacker can observe signing oracles (sign arbitrary pointers)</li>
+<li>PACGA (Generic Authentication) provides 32-bit MAC for non-pointer data authentication</li>
+</ul>
+<h3 id="8-3-x86-cet-control-flow-enforcement-technology">8.3 x86 CET (Control-flow Enforcement Technology)</h3>
+<p><strong>CET-IBT (Indirect Branch Tracking):</strong></p>
+<ul>
+<li>Every valid indirect branch target must begin with <code>ENDBR64</code> (or <code>ENDBR32</code>)</li>
+<li>If an indirect branch lands on a non-ENDBR instruction, a #CP exception is raised</li>
+<li><code>ENDBR64</code> is a 4-byte NOP (<code>F3 0F 1E FA</code>) on non-CET hardware -- zero overhead for backwards compatibility</li>
+<li>Enabled in Linux kernel since 6.2, GCC/Clang support via <code>-fcf-protection=branch</code></li>
+</ul>
+<p><strong>CET-SS (Shadow Stack):</strong></p>
+<ul>
+<li>Hardware-managed shadow stack stores return addresses</li>
+<li>On CALL: return address pushed to both regular stack and shadow stack</li>
+<li>On RET: return addresses compared; mismatch triggers #CP</li>
+<li>Shadow stack pages have special page table bit (dirty bit = 0, writable = 1 -- a combination impossible for normal pages)</li>
+<li><code>INCSSPQ</code>/<code>RDSSPQ</code> for runtime manipulation (setjmp/longjmp, signal handling)</li>
+</ul>
+<pre><code>// CET shadow stack manipulation for signal handling
+RDSSPQ rax          // Read shadow stack pointer
+INCSSPQ rax         // Advance shadow stack pointer (skip N entries)
+// Kernel uses SAVEPREVSSP/RSTORSSP for context switches
+</code></pre>
+<h3 id="8-4-risc-v-cfi-zicfiss-zicfilp">8.4 RISC-V CFI (Zicfiss + Zicfilp)</h3>
+<p><strong>Zicfilp (Landing Pad):</strong></p>
+<ul>
+<li><code>LPAD imm20</code>: marks valid indirect branch target with a 20-bit label</li>
+<li>On indirect branch, if the target is not <code>LPAD</code>, a software-check exception is raised</li>
+<li>The 20-bit label can be used for coarse-grained CFI (matching call sites to targets)</li>
+</ul>
+<p><strong>Zicfiss (Shadow Stack):</strong></p>
+<pre><code>SSPUSH ra           // Push return address to shadow stack (in function prologue)
+SSPOPCHK ra         // Pop from shadow stack and check against ra (in function epilogue)
+SSAMOSWAP.W/D       // Atomic swap on shadow stack (for setjmp/longjmp)
+</code></pre>
+<hr />
+<h2 id="9-system-and-privileged-instructions">9. System and Privileged Instructions</h2>
+<h3 id="9-1-timestamp-and-cycle-counters">9.1 Timestamp and Cycle Counters</h3>
+<table><thead><tr><th>ISA</th><th>Instruction</th><th>What it reads</th><th>Serialization</th><th>Resolution</th></tr></thead><tbody>
+<tr><td>x86-64</td><td><code>RDTSC</code></td><td>TSC (Time Stamp Counter)</td><td>NOT serialized -- can be reordered</td><td>Reference clock (~constant rate on modern CPUs with invariant TSC)</td></tr>
+<tr><td>x86-64</td><td><code>RDTSCP</code></td><td>TSC + core ID (into ECX)</td><td>Waits for prior instructions to complete, but does NOT prevent later instructions from executing before it</td><td>Reference clock</td></tr>
+<tr><td>x86-64</td><td><code>LFENCE; RDTSC</code></td><td>TSC</td><td>Fully serialized before the read</td><td>Reference clock</td></tr>
+<tr><td>x86-64</td><td><code>RDTSC; LFENCE</code></td><td>TSC</td><td>Fully serialized after the read</td><td>Reference clock</td></tr>
+<tr><td>x86-64</td><td><code>RDPMC</code></td><td>Performance counter (ECX selects which)</td><td>Not serialized</td><td>Hardware event counts</td></tr>
+<tr><td>AArch64</td><td><code>MRS X0, CNTVCT_EL0</code></td><td>Virtual counter (architectural timer)</td><td>Not serialized (use ISB before for serialization)</td><td>Timer frequency (typically ~1 GHz on server, ~24 MHz on mobile)</td></tr>
+<tr><td>AArch64</td><td><code>MRS X0, PMCCNTR_EL0</code></td><td>Cycle counter (if EL0 access enabled)</td><td>Not serialized</td><td>Core clock cycles</td></tr>
+<tr><td>RISC-V</td><td><code>rdcycle</code></td><td>Cycle counter (CSR <code>cycle</code>)</td><td>Not serialized</td><td>Core clock cycles</td></tr>
+<tr><td>RISC-V</td><td><code>rdtime</code></td><td>Wall clock time (CSR <code>time</code>)</td><td>Not serialized</td><td>Platform timer frequency</td></tr>
+<tr><td>RISC-V</td><td><code>rdinstret</code></td><td>Instructions retired (CSR <code>instret</code>)</td><td>Not serialized</td><td>Instruction count</td></tr>
+</tbody></table>
+<p><strong>Precise benchmarking on x86:</strong></p>
+<pre><code data-lang="c">// Recommended pattern for precise timing:
+uint64_t start, end;
+
+// Serialize and read start time
+asm volatile(&quot;lfence\n\t&quot;
+             &quot;rdtsc\n\t&quot;
+             &quot;shl $32, %%rdx\n\t&quot;
+             &quot;or %%rdx, %%rax&quot;
+             : &quot;=a&quot;(start) :: &quot;rdx&quot;, &quot;memory&quot;);
+
+// Code under test
+do_work();
+
+// Read end time and serialize
+asm volatile(&quot;rdtscp\n\t&quot;
+             &quot;shl $32, %%rdx\n\t&quot;
+             &quot;or %%rdx, %%rax\n\t&quot;
+             &quot;lfence&quot;
+             : &quot;=a&quot;(end) :: &quot;rcx&quot;, &quot;rdx&quot;, &quot;memory&quot;);
+
+uint64_t cycles = end - start;
+</code></pre>
+<p><strong>TSC invariance:</strong>
+Modern Intel/AMD CPUs have an "invariant TSC" (CPUID.80000007H:EDX[8]) that runs at a constant rate regardless of frequency scaling or C-states. This is critical for <code>clock_gettime(CLOCK_MONOTONIC)</code> -- the Linux kernel VDSO uses RDTSC directly for fast timekeeping.</p>
+<p><strong>ARM timer considerations:</strong></p>
+<ul>
+<li><code>CNTVCT_EL0</code> reads the generic timer, which runs at a fixed frequency (CNTFRQ_EL0, typically 1 GHz on servers, 24.576 MHz on Apple Silicon)</li>
+<li>For cycle-accurate measurement, <code>PMCCNTR_EL0</code> is needed, but it requires kernel to enable EL0 access (PMUSERENR_EL0)</li>
+<li>Apple M-series exposes cycle counter via <code>MRS X0, S3_2_C15_C1_0</code> (implementation-defined)</li>
+</ul>
+<h3 id="9-2-cpu-feature-detection">9.2 CPU Feature Detection</h3>
+<p><strong>x86-64 CPUID:</strong></p>
+<pre><code>// CPUID: EAX = leaf, ECX = subleaf
+// Results in EAX, EBX, ECX, EDX
+MOV EAX, 7         // Leaf 7: structured extended features
+MOV ECX, 0         // Sub-leaf 0
+CPUID
+// EBX bit 5: AVX2
+// EBX bit 16: AVX-512F
+// ECX bit 1: AVX-512 VBMI
+// EDX bit 22: AMX-BF16
+// etc.
+
+// Leaf 0x80000007: Advanced Power Management
+CPUID
+// EDX bit 8: Invariant TSC
+</code></pre>
+<p>Key leaves: 0 (vendor), 1 (features), 7 (extended features), 0xD (XSAVE state), 0x80000001 (AMD features), 0x80000008 (address sizes).</p>
+<p><strong>AArch64 HWCAP (Linux):</strong>
+ARM does not have a CPUID equivalent accessible from user space. Feature detection happens via:</p>
+<ol>
+<li>Kernel exposes <code>AT_HWCAP</code> / <code>AT_HWCAP2</code> auxiliary vector entries</li>
+<li>User space reads via <code>getauxval(AT_HWCAP)</code> or reads <code>/proc/cpuinfo</code></li>
+<li><code>MRS</code> reads of <code>ID_AA64*</code> registers are trapped and emulated by the kernel (since Linux 4.11, <code>MRS_emulate</code> framework)</li>
+</ol>
+<pre><code data-lang="c">#include &lt;sys/auxv.h&gt;
+unsigned long hwcap = getauxval(AT_HWCAP);
+if (hwcap &amp; HWCAP_ATOMICS)  // LSE atomics
+if (hwcap &amp; HWCAP_SVE)      // SVE
+if (hwcap &amp; HWCAP_SVE2)     // SVE2
+if (hwcap &amp; HWCAP_SHA512)   // SHA-512 acceleration
+if (hwcap &amp; HWCAP_PACA)     // Pointer Authentication (address key A)
+</code></pre>
+<p><strong>RISC-V extension discovery:</strong></p>
+<ul>
+<li><code>misa</code> CSR: bitmask of base ISA extensions (M, A, F, D, C, etc.) -- but only readable at M-mode</li>
+<li>Linux kernel exposes extensions via:
+<ul>
+<li><code>/proc/cpuinfo</code> <code>isa:</code> field (e.g., <code>rv64imafdc_zba_zbb_zbs_zicbom</code>)</li>
+<li><code>RISCV_HWPROBE</code> syscall (since Linux 6.4): structured feature query</li>
+<li><code>AT_HWCAP</code> auxiliary vector (limited, being expanded)</li>
+</ul>
+</li>
+</ul>
+<pre><code data-lang="c">// RISC-V HWPROBE system call
+#include &lt;asm/hwprobe.h&gt;
+struct riscv_hwprobe pairs[] = {
+    { .key = RISCV_HWPROBE_KEY_IMA_EXT_0 },
+};
+syscall(__NR_riscv_hwprobe, pairs, 1, 0, NULL, 0);
+if (pairs[0].value &amp; RISCV_HWPROBE_IMA_V)  // Vector extension
+    use_rvv_code_path();
+</code></pre>
+<h3 id="9-3-system-register-access">9.3 System Register Access</h3>
+<table><thead><tr><th>ISA</th><th>Read</th><th>Write</th><th>Use Case</th></tr></thead><tbody>
+<tr><td>x86-64</td><td><code>RDMSR</code></td><td><code>WRMSR</code></td><td>Model-Specific Registers (privileged)</td></tr>
+<tr><td>x86-64</td><td><code>XGETBV</code></td><td><code>XSETBV</code></td><td>Extended Control Registers (XSAVE state)</td></tr>
+<tr><td>AArch64</td><td><code>MRS Xt, &lt;sysreg&gt;</code></td><td><code>MSR &lt;sysreg&gt;, Xt</code></td><td>System registers (EL-dependent)</td></tr>
+<tr><td>RISC-V</td><td><code>CSRR rd, csr</code></td><td><code>CSRW csr, rs1</code></td><td>Control/Status Registers</td></tr>
+<tr><td>RISC-V</td><td><code>CSRRS rd, csr, rs1</code></td><td>—</td><td>CSR read-and-set bits (atomic)</td></tr>
+<tr><td>RISC-V</td><td><code>CSRRC rd, csr, rs1</code></td><td>—</td><td>CSR read-and-clear bits (atomic)</td></tr>
+</tbody></table>
+<h3 id="9-4-wait-and-power-management">9.4 Wait and Power Management</h3>
+<table><thead><tr><th>ISA</th><th>Instruction</th><th>Effect</th><th>Use Case</th></tr></thead><tbody>
+<tr><td>x86-64</td><td><code>PAUSE</code></td><td>Hint to processor: in a spin-wait loop. Reduces power and avoids memory-order violation pipeline flush</td><td>Spin locks, busy-waiting</td></tr>
+<tr><td>x86-64</td><td><code>MONITOR/MWAIT</code></td><td>Wait for cache line modification (privileged on most configs)</td><td>Idle loops in kernel</td></tr>
+<tr><td>x86-64</td><td><code>UMONITOR/UMWAIT/TPAUSE</code></td><td>User-space monitor/wait (Waitpkg, 2019+)</td><td>User-space spin-wait with power awareness</td></tr>
+<tr><td>AArch64</td><td><code>WFE</code></td><td>Wait For Event: sleep until event register is set (by SEV from another core, or exclusive monitor clear)</td><td>Spin locks (sleep instead of burn)</td></tr>
+<tr><td>AArch64</td><td><code>WFET</code> (ARMv8.7)</td><td>WFE with timeout</td><td>Bounded spin-wait</td></tr>
+<tr><td>AArch64</td><td><code>WFI</code></td><td>Wait For Interrupt: sleep until interrupt</td><td>Idle loop</td></tr>
+<tr><td>AArch64</td><td><code>SEV</code></td><td>Send Event: wake all cores from WFE</td><td>Lock release notification</td></tr>
+<tr><td>AArch64</td><td><code>SEVL</code></td><td>Send Event Local: set event register for this core only</td><td>Prime the event register before WFE loop</td></tr>
+<tr><td>AArch64</td><td><code>YIELD</code></td><td>Hint: relinquish execution resources (like PAUSE)</td><td>Spin loops on SMT cores</td></tr>
+<tr><td>RISC-V</td><td><code>WFI</code></td><td>Wait For Interrupt</td><td>Idle loop (privileged)</td></tr>
+<tr><td>RISC-V</td><td><code>PAUSE</code> (Zihintpause)</td><td>Hint: spin-wait loop, like x86 PAUSE</td><td>Spin locks</td></tr>
+</tbody></table>
+<p><strong>WFE-based spinlock (ARM) -- dramatically better than busy-wait:</strong></p>
+<pre><code>// Lock acquisition with WFE
+acquire:
+    LDAXR  W0, [X1]      // Load-acquire exclusive
+    CBNZ   W0, wait       // If locked, go to wait
+    STXR   W2, W3, [X1]  // Try to acquire
+    CBNZ   W2, acquire    // Retry if store-exclusive failed
+    RET
+
+wait:
+    WFE                   // Sleep until event (lock release)
+    B      acquire        // Re-check lock
+
+// Lock release with SEV
+release:
+    STLR   WZR, [X1]     // Store-release zero (unlock)
+    SEV                   // Wake waiting cores
+    RET
+</code></pre>
+<p>This is how Linux kernel's <code>arch_spin_lock</code> works on ARM64 (with ticket lock or queued spinlock variants). WFE reduces power consumption and cross-core interference dramatically compared to a tight LDXR/STXR polling loop.</p>
+<p><strong>x86 UMWAIT (user-space wait):</strong></p>
+<pre><code data-lang="c">// User-space monitor/wait (Intel Tremont+, Sapphire Rapids+)
+_umonitor(addr);                    // Set up address to monitor
+uint8_t r = _umwait(0, deadline);   // Wait until *addr changes or deadline
+// State 0 = C0.2 (deeper sleep), State 1 = C0.1 (lighter sleep)
+</code></pre>
+<p>Useful for user-space event loops, DPDK poll-mode drivers with power awareness, and lock-free queue consumers.</p>
+<hr />
+<h2 id="10-floating-point-and-precision">10. Floating Point and Precision</h2>
+<h3 id="10-1-fused-multiply-add-fma">10.1 Fused Multiply-Add (FMA)</h3>
+<table><thead><tr><th>ISA</th><th>Instructions</th><th>Precision</th><th>Forms</th></tr></thead><tbody>
+<tr><td>x86-64 (FMA3)</td><td><code>VFMADD132PS/PD</code>, <code>VFMADD213PS/PD</code>, <code>VFMADD231PS/PD</code></td><td>float/double</td><td>132: a=a<em>c+b, 213: a=b</em>a+c, 231: a=b*c+a</td></tr>
+<tr><td>x86-64 (FMA3)</td><td><code>VFMSUB</code>, <code>VFNMADD</code>, <code>VFNMSUB</code>, <code>VFMADDSUB</code>, <code>VFMSUBADD</code></td><td>float/double</td><td>Subtract, negate, interleave add/sub variants</td></tr>
+<tr><td>AArch64</td><td><code>FMADD Dd, Dn, Dm, Da</code></td><td>float/double</td><td>d = a + n*m</td></tr>
+<tr><td>AArch64</td><td><code>FMLA Vd.4S, Vn.4S, Vm.4S</code></td><td>NEON vector</td><td>Fused multiply-accumulate</td></tr>
+<tr><td>AArch64 (SVE)</td><td><code>FMLA Zd.S, Pg/M, Zn.S, Zm.S</code></td><td>SVE vector</td><td>Predicated FMA</td></tr>
+<tr><td>RISC-V (F/D ext)</td><td><code>fmadd.s/d fd, fs1, fs2, fs3</code></td><td>float/double</td><td>fd = fs1*fs2 + fs3</td></tr>
+<tr><td>RISC-V (F/D ext)</td><td><code>fmsub.s/d</code>, <code>fnmadd.s/d</code>, <code>fnmsub.s/d</code></td><td>float/double</td><td>Subtract/negate variants</td></tr>
+<tr><td>RISC-V (V ext)</td><td><code>vfmacc.vv vd, vs1, vs2</code></td><td>vector float</td><td>vd[i] += vs1[i] * vs2[i]</td></tr>
+</tbody></table>
+<p><strong>Why FMA matters:</strong></p>
+<ul>
+<li>Single rounding: <code>a*b+c</code> is computed with a single rounding at the end, rather than rounding after multiply then after add. This provides higher precision.</li>
+<li>2x throughput: FMA counts as both a multiply and an add for the same execution port. Critical for dense linear algebra (GEMM), where peak FLOPS = 2 * frequency * FMA_units * vector_width.</li>
+<li>Kahan summation alternative: FMA enables error-free transformations like <code>TwoProductFMA(a, b)</code> that compute both the product and the rounding error in the product.</li>
+</ul>
+<p><strong>Performance:</strong></p>
+<ul>
+<li>Intel Sapphire Rapids: 2x FMA units, each 512-bit wide = 2 * 16 FP32 = 32 FMA/cycle = 64 FLOP/cycle per core</li>
+<li>Apple M4: 4x NEON FMA units, each 128-bit = 4 * 4 FP32 = 16 FMA/cycle = 32 FLOP/cycle per core</li>
+<li>Neoverse V2: 2x SVE FMA units, each 128-bit (SVE VL=128) = 2 * 4 FP32 = 8 FMA/cycle per core</li>
+</ul>
+<h3 id="10-2-half-precision-and-bfloat16">10.2 Half-Precision and BFloat16</h3>
+<table><thead><tr><th>ISA</th><th>Extension</th><th>Instructions</th><th>Use Case</th></tr></thead><tbody>
+<tr><td>x86-64</td><td>F16C (2012)</td><td><code>VCVTPH2PS</code>, <code>VCVTPS2PH</code></td><td>Convert FP16 &lt;-&gt; FP32 (no arithmetic in FP16)</td></tr>
+<tr><td>x86-64</td><td>AVX-512 FP16 (Sapphire Rapids)</td><td><code>VADDPH</code>, <code>VMULPH</code>, <code>VFMADD231PH zmm</code></td><td>Native FP16 arithmetic at 512-bit width</td></tr>
+<tr><td>x86-64</td><td>AMX-BF16</td><td><code>TDPBF16PS</code></td><td>BF16 matrix multiply in AMX tiles</td></tr>
+<tr><td>x86-64</td><td>AVX10.2 (2025)</td><td><code>VADDNEPBF16</code>, <code>VMULNEPBF16</code>, <code>VDPPHPS</code></td><td>Native BF16 arithmetic, FP16 dot product</td></tr>
+<tr><td>AArch64</td><td>FEAT_FP16 (ARMv8.2)</td><td><code>FADD Hd, Hn, Hm</code> (scalar), <code>FADD Vd.8H, ...</code> (vector)</td><td>Native FP16 arithmetic</td></tr>
+<tr><td>AArch64</td><td>FEAT_BF16 (ARMv8.6)</td><td><code>BFMMLA Vd.4S, Vn.8H, Vm.8H</code></td><td>BF16 matrix multiply-accumulate to FP32</td></tr>
+<tr><td>AArch64 (SME)</td><td><code>BFMOPA ZA.S, Pn/M, Zm.H, Zn.H</code></td><td>BF16 outer product into FP32 tile</td><td>ML training</td></tr>
+<tr><td>RISC-V</td><td>Zfh (ratified)</td><td><code>fadd.h</code>, <code>fmul.h</code>, <code>fmadd.h</code></td><td>Scalar FP16 arithmetic</td></tr>
+<tr><td>RISC-V</td><td>Zfbfmin</td><td><code>fcvt.bf16.s</code>, <code>fcvt.s.bf16</code></td><td>BF16 &lt;-&gt; FP32 conversion</td></tr>
+<tr><td>RISC-V</td><td>Zvfh</td><td><code>vfadd.vv</code> with SEW=16</td><td>Vector FP16 arithmetic</td></tr>
+<tr><td>RISC-V</td><td>Zvfbfmin</td><td>Vector BF16 conversions</td><td>Vector BF16 &lt;-&gt; FP32</td></tr>
+</tbody></table>
+<p><strong>FP16 vs BF16 formats:</strong></p>
+<pre><code>IEEE FP16:  1 sign + 5 exponent + 10 mantissa  (range: +-65504, precision: ~3.3 decimal digits)
+BFloat16:   1 sign + 8 exponent + 7 mantissa   (range: same as FP32, precision: ~2.4 decimal digits)
+</code></pre>
+<p>BF16 has the same dynamic range as FP32 (same 8-bit exponent), making it better for ML training where gradients can vary widely. FP16 has better precision but narrower range (often needs loss scaling).</p>
+<h3 id="10-3-rounding-modes-and-denormal-handling">10.3 Rounding Modes and Denormal Handling</h3>
+<p><strong>IEEE 754 rounding modes:</strong>
+All three ISAs support the four IEEE 754 rounding modes:</p>
+<ul>
+<li>Round to Nearest Even (RNE) -- default</li>
+<li>Round toward +Infinity (RU)</li>
+<li>Round toward -Infinity (RD)</li>
+<li>Round toward Zero (RZ)</li>
+<li>(Plus: Round to Nearest, ties to Away -- some ISAs support this as a 5th mode)</li>
+</ul>
+<table><thead><tr><th>ISA</th><th>Rounding mode control</th><th>Denormal behavior</th></tr></thead><tbody>
+<tr><td>x86-64</td><td>MXCSR register bits [14:13] for SSE/AVX; x87 FPU control word bits [11:10]</td><td>MXCSR.DAZ (Denormals Are Zero) and MXCSR.FTZ (Flush To Zero) for performance</td></tr>
+<tr><td>AArch64</td><td>FPCR bits [23:22] (RMode)</td><td>FPCR.FZ (Flush to Zero), FPCR.FZ16 for FP16</td></tr>
+<tr><td>RISC-V</td><td><code>frm</code> CSR (3-bit field), plus per-instruction <code>rm</code> field</td><td>No DAZ/FTZ in spec; implementation may support via custom CSR</td></tr>
+</tbody></table>
+<p><strong>AVX-512 per-instruction rounding:</strong>
+AVX-512 allows embedded rounding in the instruction encoding itself:</p>
+<pre><code>VADDPS zmm0{rz-sae}, zmm1, zmm2   // Add with round-toward-zero + suppress-all-exceptions
+VADDPS zmm0{rn-sae}, zmm1, zmm2   // Add with round-to-nearest-even
+</code></pre>
+<p>This eliminates the need to modify MXCSR between different rounding mode requirements -- invaluable for interval arithmetic, correctly-rounded math libraries, and financial computations.</p>
+<p><strong>Denormal (subnormal) performance trap:</strong>
+Denormal numbers (very small numbers below the normal range) cause massive performance penalties on many implementations:</p>
+<ul>
+<li>Intel: denormals on input or output can cause ~100-150 cycle penalties per operation (microcode assist)</li>
+<li>AMD Zen4: input denormals are handled in hardware for most operations (no penalty), but output denormals still trigger assists</li>
+<li>ARM: implementation-dependent; Apple M-series handles denormals at speed; some Cortex implementations flush to zero by default</li>
+<li>Setting DAZ+FTZ (x86) or FZ (ARM) eliminates the penalty but slightly violates IEEE 754</li>
+</ul>
+<p><strong>Real-world impact:</strong></p>
+<ul>
+<li>Database engines: usually set FTZ+DAZ early in process startup to avoid random performance cliffs</li>
+<li>Audio processing: denormals are notorious for causing CPU spikes in silence (values slowly decay toward denormal range in IIR filters)</li>
+<li>ML training: BF16/FP16 denormals rarely matter because values that small are effectively zero for gradients</li>
+</ul>
+<hr />
+<h2 id="11-string-and-memory-operations">11. String and Memory Operations</h2>
+<h3 id="11-1-x86-64-rep-string-operations">11.1 x86-64 REP String Operations</h3>
+<pre><code>REP MOVSB              // Copy RCX bytes from [RSI] to [RDI]
+REP MOVSQ              // Copy RCX quadwords from [RSI] to [RDI]
+REP STOSB              // Fill RCX bytes at [RDI] with AL
+REP STOSQ              // Fill RCX quadwords at [RDI] with RAX
+REP CMPSB              // Compare RCX bytes at [RSI] with [RDI]
+REPE SCASB             // Scan RCX bytes at [RDI] for AL (strlen-like)
+</code></pre>
+<p><strong>ERMS (Enhanced REP MOVSB/STOSB) -- Ivy Bridge+:</strong>
+Intel optimized the microcode for REP MOVSB/STOSB to match or beat manual SIMD copy loops for large copies. The hardware:</p>
+<ol>
+<li>Determines optimal strategy based on copy size and alignment</li>
+<li>Uses 256-bit or 512-bit internal moves</li>
+<li>Handles the startup/cleanup overhead for non-aligned heads/tails</li>
+<li>Benefits from store-buffer coalescing and WC (write-combining) for large copies</li>
+</ol>
+<p><strong>FSRM (Fast Short REP MOVSB) -- Ice Lake+:</strong>
+Optimizes REP MOVSB for small copies (&lt; 128 bytes) that were previously slower than explicit MOV sequences. Before FSRM, the startup overhead of REP MOVSB was ~15-20 cycles, making it slower than 2-3 MOV instructions for small copies.</p>
+<p><strong>Performance characteristics:</strong></p>
+<pre><code>Copy size       Best approach (Intel Ice Lake+)
+---------       ----------------------------
+1-16 bytes      Two overlapping MOV (load+store)
+16-128 bytes    REP MOVSB (FSRM) or 2-4 VMOVDQU
+128-256 KB      REP MOVSB (ERMS, cache-friendly)
+256 KB+         VMOVNTDQ (non-temporal, bypass cache)
+</code></pre>
+<p>glibc's <code>memcpy</code> on x86-64 checks ERMS/FSRM capability at startup and selects the appropriate implementation. For large copies, it uses either REP MOVSB or SIMD loops with non-temporal stores depending on size threshold (~= L3 cache size / 2).</p>
+<h3 id="11-2-aarch64-load-store-pair-and-multi-register">11.2 AArch64 Load/Store Pair and Multi-Register</h3>
+<pre><code>LDP  X0, X1, [X2]        // Load pair: two 64-bit loads from consecutive addresses (single instruction)
+STP  X0, X1, [X2]        // Store pair: two 64-bit stores
+LDP  Q0, Q1, [X2]        // Load pair: two 128-bit SIMD loads (256 bits total!)
+STP  Q0, Q1, [X2]        // Store pair: two 128-bit SIMD stores
+
+LDNP X0, X1, [X2]        // Non-temporal load pair
+STNP X0, X1, [X2]        // Non-temporal store pair
+
+// Post-index (auto-increment):
+LDP  X0, X1, [X2], #16   // Load pair, then X2 += 16
+
+// Pre-index:
+LDP  X0, X1, [X2, #16]!  // X2 += 16, then load pair from [X2]
+
+// ARMv8.7 FEAT_LS64: 64-byte single-copy atomic load/store
+LD64B  X0, [X1]           // Load 64 bytes (whole cache line) atomically
+ST64B  X0, [X1]           // Store 64 bytes atomically
+ST64BV X0, Xs, [Xn]       // Store 64 bytes, return status
+</code></pre>
+<p><strong>FEAT_MOPS (Memory Operations) -- ARMv8.8:</strong>
+Hardware-accelerated memcpy/memset/memmove instructions:</p>
+<pre><code>// Memory copy (3-instruction sequence: prologue, main, epilogue)
+CPYFP  [Xd]!, [Xs]!, Xn!    // Copy Forward: Prologue (setup)
+CPYFM  [Xd]!, [Xs]!, Xn!    // Copy Forward: Main (bulk copy)
+CPYFE  [Xd]!, [Xs]!, Xn!    // Copy Forward: Epilogue (cleanup)
+
+// Memory set
+SETP   [Xd]!, Xn!, Xv        // Set: Prologue
+SETM   [Xd]!, Xn!, Xv        // Set: Main
+SETE   [Xd]!, Xn!, Xv        // Set: Epilogue
+</code></pre>
+<p>The 3-instruction design allows the CPU to be interrupted and resumed (unlike x86 REP which is interruptible at iteration granularity). Each variant (P/M/E) handles the respective phase, and the hardware determines the optimal implementation. This is the ARM equivalent of ERMS.</p>
+<h3 id="11-3-risc-v-memory-operations">11.3 RISC-V Memory Operations</h3>
+<p>RISC-V has no hardware-accelerated memcpy equivalent in the base ISA. Copy loops use:</p>
+<pre><code>// Simple doubleword copy loop
+loop:
+    ld   a3, 0(a1)
+    sd   a3, 0(a0)
+    addi a1, a1, 8
+    addi a0, a0, 8
+    addi a2, a2, -8
+    bnez a2, loop
+
+// With V extension (RVV): vectorized memcpy
+memcpy_rvv:
+    vsetvli t0, a2, e8, m8, ta, ma   // Set up for byte-width, LMUL=8
+    vle8.v  v0, (a1)                  // Vector load
+    vse8.v  v0, (a0)                  // Vector store
+    add     a1, a1, t0
+    add     a0, a0, t0
+    sub     a2, a2, t0
+    bnez    a2, memcpy_rvv
+</code></pre>
+<p>The <code>Zicboz</code> extension adds <code>cbo.zero</code> which can zero entire cache lines without a read-for-ownership -- equivalent to ARM's DC ZVA, useful for memset(0) and page zeroing.</p>
+<hr />
+<h2 id="12-transactional-memory">12. Transactional Memory</h2>
+<h3 id="12-1-x86-tsx-transactional-synchronization-extensions">12.1 x86 TSX (Transactional Synchronization Extensions)</h3>
+<p><strong>History and current status:</strong>
+TSX was introduced in Haswell (2013), disabled due to bugs, re-enabled in Broadwell/Skylake, then progressively disabled again due to security vulnerabilities (TAA -- TSX Asynchronous Abort, a side-channel attack). As of 2025:</p>
+<ul>
+<li><strong>HLE (Hardware Lock Elision):</strong> deprecated and removed in all current Intel CPUs</li>
+<li><strong>RTM (Restricted Transactional Memory):</strong> disabled by default via microcode on most consumer CPUs; available on some Xeon SKUs (Sapphire Rapids HBM, some Ice Lake Server) with security mitigations</li>
+<li><strong>Intel has announced TSX deprecation</strong> in future architectures</li>
+</ul>
+<p><strong>Instructions (for reference, as production systems may still encounter them):</strong></p>
+<pre><code>XBEGIN  label          // Start transaction; if abort, jump to label (fallback path)
+XEND                   // Commit transaction (all memory modifications atomically visible)
+XABORT  imm8           // Explicitly abort transaction with reason code
+XTEST                  // Test if inside a transaction (ZF=0 if inside)
+
+// Usage pattern:
+retry:
+    XBEGIN  fallback    // Start transaction
+    // ... critical section (reads/writes are speculative) ...
+    XEND                // Commit
+    JMP     done
+
+fallback:
+    // Transaction aborted -- reason in EAX
+    // EAX bit 0: explicit XABORT
+    // EAX bit 1: may succeed on retry
+    // EAX bit 2: conflict with another thread
+    // EAX bit 3: buffer overflow (too many cache lines)
+    // EAX bit 4: debug breakpoint hit
+    // EAX bit 5: nested transaction abort
+    // Acquire lock and execute critical section traditionally
+    LOCK_ACQUIRE
+    // ... critical section ...
+    LOCK_RELEASE
+
+done:
+</code></pre>
+<p><strong>How it worked microarchitecturally:</strong></p>
+<ol>
+<li>On XBEGIN: checkpoint register state, enter transactional mode</li>
+<li>All loads/stores tracked in L1D cache (read set and write set)</li>
+<li>Write set: modified lines held in L1D with "transactional" bit; not made visible to other cores</li>
+<li>Conflict: if another core reads a line in our write set or writes a line in our read set, the transaction aborts</li>
+<li>Capacity limit: read set bounded by L1D (32 KB), write set bounded by L1D associativity (typically 8-12 cache lines usable)</li>
+<li>On XEND: all writes atomically made visible (clear transactional bits)</li>
+<li>On abort: discard all transactional writes, restore register checkpoint, jump to fallback</li>
+</ol>
+<p><strong>Why systems used it (and what replaced it):</strong></p>
+<ul>
+<li>Optimistic lock elision for read-heavy data structures (hash tables, skip lists)</li>
+<li>MySQL InnoDB used TSX for optimistic locking in buffer pool management</li>
+<li>HotSpot JVM used TSX for lock elision</li>
+<li>Replacement: most systems moved to optimistic validation protocols, RCU, or more fine-grained locking</li>
+</ul>
+<h3 id="12-2-arm-tme-transactional-memory-extension">12.2 ARM TME (Transactional Memory Extension)</h3>
+<p><strong>Status: specified but NOT widely implemented. No production silicon as of 2025.</strong></p>
+<pre><code>TSTART   Xt       // Start transaction; Xt = 0 on success, != 0 on abort (with reason)
+TCOMMIT           // Commit transaction
+TCANCEL  #imm     // Explicitly cancel with reason
+TTEST              // Test transactional state (Xt = depth, 0 if not in transaction)
+</code></pre>
+<p>ARM TME supports nesting (up to implementation-defined depth). The design is similar to x86 RTM but with ARM's relaxed memory model, the interaction between transactions and barriers is more nuanced.</p>
+<h3 id="12-3-risc-v-transactional-memory">12.3 RISC-V Transactional Memory</h3>
+<p>No ratified transactional memory extension. The Ztm proposal exists in draft form. RISC-V's approach has been to focus on getting the atomic extensions (Zacas, Zabha) right before adding hardware TM.</p>
+<h3 id="12-4-assessment-of-hardware-transactional-memory">12.4 Assessment of Hardware Transactional Memory</h3>
+<p>HTM has largely failed to achieve widespread adoption:</p>
+<ul>
+<li><strong>Capacity aborts:</strong> read/write sets limited by cache sizes; any context switch, interrupt, or TLB miss can abort</li>
+<li><strong>Security concerns:</strong> transactional side channels (TSX-based Spectre variants, TAA attack)</li>
+<li><strong>Performance unpredictability:</strong> fast path is very fast, but abort rate under contention makes worst-case terrible</li>
+<li><strong>Software alternatives are good enough:</strong> RCU, optimistic locking with validation, lock-free data structures, epoch-based reclamation</li>
+</ul>
+<p><strong>Key paper:</strong> "Transactional Memory: Architectural Support for Lock-Free Data Structures" -- Herlihy &amp; Moss, ISCA 1993 (the original proposal). "Why HTM Is Not The Answer" -- various industry retrospectives.</p>
+<hr />
+<h2 id="13-virtualization">13. Virtualization</h2>
+<h3 id="13-1-x86-64-vmx-intel-vt-x-svm-amd-v">13.1 x86-64 VMX (Intel VT-x) / SVM (AMD-V)</h3>
+<p><strong>Intel VMX instructions:</strong></p>
+<pre><code>VMXON  [mem]           // Enable VMX operation (enter VMX root mode)
+VMXOFF                 // Disable VMX operation
+VMCLEAR [mem]          // Clear VMCS (Virtual Machine Control Structure)
+VMPTRLD [mem]          // Load pointer to current VMCS
+VMREAD  reg, reg       // Read field from current VMCS
+VMWRITE reg, reg       // Write field to current VMCS
+VMLAUNCH               // Launch VM (first entry -- VMCS must be in &quot;clear&quot; then &quot;launched&quot; state)
+VMRESUME               // Resume VM (subsequent entries)
+VMCALL                 // Guest -&gt; Host hypercall (causes VM exit)
+INVEPT                 // Invalidate EPT (Extended Page Table) translations
+INVVPID                // Invalidate VPID (Virtual Processor ID) translations
+</code></pre>
+<p><strong>AMD SVM instructions:</strong></p>
+<pre><code>VMRUN  [mem]           // Run guest (VMCB address in RAX)
+VMSAVE [mem]           // Save additional host state
+VMLOAD [mem]           // Load additional host state
+VMMCALL                // Guest -&gt; Host hypercall
+CLGI                   // Clear Global Interrupt Flag (disable interrupts including NMI)
+STGI                   // Set Global Interrupt Flag
+INVLPGA                // Invalidate TLB entry for specific ASID
+</code></pre>
+<p><strong>VM Exit cost:</strong>
+The cost of a VM exit (transition from guest to hypervisor) has decreased over generations but remains significant:</p>
+<pre><code>Generation          Approx VM exit + re-entry cost
+-----------         ----------------------------
+Pentium 4 (VT-x v1)   ~4000 cycles
+Nehalem               ~1000 cycles
+Skylake               ~500-700 cycles
+Sapphire Rapids       ~400-500 cycles
+AMD Zen4              ~400-500 cycles
+</code></pre>
+<p><strong>EPT/NPT (Extended/Nested Page Tables):</strong></p>
+<ul>
+<li>Hardware-assisted two-level page table walk: GVA -&gt; GPA -&gt; HPA</li>
+<li>Eliminates need for shadow page tables (which required VM exit on every guest page table modification)</li>
+<li>EPT violation (page fault in second-level translation) causes VM exit</li>
+<li>TDP (Two-Dimensional Paging) on AMD = NPT (Nested Page Tables)</li>
+</ul>
+<h3 id="13-2-aarch64-virtualization-el2">13.2 AArch64 Virtualization (EL2)</h3>
+<p>ARM's virtualization is built into the exception level model:</p>
+<pre><code>EL0: User mode (applications)
+EL1: OS kernel
+EL2: Hypervisor
+EL3: Secure monitor (TrustZone)
+</code></pre>
+<p><strong>Key instructions:</strong></p>
+<pre><code>HVC #imm    // Hypervisor Call: EL1 -&gt; EL2 trap (like x86 VMCALL)
+SMC #imm    // Secure Monitor Call: EL1/EL2 -&gt; EL3
+ERET        // Exception Return: EL2 -&gt; EL1 (return to guest), or EL1 -&gt; EL0
+AT S12E1R, Xt  // Address Translation: Stage 1+2 EL1 read (hypervisor translates guest address)
+TLBI ALLE1  // TLB Invalidate: All EL1 entries (hypervisor clears guest TLB)
+</code></pre>
+<p><strong>ARMv8.1 VHE (Virtualization Host Extensions):</strong></p>
+<ul>
+<li>Allows the hypervisor to run at EL2 with EL1-like register naming</li>
+<li>Eliminates the need for the hypervisor to save/restore its own state on every VM exit</li>
+<li>KVM on ARM uses VHE: the host kernel runs at EL2, guests run at EL1</li>
+<li>Reduces VM exit cost by ~30-50%</li>
+</ul>
+<p><strong>Stage-2 translation (IPA -&gt; PA):</strong>
+ARM's stage-2 translation (controlled by <code>VTTBR_EL2</code>) is the equivalent of Intel EPT. The hypervisor sets up a second-level page table that maps the guest's Intermediate Physical Addresses (IPAs) to real Physical Addresses.</p>
+<h3 id="13-3-risc-v-h-extension-hypervisor">13.3 RISC-V H Extension (Hypervisor)</h3>
+<p><strong>Ratified in 2024, gaining implementation support:</strong></p>
+<pre><code>// New privilege modes:
+// HS-mode (Hypervisor Supervisor): replaces S-mode when H extension is present
+// VS-mode (Virtual Supervisor): guest OS runs here
+// VU-mode (Virtual User): guest user processes run here
+
+// Key CSRs:
+hstatus    // Hypervisor status
+hedeleg    // Hypervisor exception delegation
+hideleg    // Hypervisor interrupt delegation
+hgatp      // Guest address translation pointer (like x86 EPTP, ARM VTTBR_EL2)
+htval      // Hypervisor trap value (guest physical address on fault)
+htinst     // Hypervisor trap instruction (trapped instruction encoding)
+vsstatus   // Virtual supervisor status
+vsatp      // Virtual supervisor address translation
+
+// Instructions:
+HFENCE.VVMA   // Hypervisor fence for guest VA mappings
+HFENCE.GVMA   // Hypervisor fence for guest PA mappings
+HLV.D rd, (rs1)  // Hypervisor Load: load from guest address space while in HS-mode
+HSV.D rs2, (rs1)  // Hypervisor Store: store to guest address space
+HINVAL.VVMA   // Invalidate guest VA translations
+HINVAL.GVMA   // Invalidate guest PA translations
+</code></pre>
+<p><strong>Two-stage address translation (same concept as EPT/Stage-2):</strong></p>
+<pre><code>Guest VA --[VS-mode page table]--&gt; Guest PA --[hgatp page table]--&gt; Host PA
+</code></pre>
+<p><strong>Implementations:</strong></p>
+<ul>
+<li>QEMU full system emulation supports H extension</li>
+<li>Xvisor and KVM support RISC-V H extension</li>
+<li>T-Head C920 implements H extension</li>
+<li>Expected in SiFive P870 and Ventana Veyron V2</li>
+</ul>
+<hr />
+<h2 id="14-performance-monitoring">14. Performance Monitoring</h2>
+<h3 id="14-1-x86-64-performance-monitoring">14.1 x86-64 Performance Monitoring</h3>
+<p><strong>RDPMC (Read Performance Monitoring Counter):</strong></p>
+<pre><code>MOV ECX, 0              // Select counter 0 (IA32_PMC0)
+RDPMC                   // Read counter into EDX:EAX
+// ECX bit 30: select fixed counter (0 = instructions retired, 1 = cycles, 2 = ref cycles)
+// ECX bit 31: select any-thread mode (on HT cores)
+</code></pre>
+<p><strong>Programming performance counters (privileged):</strong></p>
+<pre><code>// Write IA32_PERFEVTSELx MSR to configure what counter N measures
+WRMSR(IA32_PERFEVTSEL0, event_select | umask | usr | os | enable)
+
+// Common events:
+// Instructions retired:    Event 0xC0, Umask 0x00
+// LLC misses:             Event 0x2E, Umask 0x41 (Intel)
+// Branch mispredictions:  Event 0xC5, Umask 0x00
+// L1D cache misses:       Event 0x51 (load), 0xD1 (all)
+</code></pre>
+<p><strong>PEBS (Processor Event-Based Sampling) -- Intel:</strong></p>
+<ul>
+<li>Hardware writes sample records directly to a memory buffer when counter overflows</li>
+<li>Each record contains: RIP, registers, data address (for memory events), latency, TLB info</li>
+<li>Eliminates interrupt overhead of traditional sampling (no PMI for every sample)</li>
+<li>Used by <code>perf record -e cpu/event=0xd1,umask=0x20/pp</code> (the <code>pp</code> means "precise event")</li>
+</ul>
+<p><strong>IBS (Instruction-Based Sampling) -- AMD:</strong></p>
+<ul>
+<li>AMD's equivalent of PEBS, but samples every Nth retired instruction</li>
+<li>IBS Fetch: samples instruction fetch events (L1I miss, ITLB miss, fetch latency)</li>
+<li>IBS Op: samples micro-op execution events (data cache miss, latency, address)</li>
+<li>Provides complete microarchitectural attribution per sampled instruction</li>
+</ul>
+<p><strong>LBR (Last Branch Record) -- Intel:</strong></p>
+<pre><code>// IA32_LBR_x_FROM_IP, IA32_LBR_x_TO_IP, IA32_LBR_x_INFO
+// Ring buffer of last N branches (16-32 entries depending on generation)
+// Each entry: from-address, to-address, cycle count, misprediction flag
+// Used for AutoFDO (feedback-directed optimization without instrumentation)
+</code></pre>
+<p><strong>Intel PT (Processor Trace):</strong></p>
+<ul>
+<li>Hardware traces all control flow (branches taken/not-taken) with minimal overhead (~5%)</li>
+<li>Output is a compressed packet stream decoded offline</li>
+<li>Records: TNT (taken/not-taken) packets, TIP (target IP) packets, timing packets</li>
+<li>Used for: precise code coverage, security monitoring, reverse debugging (rr, UDB)</li>
+</ul>
+<h3 id="14-2-aarch64-pmu-performance-monitor-unit">14.2 AArch64 PMU (Performance Monitor Unit)</h3>
+<pre><code>// Enable PMU cycle counter at EL0
+MSR PMCR_EL0, #1             // Enable PMU
+MSR PMCNTENSET_EL0, #(1&lt;&lt;31) // Enable cycle counter (PMCCNTR_EL0)
+MSR PMUSERENR_EL0, #1        // Allow EL0 access
+
+// Read cycle counter
+MRS X0, PMCCNTR_EL0          // Read cycle count
+
+// Configure event counter 0
+MSR PMEVTYPER0_EL0, #0x08    // Event 0x08 = Instructions retired (Architecturally defined)
+MSR PMCNTENSET_EL0, #1       // Enable counter 0
+MRS X0, PMEVCNTR0_EL0        // Read counter 0
+</code></pre>
+<p><strong>ARM Statistical Profiling Extension (SPE) -- ARMv8.2:</strong></p>
+<ul>
+<li>Hardware sampling: the PMU periodically samples operations and writes detailed records to a memory buffer</li>
+<li>Each record includes: PC, virtual address, physical address, data source (L1/L2/LLC/DRAM), latency, event type</li>
+<li>Similar to Intel PEBS but designed as a separate extension rather than building on counter overflow</li>
+<li>Used by Linux <code>perf</code> via <code>arm_spe_0</code> PMU driver</li>
+</ul>
+<p><strong>ARM BRBE (Branch Record Buffer Extension) -- ARMv9.2:</strong></p>
+<ul>
+<li>ARM's equivalent of Intel LBR</li>
+<li>Ring buffer of recent branches with from/to addresses and cycle counts</li>
+<li>Enables AutoFDO-style optimization on ARM</li>
+</ul>
+<h3 id="14-3-risc-v-performance-monitoring-zihpm">14.3 RISC-V Performance Monitoring (Zihpm)</h3>
+<pre><code>// Hardware Performance Monitor CSRs:
+rdcycle     rd        // Read cycle counter (CSR 0xC00)
+rdtime      rd        // Read wall-clock time (CSR 0xC01)
+rdinstret   rd        // Read instructions retired (CSR 0xC02)
+csrr        rd, hpmcounter3   // Read hardware performance counter 3 (CSR 0xC03)
+// ... up to hpmcounter31 (29 configurable counters)
+
+// Configuration (M-mode only):
+csrw mhpmevent3, event_code   // Configure what counter 3 measures
+csrw mcounteren, mask          // Enable counters for S-mode access
+csrw scounteren, mask          // Enable counters for U-mode access
+</code></pre>
+<p><strong>Sscofpmf extension (Counter Overflow and Privilege Mode Filtering):</strong></p>
+<ul>
+<li>Enables counter overflow interrupts (for sampling)</li>
+<li>Enables filtering counters by privilege mode (user/supervisor/machine)</li>
+<li>Critical for building <code>perf</code>-like profiling infrastructure</li>
+</ul>
+<p>The RISC-V PMU ecosystem is still maturing. SiFive's P870 implements Zihpm with implementation-specific events. The standard event space is being defined by the RISC-V performance monitoring TG.</p>
+<h3 id="14-4-performance-counter-usage-patterns">14.4 Performance Counter Usage Patterns</h3>
+<p><strong>Top-down microarchitecture analysis (Intel TMA):</strong></p>
+<pre><code>Retiring     = uops_retired.retire_slots / (4 * cpu_clk_unhalted.thread)
+Bad_Spec     = (uops_issued.any - uops_retired.retire_slots + recovery_bubbles) / (4 * cycles)
+FE_Bound     = idq_uops_not_delivered.core / (4 * cycles)
+BE_Bound     = 1 - (Retiring + Bad_Spec + FE_Bound)
+</code></pre>
+<p>This decomposes pipeline stalls into: frontend bound (fetch/decode limited), backend bound (execution/memory limited), bad speculation (mispredictions), and retiring (doing useful work). Available as <code>perf stat --topdown</code> on Linux.</p>
+<hr />
+<h2 id="15-compiler-mapping">15. Compiler Mapping: C11/C++ Atomics to ISA</h2>
+<h3 id="15-1-how-std-atomic-t-maps-to-instructions">15.1 How <code>std::atomic&lt;T&gt;</code> Maps to Instructions</h3>
+<table><thead><tr><th>C++ Operation</th><th>x86-64</th><th>AArch64</th><th>RISC-V</th></tr></thead><tbody>
+<tr><td><code>load(relaxed)</code></td><td><code>MOV</code></td><td><code>LDR</code></td><td><code>ld</code></td></tr>
+<tr><td><code>load(acquire)</code></td><td><code>MOV</code> (free under TSO)</td><td><code>LDAR</code></td><td><code>ld</code> + <code>fence r,rw</code></td></tr>
+<tr><td><code>load(seq_cst)</code></td><td><code>MOV</code> (free under TSO)</td><td><code>LDAR</code></td><td><code>fence rw,rw</code> + <code>ld</code> + <code>fence r,rw</code></td></tr>
+<tr><td><code>store(relaxed)</code></td><td><code>MOV</code></td><td><code>STR</code></td><td><code>sd</code></td></tr>
+<tr><td><code>store(release)</code></td><td><code>MOV</code> (free under TSO)</td><td><code>STLR</code></td><td><code>fence rw,w</code> + <code>sd</code></td></tr>
+<tr><td><code>store(seq_cst)</code></td><td><code>MOV</code> + <code>MFENCE</code> (or <code>XCHG</code>)</td><td><code>STLR</code></td><td><code>fence rw,w</code> + <code>sd</code> + <code>fence rw,rw</code></td></tr>
+<tr><td><code>fetch_add(relaxed)</code></td><td><code>LOCK XADD</code></td><td><code>LDADD</code> (LSE) or LDXR/ADD/STXR loop</td><td><code>amoadd.d</code></td></tr>
+<tr><td><code>fetch_add(acq_rel)</code></td><td><code>LOCK XADD</code></td><td><code>LDADDAL</code> (LSE)</td><td><code>amoadd.d.aqrl</code></td></tr>
+<tr><td><code>fetch_add(seq_cst)</code></td><td><code>LOCK XADD</code></td><td><code>LDADDAL</code> (LSE)</td><td><code>amoadd.d.aqrl</code></td></tr>
+<tr><td><code>compare_exchange(relaxed)</code></td><td><code>LOCK CMPXCHG</code></td><td><code>CAS</code> (LSE) or LDXR/STXR loop</td><td><code>amocas.d</code> (Zacas) or LR/SC loop</td></tr>
+<tr><td><code>compare_exchange(seq_cst)</code></td><td><code>LOCK CMPXCHG</code></td><td><code>CASAL</code> (LSE)</td><td><code>amocas.d.aqrl</code> or LR.aq/SC.rl loop</td></tr>
+<tr><td><code>thread_fence(acquire)</code></td><td>compiler fence only (NOP)</td><td><code>DMB ISHLD</code></td><td><code>fence r,rw</code></td></tr>
+<tr><td><code>thread_fence(release)</code></td><td>compiler fence only (NOP)</td><td><code>DMB ISH</code> (*)</td><td><code>fence rw,w</code></td></tr>
+<tr><td><code>thread_fence(seq_cst)</code></td><td><code>MFENCE</code> (or <code>LOCK; ADD</code>)</td><td><code>DMB ISH</code></td><td><code>fence rw,rw</code></td></tr>
+</tbody></table>
+<p>(*) On AArch64, <code>atomic_thread_fence(release)</code> emits <code>DMB ISH</code> (full barrier) rather than the seemingly-sufficient <code>DMB ISHST</code>. This is because a release fence must prevent store-store AND load-store reorderings, and <code>DMB ISHST</code> only prevents store-store. The C++ standard requires that a release fence orders prior loads too (loads must not be reordered past the fence into the critical section being released).</p>
+<h3 id="15-2-x86-seq-cst-store-mfence-vs-xchg">15.2 x86 seq_cst Store: MFENCE vs XCHG</h3>
+<p>Two strategies for seq_cst store on x86:</p>
+<ol>
+<li><code>MOV [mem], reg</code> + <code>MFENCE</code> -- GCC default</li>
+<li><code>XCHG [mem], reg</code> -- Clang/LLVM default (XCHG has implicit LOCK)</li>
+</ol>
+<p>XCHG is generally faster because MFENCE is an expensive serializing instruction (~33 cycles on Intel) while XCHG with LOCK is a regular atomic RMW (~18-22 cycles). However, XCHG reads the old value from memory (even though seq_cst store discards it), which can cause extra cache traffic if the line is Modified in another core.</p>
+<h3 id="15-3-memory-model-implications-for-software-design">15.3 Memory Model Implications for Software Design</h3>
+<p><strong>Lock-free queue on x86 vs ARM:</strong></p>
+<pre><code data-lang="c">// Producer (x86 -- release store is free!)
+buffer[tail] = item;           // Just a MOV
+tail_index.store(new_tail, std::memory_order_release);  // Just a MOV (no fence!)
+
+// Consumer
+int t = tail_index.load(std::memory_order_acquire);      // Just a MOV
+item = buffer[t];              // Just a MOV
+
+// On ARM, the same code emits:
+// Producer: STR (data) + STLR (tail)    -- STLR prevents prior stores from being reordered past
+// Consumer: LDAR (tail) + LDR (data)     -- LDAR prevents subsequent loads from being reordered before
+</code></pre>
+<p>The key point: x86-64 code that works correctly under TSO may be missing necessary fences for ARM/RISC-V. The C++ memory model forces you to specify ordering explicitly, and the compiler inserts the right instructions for each ISA. But hand-written assembly or inline asm must account for the difference.</p>
+<hr />
+<h2 id="16-isa-extension-discovery">16. ISA Extension Discovery</h2>
+<h3 id="16-1-runtime-feature-detection-patterns">16.1 Runtime Feature Detection Patterns</h3>
+<p><strong>x86-64: CPUID-based dispatch (used by glibc, OpenSSL, etc.):</strong></p>
+<pre><code data-lang="c">#include &lt;cpuid.h&gt;
+
+void detect_features(void) {
+    uint32_t eax, ebx, ecx, edx;
+
+    // Check leaf 7, sub-leaf 0 for extended features
+    __cpuid_count(7, 0, eax, ebx, ecx, edx);
+
+    bool has_avx2     = (ebx &gt;&gt; 5) &amp; 1;
+    bool has_avx512f  = (ebx &gt;&gt; 16) &amp; 1;
+    bool has_sha_ni   = (ebx &gt;&gt; 29) &amp; 1;
+    bool has_avx512bw = (ebx &gt;&gt; 30) &amp; 1;
+
+    // Check leaf 7, sub-leaf 1 for newer features
+    __cpuid_count(7, 1, eax, ebx, ecx, edx);
+    bool has_avx_vnni    = (eax &gt;&gt; 4) &amp; 1;
+    bool has_avx512_bf16 = (eax &gt;&gt; 5) &amp; 1;
+    bool has_avx10       = (edx &gt;&gt; 19) &amp; 1;
+
+    // Must also check OS support via XGETBV (XSAVE state)
+    uint64_t xcr0 = _xgetbv(0);
+    bool os_supports_avx  = (xcr0 &amp; 0x6) == 0x6;       // XMM + YMM state
+    bool os_supports_avx512 = (xcr0 &amp; 0xE6) == 0xE6;   // XMM + YMM + ZMM + opmask state
+}
+</code></pre>
+<p><strong>AArch64: HWCAP-based dispatch:</strong></p>
+<pre><code data-lang="c">#include &lt;sys/auxv.h&gt;
+
+void detect_features(void) {
+    unsigned long hwcap  = getauxval(AT_HWCAP);
+    unsigned long hwcap2 = getauxval(AT_HWCAP2);
+
+    bool has_lse     = hwcap &amp; HWCAP_ATOMICS;
+    bool has_sve     = hwcap &amp; HWCAP_SVE;
+    bool has_sve2    = hwcap &amp; HWCAP_SVE2;
+    bool has_sha512  = hwcap &amp; HWCAP_SHA512;
+    bool has_crc32   = hwcap &amp; HWCAP_CRC32;
+    bool has_paca    = hwcap &amp; HWCAP_PACA;      // Pointer Auth (key A)
+    bool has_bf16    = hwcap2 &amp; HWCAP2_BF16;
+    bool has_sme     = hwcap2 &amp; HWCAP2_SME;
+    bool has_sme2    = hwcap2 &amp; HWCAP2_SME2;
+    bool has_mops    = hwcap2 &amp; HWCAP2_MOPS;    // Memory operations (memcpy accel)
+
+    // SVE vector length query
+    if (has_sve) {
+        uint64_t vl;
+        asm volatile(&quot;rdvl %0, #1&quot; : &quot;=r&quot;(vl));
+        // vl = vector length in bytes (16 for 128b, 32 for 256b, 64 for 512b)
+    }
+}
+</code></pre>
+<p><strong>RISC-V: multi-method detection:</strong></p>
+<pre><code data-lang="c">#include &lt;sys/hwprobe.h&gt;
+
+void detect_features(void) {
+    struct riscv_hwprobe pairs[] = {
+        { .key = RISCV_HWPROBE_KEY_IMA_EXT_0 },
+        { .key = RISCV_HWPROBE_KEY_CPUPERF_0 },
+    };
+    long ret = syscall(__NR_riscv_hwprobe, pairs, 2, 0, NULL, 0);
+
+    if (pairs[0].value &amp; RISCV_HWPROBE_IMA_V)
+        printf(&quot;Vector extension available\n&quot;);
+    if (pairs[0].value &amp; RISCV_HWPROBE_IMA_ZBA)
+        printf(&quot;Zba (address generation) available\n&quot;);
+    if (pairs[0].value &amp; RISCV_HWPROBE_IMA_ZBB)
+        printf(&quot;Zbb (basic bit manipulation) available\n&quot;);
+    if (pairs[0].value &amp; RISCV_HWPROBE_IMA_ZBS)
+        printf(&quot;Zbs (single-bit operations) available\n&quot;);
+
+    // Performance info (misaligned access speed)
+    if (pairs[1].value &amp; RISCV_HWPROBE_MISALIGNED_FAST)
+        printf(&quot;Fast misaligned access\n&quot;);
+}
+</code></pre>
+<h3 id="16-2-multi-versioning-and-ifunc">16.2 Multi-Versioning and IFUNC</h3>
+<p><strong>GCC/Clang function multi-versioning:</strong></p>
+<pre><code data-lang="c">// x86 target_clones (generates multiple versions, dispatched at load time)
+__attribute__((target_clones(&quot;avx512f&quot;, &quot;avx2&quot;, &quot;sse4.2&quot;, &quot;default&quot;)))
+void process_data(float *data, int n) {
+    for (int i = 0; i &lt; n; i++)
+        data[i] = data[i] * 2.0f + 1.0f;
+}
+
+// ARM target_version (AArch64 function multi-versioning, GCC 14+/Clang 17+)
+__attribute__((target_version(&quot;sve2&quot;)))
+void compute(float *a, float *b, int n) { /* SVE2 version */ }
+
+__attribute__((target_version(&quot;sve&quot;)))
+void compute(float *a, float *b, int n) { /* SVE version */ }
+
+__attribute__((target_version(&quot;default&quot;)))
+void compute(float *a, float *b, int n) { /* NEON fallback */ }
+</code></pre>
+<p><strong>GNU IFUNC (Indirect Function):</strong></p>
+<pre><code data-lang="c">// Resolver function called once at load time
+static void *memcpy_resolver(void) {
+    if (__builtin_cpu_supports(&quot;avx512f&quot;))
+        return memcpy_avx512;
+    else if (__builtin_cpu_supports(&quot;avx2&quot;))
+        return memcpy_avx2;
+    else
+        return memcpy_generic;
+}
+
+void *memcpy(void *, const void *, size_t)
+    __attribute__((ifunc(&quot;memcpy_resolver&quot;)));
+</code></pre>
+<p>glibc uses IFUNC extensively: <code>memcpy</code>, <code>strcmp</code>, <code>strlen</code>, <code>memset</code>, and many other functions have AVX2/AVX-512/SSE4.2 variants selected at runtime.</p>
+<hr />
+<h2 id="17-key-papers-and-resources">17. Key Papers and Resources</h2>
+<h3 id="architecture-manuals-primary-sources">Architecture Manuals (Primary Sources)</h3>
+<ol>
+<li>Intel 64 and IA-32 Architectures Software Developer's Manual (SDM), Volumes 1-4, Intel Corporation, 2024+</li>
+<li>ARM Architecture Reference Manual for A-profile Architecture (ARM DDI 0487), ARM Ltd, 2024+</li>
+<li>The RISC-V Instruction Set Manual, Volume I: User-Level ISA / Volume II: Privileged Architecture, RISC-V International, 2024</li>
+<li>Intel Architecture Instruction Set Extensions Programming Reference (covers APX, AVX10, AMX updates)</li>
+</ol>
+<h3 id="memory-models-and-ordering">Memory Models and Ordering</h3>
+<ol start="5">
+<li>"A Tutorial Introduction to the ARM and POWER Relaxed Memory Models" -- Maranget, Sarkar, Sewell, 2012. Essential reading for understanding weak memory models.</li>
+<li>"x86-TSO: A Rigorous and Usable Programmer's Model for x86 Multiprocessors" -- Sewell et al., CACM 2010. The formal x86 memory model.</li>
+<li>"Frightening Small Children and Disconcerting Grown-ups: Concurrency in the Linux Kernel" -- Alglave et al., ASPLOS 2018. How the Linux kernel memory model maps to hardware.</li>
+<li>"RVWMO: The RISC-V Weak Memory Ordering Model" -- Chapter 17 of the RISC-V ISA specification, with formal litmus test semantics.</li>
+<li>"Repairing Sequential Consistency in C/C++11" -- Lahav et al., PLDI 2017. Fixes to the C++ memory model.</li>
+</ol>
+<h3 id="simd-and-vectorization">SIMD and Vectorization</h3>
+<ol start="10">
+<li>"Auto-Vectorization in LLVM" -- Nuzman &amp; Henderson, various LLVM developer meetings</li>
+<li>"Rethinking SIMD Vectorization for In-Memory Databases" -- Polychroniou et al., SIGMOD 2015. Foundational work on SIMD for database operations.</li>
+<li>"Everything You Always Wanted to Know About Compiled and Vectorized Queries But Were Afraid to Ask" -- Kersten et al., VLDB 2018.</li>
+<li>"The Scalable Vector Extension for AArch64" -- Stephens et al., IEEE Micro 2017.</li>
+<li>"Arm Scalable Matrix Extension (SME)" -- ARM white paper, 2021.</li>
+</ol>
+<h3 id="atomics-and-lock-free-programming">Atomics and Lock-Free Programming</h3>
+<ol start="15">
+<li>"The Art of Multiprocessor Programming" -- Herlihy &amp; Shavit, 2008 (revised 2020). The textbook for lock-free data structures.</li>
+<li>"Simple, Fast, and Practical Non-Blocking and Blocking Concurrent Queue Algorithms" -- Michael &amp; Scott, PODC 1996. The Michael-Scott queue.</li>
+<li>"Algorithms for Scalable Synchronization on Shared-Memory Multiprocessors" -- Mellor-Crummey &amp; Scott, TOCS 1991. MCS lock and related.</li>
+<li>"Large System Extensions for ARMv8-A" -- ARM white paper, 2016.</li>
+</ol>
+<h3 id="performance-and-microarchitecture">Performance and Microarchitecture</h3>
+<ol start="19">
+<li>"A Guide to Vectorization with Intel C++ Compilers" -- Intel technical documentation</li>
+<li>Agner Fog's instruction tables and optimization guides, Technical University of Denmark. The gold standard for x86 instruction latency/throughput data.</li>
+<li>"Computer Architecture: A Quantitative Approach" -- Hennessy &amp; Patterson, 6th edition, 2017. The RISC-V edition.</li>
+<li>"Performance Analysis and Tuning on Modern CPUs" -- Denis Bakhvalov, 2020.</li>
+<li>uops.info -- comprehensive x86 instruction latency/throughput database with measured data.</li>
+</ol>
+<h3 id="security-and-control-flow">Security and Control Flow</h3>
+<ol start="24">
+<li>"Spectre Attacks: Exploiting Speculative Execution" -- Kocher et al., S&amp;P 2019.</li>
+<li>"Meltdown: Reading Kernel Memory from User Space" -- Lipp et al., USENIX Security 2018.</li>
+<li>"ARM Pointer Authentication" -- Qualcomm white paper, 2017.</li>
+<li>"Control-flow Enforcement Technology Specification" -- Intel, 2020.</li>
+</ol>
+<h3 id="virtualization">Virtualization</h3>
+<ol start="28">
+<li>"Hardware and Software Support for Virtualization" -- Bugnion, Nieh, Tsafrir, Morgan &amp; Claypool, 2017.</li>
+<li>"KVM/ARM: The Design and Implementation of the Linux ARM Hypervisor" -- Dall &amp; Nieh, ASPLOS 2014.</li>
+<li>"The RISC-V Hypervisor Extension" -- ratification documentation, RISC-V International, 2024.</li>
+</ol>
+<h3 id="cryptography">Cryptography</h3>
+<ol start="31">
+<li>"Intel AES-NI Performance Testing" -- Gueron &amp; Lindell, 2010.</li>
+<li>"ARMv8 Cryptographic Extension" -- ARM white paper.</li>
+</ol>
+<h3 id="recent-extensions-2024-2025">Recent Extensions (2024-2025)</h3>
+<ol start="33">
+<li>Intel APX Architecture Specification -- Intel, 2023-2024.</li>
+<li>ARM Architecture 2024 Extensions (FEAT_LSE128, FEAT_LRCPC3, FEAT_MOPS, FEAT_SME2) -- ARM Ltd.</li>
+<li>RISC-V Ratified Extensions 2024: Zacas, Zabha, Zicfiss, Zicfilp, Zvk* vector crypto -- RISC-V International.</li>
+</ol>
+<hr />
+<h2 id="appendix-a-quick-reference-instruction-equivalence-table">Appendix A: Quick Reference -- Instruction Equivalence Table</h2>
+<pre><code>Operation                    x86-64              AArch64              RISC-V
+========================     ==================  ===================  ==================
+Atomic CAS (64-bit)          LOCK CMPXCHG        CAS / LDXR+STXR     amocas.d / LR+SC
+Atomic CAS (128-bit)         LOCK CMPXCHG16B     CASP / LDXP+STXP    amocas.q
+Atomic fetch-add             LOCK XADD           LDADD                amoadd.d
+Atomic swap                  XCHG (implicit LOCK) SWP                 amoswap.d
+Full memory barrier          MFENCE              DMB ISH              fence rw,rw
+Load-acquire                 MOV (implicit)      LDAR                 ld + fence r,rw
+Store-release                MOV (implicit)       STLR                fence rw,w + sd
+Population count             POPCNT              CNT (NEON) + ADDV    cpop
+Count leading zeros          LZCNT               CLZ                  clz
+Count trailing zeros         TZCNT               RBIT + CLZ           ctz
+Byte swap                    BSWAP               REV                  rev8
+Bit field extract            BEXTR               UBFX                 (Zbs: bext)
+Parallel bit extract         PEXT (BMI2)         BEXT (SVE2)          (Zbe: bext)
+Parallel bit deposit         PDEP (BMI2)         BDEP (SVE2)          (Zbe: bdep)
+AES round                    AESENC              AESE + AESMC         aes64esm
+SHA-256 round                SHA256RNDS2         SHA256H              sha256sig0/sum0
+CRC-32C                      CRC32 (SSE4.2)      CRC32C*              clmul-based
+Prefetch (read)              PREFETCHT0          PRFM PLDL1KEEP       prefetch.r
+Cache line writeback         CLWB                DC CVAC              cbo.clean
+Non-temporal store           MOVNTI              STNP (hint only)     (no standard)
+Cycle counter read           RDTSC/RDTSCP        MRS CNTVCT_EL0       rdcycle
+Spin-wait hint               PAUSE               WFE (or YIELD)       pause (Zihintpause)
+Speculation barrier          LFENCE              SB / CSDB            (fence.t proposed)
+Indirect branch guard        ENDBR64 (CET)       BTI (FEAT_BTI)       LPAD (Zicfilp)
+Return address signing       (no equivalent)     PACIA/AUTIA (PAC)    SSPUSH/SSPOPCHK
+Pointer sign                 (no equivalent)     PACIA Xd, Xn         (no equivalent)
+Shadow stack push            INCSSPQ (CET-SS)    (PAC replaces need)  SSPUSH (Zicfiss)
+Hardware txn begin           XBEGIN (TSX*)       TSTART (TME*)        (none ratified)
+VM entry                     VMLAUNCH (VMX)      ERET to EL1 (EL2)    (H ext: mret/sret)
+Hypercall                    VMCALL              HVC #imm             ecall
+Gather load (SIMD)           VPGATHERDD          LD1 (SVE gather)     vluxei32.v
+Scatter store (SIMD)         VPSCATTERDD         ST1 (SVE scatter)    vsuxei32.v
+SIMD compare -&gt; mask         VPCMPD k1,zmm,zmm   CMP (SVE -&gt; pred)   vmseq.vv (-&gt; v0)
+FMA (scalar)                 VFMADD231SD         FMADD Dd,Dn,Dm,Da   fmadd.d
+FMA (vector)                 VFMADD231PS zmm     FMLA Zd.S,...(SVE)   vfmacc.vv
+Memcpy acceleration          REP MOVSB (ERMS)    CPYFP/M/E (MOPS)    (RVV loop)
+Zero cache line              (CLFLUSH + write)   DC ZVA               cbo.zero
+</code></pre>
+<p>(*) TSX effectively deprecated. ARM TME not yet in production silicon.</p>
+<hr />
+<h2 id="appendix-b-microarchitectural-latency-cheat-sheet-approximate-2024-cpus">Appendix B: Microarchitectural Latency Cheat Sheet (Approximate, 2024 CPUs)</h2>
+<pre><code>Operation                    Intel SPR   AMD Zen4   Apple M4   Neoverse V2   SiFive P870*
+========================     =========   ========   ========   ===========   ===========
+Integer ADD/SUB              1 cy        1 cy       1 cy       1 cy          ~1 cy
+Integer MUL (64-bit)         3 cy        3 cy       3 cy       3 cy          ~3-4 cy
+Integer DIV (64-bit)         ~35-90 cy   ~11-18 cy  ~7 cy      ~7-12 cy      ~20+ cy
+FP ADD (double)              4 cy        3 cy       3 cy       2 cy          ~4-5 cy
+FP MUL (double)              4 cy        3 cy       3 cy       3 cy          ~4-5 cy
+FP FMA (double)              4 cy        4 cy       4 cy       4 cy          ~4-5 cy
+FP DIV (double)              13-14 cy    13 cy      ~7 cy      ~7-10 cy      ~15+ cy
+L1D hit                      5 cy        4 cy       3 cy       4 cy          ~4-5 cy
+L2 hit                       ~12 cy      ~12 cy     ~6 cy      ~10 cy        ~10+ cy
+L3 hit                       ~40-50 cy   ~30-40 cy  ~16 cy     ~30-40 cy     ~30+ cy
+DRAM access                  ~150+ cy    ~100+ cy   ~100+ cy   ~100+ cy      ~100+ cy
+LOCK CMPXCHG (uncontended)   ~18-22 cy   ~15-18 cy  N/A        N/A           N/A
+LDAR (ARM acquire load)      N/A         N/A        ~1-3 cy    ~1-3 cy       N/A
+LR/SC (uncontended)          N/A         N/A        N/A        N/A           ~10-15 cy*
+MFENCE                       ~33 cy      ~20 cy     N/A        N/A           N/A
+DMB ISH                      N/A         N/A        ~5-10 cy   ~10-20 cy     N/A
+fence rw,rw                  N/A         N/A        N/A        N/A           ~10-20 cy*
+Branch mispredict            ~14 cy      ~11-13 cy  ~12-14 cy  ~11-13 cy     ~10+ cy*
+RDTSC                        ~20 cy      ~10 cy     N/A        N/A           N/A
+POPCNT                       1-3 cy      1 cy       N/A(vec)   N/A(vec)      ~1 cy(Zbb)
+AES round                    1 cy(4lat)  1 cy(4lat) ~1 cy      ~2 cy         TBD
+</code></pre>
+<p>*SiFive P870 numbers are estimated/projected from available documentation.</p>
+<hr />
+<p><em>Document covers ISA state as of early 2025. Extensions in development (e.g., ARM CCA Realms, RISC-V Ztm, Intel APX full deployment) may change the landscape. Always verify against current architecture reference manuals.</em></p>
+<hr />
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://nmbr7.github.io/notes/hardware/cycle-counters-and-energy/">Cycle Counters and Energy</a> — RDTSC/CNTVCT usage and per-cycle energy costs for instructions covered here</li>
+<li><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a> — GPU SIMT execution model and Tensor Core instructions complement CPU ISA coverage</li>
+<li><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a> — IOMMU and virtualization instructions (VMX, ARM EL2, RISC-V H-ext) in production use</li>
+<li><a href="https://nmbr7.github.io/notes/os/linux-expert-syscalls/">Linux Expert Syscalls</a> — Syscalls leveraging hardware features (rseq, pkeys, io_uring) that map to ISA instructions</li>
+<li><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a> — SIMD-vectorized hash joins that exploit the vector instructions documented here</li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

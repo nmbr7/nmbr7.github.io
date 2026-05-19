@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Timer Interrupts STM32</h1>
+  <h1 id="timer-interrupts-in-stm32-chips">Timer Interrupts in STM32 Chips</h1>
+<h2 id="hardware-architecture">Hardware Architecture</h2>
+<pre><code>HSI/HSE Crystal (8-25 MHz)
+        ↓
+    PLL (multiply/divide)
+        ↓
+    System Clock (SYSCLK) → up to 72-480 MHz
+        ↓
+    APB Bus Prescaler
+        ↓
+    Timer Peripheral (TIM1, TIM2, etc.)
+        ↓
+    NVIC → CPU Interrupt
+</code></pre>
+<h2 id="timer-types">Timer Types</h2>
+<table><thead><tr><th>Timer</th><th>Bits</th><th>Features</th></tr></thead><tbody>
+<tr><td>SysTick</td><td>24-bit</td><td>ARM core timer, OS ticks</td></tr>
+<tr><td>TIM1/TIM8</td><td>16-bit</td><td>Advanced, PWM, motor control</td></tr>
+<tr><td>TIM2/TIM5</td><td>32-bit</td><td>General purpose</td></tr>
+<tr><td>TIM3/TIM4</td><td>16-bit</td><td>General purpose</td></tr>
+<tr><td>TIM6/TIM7</td><td>16-bit</td><td>Basic, DAC triggers</td></tr>
+</tbody></table>
+<h2 id="systick-rtos-tick-timer">SysTick (RTOS Tick Timer)</h2>
+<p>Built into ARM Cortex-M core:</p>
+<pre><code data-lang="c">// Configure 1ms tick at 72MHz
+SysTick-&gt;LOAD = 72000 - 1;    // Reload value
+SysTick-&gt;VAL = 0;              // Clear current
+SysTick-&gt;CTRL = 0x07;          // Enable, interrupt, use CPU clock
+</code></pre>
+<pre><code>CTRL register:
+  bit 0: ENABLE
+  bit 1: TICKINT (enable interrupt)
+  bit 2: CLKSOURCE (0=AHB/8, 1=AHB)
+</code></pre>
+<h2 id="general-timer-operation">General Timer Operation</h2>
+<pre><code data-lang="c">// TIM2 example - 1 second interrupt at 72MHz
+RCC-&gt;APB1ENR |= RCC_APB1ENR_TIM2EN;  // Enable clock
+
+TIM2-&gt;PSC = 7200 - 1;    // Prescaler: 72MHz / 7200 = 10kHz
+TIM2-&gt;ARR = 10000 - 1;   // Auto-reload: 10kHz / 10000 = 1Hz
+TIM2-&gt;DIER = TIM_DIER_UIE;  // Update interrupt enable
+TIM2-&gt;CR1 = TIM_CR1_CEN;    // Counter enable
+
+NVIC_EnableIRQ(TIM2_IRQn);
+</code></pre>
+<h2 id="interrupt-flow">Interrupt Flow</h2>
+<pre><code>Timer counter (CNT)
+        ↓
+Counts up each clock tick
+        ↓
+CNT == ARR (auto-reload register)?
+        ↓
+Set UIF flag (update interrupt flag)
+        ↓
+If DIER.UIE set → trigger NVIC
+        ↓
+NVIC interrupts CPU
+        ↓
+CPU jumps to TIM2_IRQHandler()
+</code></pre>
+<h2 id="irq-handler">IRQ Handler</h2>
+<pre><code data-lang="c">void TIM2_IRQHandler(void) {
+    if (TIM2-&gt;SR &amp; TIM_SR_UIF) {
+        TIM2-&gt;SR &amp;= ~TIM_SR_UIF;  // Clear flag
+
+        // Your code here
+        jiffies++;
+    }
+}
+</code></pre>
+<h2 id="clock-tree-example-stm32f4">Clock Tree Example (STM32F4)</h2>
+<pre><code>HSE 8MHz
+    ↓
+PLL ×42 ÷2 = 168 MHz (SYSCLK)
+    ↓
+AHB prescaler /1 = 168 MHz
+    ↓
+APB1 prescaler /4 = 42 MHz (timers get ×2 = 84 MHz)
+APB2 prescaler /2 = 84 MHz (timers get ×2 = 168 MHz)
+</code></pre>
+<h2 id="check-timer-clock">Check Timer Clock</h2>
+<pre><code data-lang="c">// HAL way
+uint32_t tim_clk = HAL_RCC_GetPCLK1Freq();
+if (RCC-&gt;CFGR &amp; RCC_CFGR_PPRE1) {
+    tim_clk *= 2;  // Timer gets 2x if APB prescaler &gt; 1
+}
+</code></pre>
+<h2 id="key-registers">Key Registers</h2>
+<table><thead><tr><th>Register</th><th>Function</th></tr></thead><tbody>
+<tr><td>CR1</td><td>Control (enable, direction)</td></tr>
+<tr><td>PSC</td><td>Prescaler</td></tr>
+<tr><td>ARR</td><td>Auto-reload (period)</td></tr>
+<tr><td>CNT</td><td>Current count</td></tr>
+<tr><td>SR</td><td>Status flags</td></tr>
+<tr><td>DIER</td><td>Interrupt enable</td></tr>
+</tbody></table>
+<hr />
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://nmbr7.github.io/notes/hardware/cycle-counters-and-energy/">Cycle Counters and Energy</a> — Cycle counter mechanics and per-cycle energy analysis relevant to timer hardware</li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a> — System timer instructions (RDTSC, CNTVCT_EL0, rdtime) across x86/ARM/RISC-V</li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

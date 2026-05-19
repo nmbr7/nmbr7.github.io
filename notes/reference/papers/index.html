@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Papers</h1>
+  <h1 id="papers-index">Papers Index</h1>
+<p>Deduplicated index of papers referenced across research docs. Sorted alphabetically by first author within each section.</p>
+<hr />
+<h2 id="database-internals-query-processing">Database Internals &amp; Query Processing</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Abadi, Madden, Hachem, "The Design and Implementation of Modern Column-Oriented Database Systems"</td><td>Foundations and Trends in Databases, 2013</td><td><a href="https://nmbr7.github.io/notes/database/arrow-format/">Arrow Format</a>, <a href="https://nmbr7.github.io/notes/database/arrow-postgresql-integration/">Arrow PG Integration</a></td></tr>
+<tr><td>Athanassoulis, Kester et al., "Designing Access Methods: The RUM Conjecture"</td><td>EDBT 2016</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a></td></tr>
+<tr><td>Berenson et al., "A Critique of ANSI SQL Isolation Levels"</td><td>SIGMOD 1995</td><td><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/">MongoDB &amp; WiredTiger</a></td></tr>
+<tr><td>Bottcher, Leis, Neumann, Kemper, "Scalable Garbage Collection for In-Memory MVCC Systems"</td><td>VLDB 2019</td><td><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/">HyPer/Umbra/CedarDB</a></td></tr>
+<tr><td>Budiu et al., "DBSP" (Database Stream Processor framework)</td><td>VLDB 2023</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>Cahill et al., Serializable Snapshot Isolation</td><td>2008</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>Diaconu et al., "Hekaton: SQL Server's Memory-Optimized OLTP Engine"</td><td>SIGMOD 2013</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a></td></tr>
+<tr><td>Freitag, Kemper, Neumann, "Memory-Optimized Multi-Version Concurrency Control for Disk-Based Database Systems"</td><td>VLDB 2022</td><td><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/">HyPer/Umbra/CedarDB</a></td></tr>
+<tr><td>Graefe, "Modern B-Tree Techniques"</td><td>Foundations and Trends in Databases, 2011</td><td><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/">MongoDB &amp; WiredTiger</a>, <a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Graefe, "Query Evaluation Techniques for Large Databases"</td><td>ACM Computing Surveys, 1993</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Gray, Putzolu, "The Five-Minute Rule for Trading Memory for Disc Accesses"</td><td>SIGMOD 1987</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a></td></tr>
+<tr><td>Gray, Reuter, "Transaction Processing: Concepts and Techniques"</td><td>Morgan Kaufmann, 1993</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a></td></tr>
+<tr><td>Hellerstein, Stonebraker, Hamilton, "Architecture of a Database System"</td><td>Foundations and Trends in Databases, 2007</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a></td></tr>
+<tr><td>Kersten, Leis, Neumann, "Tidy Tuples and Flying Start: Fast Compilation and Fast Execution of Relational Queries in Umbra"</td><td>VLDB Journal 2021</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a>, <a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/">HyPer/Umbra/CedarDB</a></td></tr>
+<tr><td>Kersten, Leis, Kemper, Neumann, Pavlo, Boncz, "Everything You Always Wanted to Know About Compiled and Vectorized Queries But Were Afraid to Ask"</td><td>VLDB 2018</td><td><a href="https://nmbr7.github.io/notes/database/arrow-postgresql-integration/">Arrow PG Integration</a>, <a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/">HyPer/Umbra/CedarDB</a>, <a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a>, <a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>Leis, Kemper, Neumann, "The Adaptive Radix Tree: ARTful Indexing for Main-Memory Databases"</td><td>ICDE 2013</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a>, <a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/">HyPer/Umbra/CedarDB</a>, <a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Leis, Gubichev, Mirber, Olteanu, Kemper, Neumann, "How Good Are Query Optimizers, Really?"</td><td>VLDB 2015</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a>, <a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Mohan, Haderle, Lindsay, Pirahesh, Schwarz, "ARIES: A Transaction Recovery Method Supporting Fine-Granularity Locking"</td><td>ACM TODS, 1992</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a></td></tr>
+<tr><td>Muhlbauer, Rodiger, Kemper, Neumann, "Fast Serializable Multi-Version Concurrency Control for Main-Memory Database Systems"</td><td>SIGMOD 2015</td><td><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/">HyPer/Umbra/CedarDB</a></td></tr>
+<tr><td>Neumann, "Efficiently Compiling Efficient Query Plans for Modern Hardware"</td><td>VLDB 2011</td><td><a href="https://nmbr7.github.io/notes/database/arrow-format/">Arrow Format</a>, <a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a>, <a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/">HyPer/Umbra/CedarDB</a></td></tr>
+<tr><td>Neumann, Freitag, "Umbra: A Disk-Based System with In-Memory Performance"</td><td>CIDR 2020</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a>, <a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/">HyPer/Umbra/CedarDB</a></td></tr>
+<tr><td>Selinger et al., "Access Path Selection in a Relational Database Management System"</td><td>SIGMOD 1979</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Stonebraker, "The Design of POSTGRES Storage System"</td><td>1987</td><td><a href="https://nmbr7.github.io/notes/database/wal-incremental-conversion/">WAL Incremental Conversion</a></td></tr>
+</tbody></table>
+<h2 id="join-algorithms">Join Algorithms</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Albutiu, Kemper, Neumann, "Massively Parallel Sort-Merge Joins in Main Memory Multi-Core Database Systems"</td><td>VLDB 2012</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Atserias, Grohe, Marx, "Size Bounds and Query Plans for Relational Joins" (AGM bound)</td><td>FOCS 2008 / SICOMP 2013</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Avnur, Hellerstein, "Eddies: Continuously Adaptive Query Processing"</td><td>SIGMOD 2000</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Balkesen, Alonso, Teubner, Ozsu, "Multi-Core, Main-Memory Joins: Sort vs. Hash Revisited"</td><td>VLDB 2013</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Bandle, Giceva, Neumann, "To Partition, or Not to Partition, That Is the Join Question"</td><td>SIGMOD 2021</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Birler, Kemper, Neumann, "Robust Join Processing with Diamond Hardened Joins"</td><td>VLDB 2024</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Birler, Schmidt, Fent, Neumann, "Simple, Efficient, and Robust Hash Tables for Join Processing"</td><td>DaMoN 2024 (Best Paper)</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Blanas, Li, Hellerstein, Patel, "Design and Evaluation of Main Memory Hash Join Algorithms for Multi-Core CPUs"</td><td>SIGMOD 2011</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Blanas, Patel, Ercegovac, Rao, Shekita, Tian, "A Comparison of Join Algorithms for Log Processing in MapReduce"</td><td>SIGMOD 2010</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Boncz et al., "MonetDB/X100: Hyper-Pipelining Query Execution"</td><td>CIDR 2005</td><td><a href="https://nmbr7.github.io/notes/database/arrow-format/">Arrow Format</a>, <a href="https://nmbr7.github.io/notes/database/arrow-postgresql-integration/">Arrow PG Integration</a></td></tr>
+<tr><td>DeWitt, Gerber, "Multiprocessor Hash-Based Join Algorithms" (Hybrid hash join)</td><td>VLDB 1985</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>DeWitt, Katz, Olken, Shapiro, Stonebraker, Wood, "Implementation Techniques for Main Memory Database Systems"</td><td>SIGMOD 1984</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Gross, ten Wolde, Boncz, "Adaptive Factorization Using Linear-Chained Hash Tables"</td><td>CIDR 2025</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Khayyat et al., "Lightning Fast and Space Efficient Inequality Joins" (IEJoin)</td><td>VLDB 2015 (pub. 2016)</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Kim, Sedlar, Chhugani et al., "Sort vs. Hash Revisited: Fast Join Implementation on Modern Multi-Core CPUs"</td><td>VLDB 2009</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Kitsuregawa, Tanaka, Moto-oka, "Application of Hash to Database Machine and Its Architecture" (Grace hash join)</td><td>New Generation Computing, 1983</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Kuiper, Gross, Boncz, Muhleisen, "Saving Private Hash Join"</td><td>VLDB 2025</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Leis, Boncz, Kemper, Neumann, "Morsel-Driven Parallelism: A NUMA-Aware Query Evaluation Framework"</td><td>SIGMOD 2014</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a>, <a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/">HyPer/Umbra/CedarDB</a>, <a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Manegold, Boncz, Kersten, "Optimizing Main-Memory Join on Modern Hardware"</td><td>TKDE 2002</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Moerkotte, Neumann, "Analysis of Two Existing and One New Dynamic Programming Algorithm" (DPccp)</td><td>VLDB 2006</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Moerkotte, Neumann, "Dynamic Programming Strikes Back" (DPhyp)</td><td>SIGMOD 2008</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Ngo, Porat, Re, Rudra, "Worst-Case Optimal Join Algorithms"</td><td>PODS 2012</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Ngo, Re, Rudra, "Skew Strikes Back: New Developments in the Theory of Join Algorithms"</td><td>SIGMOD Record 2013</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Okcan, Riedewald, "Processing Theta-Joins using MapReduce"</td><td>SIGMOD 2011</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Polychroniou, Raghavan, Ross, "Rethinking SIMD Vectorization for In-Memory Databases"</td><td>SIGMOD 2015</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a>, <a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a>, <a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Qiao, Huang, Zhang, "Data Chunk Compaction in Vectorized Execution"</td><td>SIGMOD 2025</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Raman, Hellerstein, "State Modules (SteMs) for Adaptive Query Processing"</td><td>VLDB 2003</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Schuh, Chen, Dittrich, "An Experimental Comparison of Thirteen Relational Equi-Joins in Main Memory"</td><td>SIGMOD 2016</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Shapiro, "Join Processing in Database Systems with Large Main Memories"</td><td>ACM Computing Surveys, 1986</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Shatdal, Kant, Naughton, "Cache Conscious Algorithms for Relational Query Processing"</td><td>VLDB 1994</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Urhan, Franklin, "XJoin: A Reactively-Scheduled Pipelined Join Operator"</td><td>IEEE Data Engineering Bulletin, 2000</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Veldhuizen, "Leapfrog Triejoin: A Simple, Worst-Case Optimal Join Algorithm"</td><td>ICDT 2014</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+</tbody></table>
+<h2 id="buffer-management-storage-engines">Buffer Management &amp; Storage Engines</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Chang et al., "Resource-Adaptive Query Execution with Paged Memory Management" (LIPAH)</td><td>CIDR 2025</td><td><a href="https://nmbr7.github.io/notes/database/buffer-management-predictive-translation/">Buffer Management</a></td></tr>
+<tr><td>Johnson et al., "Shore-MT: A Scalable Storage Manager for the Multicore Era"</td><td>EDBT 2009</td><td><a href="https://nmbr7.github.io/notes/database/buffer-management-predictive-translation/">Buffer Management</a></td></tr>
+<tr><td>Leis, Haubenschild, Neumann, "LeanStore: In-Memory Data Management Beyond Main Memory"</td><td>ICDE 2018</td><td><a href="https://nmbr7.github.io/notes/database/buffer-management-predictive-translation/">Buffer Management</a>, <a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/">HyPer/Umbra/CedarDB</a></td></tr>
+<tr><td>Leis et al., "Optimistic Lock Coupling"</td><td>IEEE Data Eng. Bull. 2019</td><td><a href="https://nmbr7.github.io/notes/database/buffer-management-predictive-translation/">Buffer Management</a></td></tr>
+<tr><td>Leis et al., "Virtual-Memory Assisted Buffer Management" (vmcache)</td><td>SIGMOD 2023</td><td><a href="https://nmbr7.github.io/notes/database/buffer-management-predictive-translation/">Buffer Management</a></td></tr>
+<tr><td>Vohringer, Leis, "Write-Aware Timestamp Tracking" (WATT eviction)</td><td>VLDB 2023</td><td><a href="https://nmbr7.github.io/notes/database/buffer-management-predictive-translation/">Buffer Management</a></td></tr>
+<tr><td>Zinsmeister, Nguyen, Leis, Neumann, "Predictive Translation: High-Performance Buffer Management Without the Trade-Offs"</td><td>SIGMOD 2026</td><td><a href="https://nmbr7.github.io/notes/database/buffer-management-predictive-translation/">Buffer Management</a></td></tr>
+</tbody></table>
+<h2 id="lsm-trees-write-optimized-storage">LSM Trees &amp; Write-Optimized Storage</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Balmau, Didona et al., "SILK: Preventing Latency Spikes in Log-Structured Merge Key-Value Stores"</td><td>USENIX ATC 2019</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a></td></tr>
+<tr><td>Bjorling et al., "ZNS: Avoiding the Block Interface Tax for Flash-based SSDs"</td><td>USENIX ATC 2021</td><td><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a></td></tr>
+<tr><td>Chang et al., "Bigtable: A Distributed Storage System for Structured Data"</td><td>OSDI 2006</td><td><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a></td></tr>
+<tr><td>Dai et al., "Bourbon: Learned Index Structures in Storage Engines"</td><td>SOSP 2020</td><td><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a></td></tr>
+<tr><td>Dayan, Idreos, "Dostoevsky: Better Space-Time Trade-Offs for LSM-Tree Based Key-Value Stores"</td><td>SIGMOD 2018</td><td><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a></td></tr>
+<tr><td>Dayan et al., "Monkey: Optimal Navigable Key-Value Store"</td><td>SIGMOD 2017</td><td><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a></td></tr>
+<tr><td>Dillinger, Walzer, "Ribbon Filter: Practically Smaller Than Bloom and Xor"</td><td>2021</td><td><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a>, <a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Dong et al., "RocksDB: Evolution of Development Priorities in a Key-Value Store"</td><td>TODS 2021</td><td><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a></td></tr>
+<tr><td>Kaiyrakhmet et al., "SLM-DB: Single-Level Key-Value Store with Persistent Memory"</td><td>FAST 2019</td><td><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a></td></tr>
+<tr><td>Lu, Pillai et al., "WiscKey: Separating Keys from Values in SSD-Conscious Storage"</td><td>FAST 2016</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a>, <a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a></td></tr>
+<tr><td>Luo, Carey, "LSM-based Storage Techniques: A Survey"</td><td>VLDB Journal 2020</td><td><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a>, <a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>O'Neil, Cheng, Gawlick, O'Neil, "The Log-Structured Merge-Tree (LSM-Tree)"</td><td>Acta Informatica, 1996</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a>, <a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a>, <a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/">MongoDB &amp; WiredTiger</a></td></tr>
+<tr><td>Yao et al., "MatrixKV: Reducing Write Stalls and Write Amplification in LSM-tree Based KV Stores"</td><td>USENIX ATC 2020</td><td><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a></td></tr>
+<tr><td>Zhong et al., "REMIX: Efficient Range Query for LSM-trees"</td><td>FAST 2021</td><td><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a></td></tr>
+</tbody></table>
+<h2 id="disaggregated-storage-cloud-databases">Disaggregated Storage &amp; Cloud Databases</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Antonopoulos et al., "Socrates: The New SQL Server in the Cloud"</td><td>SIGMOD 2019</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>Armbrust et al., "Delta Lake: High-Performance ACID Table Storage over Cloud Object Stores"</td><td>VLDB 2020</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>Bacon et al., "Spanner: Becoming a SQL System"</td><td>SIGMOD 2017</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a>, <a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Cao et al., "PolarFS: An Ultra-low Latency and Failure Resilient Distributed File System"</td><td>VLDB 2018</td><td><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a>, <a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>Corbett et al., "Spanner: Google's Globally-Distributed Database"</td><td>OSDI 2012</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a>, <a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a>, <a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Dageville et al., "The Snowflake Elastic Data Warehouse"</td><td>SIGMOD 2016</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>Depoutovitch et al., "Taurus Database: How to Be Fast, Available, and Frugal in the Cloud"</td><td>SIGMOD 2020</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>Dong, Zhang et al., "Cloud-Native Databases: A Survey"</td><td>IEEE TKDE 2024</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>GaussDB team, "GaussDB: A Cloud-Native Multi-Primary Database with Compute-Memory-Storage Disaggregation"</td><td>VLDB 2024</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>Ghemawat, Gobioff, Leung, "The Google File System"</td><td>SOSP 2003</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>Pang, Wang, "Understanding the Performance Implications of the Design Principles in Storage-Disaggregated Databases" (OpenAurora)</td><td>SIGMOD 2024</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>PolarDB-MP team, "PolarDB-MP: A Multi-Primary Cloud-Native Database via Disaggregated Shared Memory"</td><td>SIGMOD Companion 2024</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>PolarDB team, "From Scale-Up to Scale-Out: PolarDB's Journey to Achieving 2 Billion tpmC"</td><td>VLDB 2025</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>Verbitski et al., "Amazon Aurora: Design Considerations for High Throughput Cloud-Native Relational Databases"</td><td>SIGMOD 2017</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a>, <a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>Verbitski et al., "Amazon Aurora: On Avoiding Distributed Consensus for I/Os, Commits, and Membership Changes"</td><td>SIGMOD 2018</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>Vuppalapati et al., "Building An Elastic Query Engine on Disaggregated Storage"</td><td>NSDI 2020</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>Wang, Zhang, "Disaggregated Database Systems" (Tutorial)</td><td>SIGMOD 2023</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>Wang et al., "Cache Coherence Over Disaggregated Memory" (SELCC)</td><td>VLDB 2025</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>Weisgut et al., "CXL Memory Performance for In-Memory Data Processing"</td><td>VLDB 2025</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>Yu et al., "Disaggregation: A New Architecture for Cloud Databases"</td><td>VLDB 2025</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+</tbody></table>
+<h2 id="distributed-consensus-replication">Distributed Consensus &amp; Replication</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Abadi, "Consistency Tradeoffs in Modern Distributed Database System Design"</td><td>Computer (IEEE), 2012</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Ailijiang, Charapko, Demirbas, Mitra, "WPaxos: Wide Area Network Flexible Consensus"</td><td>IEEE TPDS 2020</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Baudet et al., "State Machine Replication in the Libra Blockchain"</td><td>The Libra Association, 2019</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Buchman, Kwon, Milosevic, "The Latest Gossip on BFT Consensus"</td><td>arXiv 2018</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Castro, Liskov, "Practical Byzantine Fault Tolerance"</td><td>OSDI 1999</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Castro, Liskov, "Practical Byzantine Fault Tolerance and Proactive Recovery"</td><td>TOCS 2002</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Chandra, Griesemer, Redstone, "Paxos Made Live: An Engineering Perspective"</td><td>PODC 2007</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Chandra, Toueg, "Unreliable Failure Detectors for Reliable Distributed Systems"</td><td>JACM 1996</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Danezis, Kokoris-Kogias, Sonnino, Spiegelman, "Narwhal and Tusk: A DAG-based Mempool and Efficient BFT Consensus"</td><td>EuroSys 2022</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Dwork, Lynch, Stockmeyer, "Consensus in the Presence of Partial Synchrony"</td><td>JACM 1988</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Fischer, Lynch, Paterson, "Impossibility of Distributed Consensus with One Faulty Process" (FLP)</td><td>JACM 1985</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a>, <a href="https://nmbr7.github.io/notes/distributed/deterministic-simulation-testing/">Deterministic Simulation Testing</a></td></tr>
+<tr><td>Gafni, Lamport, "Disk Paxos"</td><td>Distributed Computing, 2003</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Gilbert, Lynch, "Brewer's Conjecture and the Feasibility of Consistent, Available, Partition-Tolerant Web Services"</td><td>SIGACT News 2002</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Howard, Malkhi, Spiegelman, "Flexible Paxos: Quorum Intersection Revisited"</td><td>OPODIS 2016</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Howard, Mortier, "Paxos vs Raft: Have We Reached Consensus on Distributed Consensus?"</td><td>HotCloud 2020</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Huang et al., "TiDB: A Raft-based HTAP Database"</td><td>VLDB 2020</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a>, <a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Hunt, Konar, Junqueira, Reed, "ZooKeeper: Wait-free Coordination for Internet-scale Systems"</td><td>USENIX ATC 2010</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Junqueira, Reed, Serafini, "Zab: High-performance Broadcast for Primary-backup Systems"</td><td>DSN 2011</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Kreps, Narkhede, Rao, "Kafka: A Distributed Messaging System for Log Processing"</td><td>NetDB Workshop, 2011</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a>, <a href="https://nmbr7.github.io/notes/distributed/kafka-internals/">Kafka Internals</a></td></tr>
+<tr><td>Lamport, "Fast Paxos"</td><td>Distributed Computing, 2006</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Lamport, "Generalized Consensus and Paxos"</td><td>MSR Technical Report, 2005</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Lamport, "Paxos Made Simple"</td><td>SIGACT News, 2001</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Lamport, "The Part-Time Parliament"</td><td>TOCS 1998</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Lamport, "Time, Clocks, and the Ordering of Events in a Distributed System"</td><td>CACM 1978</td><td><a href="https://nmbr7.github.io/notes/distributed/deterministic-simulation-testing/">Deterministic Simulation Testing</a></td></tr>
+<tr><td>Lamport, Massa, "Cheap Paxos"</td><td>DSN 2004</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Liskov, Cowling, "Viewstamped Replication Revisited"</td><td>MIT-CSAIL-TR-2012-021, 2012</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Mao, Junqueira, Marzullo, "Mencius: Building Efficient Replicated State Machines for WANs"</td><td>OSDI 2008</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Moraru, Andersen, Kaminsky, "There Is More Consensus in Egalitarian Parliaments" (EPaxos)</td><td>SOSP 2013</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Oki, Liskov, "Viewstamped Replication: A New Primary Copy Method"</td><td>PODC 1988</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Ongaro, Ousterhout, "In Search of an Understandable Consensus Algorithm" (Raft)</td><td>USENIX ATC 2014</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Santos, Schiper, "Optimizing Paxos with Batching and Pipelining"</td><td>Theoretical Computer Science, 2012</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Shapiro, Preguica, Baquero, Zawirski, "Conflict-free Replicated Data Types"</td><td>SSS 2011</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a>, <a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Taft et al., "CockroachDB: The Resilient Geo-Distributed SQL Database"</td><td>SIGMOD 2020</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a>, <a href="https://nmbr7.github.io/notes/database/cockroachdb-optimizer-rules/">CockroachDB Optimizer Rules</a></td></tr>
+<tr><td>Van Renesse, Altinbuken, "Paxos Made Moderately Complex"</td><td>ACM Computing Surveys, 2015</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Yin, Malkhi, Reiter, Gueta, Abraham, "HotStuff: BFT Consensus with Linearity and Responsiveness"</td><td>PODC 2019</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>Zhou et al., "FoundationDB: A Distributed Unbundled Transactional Key Value Store"</td><td>SIGMOD 2021</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a>, <a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a>, <a href="https://nmbr7.github.io/notes/distributed/deterministic-simulation-testing/">Deterministic Simulation Testing</a></td></tr>
+</tbody></table>
+<h2 id="deterministic-simulation-testing">Deterministic Simulation Testing</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Alpern, Schneider, "Defining Liveness"</td><td>Information Processing Letters, 1985</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a>, <a href="https://nmbr7.github.io/notes/distributed/deterministic-simulation-testing/">Deterministic Simulation Testing</a></td></tr>
+<tr><td>Chen, Groce, Zhang, Wong, Fern, Eide, Regehr, "Taming Compiler Fuzzers" (Swarm testing)</td><td>PLDI 2013</td><td><a href="https://nmbr7.github.io/notes/distributed/deterministic-simulation-testing/">Deterministic Simulation Testing</a></td></tr>
+<tr><td>Newcombe, Rath, Zhang, Metz, Kelley, "How Amazon Web Services Uses Formal Methods"</td><td>CACM 2015</td><td><a href="https://nmbr7.github.io/notes/distributed/deterministic-simulation-testing/">Deterministic Simulation Testing</a></td></tr>
+</tbody></table>
+<h2 id="storage-reliability-crash-consistency">Storage Reliability &amp; Crash Consistency</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Alagappan et al., "Protocol-Aware Recovery for Consensus-Based Storage"</td><td>FAST 2018 (Best Paper)</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a></td></tr>
+<tr><td>He, Kannan et al., "The Unwritten Contract of Solid State Drives"</td><td>EuroSys 2017</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a></td></tr>
+<tr><td>Michael, "Hazard Pointers: Safe Memory Reclamation for Lock-Free Objects"</td><td>IEEE TPDS 2004</td><td><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/">MongoDB &amp; WiredTiger</a>, <a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Pillai et al., "All File Systems Are Not Created Equal: On the Complexity of Crafting Crash-Consistent Applications"</td><td>OSDI 2014</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a></td></tr>
+<tr><td>Rebello et al., "Can Applications Recover from fsync Failures?"</td><td>USENIX ATC 2020</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a></td></tr>
+<tr><td>Schroeder, Merchant et al., "Flash Reliability in Production: The Expected and the Unexpected"</td><td>FAST 2016</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a></td></tr>
+</tbody></table>
+<h2 id="file-systems">File Systems</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Boyd-Wickizer et al., "An Analysis of Linux Scalability to Many Cores"</td><td>OSDI 2010</td><td><a href="https://nmbr7.github.io/notes/os/filesystem-design/">Filesystem Design</a></td></tr>
+<tr><td>Ganger, Patt, "Soft Updates: A Solution to the Metadata Update Problem in File Systems"</td><td>1994</td><td><a href="https://nmbr7.github.io/notes/os/filesystem-design/">Filesystem Design</a></td></tr>
+<tr><td>Harter et al., "All File Systems Are Not Created Equal"</td><td>2011</td><td><a href="https://nmbr7.github.io/notes/os/filesystem-design/">Filesystem Design</a></td></tr>
+<tr><td>Kadekodi et al., "SplitFS: Reducing Software Overhead in File Systems for Persistent Memory"</td><td>SOSP 2019</td><td><a href="https://nmbr7.github.io/notes/os/filesystem-design/">Filesystem Design</a></td></tr>
+<tr><td>Lee et al., "F2FS: A New File System for Flash Storage"</td><td>2015</td><td><a href="https://nmbr7.github.io/notes/os/filesystem-design/">Filesystem Design</a></td></tr>
+<tr><td>McKusick et al., "A Fast File System for UNIX"</td><td>1984</td><td><a href="https://nmbr7.github.io/notes/os/filesystem-design/">Filesystem Design</a></td></tr>
+<tr><td>McVoy, Kleiman, "Extent-like Performance from a UNIX File System"</td><td>1991</td><td><a href="https://nmbr7.github.io/notes/os/filesystem-design/">Filesystem Design</a></td></tr>
+<tr><td>Prabhakaran et al., "Analysis and Evolution of Journaling File Systems"</td><td>2005</td><td><a href="https://nmbr7.github.io/notes/os/filesystem-design/">Filesystem Design</a></td></tr>
+<tr><td>Rosenblum, Ousterhout, "The Design and Implementation of a Log-Structured File System"</td><td>1992</td><td><a href="https://nmbr7.github.io/notes/os/filesystem-design/">Filesystem Design</a></td></tr>
+<tr><td>Xu, Swanson, "NOVA: A Log-structured File System for Hybrid Volatile/Non-volatile Main Memories"</td><td>2016</td><td><a href="https://nmbr7.github.io/notes/os/filesystem-design/">Filesystem Design</a></td></tr>
+</tbody></table>
+<h2 id="virtualization-device-passthrough">Virtualization &amp; Device Passthrough</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Amit et al., "vIOMMU: Efficient IOMMU Emulation"</td><td>USENIX ATC 2011</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>Ben-Yehuda et al., "The Turtles Project: Design and Implementation of Nested Virtualization"</td><td>OSDI 2010</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>Bugnion, Nieh, Tsafrir, "Hardware and Software Support for Virtualization"</td><td>Morgan &amp; Claypool, 2017</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>Dall, Nieh, "KVM/ARM: The Design and Implementation of the Linux ARM Hypervisor"</td><td>ASPLOS 2014</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>Markuze et al., "True IOMMU Protection from DMA Attacks: When Copy is Faster than Zero Copy"</td><td>ASPLOS 2016</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>Neugebauer et al., "Understanding PCIe Performance for End Host Networking"</td><td>SIGCOMM 2018</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>Tian et al., "A Full GPU Virtualization Solution with Mediated Pass-Through" (GVT-g)</td><td>USENIX ATC 2014</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+</tbody></table>
+<h2 id="gpu-tpu-accelerator-architecture">GPU, TPU &amp; Accelerator Architecture</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Abts et al., "Think Fast: A Tensor Streaming Processor for Accelerating Deep Learning Workloads" (Groq TSP)</td><td>ISCA 2020</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Ajayi et al., "OpenROAD: Toward a Self-Driving, Open-Source Digital Layout Implementation Tool Chain"</td><td>GOMAC 2019</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Chen et al., "Eyeriss: An Energy-Efficient Reconfigurable Accelerator for Deep CNNs"</td><td>JSSC 2017</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Chen et al., "Eyeriss v2: A Flexible Accelerator for Emerging Deep Neural Networks"</td><td>JETCAS 2019</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Dao et al., "FlashAttention: Fast and Memory-Efficient Exact Attention"</td><td>NeurIPS 2022</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Dao, "FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning"</td><td>ICLR 2024</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Darvish Rouhani et al., "Microscaling Data Formats for Deep Learning" (OCP MX spec)</td><td>arXiv 2023</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Genc et al., "Gemmini: Enabling Systematic Deep-Learning Architecture Evaluation via Full-Stack Integration"</td><td>DAC 2021</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Gustafson, Yonemoto, "Beating Floating Point at its Own Game: Posit Arithmetic"</td><td>Supercomputing Frontiers, 2017</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Jia et al., "Dissecting the NVIDIA Volta GPU Architecture via Microbenchmarking"</td><td>arXiv 2018</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Jia et al., "Dissecting the NVidia Turing T4 GPU via Microbenchmarking"</td><td>arXiv 2019</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Jouppi et al., "In-Datacenter Performance Analysis of a Tensor Processing Unit" (TPU v1)</td><td>ISCA 2017</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Jouppi et al., "A Domain-Specific Supercomputer for Training Deep Neural Networks" (TPU v2/v3)</td><td>Comm. ACM 2020</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Jouppi et al., "TPU v4: An Optically Reconfigurable Supercomputer for Machine Learning"</td><td>ISCA 2023</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Kung, "Why Systolic Architectures?"</td><td>IEEE Computer, 1982</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention" (vLLM)</td><td>SOSP 2023</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Kwon et al., "MAERI: Enabling Flexible Dataflow Mapping over DNN Accelerators"</td><td>ASPLOS 2018</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Leviathan et al., "Fast Inference from Transformers via Speculative Decoding"</td><td>ICML 2023</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Lindholm et al., "NVIDIA Tesla: A Unified Graphics and Computing Architecture"</td><td>IEEE Micro, 2008</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Micikevicius et al., "Mixed Precision Training"</td><td>ICLR 2018</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Naffziger et al., "AMD Chiplet Architecture for High-Performance Server and Desktop Products"</td><td>ISSCC 2020</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Norrie et al., "The Design Process for Google's Training Chips: TPUv2 and TPUv3"</td><td>IEEE Micro, 2021</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Noune et al., "8-bit Numerical Formats for Deep Neural Networks"</td><td>NeurIPS 2022</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Parashar et al., "Timeloop: A Systematic Approach to DNN Accelerator Evaluation"</td><td>ISPASS 2019</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Pope et al., "Efficiently Scaling Transformer Inference"</td><td>MLSys 2023</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Rogers et al., "Cache-Conscious Wavefront Scheduling" (CCWS)</td><td>MICRO 2012</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Shazeer, "Fast Transformer Decoding: One Write-Head is All You Need" (Multi-Query Attention)</td><td>arXiv 2019</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Sze et al., "Efficient Processing of Deep Neural Networks: A Tutorial and Survey"</td><td>Proceedings of the IEEE, 2017</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+</tbody></table>
+<h2 id="isa-memory-models-microarchitecture">ISA, Memory Models &amp; Microarchitecture</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Alglave et al., "Frightening Small Children and Disconcerting Grown-ups: Concurrency in the Linux Kernel"</td><td>ASPLOS 2018</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>Herlihy, Shavit, "The Art of Multiprocessor Programming"</td><td>2008 (revised 2020)</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>Kocher et al., "Spectre Attacks: Exploiting Speculative Execution"</td><td>S&amp;P 2019</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>Lahav et al., "Repairing Sequential Consistency in C/C++11"</td><td>PLDI 2017</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>Lipp et al., "Meltdown: Reading Kernel Memory from User Space"</td><td>USENIX Security 2018</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>Luo, Wen, "GCoM: A Detailed GPU Core Model for Accurate Analytical Modeling of Modern GPUs"</td><td>ISPASS 2019</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Maranget, Sarkar, Sewell, "A Tutorial Introduction to the ARM and POWER Relaxed Memory Models"</td><td>2012</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>Mellor-Crummey, Scott, "Algorithms for Scalable Synchronization on Shared-Memory Multiprocessors" (MCS lock)</td><td>TOCS 1991</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>Michael, Scott, "Simple, Fast, and Practical Non-Blocking and Blocking Concurrent Queue Algorithms"</td><td>PODC 1996</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>Narasiman et al., "Improving GPU Performance via Large Warps and Two-Level Warp Scheduling"</td><td>MICRO 2011</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>Sewell et al., "x86-TSO: A Rigorous and Usable Programmer's Model for x86 Multiprocessors"</td><td>CACM 2010</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>Stephens et al., "The Scalable Vector Extension for AArch64"</td><td>IEEE Micro, 2017</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+</tbody></table>
+<h2 id="data-structures-algorithms">Data Structures &amp; Algorithms</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Almeida et al., "Delta State Replicated Data Types"</td><td>J. Parallel &amp; Distributed Computing, 2018</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Bender, Hu, "Packed Memory Arrays"</td><td>FOCS 2007</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Cormode, Muthukrishnan, "An Improved Data Stream Summary: The Count-Min Sketch"</td><td>2005</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Ding et al., "ALEX: An Updatable Adaptive Learned Index"</td><td>SIGMOD 2020</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Esposito et al., "RecSplit: Minimal Perfect Hashing via Recursive Splitting"</td><td>ALENEX 2020</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Fan et al., "Cuckoo Filter: Practically Better Than Bloom"</td><td>CoNEXT 2014</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Ferragina, Manzini, "Opportunistic Data Structures with Applications" (FM-Index)</td><td>FOCS 2000</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Ferragina, Vinciguerra, "PGM-Index: A Fully-Dynamic Compressed Learned Index"</td><td>VLDB 2020</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Hendler et al., "Flat Combining and the Synchronization-Parallelism Tradeoff"</td><td>SPAA 2010</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Karnin, Lang, Liberty, "Optimal Streaming Quantile Sketches" (KLL)</td><td>VLDB 2016</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Kraska et al., "The Case for Learned Index Structures"</td><td>SIGMOD 2018</td><td><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a>, <a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Kulkarni et al., "Logical Physical Clocks and Consistent Snapshots" (HLC)</td><td>OPODIS 2014</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Lemire et al., "Roaring Bitmaps: Implementation of an Optimized Software Library"</td><td>Software: Practice &amp; Experience, 2018</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Levandoski et al., "The Bw-Tree: A B-tree for New Hardware Platforms"</td><td>ICDE 2013</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Malkov, Yashunin, "Efficient and Robust Approximate Nearest Neighbor Search Using HNSW Graphs"</td><td>TPAMI 2020</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Mao et al., "Cache Craftiness for Fast Multicore Key-Value Storage" (Masstree)</td><td>EuroSys 2012</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Masson et al., "DDSketch: A Fast and Fully-Mergeable Quantile Sketch"</td><td>VLDB 2019</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Megiddo, Modha, "ARC: A Self-Tuning, Low Overhead Replacement Cache"</td><td>FAST 2003</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Prokopec et al., "Concurrent Tries with Efficient Non-Blocking Snapshots" (CTrie)</td><td>PPoPP 2012</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Sleator, Tarjan, "Self-Adjusting Binary Search Trees" (Splay)</td><td>JACM 1985</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Stoica et al., "Chord: A Scalable Peer-to-peer Lookup Protocol"</td><td>IEEE/ACM TON 2003</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Subramanya et al., "DiskANN: Fast Accurate Billion-point Nearest Neighbor Search on a Single Node"</td><td>NeurIPS 2019</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Wongkham et al., "Are Updatable Learned Indexes Ready?"</td><td>VLDB 2022</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+</tbody></table>
+<h2 id="superscalar-cpu-microarchitecture">Superscalar &amp; CPU Microarchitecture</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>AMD, "Software Optimization Guide for AMD EPYC 9004 Series Processors (Zen 4)"</td><td>AMD Publication 57647, 2024</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Bera, Subramanian, Singh, Mutlu, "Pythia: A Customizable Hardware Prefetching Framework Using Online Reinforcement Learning"</td><td>MICRO 2021</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Binkert et al., "The gem5 Simulator"</td><td>ACM SIGARCH Computer Architecture News 39(2), 2011</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Celio, Patterson, Asanovic, "The Berkeley Out-of-Order Machine (BOOM): An Industry-Competitive, Synthesizable, Parameterized RISC-V Processor"</td><td>UCB/EECS-2017-2, 2017</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Chrysos, Emer, "Memory Dependence Prediction Using Store Sets"</td><td>ISCA 1998</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Esmaeilzadeh, Blem, St.Amant, Sankaralingam, Burger, "Dark Silicon and the End of Multicore Scaling"</td><td>ISCA 2011</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Ferdman et al., "Clearing the Clouds: A Study of Emerging Scale-Out Workloads on Modern Hardware"</td><td>ASPLOS 2012</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Fog, A., "Microarchitecture of Intel, AMD and VIA CPUs"</td><td>agner.org/optimize (continuously updated)</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Gabbay, Mendelson, "Speculative Execution Based on Value Prediction"</td><td>Technion Tech Report CS0974, 1997</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Gochman et al., "The Intel Pentium M Processor: Microarchitecture and Performance"</td><td>Intel Technology Journal 7(2), 2003</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Intel, "Intel Core Ultra (Series 2) — Microarchitecture Overview (Lion Cove)"</td><td>Intel Architecture Disclosure, 2024</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Kessler, "The Alpha 21264 Microprocessor"</td><td>IEEE Micro 19(2), 1999</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Kim, Jeong, Chang, Suh, "Revisiting Virtual Memory Translation for Hardware Prefetchers"</td><td>ISCA 2019</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Lam, Wilson, "Limits of Control Flow on Parallelism"</td><td>ISCA 1992</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Nesbit, Smith, "Data Cache Prefetching Using a Global History Buffer"</td><td>HPCA 2004</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Seznec, "A New Case for the TAGE Branch Predictor" (TAGE-SC-L)</td><td>MICRO 2011</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Seznec, "TAGE-SC-L Branch Predictors Again" (ITTAGE)</td><td>5th JILP Workshop on Computer Architecture Competitions (JWAC-5), 2014</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Seznec, Michaud, "A Case for (Partially) Tagged GEometric History Length Branch Prediction"</td><td>JILP 8, 2006</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Smith, Pleszkun, "Implementing Precise Interrupts in Pipelined Processors"</td><td>IEEE Transactions on Computers 37(5), 1988</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Sohi, Vajapeyam, "Tradeoffs in Instruction Format Design for Horizontal Architectures"</td><td>ASPLOS 1987</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Srinath, Mutlu, Kim, Patt, "Feedback Directed Prefetching: Improving the Performance and Bandwidth-Efficiency of Hardware Prefetchers"</td><td>HPCA 2007</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Tendler, Dodson, Fields, Le, Sinharoy, "POWER4 System Microarchitecture"</td><td>IBM Journal of Research and Development 46(1), 2002</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Tomasulo, "An Efficient Algorithm for Exploiting Multiple Arithmetic Units"</td><td>IBM Journal of Research and Development 11(1), 1967</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Xu et al., "Towards Developing High Performance RISC-V Processors Using Agile Methodology" (XiangShan)</td><td>MICRO 2022</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>Yeh, Patt, "Alternative Implementations of Two-Level Adaptive Branch Prediction"</td><td>ISCA 1992</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+</tbody></table>
+<h2 id="text-search-information-retrieval">Text Search &amp; Information Retrieval</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Broder, Carmel, Herscovici, Soffer, Zien, "Efficient Query Evaluation Using a Two-Level Retrieval Process" (WAND)</td><td>CIKM 2003</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Burkhard, Keller, "Some Approaches to Best-Match File Searching" (BK-trees)</td><td>CACM 1973</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Chambi, Lemire, Kaser, Godin, "Better Bitmap Performance with Roaring Bitmaps"</td><td>Software: Practice &amp; Experience 2016</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Ding, Suel, "Faster Top-k Document Retrieval Using Block-Max Indexes" (BMW)</td><td>SIGIR 2011</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Ferragina, Manzini, "Opportunistic Data Structures with Applications" (FM-index)</td><td>FOCS 2000</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Lemire, Boytsov, "Decoding Billions of Integers per Second Through Vectorization" (SIMD-BP128)</td><td>Software: Practice &amp; Experience 2015</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Ottaviano, Venturini, "Partitioned Elias-Fano Indexes"</td><td>SIGIR 2014</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Robertson, Walker, Jones, Hancock-Beaulieu, Gatford, "Okapi at TREC-3" (BM25)</td><td>TREC 1994</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Robertson, Zaragoza, "The Probabilistic Relevance Framework: BM25 and Beyond"</td><td>FnTIR 2009</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Schulz, Mihov, "Fast String Correction with Levenshtein-Automata"</td><td>IJDAR 2002</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Turtle, Flood, "Query Evaluation: Strategies and Optimizations" (MaxScore)</td><td>IPM 1995</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+</tbody></table>
+<h2 id="approximate-nearest-neighbor-search">Approximate Nearest Neighbor Search</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Douze, Guzhva, Deng, Johnson et al., "The FAISS Library"</td><td>arXiv 2024</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Fu, Cai, Du, "Fast Approximate Nearest Neighbor Search With the Navigating Spreading-out Graph" (NSG)</td><td>VLDB 2019</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Gao, Long, "RaBitQ: Quantizing High-Dimensional Vectors with a Theoretical Error Bound for ANN Search"</td><td>SIGMOD 2024</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Guo, Sun, Lindgren, Geng, Simcha, Chern, Kumar, "Accelerating Large-Scale Inference with Anisotropic Vector Quantization" (ScaNN)</td><td>ICML 2020</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Indyk, Motwani, "Approximate Nearest Neighbors: Towards Removing the Curse of Dimensionality"</td><td>STOC 1998</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Jégou, Douze, Schmid, "Product Quantization for Nearest Neighbor Search"</td><td>IEEE TPAMI 2011</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Johnson, Douze, Jégou, "Billion-scale Similarity Search with GPUs" (FAISS)</td><td>arXiv 2017</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Malkov, Yashunin, "Efficient and Robust Approximate Nearest Neighbor Search Using Hierarchical Navigable Small World Graphs" (HNSW)</td><td>IEEE TPAMI 2018</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Ootomo, Ozaki, Itasaka, Yokota, Tanaka, "CAGRA: Highly Parallel Graph Construction and ANN Search for GPUs"</td><td>arXiv 2308.15136</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Patel, Kraft, Guestrin, Zaharia, "ACORN: Performant and Predicate-Agnostic Search Over Vector Embeddings and Structured Data"</td><td>SIGMOD 2024</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Singh, Jaiswal et al., "FreshDiskANN: A Fast and Accurate Graph-Based ANN Index for Streaming Similarity Search"</td><td>arXiv 2021</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Subramanya, Devvrit, Kakde, Krishnaswamy, Shrivastava, "DiskANN: Fast Accurate Billion-point Nearest Neighbor Search on a Single Node"</td><td>NeurIPS 2019</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+</tbody></table>
+<h2 id="neural-learned-retrieval">Neural &amp; Learned Retrieval</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Cormack, Clarke, Buettcher, "Reciprocal Rank Fusion Outperforms Condorcet and Individual Rank Learning Methods" (RRF)</td><td>SIGIR 2009</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Formal, Piwowarski, Clinchant, "SPLADE: Sparse Lexical and Expansion Model for First Stage Retrieval"</td><td>SIGIR 2021</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Karpukhin, Oğuz, Min, Lewis et al., "Dense Passage Retrieval for Open-Domain Question Answering" (DPR)</td><td>EMNLP 2020</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Khattab, Zaharia, "ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT"</td><td>SIGIR 2020</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Kusupati, Bhatt, Rege et al., "Matryoshka Representation Learning" (MRL)</td><td>NeurIPS 2022</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Muennighoff, Tazi, Magne, Reimers, "MTEB: Massive Text Embedding Benchmark"</td><td>EACL 2023</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Radford, Kim, Hallacy et al., "Learning Transferable Visual Models From Natural Language Supervision" (CLIP)</td><td>ICML 2021</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Santhanam, Khattab, Saad-Falcon, Potts, Zaharia, "ColBERTv2: Effective and Efficient Retrieval via Lightweight Late Interaction"</td><td>NAACL 2022</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Santhanam, Khattab, Potts, Zaharia, "PLAID: An Efficient Engine for Late Interaction Retrieval"</td><td>CIKM 2022</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Thakur, Reimers, Rücklé, Srivastava, Gurevych, "BEIR: A Heterogeneous Benchmark for Zero-shot Evaluation of IR Models"</td><td>NeurIPS 2021</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>Xiong, Xiong, Li et al., "Approximate Nearest Neighbor Negative Contrastive Estimation for Dense Text Retrieval" (ANCE)</td><td>ICLR 2021</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+</tbody></table>
+<h2 id="statistics-cardinality-estimation-query-optimization">Statistics, Cardinality Estimation &amp; Query Optimization</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Alon, Matias, Szegedy, "The Space Complexity of Approximating the Frequency Moments"</td><td>J. Comput. Syst. Sci. 1999</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Bruno, Chaudhuri, Gravano, "STHoles: A Multidimensional Workload-Aware Histogram"</td><td>SIGMOD 2001</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Cormode, Muthukrishnan, "An Improved Data Stream Summary: The Count-Min Sketch and its Applications"</td><td>J. Algorithms 2005</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a>, <a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Dunning, Ertl, "Computing Extremely Accurate Quantiles Using t-Digests"</td><td>arXiv 2019</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a>, <a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Estan, Naughton, "End-Biased Samples for Join Cardinality Estimation"</td><td>SIGMOD 2006</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Flajolet, Martin, "Probabilistic Counting Algorithms for Data Base Applications"</td><td>J. Comput. Syst. Sci. 1985</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Flajolet, Fusy, Gandouet, Meunier, "HyperLogLog: the Analysis of a Near-Optimal Cardinality Estimation Algorithm"</td><td>DMTCS 2007</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a>, <a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Haas, Naughton, Seshadri, Stokes, "Sampling-Based Estimation of the Number of Distinct Values of an Attribute"</td><td>VLDB 1995</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Han, Wu, Wu, Zhu, Pfadler, Qin, Li, Pfadler, "Cardinality Estimation in DBMS: A Comprehensive Benchmark Evaluation"</td><td>VLDB 2021</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Heule, Nunkesser, Hall, "HyperLogLog in Practice: Algorithmic Engineering of a State of the Art Cardinality Estimation Algorithm"</td><td>EDBT 2013</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Hilprecht, Schmidt, Kulessa, Molina, Kersting, Binnig, "DeepDB: Learn from Data, not from Queries!"</td><td>VLDB 2020</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Ioannidis, Kang, "Randomized Algorithms for Optimizing Large Join Queries"</td><td>SIGMOD 1990</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Ioannidis, Kang, "Optimal Histograms for Limiting Worst-Case Error Propagation in the Size of Join Results"</td><td>TODS 1993</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Karnin, Lang, Liberty, "Optimal Quantile Approximation in Streams"</td><td>FOCS 2016</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a>, <a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Kipf, Kipf, Radke, Leis, Boncz, Kemper, "Learned Cardinalities: Estimating Correlated Joins with Deep Learning"</td><td>CIDR 2019</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Li, Quoc, Ho, Gubichev, Kemper, Abo Khamis, Olteanu, Schleich, "Wander Join: Online Aggregation via Random Walks"</td><td>SIGMOD 2016</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Marcus, Negi, Mao, Zhang, Alizadeh, Kraska, Papaemmanouil, Tatbul, "Bao: Making Learned Query Optimization Practical"</td><td>SIGMOD 2021</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Masson, Rim, Lee, "DDSketch: A Fast and Fully-Mergeable Quantile Sketch with Relative-Error Guarantees"</td><td>VLDB 2019</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a>, <a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Metwally, Agrawal, El Abbadi, "Efficient Computation of Frequent and Top-k Elements in Data Streams"</td><td>ICDT 2005</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Misra, Gries, "Finding Repeated Elements"</td><td>Science of Computer Programming 1982</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Moerkotte, Steinbrunn, Moerkotte, "Analysis of Two Existing and One New Dynamic Programming Algorithm for the Generation of Optimal Bushy Join Trees without Cross Products" (Q-error)</td><td>VLDB 2006</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a>, <a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>Poosala, Ioannidis, Haas, Shekita, "Improved Histograms for Selectivity Estimation of Range Predicates"</td><td>SIGMOD 1996</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Vitter, "Random Sampling with a Reservoir"</td><td>ACM Trans. Math. Software 1985</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Vitter, Wang, Iyer, "Data Cube Approximation and Histograms via Wavelets"</td><td>VLDB 1998</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>Yang, Liang, Kamsetty, Wu, Guestrin, Stoica, Krishnan, Abbeel, "NeuroCard: One Cardinality Estimator for All Tables"</td><td>NeurIPS 2020</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+</tbody></table>
+<h2 id="datacenter-networking-rdma">Datacenter Networking &amp; RDMA</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Addanki, Apostolaki, Ghobadi, Schmid, Vanbever, "PowerTCP: Pushing the Performance Limits of Datacenter Networks"</td><td>NSDI 2022</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Alizadeh, Greenberg, Maltz, Padhye, Patel, Prabhakar, Sengupta, Sridharan, "Data Center TCP (DCTCP)"</td><td>SIGCOMM 2010</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Bansal, Khan, Goyal et al., "Meta's RoCE Networks: Building, Operating, and Lessons Learned"</td><td>SIGCOMM 2023</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Dragojević, Narayanan, Hodson, Castro, "FaRM: Fast Remote Memory"</td><td>NSDI 2014</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Gibson, Hartl, Wlodarczyk, Vahdat, Mogul, Goldberg, Sjödin, Sosa, Yang, Singh, "Aquila: A Unified, Low-Latency Fabric for Datacenter Networks"</td><td>NSDI 2022</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Guo, Wu, Deng, Liu, Haridas, Liu, Xu, Yu, Xiang, Wang, Yu, Zhang, Zhang, Padhye, Lipshteyn, "RDMA over Commodity Ethernet at Scale"</td><td>SIGCOMM 2016</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Kumar, Dukkipati, Jouppi, Lam, Madhavan, Mittal, Mittal, Wassel, Wetherall, Wu, Yang, Zats, "Swift: Delay is Simple and Effective for Congestion Control in the Datacenter"</td><td>SIGCOMM 2020</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Li, Miao, Liu, Zhou, Sridharan, Kumar, Bao, Zhou, Yang, Tewari, "HPCC: High Precision Congestion Control"</td><td>SIGCOMM 2019</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Mellette, McGuinness, Roy, Forencich, Papen, Snoeren, Porter, "RotorNet: A Scalable, Low-Complexity, Optical Datacenter Network"</td><td>SIGCOMM 2017</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Mittal, Lam, Dukkipati, Blem, Wassel, Ghobadi, Vahdat, Wang, Wetherall, Zats, "TIMELY: RTT-based Congestion Control for the Datacenter"</td><td>SIGCOMM 2015</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Mittal, Shpiner, Panda, Zahavi, Krishnamurthy, Ratnasamy, Shenker, "Revisiting Network Support for RDMA" (IRN)</td><td>SIGCOMM 2018</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Olteanu, Agache, Voinescu, Raiciu, "An Edge-Queued Datagram Service for All Datacenter Traffic" (EQDS)</td><td>NSDI 2022</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Poutievski, Mashayekhi, Ong, Singhvi, Tariq, Tariq, Vahdat, Wanderer, "Jupiter Evolving: Transforming Google's Datacenter Network via Optical Circuit Switches and Software-Defined Networking"</td><td>SIGCOMM 2022</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Singh, Ong, Agarwal, Anderson, Armistead, Bannon, Boving, Desai, Felderman, Germano, Kanagala, Provost, Simmons, Tanda, Wanderer, Hölzle, Stuart, Vahdat, "Jupiter Rising: A Decade of Clos Topologies and Centralized Control in Google's Datacenter Network"</td><td>SIGCOMM 2015</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Stephens, Akella, Swift, "Loom: Flexible and Efficient NIC Packet Scheduling" (Annulus follow-on)</td><td>SIGCOMM 2019</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Zhu, Eran, Firestone, Guo, Lipshteyn, Liron, Padhye, Raindel, Yahia, Zhang, "Congestion Control for Large-Scale RDMA Deployments" (DCQCN)</td><td>SIGCOMM 2015</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+</tbody></table>
+<h2 id="hpc-fabrics-optical-networks">HPC Fabrics &amp; Optical Networks</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Ajima, Inoue, Hiramoto, Takagi, Shimizu, "The Tofu Interconnect D" (Fugaku)</td><td>HotI 2018</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Alverson, Roweth, Kaplan, "The Gemini System Interconnect" (Cray XE/XK)</td><td>HotI 2010</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Ballani, Costa, Behrendt, Cletheroe, Haller, Jozwik, Karinou, Lange, Shi, Thomsen, Williams, "Sirius: A Flat Datacenter Network with Nanosecond Optical Switching"</td><td>SIGCOMM 2020</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>De Sensi, Di Girolamo, McMahon, Roweth, Hoefler, "An In-Depth Analysis of the Slingshot Interconnect"</td><td>SC 2020</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Faanes, Bataineh, Roweth, Court, Froese, Alverson, Johnson, Kopnick, Higgins, Reinhard, "Cray Cascade: A Scalable HPC System Based on a Dragonfly Network" (Aries)</td><td>SC 2012</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Khani, Ghobadi, Alizadeh, Zhu, Glick, Bergman, Vahdat, Klenk, Ebrahimi, "SiP-ML: High-Bandwidth Optical Network Interconnects for Machine Learning Training"</td><td>SIGCOMM 2021</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Liu, Theogarajan, Pinheiro, Vahdat, "Apollo: A Sequencing-Based Approach to Reconfigurable Optical Networks"</td><td>SIGCOMM 2021</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Mellette, Das, Guo, McGuinness, Snoeren, Porter, Papen, "Expanding Across Time to Deliver Bandwidth Efficiency and Low Latency" (Opera)</td><td>NSDI 2020</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Shaw, Adams, Azaria, Bank, Batson, Bell, Bergdorf et al., "Anton 2: Raising the Bar for Performance and Programmability in a Special-Purpose Molecular Dynamics Supercomputer"</td><td>SC 2014</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+</tbody></table>
+<h2 id="standards-specifications">Standards &amp; Specifications</h2>
+<table><thead><tr><th>Spec</th><th>Year</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>ARM, "AMBA AXI and ACE Protocol Specification" Issue G</td><td>2021</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>ARM, "AMBA CHI Architecture Specification" Issue F</td><td>2023</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>CXL Consortium, "Compute Express Link 3.2 Specification"</td><td>Dec 2024</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>IEEE 802.1Qbb, "Priority-based Flow Control"</td><td>2011</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>IEEE 802.3df-2024, "200/400/800 Gb/s Ethernet"</td><td>2024</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>IEEE 802.3dj (draft), "1.6 Tb/s Ethernet"</td><td>2026 (project)</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>InfiniBand Trade Association, "InfiniBand Architecture Specification 1.7 (Vol 1)"</td><td>2023</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>NVMe Express, "NVMe over Fabrics Specification 1.1a"</td><td>2023</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>PCI-SIG, "PCI Express Base Specification Revision 7.0"</td><td>2025</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a>, <a href="https://nmbr7.github.io/notes/hardware/pcie-internals/">PCIe Internals</a></td></tr>
+<tr><td>UCIe Consortium, "Universal Chiplet Interconnect Express 2.1 Specification"</td><td>Aug 2025</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Ultra Ethernet Consortium, "Ultra Ethernet Specification 1.0"</td><td>Jun 2025</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+</tbody></table>
+<h2 id="textbooks-reference-works">Textbooks &amp; Reference Works</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Cited In</th></tr></thead><tbody>
+<tr><td>Dally, Towles, "Principles and Practices of Interconnection Networks"</td><td>Textbook (Morgan Kaufmann 2003)</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a>, <a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Duato, Yalamanchili, Ni, "Interconnection Networks: An Engineering Approach"</td><td>Textbook (Morgan Kaufmann 2003)</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>Gregg, "BPF Performance Tools"</td><td>Addison-Wesley, 2019</td><td><a href="https://nmbr7.github.io/notes/os/linux-expert-syscalls/">Linux Expert Syscalls</a></td></tr>
+<tr><td>Gregg, "Systems Performance" (2nd ed.)</td><td>Addison-Wesley, 2020</td><td><a href="https://nmbr7.github.io/notes/os/linux-expert-syscalls/">Linux Expert Syscalls</a></td></tr>
+<tr><td>Hennessy, Patterson, "Computer Architecture: A Quantitative Approach" (6th ed.)</td><td>Textbook</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a>, <a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>Kerrisk, "The Linux Programming Interface"</td><td>No Starch Press, 2010</td><td><a href="https://nmbr7.github.io/notes/os/linux-expert-syscalls/">Linux Expert Syscalls</a></td></tr>
+<tr><td>Love, "Linux Kernel Development" (3rd ed.)</td><td>Addison-Wesley, 2010</td><td><a href="https://nmbr7.github.io/notes/os/linux-expert-syscalls/">Linux Expert Syscalls</a></td></tr>
+<tr><td>Navarro, "Succinct Data Structures"</td><td>Cambridge University Press, 2016</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>Weste, Harris, "CMOS VLSI Design: A Circuits and Systems Perspective"</td><td>Textbook</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+</tbody></table>
+<hr />
+<p><em>Last updated: 2026-05-01</em></p>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

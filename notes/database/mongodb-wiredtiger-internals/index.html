@@ -1,0 +1,2102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Mongodb Wiredtiger Internals</h1>
+  <h1 id="mongodb-and-wiredtiger-database-internals-expert-guide">MongoDB and WiredTiger Database Internals: Expert Guide</h1>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/#1-overview-and-architecture">Overview and Architecture</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/#2-wiredtiger-storage-engine-deep-dive">WiredTiger Storage Engine Deep Dive</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/#3-mvcc-implementation">MVCC Implementation</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/#4-transaction-system">Transaction System</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/#5-journaling-and-write-ahead-logging">Journaling and Write-Ahead Logging</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/#6-checkpoint-system">Checkpoint System</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/#7-concurrency-control">Concurrency Control</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/#8-cache-and-memory-management">Cache and Memory Management</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/#9-replication-internals">Replication Internals</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/#10-compression-and-block-management">Compression and Block Management</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/#11-query-execution">Query Execution</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/#12-sharding-architecture">Sharding Architecture</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/#13-comparisons-with-other-systems">Comparisons with Other Systems</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/#14-references">References</a></li>
+</ol>
+<hr />
+<h2 id="1-overview-and-architecture">1. Overview and Architecture</h2>
+<h3 id="1-1-mongodb-architecture-layers">1.1 MongoDB Architecture Layers</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                         CLIENT APPLICATIONS                              │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           MONGOS (Router)                                │
+│  - Query routing          - Chunk migration        - Config management   │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┼───────────────┐
+                    ▼               ▼               ▼
+┌───────────────────────┐ ┌───────────────────────┐ ┌───────────────────────┐
+│      MONGOD           │ │      MONGOD           │ │      MONGOD           │
+│   (Shard/Replica)     │ │   (Shard/Replica)     │ │   (Shard/Replica)     │
+├───────────────────────┤ ├───────────────────────┤ ├───────────────────────┤
+│  Query Engine         │ │  Query Engine         │ │  Query Engine         │
+│  ├─ Parser            │ │  ├─ Parser            │ │  ├─ Parser            │
+│  ├─ Optimizer         │ │  ├─ Optimizer         │ │  ├─ Optimizer         │
+│  └─ Executor          │ │  └─ Executor          │ │  └─ Executor          │
+├───────────────────────┤ ├───────────────────────┤ ├───────────────────────┤
+│  Storage API          │ │  Storage API          │ │  Storage API          │
+│  (KVEngine interface) │ │  (KVEngine interface) │ │  (KVEngine interface) │
+├───────────────────────┤ ├───────────────────────┤ ├───────────────────────┤
+│  WiredTiger Engine    │ │  WiredTiger Engine    │ │  WiredTiger Engine    │
+│  ├─ B-Tree            │ │  ├─ B-Tree            │ │  ├─ B-Tree            │
+│  ├─ Cache             │ │  ├─ Cache             │ │  ├─ Cache             │
+│  ├─ Journal           │ │  ├─ Journal           │ │  ├─ Journal           │
+│  └─ Checkpoint        │ │  └─ Checkpoint        │ │  └─ Checkpoint        │
+└───────────────────────┘ └───────────────────────┘ └───────────────────────┘
+</code></pre>
+<h3 id="1-2-storage-engine-abstraction">1.2 Storage Engine Abstraction</h3>
+<p>MongoDB uses a pluggable storage engine architecture:</p>
+<pre><code data-lang="cpp">// From src/mongo/db/storage/kv/kv_engine.h
+class KVEngine {
+public:
+    // Create a new RecordStore (collection)
+    virtual Status createRecordStore(OperationContext* opCtx,
+                                     StringData ns,
+                                     StringData ident,
+                                     const CollectionOptions&amp; options) = 0;
+
+    // Create a new SortedDataInterface (index)
+    virtual Status createSortedDataInterface(OperationContext* opCtx,
+                                             StringData ident,
+                                             const IndexDescriptor* desc) = 0;
+
+    // Checkpoint and recovery
+    virtual void checkpoint() = 0;
+    virtual Status recoverToStableTimestamp(Timestamp stableTimestamp) = 0;
+
+    // Timestamp management
+    virtual void setStableTimestamp(Timestamp stableTimestamp) = 0;
+    virtual void setOldestTimestamp(Timestamp oldestTimestamp) = 0;
+};
+</code></pre>
+<hr />
+<h2 id="2-wiredtiger-storage-engine-deep-dive">2. WiredTiger Storage Engine Deep Dive</h2>
+<h3 id="2-1-core-architecture">2.1 Core Architecture</h3>
+<p>WiredTiger is a high-performance, embedded database engine acquired by MongoDB in 2014. It became the default storage engine in MongoDB 3.2.</p>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                      WIREDTIGER ARCHITECTURE                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │                        API LAYER                                 │    │
+│  │  WT_CONNECTION, WT_SESSION, WT_CURSOR                           │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                    │                                     │
+│  ┌─────────────────────────────────┼─────────────────────────────────┐  │
+│  │                         BTREE LAYER                               │  │
+│  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────────────┐ │  │
+│  │  │ Row Store     │  │ Column Store  │  │ LSM Trees             │ │  │
+│  │  │ (default)     │  │ (append-only) │  │ (write-optimized)     │ │  │
+│  │  └───────────────┘  └───────────────┘  └───────────────────────┘ │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+│                                    │                                     │
+│  ┌─────────────────────────────────┼─────────────────────────────────┐  │
+│  │                        CACHE LAYER                                │  │
+│  │  ┌─────────────────────────────────────────────────────────────┐ │  │
+│  │  │  In-Memory Pages  │  Eviction  │  Hazard Pointers          │ │  │
+│  │  └─────────────────────────────────────────────────────────────┘ │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+│                                    │                                     │
+│  ┌──────────────────┬──────────────┴───────────────┬─────────────────┐  │
+│  │   BLOCK MGR      │      TRANSACTION MGR         │    LOG (WAL)    │  │
+│  │  ┌────────────┐  │  ┌─────────────────────────┐ │  ┌───────────┐  │  │
+│  │  │ Allocation │  │  │ MVCC │ Snapshots │ Ckpt │ │  │ Journal   │  │  │
+│  │  │ Compression│  │  └─────────────────────────┘ │  │ Recovery  │  │  │
+│  │  └────────────┘  │                              │  └───────────┘  │  │
+│  └──────────────────┴──────────────────────────────┴─────────────────┘  │
+│                                    │                                     │
+│                                    ▼                                     │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │                         FILE SYSTEM                               │  │
+│  │   *.wt (data)  │  WiredTiger.wt (metadata)  │  journal/*         │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="2-2-b-tree-implementation">2.2 B-Tree Implementation</h3>
+<p>WiredTiger uses a <strong>copy-on-write (COW) B-tree</strong> design, fundamentally different from traditional in-place update B-trees.</p>
+<h4 id="2-2-1-page-types">2.2.1 Page Types</h4>
+<pre><code data-lang="c">// From src/include/btmem.h
+#define WT_PAGE_INVALID      0  // Invalid page type
+#define WT_PAGE_BLOCK_MANAGER 1 // Block-manager metadata
+#define WT_PAGE_COL_FIX      2  // Column-store fixed-length leaf
+#define WT_PAGE_COL_INT      3  // Column-store internal page
+#define WT_PAGE_COL_VAR      4  // Column-store variable-length leaf
+#define WT_PAGE_OVFL         5  // Overflow page
+#define WT_PAGE_ROW_INT      6  // Row-store internal page
+#define WT_PAGE_ROW_LEAF     7  // Row-store leaf page (most common)
+</code></pre>
+<h4 id="2-2-2-page-structure-in-memory">2.2.2 Page Structure (In-Memory)</h4>
+<pre><code data-lang="c">// Simplified from src/include/btmem.h
+struct __wt_page {
+    /* Page type and flags */
+    uint8_t type;                    // WT_PAGE_ROW_LEAF, etc.
+    uint8_t flags;
+
+    /* Memory accounting */
+    size_t memory_footprint;         // Total memory for this page
+
+    /* Page content (union based on type) */
+    union {
+        /* Row-store leaf page */
+        struct {
+            WT_ROW *row;             // Array of key/value pairs
+            uint32_t entries;        // Number of entries
+        } row_leaf;
+
+        /* Row-store internal page */
+        struct {
+            WT_REF *intl;            // Array of child references
+            uint32_t entries;
+        } row_int;
+
+        /* Column-store */
+        struct {
+            WT_COL *col;
+            uint64_t recno;          // Starting record number
+        } col_leaf;
+    } u;
+
+    /* Parent reference */
+    WT_REF *parent_ref;              // How parent references this page
+
+    /* Modification tracking */
+    WT_PAGE_MODIFY *modify;          // Non-NULL if page is dirty
+
+    /* Read generation for LRU */
+    uint64_t read_gen;               // Used for eviction decisions
+};
+</code></pre>
+<h4 id="2-2-3-row-entry-structure">2.2.3 Row Entry Structure</h4>
+<pre><code data-lang="c">// Each row in a leaf page
+struct __wt_row {
+    void *key;                       // Key data (prefix-compressed)
+    // Value is accessed through WT_ROW_VALUE macro
+    // For MVCC, value points to WT_UPDATE chain
+};
+
+// Internal page child reference
+struct __wt_ref {
+    WT_PAGE *page;                   // Pointer to child (if in memory)
+    void *addr;                      // On-disk address (if not in memory)
+    uint8_t state;                   // WT_REF_DISK, WT_REF_MEM, etc.
+    WT_PAGE_DELETED *page_del;       // Fast-truncate information
+};
+
+// Reference states
+#define WT_REF_DISK     0            // Page is on disk
+#define WT_REF_DELETED  1            // Page is deleted
+#define WT_REF_LOCKED   2            // Page is being read/evicted
+#define WT_REF_MEM      3            // Page is in memory
+#define WT_REF_SPLIT    4            // Page has been split
+</code></pre>
+<h4 id="2-2-4-copy-on-write-mechanism">2.2.4 Copy-on-Write Mechanism</h4>
+<pre><code>Traditional B-tree (in-place update):
+┌─────────┐                    ┌─────────┐
+│ Page A  │  ──update──►      │ Page A&#39; │  (same location, modified)
+│ v=100   │                    │ v=200   │
+└─────────┘                    └─────────┘
+
+WiredTiger COW B-tree:
+┌─────────┐                    ┌─────────┐
+│ Page A  │  ──update──►      │ Page A  │  (original, immutable)
+│ v=100   │                    │ v=100   │
+└─────────┘                    └─────────┘
+                                    │
+                               ┌────┴────┐
+                               │ Page A&#39; │  (new copy at new location)
+                               │ v=200   │
+                               └─────────┘
+
+Benefits:
+- No torn pages (atomic at page level)
+- Easy snapshots (just keep old page)
+- Readers never block writers
+- Crash recovery is simpler
+</code></pre>
+<h4 id="2-2-5-page-splits">2.2.5 Page Splits</h4>
+<pre><code>Before split (leaf page too full):
+┌──────────────────────────────────────────┐
+│              Parent Page                  │
+│  [... key_A → ref_A, key_B → ref_B ...]  │
+└────────────────────┬─────────────────────┘
+                     │
+              ┌──────┴──────┐
+              │  Leaf Page  │
+              │ (OVERFLOW!) │
+              │ k1,k2,k3... │
+              └─────────────┘
+
+After split:
+┌──────────────────────────────────────────────────────┐
+│                    Parent Page                        │
+│  [...key_A→ref_A, key_split→ref_new, key_B→ref_B...] │
+└────────────────────┬────────────────┬────────────────┘
+                     │                │
+              ┌──────┴──────┐  ┌──────┴──────┐
+              │  Leaf Left  │  │ Leaf Right  │
+              │   k1, k2    │  │  k3, k4...  │
+              └─────────────┘  └─────────────┘
+
+Split Algorithm:
+1. Allocate new page
+2. Copy half the entries to new page
+3. Update parent to add new child reference
+4. If parent overflows, recursively split parent
+5. Mark old page as obsolete (will be reclaimed at checkpoint)
+</code></pre>
+<h3 id="2-3-prefix-compression">2.3 Prefix Compression</h3>
+<p>WiredTiger uses prefix compression for keys to reduce memory and disk usage:</p>
+<pre><code>Keys: &quot;user:1000&quot;, &quot;user:1001&quot;, &quot;user:1002&quot;, &quot;user:1003&quot;
+
+Without prefix compression:
+[user:1000][user:1001][user:1002][user:1003] = 40 bytes
+
+With prefix compression:
+[user:100][0|1][1|1][2|1][3|1]
+    ^       ^    ^    ^    ^
+    |       |    |    |    |
+  prefix  suffix (1 byte each showing delta from prefix)
+= ~15 bytes
+
+Implementation:
+- First key stored in full
+- Subsequent keys store:
+  - Prefix length (bytes shared with previous key)
+  - Suffix (remaining bytes)
+</code></pre>
+<h3 id="2-4-hazard-pointers">2.4 Hazard Pointers</h3>
+<p>Hazard pointers enable lock-free concurrent access to pages:</p>
+<pre><code data-lang="c">// From src/include/session.h
+struct __wt_session_impl {
+    WT_HAZARD *hazard;           // Array of hazard pointers
+    uint32_t hazard_inuse;       // Number of active hazard pointers
+    uint32_t hazard_size;        // Array capacity
+};
+
+struct __wt_hazard {
+    WT_REF *ref;                 // Protected page reference
+    // Additional debug info in debug builds
+};
+</code></pre>
+<p><strong>Algorithm:</strong></p>
+<pre><code>Thread A (reader):                    Thread B (evictor):
+─────────────────                    ──────────────────
+1. Want to access page P
+2. hp[slot] = P
+3. memory_barrier()
+4. if (P still valid):
+   - Read page P safely              1. Want to evict page P
+   ...                               2. Check all hazard pointers
+5. hp[slot] = NULL                   3. if (P in any hazard pointer):
+                                        - Skip P, try another page
+                                     4. else:
+                                        - Safe to evict P
+</code></pre>
+<p><strong>Why this works:</strong></p>
+<ul>
+<li>Writer (evictor) always checks hazard pointers before freeing</li>
+<li>Reader always sets hazard pointer before dereferencing</li>
+<li>Memory barrier ensures proper ordering</li>
+<li>No locks needed - wait-free for readers</li>
+</ul>
+<hr />
+<h2 id="3-mvcc-implementation">3. MVCC Implementation</h2>
+<h3 id="3-1-update-chain-architecture">3.1 Update Chain Architecture</h3>
+<p>WiredTiger implements MVCC through update chains - linked lists of versions attached to each key:</p>
+<pre><code>Document key: &quot;user:1000&quot;
+
+In-memory structure:
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           WT_ROW                                         │
+│  key_ptr ──────► &quot;user:1000&quot;                                            │
+│  value_ptr ─────┐                                                        │
+└─────────────────┼────────────────────────────────────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────┐     ┌─────────────────────────┐
+│      WT_UPDATE          │     │      WT_UPDATE          │
+│  ┌───────────────────┐  │     │  ┌───────────────────┐  │
+│  │ next ─────────────┼──┼────►│  │ next ─────────────┼──┼───► ...
+│  │ txnid: 2500       │  │     │  │ txnid: 2450       │  │
+│  │ start_ts: (10, 5) │  │     │  │ start_ts: (10, 2) │  │
+│  │ durable_ts:(10,5) │  │     │  │ durable_ts:(10,2) │  │
+│  │ type: STANDARD    │  │     │  │ type: STANDARD    │  │
+│  │ size: 128         │  │     │  │ size: 128         │  │
+│  │ data: {x:300,...} │  │     │  │ data: {x:200,...} │  │
+│  └───────────────────┘  │     │  └───────────────────┘  │
+└─────────────────────────┘     └─────────────────────────┘
+        (newest)                        (older)
+</code></pre>
+<h3 id="3-2-update-structure">3.2 Update Structure</h3>
+<pre><code data-lang="c">// From src/include/btmem.h
+struct __wt_update {
+    volatile uint64_t txnid;     // Transaction that created this update
+
+    wt_timestamp_t start_ts;     // Start timestamp
+    wt_timestamp_t durable_ts;   // Durable timestamp (for replication)
+
+    WT_UPDATE *next;             // Next older version
+
+    uint32_t size;               // Data size
+    uint8_t type;                // Update type
+    uint8_t flags;
+
+    // Data follows immediately after structure
+    uint8_t data[];
+};
+
+// Update types
+#define WT_UPDATE_STANDARD   0   // Normal value
+#define WT_UPDATE_DELETED    1   // Tombstone (delete marker)
+#define WT_UPDATE_RESERVE    2   // Reserved for future update
+#define WT_UPDATE_MODIFY     3   // Delta modification
+</code></pre>
+<h3 id="3-3-visibility-rules">3.3 Visibility Rules</h3>
+<pre><code data-lang="c">// Simplified visibility check from src/txn/txn.c
+static inline bool
+__wt_txn_upd_visible(WT_SESSION_IMPL *session, WT_UPDATE *upd)
+{
+    WT_TXN *txn = session-&gt;txn;
+
+    // 1. Updates from our own transaction are always visible
+    if (upd-&gt;txnid == txn-&gt;id)
+        return true;
+
+    // 2. Check transaction ID visibility
+    if (!__wt_txn_visible_id(session, upd-&gt;txnid))
+        return false;
+
+    // 3. Check timestamp visibility (if using timestamps)
+    if (txn-&gt;read_timestamp != WT_TS_NONE) {
+        if (upd-&gt;start_ts &gt; txn-&gt;read_timestamp)
+            return false;
+    }
+
+    return true;
+}
+
+// Transaction ID visibility
+static inline bool
+__wt_txn_visible_id(WT_SESSION_IMPL *session, uint64_t id)
+{
+    WT_TXN *txn = session-&gt;txn;
+
+    // Committed before our snapshot started
+    if (id &lt; txn-&gt;snap_min)
+        return true;
+
+    // Started after our snapshot
+    if (id &gt; txn-&gt;snap_max)
+        return false;
+
+    // In our snapshot&#39;s list of concurrent transactions
+    if (__wt_txn_id_in_snapshot(txn, id))
+        return false;  // Not visible (concurrent)
+
+    return true;  // Committed during our snapshot creation
+}
+</code></pre>
+<h3 id="3-4-snapshot-isolation">3.4 Snapshot Isolation</h3>
+<pre><code>Transaction Timeline:
+────────────────────────────────────────────────────────────────────────►
+time
+     t1         t2         t3         t4         t5         t6
+     │          │          │          │          │          │
+     │          │          │          │          │          │
+    TX1       TX2        TX1        TX3        TX2        TX3
+   begin     begin     commit     begin      commit    commit
+
+Snapshots:
+─────────────────────────────────────────────────────────────────────────
+TX1 snapshot at t1: { snap_min=1, snap_max=1, active=[] }
+TX2 snapshot at t2: { snap_min=1, snap_max=2, active=[1] }
+TX3 snapshot at t4: { snap_min=2, snap_max=3, active=[2] }
+
+Visibility Matrix:
+                TX1 sees    TX2 sees    TX3 sees
+TX1&#39;s writes      Yes         No*         Yes
+TX2&#39;s writes      No          Yes         No*
+TX3&#39;s writes      No          No          Yes
+
+* Not visible because transaction was concurrent at snapshot time
+</code></pre>
+<h3 id="3-5-timestamps-in-mongodb">3.5 Timestamps in MongoDB</h3>
+<p>MongoDB uses hybrid logical timestamps for causal consistency:</p>
+<pre><code data-lang="c">// Timestamp structure
+typedef struct {
+    uint32_t seconds;    // Seconds since Unix epoch
+    uint32_t increment;  // Tie-breaker within same second
+} wt_timestamp_t;
+
+// Timestamp ordering
+// (10, 5) &lt; (10, 6) &lt; (11, 0) &lt; (11, 1)
+</code></pre>
+<p><strong>Timestamp Types:</strong></p>
+<table><thead><tr><th>Timestamp</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><code>commit_timestamp</code></td><td>When transaction logically committed</td></tr>
+<tr><td><code>durable_timestamp</code></td><td>When transaction became durable on majority</td></tr>
+<tr><td><code>read_timestamp</code></td><td>Point-in-time for snapshot reads</td></tr>
+<tr><td><code>oldest_timestamp</code></td><td>Earliest timestamp any reader might need</td></tr>
+<tr><td><code>stable_timestamp</code></td><td>Latest timestamp safe for checkpointing</td></tr>
+</tbody></table>
+<pre><code>Timeline with Timestamps:
+────────────────────────────────────────────────────────────────────────►
+time (seconds.increment)
+
+     (10,0)     (10,1)     (10,2)     (11,0)     (11,1)
+        │          │          │          │          │
+        │          │          │          │          │
+     oldest    stable      read     commit    durable
+    timestamp  timestamp  timestamp timestamp timestamp
+        │          │          │          │          │
+        ▼          ▼          ▼          ▼          ▼
+    ┌──────────────────────────────────────────────────┐
+    │  Data visible for   │        │   New data       │
+    │  historical reads   │ ckpt   │   (not yet       │
+    │                     │ safe   │   durable)       │
+    └──────────────────────────────────────────────────┘
+</code></pre>
+<hr />
+<h2 id="4-transaction-system">4. Transaction System</h2>
+<h3 id="4-1-transaction-lifecycle">4.1 Transaction Lifecycle</h3>
+<pre><code data-lang="c">// Transaction states
+typedef enum {
+    WT_TXN_NONE,        // No transaction
+    WT_TXN_RUNNING,     // Transaction in progress
+    WT_TXN_COMMIT,      // Committing
+    WT_TXN_ERROR,       // Error state
+    WT_TXN_ROLLBACK     // Rolling back
+} WT_TXN_STATE;
+
+// Transaction structure (simplified)
+struct __wt_txn {
+    uint64_t id;                    // Transaction ID
+    WT_TXN_STATE state;
+
+    // Snapshot
+    uint64_t snap_min;              // Oldest active txn at snapshot
+    uint64_t snap_max;              // Newest txn at snapshot
+    uint64_t *snapshot;             // Array of active txn IDs
+    uint32_t snapshot_count;
+
+    // Timestamps
+    wt_timestamp_t read_timestamp;
+    wt_timestamp_t commit_timestamp;
+    wt_timestamp_t durable_timestamp;
+
+    // Modifications tracking
+    WT_TXN_OP *mod;                 // Array of operations
+    size_t mod_count;
+
+    // Isolation level
+    uint32_t isolation;
+};
+</code></pre>
+<h3 id="4-2-transaction-operations">4.2 Transaction Operations</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                     TRANSACTION LIFECYCLE                                │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  1. BEGIN TRANSACTION                                                    │
+│     ├─ Allocate transaction ID                                          │
+│     ├─ Take snapshot of active transactions                             │
+│     ├─ Set read_timestamp (if specified)                                │
+│     └─ State = WT_TXN_RUNNING                                           │
+│                                                                          │
+│  2. OPERATIONS (INSERT/UPDATE/DELETE)                                    │
+│     ├─ Create WT_UPDATE with txnid                                      │
+│     ├─ Link into update chain (atomic CAS)                              │
+│     ├─ Record operation in txn-&gt;mod array                               │
+│     └─ Write to journal (group commit buffer)                           │
+│                                                                          │
+│  3. COMMIT                                                               │
+│     ├─ Set commit_timestamp                                             │
+│     ├─ Validate no write-write conflicts                                │
+│     ├─ Make updates visible (set durable_timestamp)                     │
+│     ├─ Wait for journal sync (durability)                               │
+│     ├─ Remove txnid from global active list                             │
+│     └─ State = WT_TXN_NONE                                              │
+│                                                                          │
+│  4. ROLLBACK (on error or explicit)                                      │
+│     ├─ Walk txn-&gt;mod array                                              │
+│     ├─ Mark each WT_UPDATE as aborted                                   │
+│     ├─ Remove txnid from active list                                    │
+│     └─ State = WT_TXN_NONE                                              │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="4-3-write-write-conflict-detection">4.3 Write-Write Conflict Detection</h3>
+<pre><code data-lang="c">// When a transaction tries to update a key
+int __wt_txn_modify_check(WT_SESSION_IMPL *session, WT_UPDATE *upd)
+{
+    WT_TXN *txn = session-&gt;txn;
+
+    // Walk the update chain
+    for (; upd != NULL; upd = upd-&gt;next) {
+        // Skip our own updates
+        if (upd-&gt;txnid == txn-&gt;id)
+            continue;
+
+        // Check if another transaction modified this key
+        // after our transaction started
+        if (upd-&gt;txnid &gt; txn-&gt;snap_min &amp;&amp;
+            __wt_txn_id_in_snapshot(txn, upd-&gt;txnid)) {
+            // Concurrent modification - conflict!
+            return WT_ROLLBACK;
+        }
+
+        // Check timestamp conflicts
+        if (txn-&gt;read_timestamp != WT_TS_NONE &amp;&amp;
+            upd-&gt;start_ts &gt; txn-&gt;read_timestamp) {
+            return WT_ROLLBACK;
+        }
+    }
+
+    return 0;
+}
+</code></pre>
+<h3 id="4-4-multi-document-transactions-mongodb-4-0">4.4 Multi-Document Transactions (MongoDB 4.0+)</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│              MULTI-DOCUMENT TRANSACTION                                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  // Client code                                                          │
+│  session.startTransaction({                                              │
+│      readConcern: { level: &quot;snapshot&quot; },                                │
+│      writeConcern: { w: &quot;majority&quot; }                                    │
+│  });                                                                     │
+│                                                                          │
+│  try {                                                                   │
+│      // All operations use same snapshot                                │
+│      db.accounts.updateOne({ _id: &quot;A&quot; }, { $inc: { balance: -100 }});  │
+│      db.accounts.updateOne({ _id: &quot;B&quot; }, { $inc: { balance: +100 }});  │
+│                                                                          │
+│      session.commitTransaction();                                        │
+│  } catch (error) {                                                       │
+│      session.abortTransaction();                                         │
+│      throw error;                                                        │
+│  }                                                                       │
+│                                                                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Internal Implementation:                                                │
+│                                                                          │
+│  1. Transaction coordinator (for cross-shard)                           │
+│     └─ Uses two-phase commit protocol                                   │
+│                                                                          │
+│  2. Oplog entries written atomically                                    │
+│     └─ Single oplog entry with all operations                           │
+│     └─ prevOpTime chain links related entries                           │
+│                                                                          │
+│  3. WiredTiger transaction spans all operations                         │
+│     └─ Single prepare/commit at WiredTiger level                        │
+│                                                                          │
+│  4. Two-phase commit for distributed transactions                       │
+│     └─ Prepare phase: all shards prepare                                │
+│     └─ Commit phase: coordinator commits all                            │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr />
+<h2 id="5-journaling-and-write-ahead-logging">5. Journaling and Write-Ahead Logging</h2>
+<h3 id="5-1-journal-architecture">5.1 Journal Architecture</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                      JOURNAL ARCHITECTURE                                │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Write Path:                                                             │
+│                                                                          │
+│  ┌──────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐ │
+│  │  Client  │───►│   Server    │───►│  Log Slot   │───►│  Journal    │ │
+│  │  Write   │    │  Operation  │    │   Buffer    │    │   Files     │ │
+│  └──────────┘    └─────────────┘    └─────────────┘    └─────────────┘ │
+│                                            │                  │          │
+│                                            │                  ▼          │
+│                                      ┌─────┴─────┐    ┌─────────────┐   │
+│                                      │   Group   │    │   Disk      │   │
+│                                      │  Commit   │───►│   fsync     │   │
+│                                      └───────────┘    └─────────────┘   │
+│                                                                          │
+│  Journal Directory Structure:                                            │
+│  dbpath/                                                                 │
+│  └── journal/                                                           │
+│      ├── WiredTigerLog.0000000001    (100MB each, circular)            │
+│      ├── WiredTigerLog.0000000002                                       │
+│      └── WiredTigerPreplog.0000000001  (prepared transactions)          │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="5-2-log-record-format">5.2 Log Record Format</h3>
+<pre><code data-lang="c">// From src/include/log.h
+struct __wt_log_record {
+    uint32_t len;           // Record length (including header)
+    uint32_t checksum;      // CRC32C of record
+
+    uint16_t flags;         // Compression, etc.
+    uint8_t  unused[2];
+    uint32_t mem_len;       // Uncompressed length (if compressed)
+
+    // Followed by log record data:
+    // - Record type
+    // - File ID (which btree)
+    // - Key/value data
+};
+
+// Log record types
+#define WT_LOGREC_CHECKPOINT   0   // Checkpoint record
+#define WT_LOGREC_COMMIT       1   // Transaction commit
+#define WT_LOGREC_FILE_SYNC    2   // File sync
+#define WT_LOGREC_MESSAGE      3   // Diagnostic message
+#define WT_LOGREC_SYSTEM       4   // System record
+</code></pre>
+<h3 id="5-3-log-operations">5.3 Log Operations</h3>
+<pre><code data-lang="c">// Log operation types (within a transaction)
+#define WT_LOGOP_COL_MODIFY    0   // Column-store modify
+#define WT_LOGOP_COL_PUT       1   // Column-store insert/update
+#define WT_LOGOP_COL_REMOVE    2   // Column-store delete
+#define WT_LOGOP_COL_TRUNCATE  3   // Column-store truncate
+#define WT_LOGOP_ROW_MODIFY    4   // Row-store modify (delta)
+#define WT_LOGOP_ROW_PUT       5   // Row-store insert/update
+#define WT_LOGOP_ROW_REMOVE    6   // Row-store delete
+#define WT_LOGOP_ROW_TRUNCATE  7   // Row-store truncate
+#define WT_LOGOP_TXN_TIMESTAMP 8   // Transaction timestamp
+
+// Example log entry for insert
+// [header][WT_LOGOP_ROW_PUT][file_id][key_size][key][value_size][value]
+</code></pre>
+<h3 id="5-4-group-commit">5.4 Group Commit</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                        GROUP COMMIT                                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Without group commit (sequential fsyncs):                              │
+│  ─────────────────────────────────────────                              │
+│  TX1: write ──► fsync ──► ack                                           │
+│                               TX2: write ──► fsync ──► ack              │
+│                                                   TX3: write ──► fsync ─│
+│                                                                          │
+│  Time: ═══════════════════════════════════════════════════════►         │
+│        [   slow: 3 fsyncs, ~30ms total   ]                              │
+│                                                                          │
+│  With group commit (batched fsyncs):                                    │
+│  ───────────────────────────────────                                    │
+│  TX1: write ─┐                                                          │
+│  TX2: write ─┼──► buffer ──► single fsync ──► ack all                  │
+│  TX3: write ─┘                                                          │
+│                                                                          │
+│  Time: ═══════════════════►                                             │
+│        [ fast: 1 fsync, ~10ms ]                                         │
+│                                                                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Implementation:                                                         │
+│                                                                          │
+│  1. Log Slot System                                                     │
+│     ┌─────────────────────────────────────────────────────────────┐    │
+│     │  Slot 0 (active)  │  Slot 1 (syncing)  │  Slot 2 (done)    │    │
+│     │  TX4, TX5, TX6    │  TX1, TX2, TX3     │  (empty)          │    │
+│     │  accumulating     │  waiting for sync  │                    │    │
+│     └─────────────────────────────────────────────────────────────┘    │
+│                                                                          │
+│  2. Slot State Machine                                                  │
+│     SLOT_BUFFERING ──► SLOT_PENDING ──► SLOT_DONE                      │
+│         │                    │              │                           │
+│     (collecting          (fsync in       (all TXs                       │
+│      log records)        progress)       notified)                      │
+│                                                                          │
+│  3. Configuration                                                       │
+│     - journal_commit_interval: max wait time (default 100ms)            │
+│     - journal_commit_size: max buffer size before flush                 │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="5-5-fsync-strategies">5.5 fsync Strategies</h3>
+<pre><code data-lang="c">// MongoDB journal sync modes
+enum {
+    JOURNAL_SYNC_NONE,       // No sync (fastest, risk of data loss)
+    JOURNAL_SYNC_BUFFERED,   // OS buffer (default, 100ms commit interval)
+    JOURNAL_SYNC_DIRECT,     // Direct I/O (bypass OS cache)
+};
+
+// WiredTiger log sync options
+// From wiredtiger.h
+#define WT_LOG_SYNC      0x1  // Sync after each commit
+#define WT_LOG_FLUSH     0x2  // Flush after each commit
+#define WT_LOG_FSYNC     0x4  // fsync after each commit (most durable)
+</code></pre>
+<hr />
+<h2 id="6-checkpoint-system">6. Checkpoint System</h2>
+<h3 id="6-1-checkpoint-overview">6.1 Checkpoint Overview</h3>
+<p>The checkpoint creates a consistent point-in-time snapshot of all data:</p>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    CHECKPOINT ARCHITECTURE                               │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Relationship between Journal and Checkpoint:                           │
+│                                                                          │
+│  Time ───────────────────────────────────────────────────────────────►  │
+│                                                                          │
+│       │         │                  │                  │                 │
+│       ▼         ▼                  ▼                  ▼                 │
+│    ┌─────┐   ┌─────┐            ┌─────┐           ┌─────┐             │
+│    │ CP1 │   │ CP2 │            │ CP3 │           │ CP4 │             │
+│    └──┬──┘   └──┬──┘            └──┬──┘           └──┬──┘             │
+│       │         │                  │                  │                 │
+│       ├─────────┼──────────────────┼──────────────────┤                 │
+│       │         │  Journal entries │                  │                 │
+│       │         │  (replay on      │                  │                 │
+│       │         │   recovery)      │                  │                 │
+│       │         │                  │                  │                 │
+│    ───┴─────────┴──────────────────┴──────────────────┴───              │
+│                                                                          │
+│  Recovery:                                                               │
+│  1. Load most recent complete checkpoint (CP3)                          │
+│  2. Replay journal entries after CP3                                    │
+│  3. Discard incomplete transactions                                     │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="6-2-checkpoint-process-detail">6.2 Checkpoint Process Detail</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    CHECKPOINT PHASES                                     │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Phase 1: PREPARE                                                        │
+│  ─────────────────                                                       │
+│  • Acquire checkpoint lock (prevents concurrent checkpoints)             │
+│  • Record current transaction state:                                     │
+│    - snapshot_min: 2420  (oldest active txn)                            │
+│    - snapshot_max: 2420  (newest txn)                                   │
+│    - snapshot_count: 0   (concurrent active txns)                       │
+│  • Record timestamps:                                                    │
+│    - oldest_timestamp: point before which data can be discarded         │
+│    - stable_timestamp: safe point for checkpoint                        │
+│  • Block new transactions from using timestamps before stable           │
+│                                                                          │
+│  Phase 2: GATHER                                                         │
+│  ────────────────                                                        │
+│  • Walk all open B-trees                                                │
+│  • Identify dirty pages:                                                │
+│    - page-&gt;modify-&gt;write_gen &gt; btree-&gt;base_write_gen                    │
+│  • Build list of pages to reconcile                                     │
+│                                                                          │
+│  Phase 3: RECONCILE                                                      │
+│  ──────────────────                                                      │
+│  • For each dirty page:                                                 │
+│    - Convert in-memory format to on-disk format                         │
+│    - Apply MVCC visibility (filter invisible versions)                  │
+│    - Apply compression                                                  │
+│    - Calculate checksums                                                │
+│                                                                          │
+│  Phase 4: WRITE                                                          │
+│  ──────────────                                                          │
+│  • Allocate new disk blocks (copy-on-write)                             │
+│  • Write reconciled pages                                               │
+│  • Update parent pages with new child addresses                         │
+│  • Write updated metadata                                               │
+│                                                                          │
+│  Phase 5: SYNC                                                           │
+│  ─────────────                                                           │
+│  • fsync all data files                                                 │
+│  • Write checkpoint record to WiredTiger.wt                             │
+│  • fsync metadata file                                                  │
+│  • Write checkpoint complete marker                                     │
+│                                                                          │
+│  Phase 6: CLEANUP                                                        │
+│  ────────────────                                                        │
+│  • Update base_write_gen (your log shows: 154764)                       │
+│  • Mark old blocks as free for reuse                                    │
+│  • Remove old log files (if no longer needed for recovery)              │
+│  • Release checkpoint lock                                              │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="6-3-write-generation-tracking">6.3 Write Generation Tracking</h3>
+<pre><code data-lang="c">// From src/include/btree.h
+struct __wt_btree {
+    uint64_t base_write_gen;      // Write generation at last checkpoint
+    // ...
+};
+
+// From src/include/btmem.h
+struct __wt_page_modify {
+    uint64_t write_gen;           // Incremented on each modification
+    uint64_t update_txn;          // Largest txn ID in page
+    // ...
+};
+
+// Dirty check: is this page modified since last checkpoint?
+#define __wt_page_is_modified(page) \
+    ((page)-&gt;modify != NULL &amp;&amp; \
+     (page)-&gt;modify-&gt;write_gen &gt; (page)-&gt;modify-&gt;base_write_gen)
+</code></pre>
+<p><strong>Your log analysis:</strong></p>
+<pre><code>base write gen: 154764
+</code></pre>
+<p>This means WiredTiger has processed 154,764 page modification generations. Any page with <code>write_gen &gt; 154764</code> is dirty and needs to be written at the next checkpoint.</p>
+<h3 id="6-4-reconciliation-page-conversion">6.4 Reconciliation (Page Conversion)</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    PAGE RECONCILIATION                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  In-Memory Page:                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  WT_ROW array                                                    │   │
+│  │  ┌────────────────────────────────────────────────────────────┐ │   │
+│  │  │ key1 → UPDATE(v=300,ts=10) → UPDATE(v=200,ts=8) → ...     │ │   │
+│  │  │ key2 → UPDATE(v=500,ts=9)  → DELETED(ts=7) → ...          │ │   │
+│  │  │ key3 → UPDATE(v=100,ts=11) (newest, not visible at ckpt)  │ │   │
+│  │  └────────────────────────────────────────────────────────────┘ │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                    │                                     │
+│                        Reconcile at stable_timestamp=9                   │
+│                                    │                                     │
+│                                    ▼                                     │
+│  On-Disk Page (after reconciliation):                                   │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  Page Header: checksum, flags, etc.                              │   │
+│  │  ┌────────────────────────────────────────────────────────────┐ │   │
+│  │  │ key1: v=200 (ts=8 visible, ts=10 too new)                  │ │   │
+│  │  │ key2: (deleted at ts=7, omitted)                           │ │   │
+│  │  │ key3: (ts=11 &gt; stable_timestamp, kept in memory only)      │ │   │
+│  │  └────────────────────────────────────────────────────────────┘ │   │
+│  │  Compressed with snappy/zstd                                     │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr />
+<h2 id="7-concurrency-control">7. Concurrency Control</h2>
+<h3 id="7-1-ticket-based-admission-control">7.1 Ticket-Based Admission Control</h3>
+<pre><code data-lang="c">// From src/mongo/db/storage/wiredtiger/wiredtiger_kv_engine.cpp
+class WiredTigerTicketHolder {
+private:
+    Semaphore _readTickets;    // Default: 128
+    Semaphore _writeTickets;   // Default: 128
+
+public:
+    void acquireRead() {
+        _readTickets.acquire();
+    }
+
+    void acquireWrite() {
+        _writeTickets.acquire();
+    }
+};
+
+// Why tickets matter:
+// - Too many concurrent operations overwhelm WiredTiger cache
+// - Tickets prevent cache thrashing
+// - Provides backpressure to clients
+</code></pre>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    TICKET SYSTEM                                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Read Tickets (128 default)          Write Tickets (128 default)        │
+│  ┌───────────────────────┐          ┌───────────────────────┐          │
+│  │ ████████████████░░░░░ │          │ ██████████░░░░░░░░░░░ │          │
+│  │   110 in use / 128    │          │    80 in use / 128    │          │
+│  └───────────────────────┘          └───────────────────────┘          │
+│                                                                          │
+│  When tickets exhausted:                                                │
+│  - New operations block                                                 │
+│  - serverStatus shows queued operations                                 │
+│  - Indicates system under heavy load                                    │
+│                                                                          │
+│  Tuning considerations:                                                  │
+│  - Increase for high-concurrency workloads                              │
+│  - Decrease if seeing cache pressure                                    │
+│  - Monitor wiredTiger.concurrentTransactions metrics                    │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="7-2-lock-hierarchy">7.2 Lock Hierarchy</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    MONGODB LOCK HIERARCHY                                │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Level 1: Global Lock                                                   │
+│  ────────────────────                                                   │
+│  • Protects global state                                                │
+│  • Usually held in MODE_IX (intent exclusive)                           │
+│                                                                          │
+│  Level 2: Database Lock                                                 │
+│  ──────────────────────                                                 │
+│  • Per-database lock                                                    │
+│  • Intent locks for normal operations                                   │
+│  • Exclusive for DDL (createCollection, dropDatabase)                   │
+│                                                                          │
+│  Level 3: Collection Lock                                               │
+│  ────────────────────────                                               │
+│  • Per-collection lock                                                  │
+│  • MODE_IS for reads, MODE_IX for writes                                │
+│  • MODE_X for collection-level operations                               │
+│                                                                          │
+│  Level 4: Document Lock (WiredTiger)                                    │
+│  ───────────────────────────────────                                    │
+│  • No explicit document locks                                           │
+│  • MVCC handles concurrent access                                       │
+│  • Write-write conflicts detected at commit                             │
+│                                                                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Lock Modes:                                                             │
+│                                                                          │
+│  MODE_IS  │ Intent Shared    │ &quot;I intend to read something below&quot;      │
+│  MODE_IX  │ Intent Exclusive │ &quot;I intend to write something below&quot;     │
+│  MODE_S   │ Shared           │ &quot;I&#39;m reading the whole resource&quot;        │
+│  MODE_X   │ Exclusive        │ &quot;I&#39;m modifying the whole resource&quot;      │
+│                                                                          │
+│  Compatibility Matrix:                                                   │
+│           │ IS   IX   S    X                                            │
+│      ─────┼─────────────────                                            │
+│       IS  │  ✓    ✓    ✓    ✗                                           │
+│       IX  │  ✓    ✓    ✗    ✗                                           │
+│       S   │  ✓    ✗    ✓    ✗                                           │
+│       X   │  ✗    ✗    ✗    ✗                                           │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="7-3-document-level-concurrency">7.3 Document-Level Concurrency</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│              DOCUMENT-LEVEL CONCURRENCY (WiredTiger)                     │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Scenario: Two transactions updating same document                      │
+│                                                                          │
+│  Document: { _id: 1, balance: 1000 }                                    │
+│                                                                          │
+│  TX1                              TX2                                   │
+│  ────                             ────                                  │
+│  begin()                                                                │
+│  snapshot: [balance=1000]                                               │
+│                                   begin()                               │
+│                                   snapshot: [balance=1000]              │
+│  update(_id:1, balance=900)                                             │
+│  ┌─────────────────────────┐                                            │
+│  │ UPDATE(txn=TX1,v=900)   │──┐                                        │
+│  │          │              │  │                                         │
+│  │ UPDATE(txn=0,v=1000)    │  │                                         │
+│  └─────────────────────────┘  │                                         │
+│                               │  update(_id:1, balance=800)             │
+│                               │  ┌─────────────────────────┐            │
+│                               │  │ Check update chain...   │            │
+│                               │  │ TX1 modified after my   │            │
+│                               │  │ snapshot started!       │            │
+│                               │  │                         │            │
+│                               │  │ → WT_ROLLBACK          │            │
+│                               │  └─────────────────────────┘            │
+│  commit()                                                               │
+│                                   [MongoDB retries TX2 automatically]   │
+│                                   begin()                               │
+│                                   snapshot: [balance=900]               │
+│                                   update(_id:1, balance=700)            │
+│                                   commit()                              │
+│                                                                          │
+│  Final: { _id: 1, balance: 700 }                                        │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="7-4-optimistic-vs-pessimistic-concurrency">7.4 Optimistic vs Pessimistic Concurrency</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│            OPTIMISTIC CONCURRENCY (WiredTiger Approach)                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Characteristics:                                                        │
+│  • No locks held during transaction                                     │
+│  • Conflicts detected at commit time                                    │
+│  • Good for low-conflict workloads                                      │
+│  • Requires retry logic for conflicts                                   │
+│                                                                          │
+│  Algorithm:                                                              │
+│  1. Begin: Take snapshot, no locks                                      │
+│  2. Read: Use snapshot isolation                                        │
+│  3. Write: Create update in chain (no lock)                             │
+│  4. Commit: Validate no conflicts, make visible                         │
+│  5. Conflict: Rollback and retry                                        │
+│                                                                          │
+│  Pros:                           Cons:                                  │
+│  ✓ High concurrency              ✗ Wasted work on conflict             │
+│  ✓ No deadlocks                  ✗ May retry many times                │
+│  ✓ Readers never block           ✗ Not ideal for hotspots              │
+│                                                                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│           PESSIMISTIC CONCURRENCY (Traditional Approach)                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Characteristics:                                                        │
+│  • Locks acquired upfront                                               │
+│  • No conflicts at commit (already prevented)                           │
+│  • Good for high-conflict workloads                                     │
+│  • Deadlock detection needed                                            │
+│                                                                          │
+│  Algorithm:                                                              │
+│  1. Begin: Acquire locks on resources                                   │
+│  2. Read: Hold shared lock                                              │
+│  3. Write: Hold exclusive lock                                          │
+│  4. Commit: Release locks                                               │
+│  5. Deadlock: Abort one transaction                                     │
+│                                                                          │
+│  Pros:                           Cons:                                  │
+│  ✓ No wasted work                ✗ Lower concurrency                   │
+│  ✓ Predictable performance       ✗ Potential deadlocks                 │
+│  ✓ Good for hotspots             ✗ Readers may block                   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr />
+<h2 id="8-cache-and-memory-management">8. Cache and Memory Management</h2>
+<h3 id="8-1-wiredtiger-cache-architecture">8.1 WiredTiger Cache Architecture</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    MEMORY ARCHITECTURE                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  System Memory (e.g., 64GB)                                             │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                                                                  │   │
+│  │  ┌────────────────────────────────────────────────────────────┐ │   │
+│  │  │           WiredTiger Cache (default: 50% - 1GB)            │ │   │
+│  │  │                     ~31GB                                   │ │   │
+│  │  │  ┌──────────────────────────────────────────────────────┐  │ │   │
+│  │  │  │  Clean Pages     │ Dirty Pages    │  Internal/Ovfl  │  │ │   │
+│  │  │  │  (can evict)     │ (need write)   │   Pages         │  │ │   │
+│  │  │  │     ~20GB        │    ~8GB        │     ~3GB        │  │ │   │
+│  │  │  └──────────────────────────────────────────────────────┘  │ │   │
+│  │  │                                                             │ │   │
+│  │  │  • Uncompressed data (faster access)                       │ │   │
+│  │  │  • MVCC update chains                                       │ │   │
+│  │  │  • Index pages                                              │ │   │
+│  │  └────────────────────────────────────────────────────────────┘ │   │
+│  │                                                                  │   │
+│  │  ┌────────────────────────────────────────────────────────────┐ │   │
+│  │  │              OS Filesystem Cache                            │ │   │
+│  │  │                   ~25GB                                     │ │   │
+│  │  │                                                             │ │   │
+│  │  │  • Compressed on-disk blocks                                │ │   │
+│  │  │  • Managed by OS (LRU)                                      │ │   │
+│  │  │  • Read-ahead prefetching                                   │ │   │
+│  │  └────────────────────────────────────────────────────────────┘ │   │
+│  │                                                                  │   │
+│  │  ┌────────────────────────────────────────────────────────────┐ │   │
+│  │  │              Other (MongoDB, connections, etc.)             │ │   │
+│  │  │                    ~8GB                                     │ │   │
+│  │  └────────────────────────────────────────────────────────────┘ │   │
+│  │                                                                  │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="8-2-cache-configuration">8.2 Cache Configuration</h3>
+<pre><code data-lang="javascript">// MongoDB cache configuration (in mongod.conf)
+storage:
+  wiredTiger:
+    engineConfig:
+      cacheSizeGB: 31        // Explicit size
+      // OR leave blank for default: max(50% RAM - 1GB, 256MB)
+
+// WiredTiger configuration string
+wiredtiger_open(home, NULL,
+    &quot;cache_size=31G,&quot;
+    &quot;eviction_target=80,&quot;       // Start eviction at 80%
+    &quot;eviction_trigger=95,&quot;      // Aggressive eviction at 95%
+    &quot;eviction_dirty_target=5,&quot;  // Target for dirty pages
+    &quot;eviction_dirty_trigger=20&quot; // Block writes at 20% dirty
+);
+</code></pre>
+<h3 id="8-3-eviction-system">8.3 Eviction System</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    EVICTION SYSTEM                                       │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Cache Pressure Levels:                                                 │
+│                                                                          │
+│  0%    ──────────────────────────────────────────────────────── 100%   │
+│  │                                                                │     │
+│  │  [  Normal Operation  ][ Eviction ][ Aggressive ][  BLOCK  ]  │     │
+│  │                       80%         95%                         │     │
+│  │                        ▲           ▲                          │     │
+│  │                        │           │                          │     │
+│  │              eviction_target  eviction_trigger                │     │
+│  │                                                                │     │
+│                                                                          │
+│  Eviction Threads:                                                      │
+│  • 1 eviction server thread (coordinator)                               │
+│  • 4 eviction worker threads (configurable)                             │
+│  • Application threads can also evict (under pressure)                  │
+│                                                                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Eviction Algorithm (LRU-based):                                        │
+│                                                                          │
+│  1. Score each page:                                                    │
+│     score = base_score                                                  │
+│           + (current_time - page.read_gen) * LRU_WEIGHT                 │
+│           + (page.is_clean ? CLEAN_BONUS : 0)                           │
+│           + (page.type == LEAF ? LEAF_BONUS : 0)                        │
+│           - (page.entries * SIZE_PENALTY)                               │
+│                                                                          │
+│  2. Select candidates:                                                  │
+│     • Walk btree looking for evictable pages                            │
+│     • Add to eviction queue (sorted by score)                           │
+│                                                                          │
+│  3. Evict pages:                                                        │
+│     • Clean pages: Just discard                                         │
+│     • Dirty pages: Reconcile → Write → Discard                          │
+│                                                                          │
+│  4. Hazard pointer check:                                               │
+│     • Before freeing, scan all sessions&#39; hazard pointers                │
+│     • If page is hazarded, skip (try another)                           │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="8-4-page-read-path">8.4 Page Read Path</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    PAGE READ PATH                                        │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Query: find({ _id: 12345 })                                            │
+│                                                                          │
+│  Step 1: Check if page in cache                                         │
+│  ──────────────────────────────                                         │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │  WT_REF for target page                                           │ │
+│  │  ┌────────────────────────────────────────────────────────────┐  │ │
+│  │  │ state: WT_REF_MEM  ────► Page in cache (fast path)         │  │ │
+│  │  │ state: WT_REF_DISK ────► Need to read from disk            │  │ │
+│  │  └────────────────────────────────────────────────────────────┘  │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+│                                                                          │
+│  Step 2: Set hazard pointer (if in cache)                               │
+│  ─────────────────────────────────────────                              │
+│  session-&gt;hazard[slot] = page_ref;                                      │
+│  memory_barrier();                                                       │
+│  // Page now protected from eviction                                    │
+│                                                                          │
+│  Step 3: Read from disk (if not in cache)                               │
+│  ─────────────────────────────────────────                              │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │  1. CAS: WT_REF_DISK → WT_REF_LOCKED (claim the read)            │ │
+│  │  2. Allocate memory for page                                      │ │
+│  │  3. Read compressed block from disk                               │ │
+│  │  4. Decompress (snappy/zstd/zlib)                                │ │
+│  │  5. Build in-memory page structure                                │ │
+│  │  6. Set state: WT_REF_MEM                                        │ │
+│  │  7. Set hazard pointer                                            │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+│                                                                          │
+│  Step 4: Access data                                                    │
+│  ───────────────────                                                    │
+│  • Binary search within page for key                                    │
+│  • Walk update chain for correct version (MVCC)                         │
+│  • Return value to caller                                               │
+│                                                                          │
+│  Step 5: Clear hazard pointer                                           │
+│  ────────────────────────────                                           │
+│  session-&gt;hazard[slot] = NULL;                                          │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr />
+<h2 id="9-replication-internals">9. Replication Internals</h2>
+<h3 id="9-1-replica-set-architecture">9.1 Replica Set Architecture</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    REPLICA SET ARCHITECTURE                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│                         ┌───────────────┐                               │
+│                         │    PRIMARY    │                               │
+│                         │  (read/write) │                               │
+│                         └───────┬───────┘                               │
+│                                 │                                        │
+│                    ┌────────────┼────────────┐                          │
+│                    │  Oplog Replication      │                          │
+│                    │  (async by default)     │                          │
+│                    │                         │                          │
+│              ┌─────▼─────┐            ┌──────▼────┐                     │
+│              │ SECONDARY │            │ SECONDARY │                     │
+│              │  (read)   │            │  (read)   │                     │
+│              └───────────┘            └───────────┘                     │
+│                                                                          │
+│  Election:                                                               │
+│  • Raft-like consensus protocol                                         │
+│  • Members vote based on priority and oplog position                    │
+│  • Primary must maintain majority connection                            │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="9-2-oplog-structure">9.2 Oplog Structure</h3>
+<pre><code data-lang="javascript">// Oplog collection: local.oplog.rs (capped collection)
+// Each entry represents one operation
+
+// Insert operation
+{
+    &quot;ts&quot;: Timestamp(1770216833, 1),     // Hybrid timestamp
+    &quot;t&quot;: NumberLong(15),                 // Election term
+    &quot;h&quot;: NumberLong(-4731091939167146612), // Operation hash
+    &quot;v&quot;: 2,                              // Oplog version
+    &quot;op&quot;: &quot;i&quot;,                           // Operation type
+    &quot;ns&quot;: &quot;mydb.users&quot;,                  // Namespace
+    &quot;ui&quot;: UUID(&quot;abc123...&quot;),             // Collection UUID
+    &quot;wall&quot;: ISODate(&quot;2026-02-04T14:53:53.314Z&quot;),
+    &quot;o&quot;: {                               // Document
+        &quot;_id&quot;: ObjectId(&quot;...&quot;),
+        &quot;name&quot;: &quot;John&quot;,
+        &quot;email&quot;: &quot;john@example.com&quot;
+    }
+}
+
+// Update operation
+{
+    &quot;ts&quot;: Timestamp(1770216834, 1),
+    &quot;op&quot;: &quot;u&quot;,                           // Update
+    &quot;ns&quot;: &quot;mydb.users&quot;,
+    &quot;o2&quot;: { &quot;_id&quot;: ObjectId(&quot;...&quot;) },    // Query
+    &quot;o&quot;: {                               // Update
+        &quot;$v&quot;: 2,                         // Update format version
+        &quot;diff&quot;: {                        // Delta format (v2)
+            &quot;u&quot;: { &quot;email&quot;: &quot;newemail@example.com&quot; }
+        }
+    }
+}
+
+// Delete operation
+{
+    &quot;ts&quot;: Timestamp(1770216835, 1),
+    &quot;op&quot;: &quot;d&quot;,                           // Delete
+    &quot;ns&quot;: &quot;mydb.users&quot;,
+    &quot;o&quot;: { &quot;_id&quot;: ObjectId(&quot;...&quot;) }      // Document identifier
+}
+
+// No-op (used for heartbeats, elections)
+{
+    &quot;ts&quot;: Timestamp(1770216836, 1),
+    &quot;op&quot;: &quot;n&quot;,                           // No-op
+    &quot;ns&quot;: &quot;&quot;,
+    &quot;o&quot;: { &quot;msg&quot;: &quot;periodic noop&quot; }
+}
+</code></pre>
+<h3 id="9-3-replication-state-machine">9.3 Replication State Machine</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    REPLICATION STATE MACHINE                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Member States:                                                          │
+│                                                                          │
+│  ┌─────────────┐     election     ┌─────────────┐                      │
+│  │   STARTUP   │─────────────────►│   PRIMARY   │                      │
+│  │             │                   │             │                      │
+│  └──────┬──────┘                   └──────┬──────┘                      │
+│         │                                 │                              │
+│         │ initial sync                    │ step down                   │
+│         │                                 │                              │
+│         ▼                                 ▼                              │
+│  ┌─────────────┐     election     ┌─────────────┐                      │
+│  │  SECONDARY  │◄────────────────►│  SECONDARY  │                      │
+│  │             │                   │             │                      │
+│  └──────┬──────┘                   └─────────────┘                      │
+│         │                                                                │
+│         │ disconnect                                                    │
+│         ▼                                                                │
+│  ┌─────────────┐                   ┌─────────────┐                      │
+│  │  RECOVERING │──────────────────►│   ARBITER   │ (vote only)         │
+│  │             │    sync complete  │             │                      │
+│  └─────────────┘                   └─────────────┘                      │
+│                                                                          │
+│  State Transitions:                                                      │
+│  • STARTUP → SECONDARY: After initial sync                              │
+│  • SECONDARY → PRIMARY: Won election                                    │
+│  • PRIMARY → SECONDARY: Lost election or stepped down                   │
+│  • SECONDARY → RECOVERING: Fell too far behind oplog                    │
+│  • RECOVERING → SECONDARY: Caught up via initial sync                   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="9-4-write-concern-and-read-concern">9.4 Write Concern and Read Concern</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    WRITE CONCERN LEVELS                                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  w: 0  (Unacknowledged)                                                 │
+│  ────────────────────────                                               │
+│  Client ──write──► Primary ──► (no ack)                                 │
+│  • Fire and forget                                                      │
+│  • No durability guarantee                                              │
+│                                                                          │
+│  w: 1  (Acknowledged - Default)                                         │
+│  ──────────────────────────────                                         │
+│  Client ──write──► Primary ──ack──► Client                              │
+│  • Written to primary&#39;s memory                                          │
+│  • May be lost if primary crashes before sync                           │
+│                                                                          │
+│  w: 1, j: true  (Journaled)                                             │
+│  ──────────────────────────                                             │
+│  Client ──write──► Primary ──journal sync──► ack                        │
+│  • Written to journal on primary                                        │
+│  • Survives primary crash                                               │
+│                                                                          │
+│  w: &quot;majority&quot;  (Majority Acknowledged)                                 │
+│  ───────────────────────────────────────                                │
+│  Client ──write──► Primary ──replicate──► Secondaries                  │
+│                              │                                          │
+│                    wait for majority ack                                │
+│                              │                                          │
+│                    ◄────────ack──────────                               │
+│  • Survives failover                                                    │
+│  • Strongest durability guarantee                                       │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    READ CONCERN LEVELS                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  &quot;local&quot; (Default)                                                      │
+│  ─────────────────                                                      │
+│  • Returns most recent data on queried node                             │
+│  • May return data that could be rolled back                            │
+│                                                                          │
+│  &quot;available&quot;                                                            │
+│  ────────────                                                           │
+│  • Like &quot;local&quot; but for sharded clusters                                │
+│  • May return orphaned documents during migrations                      │
+│                                                                          │
+│  &quot;majority&quot;                                                             │
+│  ──────────                                                             │
+│  • Returns data acknowledged by majority                                │
+│  • Data will not be rolled back                                         │
+│  • Requires WiredTiger storage engine                                   │
+│                                                                          │
+│  &quot;linearizable&quot;                                                         │
+│  ───────────────                                                        │
+│  • Strongest consistency                                                │
+│  • Reads reflect all successful majority writes                         │
+│  • Only on primary, may block                                           │
+│                                                                          │
+│  &quot;snapshot&quot;                                                             │
+│  ──────────                                                             │
+│  • Point-in-time snapshot                                               │
+│  • Used with multi-document transactions                                │
+│  • Provides repeatable reads within transaction                         │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="9-5-majority-commit-point">9.5 Majority Commit Point</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    MAJORITY COMMIT POINT                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Timeline:                                                              │
+│                                                                          │
+│  Oplog   │ ts(1,1) │ ts(2,1) │ ts(3,1) │ ts(4,1) │ ts(5,1) │          │
+│  ────────┴─────────┴─────────┴─────────┴─────────┴─────────┴───────    │
+│                                                                          │
+│  Primary:    [=====applied=====][===applied===][==applied==]           │
+│              ts(1,1)           ts(3,1)        ts(5,1)                   │
+│                                                                          │
+│  Sec 1:      [=====applied=====][===applied===]                        │
+│              ts(1,1)           ts(3,1)                                  │
+│                                                                          │
+│  Sec 2:      [=====applied=====]                                       │
+│              ts(1,1)                                                     │
+│                                                                          │
+│  Majority Commit Point: ts(1,1)                                         │
+│  (highest timestamp replicated to majority)                             │
+│                                                                          │
+│  After Sec 2 catches up to ts(3,1):                                     │
+│  Majority Commit Point: ts(3,1)                                         │
+│                                                                          │
+│  Uses:                                                                   │
+│  • readConcern &quot;majority&quot; reads up to this point                        │
+│  • Checkpointing uses stable timestamp (≤ majority commit point)        │
+│  • Rollback: never roll back beyond majority commit point               │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr />
+<h2 id="10-compression-and-block-management">10. Compression and Block Management</h2>
+<h3 id="10-1-compression-options">10.1 Compression Options</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    COMPRESSION COMPARISON                                │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Algorithm │ Ratio │ Compress Speed │ Decompress │ CPU Usage │ Default │
+│  ──────────┼───────┼────────────────┼────────────┼───────────┼─────────│
+│  none      │  1.0x │ N/A            │ N/A        │ None      │         │
+│  snappy    │  1.5x │ Fast           │ Very fast  │ Low       │ ✓       │
+│  zlib      │  2.5x │ Slow           │ Medium     │ High      │         │
+│  zstd      │  2.8x │ Medium         │ Fast       │ Medium    │ ✓ (4.2+)│
+│                                                                          │
+│  Configuration:                                                          │
+│  db.createCollection(&quot;mycoll&quot;, {                                        │
+│      storageEngine: {                                                   │
+│          wiredTiger: {                                                  │
+│              configString: &quot;block_compressor=zstd&quot;                      │
+│          }                                                              │
+│      }                                                                  │
+│  });                                                                    │
+│                                                                          │
+│  Compression happens at:                                                │
+│  • Page level (when reconciling/writing to disk)                        │
+│  • NOT in memory (pages stored uncompressed in cache)                   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="10-2-block-manager">10.2 Block Manager</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    BLOCK MANAGER                                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  File Structure:                                                         │
+│                                                                          │
+│  collection-0--123456789.wt                                             │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  Block 0: File header                                            │   │
+│  │  Block 1: Root page                                              │   │
+│  │  Block 2: Internal page                                          │   │
+│  │  Block 3: Leaf page                                              │   │
+│  │  Block 4: (free - available for allocation)                      │   │
+│  │  Block 5: Leaf page                                              │   │
+│  │  Block 6: Overflow page                                          │   │
+│  │  ...                                                             │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  Block Allocation:                                                       │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  Free List (avail list)                                          │   │
+│  │  ┌─────────────────────────────────────────────────────────────┐│   │
+│  │  │  offset: 4096, size: 4096  (block 4)                        ││   │
+│  │  │  offset: 32768, size: 8192 (blocks 8-9)                     ││   │
+│  │  │  ...                                                         ││   │
+│  │  └─────────────────────────────────────────────────────────────┘│   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  Allocation Strategy:                                                    │
+│  1. Check free list for suitable block                                  │
+│  2. If found, reuse                                                     │
+│  3. If not, extend file                                                 │
+│                                                                          │
+│  Compaction:                                                             │
+│  • WiredTiger does NOT automatically compact                            │
+│  • Use compact() command to reclaim space                               │
+│  • Rewrites file to remove fragmentation                                │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="10-3-on-disk-page-format">10.3 On-Disk Page Format</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    ON-DISK PAGE FORMAT                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Disk Block:                                                             │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  ┌───────────────────────────────────────────────────────────┐  │   │
+│  │  │                    Block Header (28 bytes)                 │  │   │
+│  │  │  ┌─────────────────────────────────────────────────────┐  │  │   │
+│  │  │  │ disk_size    │ checksum     │ flags                 │  │  │   │
+│  │  │  │ (4 bytes)    │ (4 bytes)    │ (4 bytes)             │  │  │   │
+│  │  │  ├─────────────────────────────────────────────────────┤  │  │   │
+│  │  │  │ unused       │ version      │ page type             │  │  │   │
+│  │  │  └─────────────────────────────────────────────────────┘  │  │   │
+│  │  └───────────────────────────────────────────────────────────┘  │   │
+│  │                                                                  │   │
+│  │  ┌───────────────────────────────────────────────────────────┐  │   │
+│  │  │              Compressed Page Data                          │  │   │
+│  │  │  ┌─────────────────────────────────────────────────────┐  │  │   │
+│  │  │  │ Page Header                                          │  │  │   │
+│  │  │  │  - recno (for column store)                         │  │  │   │
+│  │  │  │  - entries count                                     │  │  │   │
+│  │  │  │  - timestamp info                                    │  │  │   │
+│  │  │  ├─────────────────────────────────────────────────────┤  │  │   │
+│  │  │  │ Cell Data (prefix-compressed keys + values)          │  │  │   │
+│  │  │  │  [cell0][cell1][cell2]...[cellN]                    │  │  │   │
+│  │  │  └─────────────────────────────────────────────────────┘  │  │   │
+│  │  └───────────────────────────────────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  Cell Format:                                                            │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │  [descriptor][prefix_len][suffix_len][suffix][value_len][value] │    │
+│  │       1B        var         var       var       var       var   │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr />
+<h2 id="11-query-execution">11. Query Execution</h2>
+<h3 id="11-1-query-processing-pipeline">11.1 Query Processing Pipeline</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    QUERY EXECUTION PIPELINE                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Query: db.users.find({ age: { $gt: 25 } }).sort({ name: 1 }).limit(10) │
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  1. PARSE                                                        │   │
+│  │     └─► Convert query to internal representation (BSON → AST)   │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                              │                                          │
+│                              ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  2. ANALYZE                                                      │   │
+│  │     └─► Identify available indexes                               │   │
+│  │     └─► Check for cached plan                                    │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                              │                                          │
+│                              ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  3. PLAN (if not cached)                                         │   │
+│  │     └─► Generate candidate plans                                 │   │
+│  │         • Plan A: Collection scan + sort                         │   │
+│  │         • Plan B: Index scan on {age: 1} + fetch + sort          │   │
+│  │         • Plan C: Index scan on {name: 1} + filter (if exists)   │   │
+│  │     └─► Race candidate plans (first batch)                       │   │
+│  │     └─► Select winning plan                                      │   │
+│  │     └─► Cache winning plan                                       │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                              │                                          │
+│                              ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  4. EXECUTE                                                      │   │
+│  │     └─► Execute winning plan stage by stage                      │   │
+│  │         ┌────────────┐                                           │   │
+│  │         │ IXSCAN     │ Index scan on {age: 1}                    │   │
+│  │         │ age &gt; 25   │                                           │   │
+│  │         └─────┬──────┘                                           │   │
+│  │               │                                                  │   │
+│  │               ▼                                                  │   │
+│  │         ┌────────────┐                                           │   │
+│  │         │   FETCH    │ Fetch full documents                      │   │
+│  │         └─────┬──────┘                                           │   │
+│  │               │                                                  │   │
+│  │               ▼                                                  │   │
+│  │         ┌────────────┐                                           │   │
+│  │         │    SORT    │ Sort by name                              │   │
+│  │         └─────┬──────┘                                           │   │
+│  │               │                                                  │   │
+│  │               ▼                                                  │   │
+│  │         ┌────────────┐                                           │   │
+│  │         │   LIMIT    │ Return first 10                           │   │
+│  │         └────────────┘                                           │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="11-2-plan-cache">11.2 Plan Cache</h3>
+<pre><code data-lang="javascript">// View cached plans
+db.users.getPlanCache().list()
+
+// Output:
+[
+    {
+        &quot;queryHash&quot;: &quot;7B6A9D3C&quot;,
+        &quot;planCacheKey&quot;: &quot;8E2F1A5D&quot;,
+        &quot;isActive&quot;: true,
+        &quot;works&quot;: 156,           // Cost estimate
+        &quot;cachedPlan&quot;: {
+            &quot;stage&quot;: &quot;FETCH&quot;,
+            &quot;inputStage&quot;: {
+                &quot;stage&quot;: &quot;IXSCAN&quot;,
+                &quot;keyPattern&quot;: { &quot;age&quot;: 1 },
+                &quot;indexName&quot;: &quot;age_1&quot;
+            }
+        },
+        &quot;timeOfCreation&quot;: ISODate(&quot;2026-02-04T10:00:00Z&quot;),
+        &quot;createdFromQuery&quot;: {
+            &quot;query&quot;: { &quot;age&quot;: { &quot;$gt&quot;: 25 } },
+            &quot;sort&quot;: { &quot;name&quot;: 1 },
+            &quot;projection&quot;: {}
+        }
+    }
+]
+
+// Plan cache eviction triggers:
+// • Index added/dropped
+// • Collection stats change significantly
+// • Server restart
+// • Manual clear: db.users.getPlanCache().clear()
+</code></pre>
+<h3 id="11-3-index-types">11.3 Index Types</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    INDEX TYPES                                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  B-Tree (default)                                                       │
+│  ─────────────────                                                      │
+│  db.coll.createIndex({ field: 1 })                                      │
+│  • Standard ordered index                                               │
+│  • Range queries, equality, sorting                                     │
+│  • WiredTiger B-tree implementation                                     │
+│                                                                          │
+│  Compound                                                                │
+│  ─────────                                                              │
+│  db.coll.createIndex({ a: 1, b: -1, c: 1 })                             │
+│  • Multiple fields                                                      │
+│  • Order matters (prefix queries)                                       │
+│  • Can satisfy sort on indexed fields                                   │
+│                                                                          │
+│  Multikey                                                                │
+│  ─────────                                                              │
+│  db.coll.createIndex({ tags: 1 })  // tags is an array                  │
+│  • Automatically created for array fields                               │
+│  • One index entry per array element                                    │
+│  • Restrictions on compound multikey                                    │
+│                                                                          │
+│  Text                                                                    │
+│  ─────                                                                  │
+│  db.coll.createIndex({ content: &quot;text&quot; })                               │
+│  • Full-text search                                                     │
+│  • Stemming, stop words                                                 │
+│  • One text index per collection                                        │
+│                                                                          │
+│  Hashed                                                                  │
+│  ───────                                                                │
+│  db.coll.createIndex({ field: &quot;hashed&quot; })                               │
+│  • Hash of field value                                                  │
+│  • Used for sharding (even distribution)                                │
+│  • Equality queries only (no range)                                     │
+│                                                                          │
+│  Geospatial                                                              │
+│  ───────────                                                            │
+│  db.coll.createIndex({ location: &quot;2dsphere&quot; })                          │
+│  • Geographic queries                                                   │
+│  • GeoJSON support                                                      │
+│  • $near, $geoWithin, etc.                                              │
+│                                                                          │
+│  Wildcard                                                                │
+│  ─────────                                                              │
+│  db.coll.createIndex({ &quot;$**&quot;: 1 })                                      │
+│  • Index all fields                                                     │
+│  • Good for dynamic schemas                                             │
+│  • Higher storage overhead                                              │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr />
+<h2 id="12-sharding-architecture">12. Sharding Architecture</h2>
+<h3 id="12-1-sharded-cluster-components">12.1 Sharded Cluster Components</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    SHARDED CLUSTER ARCHITECTURE                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│                         ┌───────────────────┐                           │
+│                         │      CLIENT       │                           │
+│                         └─────────┬─────────┘                           │
+│                                   │                                      │
+│                    ┌──────────────┼──────────────┐                      │
+│                    ▼              ▼              ▼                       │
+│             ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
+│             │  mongos  │  │  mongos  │  │  mongos  │  (Query Routers)  │
+│             └────┬─────┘  └────┬─────┘  └────┬─────┘                   │
+│                  │             │             │                          │
+│    ┌─────────────┴─────────────┴─────────────┴─────────────┐           │
+│    │                                                        │           │
+│    │           Config Server Replica Set                    │           │
+│    │    ┌──────────┐ ┌──────────┐ ┌──────────┐            │           │
+│    │    │ Primary  │ │Secondary │ │Secondary │            │           │
+│    │    │ (config) │ │ (config) │ │ (config) │            │           │
+│    │    └──────────┘ └──────────┘ └──────────┘            │           │
+│    │    • Chunk metadata                                   │           │
+│    │    • Shard catalog                                    │           │
+│    │    • Cluster-wide locks                               │           │
+│    └────────────────────────────────────────────────────────┘           │
+│                                                                          │
+│    ┌────────────────────────────────────────────────────────┐           │
+│    │                        SHARDS                          │           │
+│    │                                                        │           │
+│    │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐   │           │
+│    │  │   Shard 1   │  │   Shard 2   │  │   Shard 3   │   │           │
+│    │  │ (replica    │  │ (replica    │  │ (replica    │   │           │
+│    │  │  set)       │  │  set)       │  │  set)       │   │           │
+│    │  │             │  │             │  │             │   │           │
+│    │  │ Chunks:     │  │ Chunks:     │  │ Chunks:     │   │           │
+│    │  │ [A-H]       │  │ [I-P]       │  │ [Q-Z]       │   │           │
+│    │  └─────────────┘  └─────────────┘  └─────────────┘   │           │
+│    │                                                        │           │
+│    └────────────────────────────────────────────────────────┘           │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="12-2-shard-keys-and-chunks">12.2 Shard Keys and Chunks</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    SHARD KEY AND CHUNKS                                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Shard Key: { user_id: 1 }                                              │
+│                                                                          │
+│  Chunk Distribution:                                                     │
+│                                                                          │
+│  Shard Key Range:   [MinKey]────────────────────────────────[MaxKey]   │
+│                                                                          │
+│  Chunks:            │ Chunk1 │ Chunk2 │ Chunk3 │ Chunk4 │ Chunk5 │      │
+│                     [MinKey,  [1000,   [2000,   [3000,   [4000,          │
+│                      1000)    2000)    3000)    4000)    MaxKey)         │
+│                                                                          │
+│  Shard Assignment:  │ Shard1 │ Shard2 │ Shard1 │ Shard3 │ Shard2 │      │
+│                                                                          │
+│  Chunk Splitting:                                                        │
+│  • Occurs when chunk exceeds chunkSize (default 128MB)                  │
+│  • Split point chosen at median                                         │
+│  • Creates two smaller chunks                                           │
+│                                                                          │
+│  Chunk Migration:                                                        │
+│  • Balancer moves chunks between shards                                 │
+│  • Goal: even distribution across shards                                │
+│  • Can cause temporary performance impact                               │
+│                                                                          │
+│  Shard Key Selection Guidelines:                                        │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  Good:                          Bad:                             │   │
+│  │  • High cardinality             • Low cardinality (few values)  │   │
+│  │  • Even distribution            • Monotonically increasing      │   │
+│  │  • Query isolation              • Hotspots                       │   │
+│  │  • { user_id: 1 }               • { status: 1 }                 │   │
+│  │  • { tenant_id: 1, _id: 1 }     • { created_at: 1 }            │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="12-3-query-routing">12.3 Query Routing</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    QUERY ROUTING                                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Shard Key: { user_id: 1 }                                              │
+│                                                                          │
+│  Targeted Query (includes shard key):                                   │
+│  ──────────────────────────────────────                                 │
+│  db.orders.find({ user_id: 12345 })                                     │
+│                                                                          │
+│  mongos ──► config server (lookup chunk for user_id=12345)              │
+│         ──► route to specific shard (Shard2)                            │
+│         ◄── return results from Shard2 only                             │
+│                                                                          │
+│  Scatter-Gather Query (no shard key):                                   │
+│  ─────────────────────────────────────                                  │
+│  db.orders.find({ status: &quot;pending&quot; })                                  │
+│                                                                          │
+│  mongos ──► broadcast to ALL shards                                     │
+│         ◄── gather results from all shards                              │
+│         ──► merge and return                                            │
+│                                                                          │
+│  Performance Comparison:                                                 │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  Query Type      │ Shards Hit │ Performance │ Example           │   │
+│  │  ────────────────┼────────────┼─────────────┼─────────────────── │   │
+│  │  Targeted        │ 1          │ Fast        │ {user_id: X}      │   │
+│  │  Scatter-Gather  │ All        │ Slow        │ {status: &quot;...&quot;}   │   │
+│  │  Broadcast       │ All        │ Slowest     │ unsharded coll    │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr />
+<h2 id="13-comparisons-with-other-systems">13. Comparisons with Other Systems</h2>
+<h3 id="13-1-mongodb-vs-postgresql">13.1 MongoDB vs PostgreSQL</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    MONGODB vs POSTGRESQL                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Aspect              │ MongoDB/WiredTiger    │ PostgreSQL               │
+│  ────────────────────┼───────────────────────┼─────────────────────────│
+│  Storage Model       │ Copy-on-write B-tree  │ Heap + B-tree indexes   │
+│                      │ (clustered by _id)    │ (heap is unordered)     │
+│                      │                       │                          │
+│  MVCC Location       │ In-memory update      │ In-place with           │
+│                      │ chains                │ xmin/xmax in tuples     │
+│                      │                       │                          │
+│  Vacuum Needed       │ No (COW reclaims)     │ Yes (dead tuple         │
+│                      │                       │ cleanup required)        │
+│                      │                       │                          │
+│  Page Size           │ Variable (4KB-512KB)  │ Fixed 8KB               │
+│                      │                       │                          │
+│  Checkpoints         │ Full tree reconcile   │ Dirty buffer flush      │
+│                      │ to new locations      │ in place                 │
+│                      │                       │                          │
+│  WAL Format          │ Logical (key-value    │ Physical (page          │
+│                      │ operations)           │ images + deltas)         │
+│                      │                       │                          │
+│  Compression         │ Per-page (snappy,     │ Per-table (lz4,         │
+│                      │ zstd, zlib)           │ pglz, zstd)             │
+│                      │                       │                          │
+│  Replication         │ Logical (oplog)       │ Physical (WAL           │
+│                      │                       │ streaming) + Logical     │
+│                      │                       │                          │
+│  Lock Granularity    │ Document + intent     │ Row + advisory +        │
+│                      │ (collection level)    │ predicate locks         │
+│                      │                       │                          │
+│  Index Types         │ B-tree, hash, text,   │ B-tree, hash, GiST,     │
+│                      │ geospatial, wildcard  │ SP-GiST, GIN, BRIN      │
+│                      │                       │                          │
+│  Transactions        │ Multi-doc (4.0+)      │ Full ACID (always)      │
+│                      │ Snapshot isolation    │ Multiple levels         │
+│                      │                       │                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="13-2-mongodb-vs-mysql-innodb">13.2 MongoDB vs MySQL InnoDB</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                    MONGODB vs MYSQL INNODB                               │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Aspect              │ MongoDB/WiredTiger    │ MySQL/InnoDB             │
+│  ────────────────────┼───────────────────────┼─────────────────────────│
+│  B-tree Update       │ Copy-on-write         │ In-place update         │
+│                      │                       │                          │
+│  MVCC Storage        │ Update chains in      │ Undo log (rollback      │
+│                      │ memory                │ segment)                 │
+│                      │                       │                          │
+│  Buffer Pool         │ WiredTiger cache      │ InnoDB buffer pool      │
+│                      │ (uncompressed pages)  │ (compressed +           │
+│                      │                       │ uncompressed)            │
+│                      │                       │                          │
+│  Doublewrite         │ Not needed (COW)      │ Required (for torn      │
+│                      │                       │ page protection)         │
+│                      │                       │                          │
+│  Change Buffer       │ Not applicable        │ Buffers secondary       │
+│                      │                       │ index changes            │
+│                      │                       │                          │
+│  Clustering          │ By _id (always)       │ By primary key          │
+│                      │                       │ (configurable)           │
+│                      │                       │                          │
+│  Page Size           │ Variable              │ 16KB default            │
+│                      │                       │                          │
+│  Redo Log            │ Journal (operations)  │ Redo log (pages)        │
+│                      │                       │                          │
+│  Purge               │ Not needed            │ Purge thread cleans     │
+│                      │                       │ old MVCC versions       │
+│                      │                       │                          │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr />
+<h2 id="14-references">14. References</h2>
+<h3 id="14-1-official-documentation">14.1 Official Documentation</h3>
+<ul>
+<li><a rel="external" href="https://www.mongodb.com/docs/manual/">MongoDB Manual</a></li>
+<li><a rel="external" href="http://source.wiredtiger.com/">WiredTiger Documentation</a></li>
+<li><a rel="external" href="https://university.mongodb.com/">MongoDB University</a></li>
+</ul>
+<h3 id="14-2-source-code">14.2 Source Code</h3>
+<ul>
+<li>
+<p>MongoDB: <code>https://github.com/mongodb/mongo</code></p>
+<ul>
+<li>Storage: <code>src/mongo/db/storage/</code></li>
+<li>WiredTiger integration: <code>src/mongo/db/storage/wiredtiger/</code></li>
+<li>Replication: <code>src/mongo/db/repl/</code></li>
+<li>Query: <code>src/mongo/db/query/</code></li>
+</ul>
+</li>
+<li>
+<p>WiredTiger: <code>https://github.com/wiredtiger/wiredtiger</code></p>
+<ul>
+<li>B-tree: <code>src/btree/</code></li>
+<li>Cache: <code>src/cache/</code></li>
+<li>Eviction: <code>src/evict/</code></li>
+<li>Transaction: <code>src/txn/</code></li>
+<li>Log/Journal: <code>src/log/</code></li>
+<li>Block manager: <code>src/block/</code></li>
+</ul>
+</li>
+</ul>
+<h3 id="14-3-key-source-files">14.3 Key Source Files</h3>
+<table><thead><tr><th>Component</th><th>Location</th></tr></thead><tbody>
+<tr><td>WiredTiger B-tree</td><td><code>wiredtiger/src/btree/bt_*.c</code></td></tr>
+<tr><td>Page structure</td><td><code>wiredtiger/src/include/btmem.h</code></td></tr>
+<tr><td>Checkpoint</td><td><code>wiredtiger/src/txn/txn_ckpt.c</code></td></tr>
+<tr><td>MVCC/Transactions</td><td><code>wiredtiger/src/txn/txn.c</code></td></tr>
+<tr><td>Visibility</td><td><code>wiredtiger/src/txn/txn_visibility.c</code></td></tr>
+<tr><td>Journal</td><td><code>wiredtiger/src/log/log.c</code></td></tr>
+<tr><td>Eviction</td><td><code>wiredtiger/src/evict/evict_lru.c</code></td></tr>
+<tr><td>Cache</td><td><code>wiredtiger/src/cache/cache_*.c</code></td></tr>
+<tr><td>Block manager</td><td><code>wiredtiger/src/block/block_*.c</code></td></tr>
+<tr><td>MongoDB Storage API</td><td><code>mongo/src/mongo/db/storage/storage_engine.h</code></td></tr>
+<tr><td>WiredTiger KV Engine</td><td><code>mongo/src/mongo/db/storage/wiredtiger/wiredtiger_kv_engine.cpp</code></td></tr>
+<tr><td>Oplog</td><td><code>mongo/src/mongo/db/repl/oplog.cpp</code></td></tr>
+<tr><td>Replication</td><td><code>mongo/src/mongo/db/repl/replication_coordinator_impl.cpp</code></td></tr>
+</tbody></table>
+<h3 id="14-4-academic-papers">14.4 Academic Papers</h3>
+<ol>
+<li>
+<p><strong>WiredTiger Design</strong></p>
+<ul>
+<li>Graefe, G. "Modern B-Tree Techniques" - Foundations and Trends in Databases, 2011</li>
+</ul>
+</li>
+<li>
+<p><strong>MVCC and Concurrency</strong></p>
+<ul>
+<li>Berenson et al. "A Critique of ANSI SQL Isolation Levels" - SIGMOD 1995</li>
+</ul>
+</li>
+<li>
+<p><strong>Log-Structured Storage</strong></p>
+<ul>
+<li>O'Neil et al. "The Log-Structured Merge-Tree (LSM-Tree)" - Acta Informatica, 1996</li>
+</ul>
+</li>
+<li>
+<p><strong>Hazard Pointers</strong></p>
+<ul>
+<li>Michael, M. "Hazard Pointers: Safe Memory Reclamation for Lock-Free Objects" - IEEE TPDS, 2004</li>
+</ul>
+</li>
+</ol>
+<h3 id="14-5-conference-talks">14.5 Conference Talks</h3>
+<ul>
+<li>MongoDB World presentations on storage internals</li>
+<li>WiredTiger team talks at database conferences</li>
+<li>MongoDB Engineering Blog: <code>https://www.mongodb.com/blog/channel/engineering</code></li>
+</ul>
+<hr />
+<h2 id="appendix-a-log-message-reference">Appendix A: Log Message Reference</h2>
+<h3 id="a-1-checkpoint-log-user-s-original-query">A.1 Checkpoint Log (User's Original Query)</h3>
+<pre><code data-lang="json">{
+    &quot;t&quot;: {&quot;$date&quot;: &quot;2026-02-04T14:53:53.314+00:00&quot;},
+    &quot;s&quot;: &quot;I&quot;,
+    &quot;c&quot;: &quot;WTCHKPT&quot;,
+    &quot;id&quot;: 22430,
+    &quot;ctx&quot;: &quot;Checkpointer&quot;,
+    &quot;msg&quot;: &quot;WiredTiger message&quot;,
+    &quot;attr&quot;: {
+        &quot;message&quot;: {
+            &quot;ts_sec&quot;: 1770216833,
+            &quot;ts_usec&quot;: 314115,
+            &quot;thread&quot;: &quot;1:0xffffa64febc0&quot;,
+            &quot;session_name&quot;: &quot;WT_SESSION.checkpoint&quot;,
+            &quot;category&quot;: &quot;WT_VERB_CHECKPOINT_PROGRESS&quot;,
+            &quot;category_id&quot;: 6,
+            &quot;verbose_level&quot;: &quot;DEBUG_1&quot;,
+            &quot;verbose_level_id&quot;: 1,
+            &quot;msg&quot;: &quot;saving checkpoint snapshot min: 2420, snapshot max: 2420 snapshot count: 0, oldest timestamp: (0, 0) , meta checkpoint timestamp: (0, 0) base write gen: 154764&quot;
+        }
+    }
+}
+</code></pre>
+<p><strong>Field Analysis:</strong></p>
+<table><thead><tr><th>Field</th><th>Value</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>c: "WTCHKPT"</code></td><td>Component</td><td>WiredTiger Checkpoint subsystem</td></tr>
+<tr><td><code>ctx: "Checkpointer"</code></td><td>Context</td><td>Background checkpointer thread</td></tr>
+<tr><td><code>id: 22430</code></td><td>Log ID</td><td>Checkpoint progress message</td></tr>
+<tr><td><code>snapshot min: 2420</code></td><td>Txn ID</td><td>Oldest transaction in checkpoint snapshot</td></tr>
+<tr><td><code>snapshot max: 2420</code></td><td>Txn ID</td><td>Newest transaction in checkpoint snapshot</td></tr>
+<tr><td><code>snapshot count: 0</code></td><td>Count</td><td>No concurrent active transactions</td></tr>
+<tr><td><code>oldest timestamp: (0, 0)</code></td><td>HLC</td><td>No oldest timestamp set (not using timestamps)</td></tr>
+<tr><td><code>meta checkpoint timestamp: (0, 0)</code></td><td>HLC</td><td>Metadata checkpoint timestamp</td></tr>
+<tr><td><code>base write gen: 154764</code></td><td>Counter</td><td>Page modification generation boundary</td></tr>
+</tbody></table>
+<hr />
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a> — WiredTiger's B-tree storage contrasts with LSM-based engines; compaction and write amplification trade-offs apply</li>
+<li><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL, Torn Pages, and Disk Reliability</a> — WiredTiger's journaling and checkpoint system addresses the same durability problems</li>
+<li><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a> — MongoDB replica sets use a Raft-like protocol covered in depth here</li>
+<li><a href="https://nmbr7.github.io/notes/database/buffer-management-predictive-translation/">Buffer Management and Predictive Translation</a> — WiredTiger's cache/eviction is a buffer management problem addressed by this research</li>
+</ul>
+<hr />
+<p><em>Document created: 2026-02-04</em>
+<em>Last updated: 2026-02-04</em></p>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

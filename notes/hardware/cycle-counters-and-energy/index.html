@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Cycle Counters And Energy</h1>
+  <h1 id="cycle-counters-timing-and-per-cycle-energy">Cycle Counters, Timing, and Per-Cycle Energy</h1>
+<h2 id="reading-the-cycle-counter">Reading the Cycle Counter</h2>
+<h3 id="x86-64-rdtsc-rdtscp">x86-64: <code>RDTSC</code> / <code>RDTSCP</code></h3>
+<pre><code data-lang="c">uint64_t cycles;
+unsigned lo, hi;
+asm volatile(&quot;rdtscp&quot; : &quot;=a&quot;(lo), &quot;=d&quot;(hi) :: &quot;rcx&quot;);
+cycles = ((uint64_t)hi &lt;&lt; 32) | lo;
+</code></pre>
+<ul>
+<li><code>RDTSCP</code> is preferred — it serializes (waits for prior instructions to complete), giving more accurate measurements</li>
+<li><code>RDTSC</code> alone can be reordered by the CPU; wrap with <code>LFENCE</code> if using it</li>
+<li>Common benchmarking pattern: <code>LFENCE; RDTSC</code> before, <code>RDTSCP; LFENCE</code> after</li>
+<li>TSC frequency ≠ core frequency on modern CPUs (invariant TSC runs at fixed reference frequency). Use <code>CPUID</code> leaf <code>0x15</code> to get the ratio, or calibrate against a known clock</li>
+</ul>
+<h3 id="aarch64-cntvct-el0-pmccntr-el0">AArch64: <code>CNTVCT_EL0</code> / <code>PMCCNTR_EL0</code></h3>
+<pre><code data-lang="c">uint64_t val;
+asm volatile(&quot;mrs %0, cntvct_el0&quot; : &quot;=r&quot;(val));   // generic timer
+asm volatile(&quot;mrs %0, pmccntr_el0&quot; : &quot;=r&quot;(val));   // cycle counter (needs kernel enable)
+</code></pre>
+<ul>
+<li><code>CNTVCT_EL0</code> reads the generic timer (fixed frequency, not true cycles)</li>
+<li><code>PMCCNTR_EL0</code> gives actual CPU cycles but requires <code>PMUSERENR_EL0.EN = 1</code> — usually disabled by default</li>
+<li>On Linux 6.0+: <code>echo 1 &gt; /proc/sys/kernel/perf_user_access</code> to enable userspace PMU access</li>
+</ul>
+<h3 id="risc-v-rdcycle-rdtime">RISC-V: <code>rdcycle</code> / <code>rdtime</code></h3>
+<pre><code data-lang="c">uint64_t cycles;
+asm volatile(&quot;rdcycle %0&quot; : &quot;=r&quot;(cycles));
+</code></pre>
+<ul>
+<li><code>rdcycle</code> is being deprecated in newer privilege specs (ratified 2024) due to side-channel concerns</li>
+<li>Some implementations trap it to M-mode or return zero</li>
+<li><code>rdtime</code> (wall-clock) remains available</li>
+</ul>
+<h3 id="macos-apple-silicon">macOS Apple Silicon</h3>
+<pre><code data-lang="c">#include &lt;mach/mach_time.h&gt;
+
+uint64_t start = mach_absolute_time();
+// ... work ...
+uint64_t end = mach_absolute_time();
+uint64_t elapsed = end - start;
+</code></pre>
+<ul>
+<li>Reads <code>CNTVCT_EL0</code> directly — the fixed-frequency timer</li>
+<li>On Apple Silicon, <code>numer/denom</code> is <code>1/1</code>, counter ticks at <strong>24 MHz</strong> (~41.67 ns resolution)</li>
+<li>These are <strong>not</strong> actual CPU cycles</li>
+<li>Apple <strong>blocks</strong> userspace access to <code>PMCCNTR_EL0</code> — reading it will <code>SIGILL</code></li>
+<li>True cycle counts require private APIs (<code>kperf</code>/<code>CPMU</code>) or kernel-level access</li>
+<li>Projects that use private PMU access: <code>dougallj/applecpu</code>, AsahiLinux <code>m1n1</code></li>
+</ul>
+<h2 id="counter-granularity-comparison">Counter Granularity Comparison</h2>
+<table><thead><tr><th>Counter</th><th>Granularity</th><th>Measures</th></tr></thead><tbody>
+<tr><td>x86 <code>RDTSC</code></td><td>~0.3 ns (1 cycle)</td><td>Reference cycles</td></tr>
+<tr><td>ARM <code>CNTVCT_EL0</code></td><td>10–52 ns</td><td>Wall time</td></tr>
+<tr><td>ARM <code>PMCCNTR_EL0</code></td><td>~0.3 ns (1 cycle)</td><td>Core cycles</td></tr>
+<tr><td>RISC-V <code>rdcycle</code></td><td>~1 cycle</td><td>Core cycles</td></tr>
+<tr><td>RISC-V <code>rdtime</code></td><td>~100 ns</td><td>Wall time</td></tr>
+<tr><td>macOS <code>mach_absolute_time</code></td><td>~42 ns</td><td>Wall time</td></tr>
+</tbody></table>
+<p>Typical timer frequencies by platform:</p>
+<ul>
+<li>Apple Silicon: 24 MHz (~42 ns)</li>
+<li>Qualcomm Snapdragon: 19.2 MHz (~52 ns)</li>
+<li>ARM Juno/FVP: 100 MHz (10 ns)</li>
+<li>AWS Graviton: 25 MHz (40 ns)</li>
+<li>RISC-V (most): 10 MHz (100 ns)</li>
+</ul>
+<h2 id="cost-of-reading-the-counter">Cost of Reading the Counter</h2>
+<p>The counter ticking at core frequency does <strong>not</strong> mean you "spend" those cycles. The counter is a <strong>separate hardware register</strong> that increments independently — a dedicated flip-flop chain wired to the clock tree. Reading it is like glancing at a wall clock.</p>
+<h3 id="instruction-latencies">Instruction Latencies</h3>
+<table><thead><tr><th>Instruction</th><th>Latency</th></tr></thead><tbody>
+<tr><td>x86 <code>RDTSC</code></td><td>~20-35 cycles</td></tr>
+<tr><td>x86 <code>RDTSCP</code></td><td>~35 cycles (serializing)</td></tr>
+<tr><td>x86 <code>LFENCE; RDTSC</code> pair</td><td>~40 cycles total</td></tr>
+<tr><td>ARM <code>CNTVCT_EL0</code> (Apple Silicon)</td><td>~3-5 cycles</td></tr>
+<tr><td>ARM <code>CNTVCT_EL0</code> (Cortex-A)</td><td>~40-80 cycles (may trap to EL1)</td></tr>
+<tr><td>ARM <code>PMCCNTR_EL0</code> (enabled)</td><td>~3-10 cycles</td></tr>
+<tr><td>ARM <code>PMCCNTR_EL0</code> (trapped to kernel)</td><td>~1000+ cycles</td></tr>
+<tr><td>RISC-V <code>rdcycle</code> (hardware)</td><td>~1 cycle</td></tr>
+<tr><td>RISC-V <code>rdcycle</code> (trapped to M-mode)</td><td>~100+ cycles</td></tr>
+</tbody></table>
+<p>A full measurement pair (before + after) on x86:</p>
+<pre><code>LFENCE          ;  ~5 cycles
+RDTSC           ; ~20 cycles
+... work ...
+RDTSCP          ; ~35 cycles
+LFENCE          ;  ~5 cycles
+                ; ~65 cycles overhead total
+</code></pre>
+<p>For 10,000 cycles of work, that's <strong>0.65%</strong> overhead. For 50 cycles of work, the overhead <strong>dominates</strong> — use statistical methods (millions of iterations, take the median).</p>
+<h2 id="how-the-counter-is-powered">How the Counter is Powered</h2>
+<p>The counter is just 64 flip-flops with carry logic — a few thousand transistors out of billions. It's wired to the clock tree that already drives the entire core.</p>
+<pre><code>Clock signal ──┬── Core pipeline (fetch/decode/execute/...)
+               ├── L1/L2 caches
+               ├── TSC counter (just ~64 flip-flops)
+               └── everything else on the die
+</code></pre>
+<p>The counter runs <strong>continuously in hardware</strong>, independent of instruction execution. It increments every cycle regardless of what the CPU is doing — including stalls, cache misses, halt states, or when no instructions execute.</p>
+<pre><code>Cycle   Counter    CPU doing
+─────   ───────    ─────────
+  0       0        add r1, r2
+  1       1        mul r3, r4
+  2       2        load [mem]
+  3       3        load [mem]  (cache miss, stalled)
+  4       4        load [mem]  (still stalled)
+  5       5        RDTSC  ← read &quot;5&quot; here
+  6       6        ... work ...
+  7       7        ... work ...
+  8       8        RDTSCP ← read &quot;8&quot; here → delta = 3
+</code></pre>
+<h3 id="tsc-behavior-in-power-states">TSC Behavior in Power States</h3>
+<table><thead><tr><th>State</th><th>TSC behavior</th></tr></thead><tbody>
+<tr><td>Running</td><td>Ticks at reference frequency</td></tr>
+<tr><td>C1 (halt)</td><td>Still ticks (invariant TSC)</td></tr>
+<tr><td>C3/C6 (deep sleep)</td><td>Still ticks — maintained by separate always-on clock domain</td></tr>
+<tr><td>Package off</td><td>Stops</td></tr>
+</tbody></table>
+<p>Modern invariant TSC (Intel since Nehalem, AMD since Bulldozer) runs off a <strong>separate small oscillator</strong> in an always-on power domain, drawing microwatts.</p>
+<h2 id="per-cycle-energy-cpu">Per-Cycle Energy: CPU</h2>
+<p>A core at ~3.5 GHz drawing ~5W (typical single-core active power):</p>
+<pre><code>5 W / 3,500,000,000 cycles/sec = ~1.4 nanojoules per cycle
+</code></pre>
+<p>That's an average. Individual cycles vary:</p>
+<table><thead><tr><th>What's happening</th><th>Approximate energy/cycle</th></tr></thead><tbody>
+<tr><td>Core power-gated (C6)</td><td>~0 (leakage only, picojoules)</td></tr>
+<tr><td>Halted (<code>HLT</code>/<code>WFE</code>)</td><td>~0.1-0.3 nJ (clock tree toggling)</td></tr>
+<tr><td>Simple ALU (add/shift)</td><td>~0.5-1 nJ</td></tr>
+<tr><td>Branch + decode heavy</td><td>~1-2 nJ</td></tr>
+<tr><td>L1 cache hit</td><td>~1-2 nJ</td></tr>
+<tr><td>L2 cache hit</td><td>~3-5 nJ</td></tr>
+<tr><td>AVX-512 FMA (all lanes)</td><td>~5-10 nJ</td></tr>
+<tr><td>L3 / DRAM access</td><td>~10-50 nJ (spread across stall cycles)</td></tr>
+</tbody></table>
+<h3 id="where-energy-goes-in-a-single-cycle">Where Energy Goes in a Single Cycle</h3>
+<pre><code>Clock distribution  ~30-40%   (toggling every flip-flop&#39;s clock input)
+Datapath switching  ~20-30%   (actual computation, depends on operands)
+Leakage             ~20-30%   (static, happens even if nothing toggles)
+I/O + memory ctrl   ~10%
+</code></pre>
+<p>The clock tree is the dominant cost. Even a "do nothing" stall cycle toggles billions of clock inputs. <strong>Clock gating</strong> — selectively shutting off the clock to unused units — is the #1 power optimization in modern chips.</p>
+<p>A single flip-flop toggle costs about <strong>1-10 femtojoules</strong> on modern process nodes (5nm). The TSC counter with 64 flip-flops costs roughly <strong>~0.5 picojoules per cycle</strong>.</p>
+<h2 id="per-cycle-energy-gpu">Per-Cycle Energy: GPU</h2>
+<p>GPUs have massive parallelism with a completely different power profile.</p>
+<h3 id="nvidia-a100-300w-tdp-1-4-ghz-6912-cuda-cores-108-sms">NVIDIA A100 (~300W TDP, 1.4 GHz, 6912 CUDA cores, 108 SMs)</h3>
+<pre><code>Whole chip:  300W / 1.4 GHz      = ~214 nJ per cycle
+Per SM:      ~2.8W / 1.4 GHz     = ~2 nJ per cycle per SM
+Per CUDA core: ~43 mW / 1.4 GHz  = ~31 pJ per cycle per core
+</code></pre>
+<p>Each CUDA core draws far less than a CPU core because it's tiny and simple — just an FMA unit, no branch predictor, no out-of-order engine, no speculation.</p>
+<h3 id="cpu-vs-gpu-energy-comparison">CPU vs GPU Energy Comparison</h3>
+<table><thead><tr><th>Unit</th><th>Energy/cycle</th><th>Why</th></tr></thead><tbody>
+<tr><td>CPU core (x86 OoO)</td><td>~1,400 pJ</td><td>Branch predictor, ROB, complex decode, speculation</td></tr>
+<tr><td>GPU SM (32 lanes)</td><td>~2,000 pJ</td><td>32 simple ALUs + shared control + register file</td></tr>
+<tr><td>Single CUDA core</td><td>~31 pJ</td><td>Just an FMA, amortized control</td></tr>
+<tr><td>Tensor Core (one op)</td><td>~50-100 pJ</td><td>4×4 matrix FMA</td></tr>
+<tr><td>CPU TSC counter</td><td>~0.5 pJ</td><td>64 flip-flops toggling</td></tr>
+</tbody></table>
+<h3 id="why-gpus-win-on-flops-watt">Why GPUs Win on FLOPS/Watt</h3>
+<pre><code>CPU:                          GPU SM:
+┌─────────────────────┐       ┌──────────────┐
+│ Branch predictor    │       │ One fetch     │
+│ OoO scheduler       │       │ One decode    │
+│ Rename/ROB (256+)   │       │ One scheduler │
+│ Complex decode ×4-6 │       │              │
+│ Speculation engine  │       │ Shared across:│
+│                     │       │ ├─ ALU 0      │
+│ ALU 0   ALU 1      │       │ ├─ ALU 1      │
+│ ALU 2   ALU 3      │       │ ├─ ...        │
+│                     │       │ └─ ALU 31     │
+│ 4 wide             │       │              │
+└─────────────────────┘       └──────────────┘
+~70% overhead, 30% compute   ~20% overhead, 80% compute
+</code></pre>
+<p>A CPU spends most energy on <strong>control</strong> (figuring out what to execute). A GPU spends most on <strong>compute</strong> (doing math). This yields ~10-50× better FLOPS/watt.</p>
+<h3 id="tensor-core-minimum-granularity">Tensor Core Minimum Granularity</h3>
+<p>Tensor Cores are wired for fixed-size matrix operations — you cannot do a single multiply-add. The minimum is a <strong>4×4×4</strong> matrix FMA:</p>
+<pre><code>D = A × B + C
+
+A = 4×4, B = 4×4, C = 4×4 (accumulator), D = 4×4 result
+= 64 FMAs in one instruction
+</code></pre>
+<p>The hardware is a physically connected systolic array:</p>
+<pre><code>        B columns
+        ↓ ↓ ↓ ↓
+A row → ● ● ● ●  → partial sums accumulate
+A row → ● ● ● ●  → across the array
+A row → ● ● ● ●  → in one cycle
+A row → ● ● ● ●  →
+        + + + +
+        C (accumulator)
+</code></pre>
+<p>At the warp level, the actual <code>WMMA</code> API exposes <strong>16×16×16</strong> as the minimum usable size (8192 FMAs per instruction across 32 threads). On Hopper (H100), <code>WGMMA</code> goes to <strong>64×256×16</strong> tiles.</p>
+<h3 id="why-matrix-sizes-matter">Why Matrix Sizes Matter</h3>
+<table><thead><tr><th>Matrix dimension</th><th>Tensor Core utilization</th></tr></thead><tbody>
+<tr><td>16×16</td><td>~100%</td></tr>
+<tr><td>17×17</td><td>Padded to 32×32, ~28% utilized</td></tr>
+<tr><td>128×128</td><td>~100%</td></tr>
+<tr><td>127×127</td><td>~2% waste (minor)</td></tr>
+<tr><td>7×7</td><td>Terrible — mostly padding</td></tr>
+</tbody></table>
+<p>Undersized matrices must be <strong>zero-padded</strong>, wasting compute. This is why ML frameworks pad hidden dimensions to multiples of 8/16/64 — <code>hidden_dim=1023</code> is measurably slower than <code>hidden_dim=1024</code>.</p>
+<h3 id="energy-per-flop">Energy per FLOP</h3>
+<pre><code>A100 Tensor: 312 TFLOPS BF16 at 300W → ~1 pJ per FLOP
+CPU AVX-512: ~2 TFLOPS BF16 at 250W  → ~125 pJ per FLOP
+</code></pre>
+<p>Roughly <strong>100× worse</strong> energy efficiency per FLOP on a CPU. This is why ML training runs on GPUs.</p>
+<hr />
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a> — RDTSC/RDTSCP, CNTVCT_EL0, and rdcycle instructions for reading cycle counters across ISAs</li>
+<li><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a> — GPU microarchitecture and Tensor Core design explaining the energy-per-FLOP numbers here</li>
+<li><a href="https://nmbr7.github.io/notes/os/linux-expert-syscalls/">Linux Expert Syscalls</a> — perf_event_open, PEBS, and PMU access for measuring cycle counts from userspace</li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

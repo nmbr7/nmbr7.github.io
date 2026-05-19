@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">LSM Trees</h1>
+  <h1 id="log-structured-merge-lsm-trees-comprehensive-research-guide">Log-Structured Merge (LSM) Trees: Comprehensive Research Guide</h1>
+<p><strong>Date</strong>: 2026-01-27
+<strong>Context</strong>: Research notes for building a world-class data layer with LSM-based storage
+<strong>Relevance to pg_arrow</strong>: Understanding write-optimized structures for potential WAL-based conversion pipelines and hybrid storage engines</p>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="https://nmbr7.github.io/notes/database/lsm-trees/#1-foundational-concepts">Foundational Concepts</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/lsm-trees/#2-state-of-the-art-research-2015-2025">State-of-the-Art Research (2015-2025)</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/lsm-trees/#3-production-systems-techniques">Production Systems &amp; Techniques</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/lsm-trees/#4-advanced-optimization-techniques">Advanced Optimization Techniques</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/lsm-trees/#5-cutting-edge-research-areas">Cutting-Edge Research Areas</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/lsm-trees/#6-key-papers-bibliography">Key Papers Bibliography</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/lsm-trees/#7-decision-framework">Decision Framework</a></li>
+</ol>
+<hr />
+<h2 id="1-foundational-concepts">1. Foundational Concepts</h2>
+<h3 id="1-1-historical-context">1.1 Historical Context</h3>
+<p>The LSM-tree was introduced by Patrick O'Neil, Edward Cheng, Dieter Gawlick, and Elizabeth O'Neil in their seminal 1996 paper "The Log-Structured Merge-Tree (LSM-Tree)" published in Acta Informatica. The motivation was clear: traditional B-tree indexes suffer from random I/O on writes, which was devastating for the mechanical hard drives of the era (and remains suboptimal even for SSDs).</p>
+<p><strong>Key Insight</strong>: By converting random writes into sequential writes through buffering and batch operations, LSM-trees can achieve orders of magnitude better write throughput than in-place update structures.</p>
+<h3 id="1-2-core-architecture">1.2 Core Architecture</h3>
+<pre><code>                    ┌─────────────────────────────────────────────┐
+                    │              WRITE PATH                      │
+                    └─────────────────────────────────────────────┘
+                                        │
+                                        ▼
+                    ┌─────────────────────────────────────────────┐
+                    │            WRITE-AHEAD LOG (WAL)            │
+                    │         (Durability guarantee)               │
+                    └─────────────────────────────────────────────┘
+                                        │
+                                        ▼
+                    ┌─────────────────────────────────────────────┐
+                    │              MEMTABLE (C0)                   │
+                    │    In-memory sorted structure (skiplist,     │
+                    │    red-black tree, or B-tree)               │
+                    │    Size: Typically 64MB-256MB               │
+                    └─────────────────────────────────────────────┘
+                                        │
+                         (When full, becomes immutable)
+                                        │
+                                        ▼
+                    ┌─────────────────────────────────────────────┐
+                    │           IMMUTABLE MEMTABLE                 │
+                    │    (Being flushed to disk)                   │
+                    └─────────────────────────────────────────────┘
+                                        │
+                              (Flush to Level 0)
+                                        │
+                    ┌───────────────────▼─────────────────────────┐
+                    │                                              │
+    ┌───────────────┴─────────────────────────────────────────────┴──────────────┐
+    │                           PERSISTENT STORAGE                                │
+    │  ┌────────────────────────────────────────────────────────────────────────┐│
+    │  │  LEVEL 0 (L0): Recently flushed SSTables                              ││
+    │  │  - May have overlapping key ranges                                     ││
+    │  │  - Typically 4-8 files before compaction triggered                     ││
+    │  │  [SST1: a-z] [SST2: b-y] [SST3: c-x] [SST4: a-m]                       ││
+    │  └────────────────────────────────────────────────────────────────────────┘│
+    │                              │ Compaction                                   │
+    │                              ▼                                              │
+    │  ┌────────────────────────────────────────────────────────────────────────┐│
+    │  │  LEVEL 1 (L1): 10x size of L0                                         ││
+    │  │  - Non-overlapping key ranges (sorted runs)                            ││
+    │  │  [SST: a-d] [SST: e-h] [SST: i-l] [SST: m-p] [SST: q-t] [SST: u-z]     ││
+    │  └────────────────────────────────────────────────────────────────────────┘│
+    │                              │ Compaction                                   │
+    │                              ▼                                              │
+    │  ┌────────────────────────────────────────────────────────────────────────┐│
+    │  │  LEVEL 2 (L2): 10x size of L1                                         ││
+    │  │  - Non-overlapping, larger files                                       ││
+    │  │  [SST: a-b] [SST: c-d] ... (many more files)                           ││
+    │  └────────────────────────────────────────────────────────────────────────┘│
+    │                              │                                              │
+    │                              ▼                                              │
+    │  ┌────────────────────────────────────────────────────────────────────────┐│
+    │  │  LEVEL N: Largest level, contains majority of data                    ││
+    │  └────────────────────────────────────────────────────────────────────────┘│
+    └─────────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="1-3-lsm-vs-b-tree-fundamental-differences">1.3 LSM vs B-Tree: Fundamental Differences</h3>
+<table><thead><tr><th>Aspect</th><th>B-Tree</th><th>LSM-Tree</th></tr></thead><tbody>
+<tr><td><strong>Write Pattern</strong></td><td>In-place update (random I/O)</td><td>Append-only (sequential I/O)</td></tr>
+<tr><td><strong>Read Pattern</strong></td><td>Single lookup path</td><td>Multiple levels to check</td></tr>
+<tr><td><strong>Write Amplification</strong></td><td>1x (but high I/O cost)</td><td>10-30x (but sequential)</td></tr>
+<tr><td><strong>Read Amplification</strong></td><td>1x (direct path)</td><td>O(levels) without optimization</td></tr>
+<tr><td><strong>Space Amplification</strong></td><td>~1x (minimal)</td><td>1.1-2x (depends on compaction)</td></tr>
+<tr><td><strong>Concurrency</strong></td><td>Lock/latch intensive</td><td>Lock-free writes possible</td></tr>
+<tr><td><strong>Recovery</strong></td><td>Page-level WAL</td><td>Simple replay</td></tr>
+<tr><td><strong>SSD Wear</strong></td><td>High (random writes)</td><td>Lower (sequential)</td></tr>
+<tr><td><strong>Range Scans</strong></td><td>Excellent (single structure)</td><td>Good (merge during scan)</td></tr>
+</tbody></table>
+<h3 id="1-4-the-write-path-in-detail">1.4 The Write Path in Detail</h3>
+<pre><code data-lang="rust">// Conceptual write path implementation
+fn put(key: &amp;[u8], value: &amp;[u8]) -&gt; Result&lt;()&gt; {
+    // Step 1: Write to WAL for durability
+    wal.append(WriteRecord { key, value, seq_num })?;
+
+    // Step 2: Insert into active memtable
+    // This is typically a concurrent skiplist for lock-free access
+    memtable.insert(key, value, seq_num);
+
+    // Step 3: Check if memtable is full
+    if memtable.size() &gt;= memtable_size_limit {
+        // Make current memtable immutable
+        let immutable = memtable.freeze();
+        immutable_memtables.push(immutable);
+
+        // Create new active memtable
+        memtable = MemTable::new();
+
+        // Trigger background flush
+        background_scheduler.schedule_flush();
+    }
+
+    Ok(())
+}
+</code></pre>
+<h3 id="1-5-the-read-path-in-detail">1.5 The Read Path in Detail</h3>
+<pre><code data-lang="rust">// Conceptual read path
+fn get(key: &amp;[u8]) -&gt; Result&lt;Option&lt;Value&gt;&gt; {
+    // Step 1: Check active memtable (most recent)
+    if let Some(value) = memtable.get(key) {
+        return Ok(handle_tombstone(value));
+    }
+
+    // Step 2: Check immutable memtables (newest first)
+    for imm in immutable_memtables.iter().rev() {
+        if let Some(value) = imm.get(key) {
+            return Ok(handle_tombstone(value));
+        }
+    }
+
+    // Step 3: Check on-disk levels (L0 first, then L1, L2, ...)
+    // L0 may have overlapping files, must check all
+    for sst in level0.iter().rev() {  // newest first
+        if sst.may_contain(key) {  // Bloom filter check
+            if let Some(value) = sst.get(key) {
+                return Ok(handle_tombstone(value));
+            }
+        }
+    }
+
+    // L1+ have non-overlapping files, binary search to find correct file
+    for level in 1..=max_level {
+        let sst = levels[level].find_file_for_key(key);  // Binary search
+        if sst.may_contain(key) {  // Bloom filter
+            if let Some(value) = sst.get(key) {
+                return Ok(handle_tombstone(value));
+            }
+        }
+    }
+
+    Ok(None)
+}
+</code></pre>
+<h3 id="1-6-why-lsm-trees-excel-for-write-heavy-workloads">1.6 Why LSM Trees Excel for Write-Heavy Workloads</h3>
+<ol>
+<li>
+<p><strong>Sequential I/O Dominance</strong>: Writes are buffered and written sequentially, which is 100-1000x faster than random I/O on HDDs and 10-100x faster on SSDs.</p>
+</li>
+<li>
+<p><strong>Write Batching</strong>: Multiple writes are accumulated and written together, amortizing I/O overhead.</p>
+</li>
+<li>
+<p><strong>Reduced Write Amplification at Device Level</strong>: While LSM has logical write amplification, the physical I/O is sequential, reducing SSD wear and improving throughput.</p>
+</li>
+<li>
+<p><strong>Lock-Free Writes</strong>: The memtable can use lock-free data structures (like concurrent skiplists), enabling high write concurrency.</p>
+</li>
+<li>
+<p><strong>Simplified Durability</strong>: WAL is append-only, making fsync efficient and recovery straightforward.</p>
+</li>
+</ol>
+<hr />
+<h2 id="2-state-of-the-art-research-2015-2025">2. State-of-the-Art Research (2015-2025)</h2>
+<h3 id="2-1-compaction-strategies-the-core-tradeoff">2.1 Compaction Strategies: The Core Tradeoff</h3>
+<p>Compaction is the heart of LSM-tree performance. The choice of strategy determines the tradeoff between write amplification, read amplification, and space amplification.</p>
+<h4 id="2-1-1-leveled-compaction-leveldb-rocksdb-default">2.1.1 Leveled Compaction (LevelDB/RocksDB Default)</h4>
+<p><strong>Mechanism</strong>:</p>
+<ul>
+<li>Each level (except L0) maintains sorted, non-overlapping runs</li>
+<li>L(i+1) is ~10x larger than L(i) (configurable via <code>level_ratio</code>)</li>
+<li>When L(i) exceeds its size limit, pick a file and merge with overlapping files in L(i+1)</li>
+</ul>
+<p><strong>Properties</strong>:</p>
+<pre><code>Write Amplification: O(L * T) where L = levels, T = size ratio (typically 10)
+                     Approximately 10-30x in practice
+Read Amplification:  O(L) = O(log_T(N)) - logarithmic in data size
+Space Amplification: ~1.1x (minimal wasted space)
+</code></pre>
+<p><strong>Pros</strong>:</p>
+<ul>
+<li>Excellent read performance (bounded number of files to check)</li>
+<li>Minimal space overhead</li>
+<li>Good for read-heavy workloads with some writes</li>
+</ul>
+<p><strong>Cons</strong>:</p>
+<ul>
+<li>High write amplification</li>
+<li>Compaction can cause latency spikes</li>
+<li>Background I/O can interfere with foreground operations</li>
+</ul>
+<p><strong>Used by</strong>: LevelDB, RocksDB (default), Pebble</p>
+<h4 id="2-1-2-tiered-size-tiered-compaction">2.1.2 Tiered (Size-Tiered) Compaction</h4>
+<p><strong>Mechanism</strong>:</p>
+<ul>
+<li>Each level contains multiple sorted runs</li>
+<li>When a level has T runs, merge all T runs into one run in next level</li>
+<li>No size limit per level, trigger based on run count</li>
+</ul>
+<p><strong>Properties</strong>:</p>
+<pre><code>Write Amplification: O(L) - much lower than leveled
+                     Approximately 4-8x
+Read Amplification:  O(L * T) - must check more files
+Space Amplification: Up to 2x (temporary during compaction)
+</code></pre>
+<p><strong>Pros</strong>:</p>
+<ul>
+<li>Lower write amplification</li>
+<li>Better for write-heavy workloads</li>
+<li>Simpler compaction scheduling</li>
+</ul>
+<p><strong>Cons</strong>:</p>
+<ul>
+<li>Higher read amplification</li>
+<li>Higher space amplification during compaction</li>
+<li>Range scans are more expensive</li>
+</ul>
+<p><strong>Used by</strong>: Cassandra (default), ScyllaDB (original), HBase</p>
+<h4 id="2-1-3-fifo-compaction">2.1.3 FIFO Compaction</h4>
+<p><strong>Mechanism</strong>:</p>
+<ul>
+<li>No merging at all; simply delete oldest files when size limit reached</li>
+<li>Only for time-series data with TTL</li>
+</ul>
+<p><strong>Properties</strong>:</p>
+<pre><code>Write Amplification: 1x (no rewriting)
+Read Amplification:  Very high (all files may need scanning)
+Space Amplification: None beyond data itself
+</code></pre>
+<p><strong>Used by</strong>: RocksDB (optional for time-series), InfluxDB concepts</p>
+<h4 id="2-1-4-universal-compaction-rocksdb">2.1.4 Universal Compaction (RocksDB)</h4>
+<p><strong>Mechanism</strong>:</p>
+<ul>
+<li>Hybrid approach between leveled and tiered</li>
+<li>Sorted runs are placed on the same "level"</li>
+<li>Compaction can merge any subset of consecutive runs</li>
+<li>Configurable space amplification limit</li>
+</ul>
+<p><strong>Properties</strong>:</p>
+<pre><code>Write Amplification: Tunable between leveled and tiered
+Read Amplification:  Tunable
+Space Amplification: Configurable limit (e.g., max 2x)
+</code></pre>
+<p><strong>Pros</strong>:</p>
+<ul>
+<li>Flexible tradeoff tuning</li>
+<li>Can optimize for specific workloads</li>
+<li>Good for mixed workloads</li>
+</ul>
+<p><strong>Cons</strong>:</p>
+<ul>
+<li>Complex tuning required</li>
+<li>Less predictable behavior</li>
+</ul>
+<p><strong>Key Paper</strong>: "Universal Compaction" - RocksDB Wiki and VLDB 2021 Dostoevsky paper</p>
+<h4 id="2-1-5-lazy-leveling-dostoevsky">2.1.5 Lazy Leveling (Dostoevsky)</h4>
+<p><strong>Mechanism</strong>:</p>
+<ul>
+<li>Leveled compaction for the largest level only</li>
+<li>Tiered compaction for all other levels</li>
+<li>Hybrid approach targeting the optimal point</li>
+</ul>
+<p><strong>Properties</strong>:</p>
+<pre><code>Write Amplification: O(L) - similar to tiered
+Read Amplification:  O(1) for point lookups (with Bloom filters)
+Space Amplification: Similar to leveled
+</code></pre>
+<p><strong>Key Paper</strong>: "Dostoevsky: Better Space-Time Trade-Offs for LSM-Tree Based Key-Value Stores via Adaptive Removal of Superfluous Merging" - Dayan &amp; Idreos, SIGMOD 2018</p>
+<h3 id="2-2-the-rum-conjecture-and-amplification-tradeoffs">2.2 The RUM Conjecture and Amplification Tradeoffs</h3>
+<p>The <strong>RUM Conjecture</strong> (Read, Update, Memory) states that you can optimize at most two of the three:</p>
+<ul>
+<li><strong>R</strong>ead overhead</li>
+<li><strong>U</strong>pdate (write) overhead</li>
+<li><strong>M</strong>emory (space) overhead</li>
+</ul>
+<p><strong>Visualization of the Design Space</strong>:</p>
+<pre><code>                        Read Optimal
+                             ▲
+                             │
+                             │  B-Tree
+                             │    ●
+                             │
+                             │         Leveled LSM
+                             │              ●
+                             │
+                             │                    Lazy Leveling
+                             │                         ●
+                             │
+    Write Optimal ◄──────────┼───────────────────────────► Space Optimal
+                             │
+                             │                    Tiered LSM
+                             │                         ●
+                             │
+                             │
+                             │  Append-Only Log
+                             │    ●
+                             │
+                             ▼
+</code></pre>
+<p><strong>Quantifying Amplification</strong> (from Dostoevsky paper):</p>
+<p>For leveled compaction with size ratio T and L levels:</p>
+<ul>
+<li>Write Amplification: <code>W = T * L</code></li>
+<li>Point Read Cost: <code>R = L</code> (with Bloom filters, effectively O(1))</li>
+<li>Range Read Cost: <code>R_range = L</code></li>
+<li>Space Amplification: <code>S = 1 + 1/T</code></li>
+</ul>
+<p>For tiered compaction:</p>
+<ul>
+<li>Write Amplification: <code>W = L</code></li>
+<li>Point Read Cost: <code>R = L * T</code> (many more files to check)</li>
+<li>Space Amplification: <code>S = T</code> (worst case during compaction)</li>
+</ul>
+<h3 id="2-3-learned-indexes-and-ml-enhanced-lsm">2.3 Learned Indexes and ML-Enhanced LSM</h3>
+<h4 id="2-3-1-learned-bloom-filters">2.3.1 Learned Bloom Filters</h4>
+<p><strong>Traditional Bloom Filter</strong>:</p>
+<ul>
+<li>Fixed false positive rate</li>
+<li>Memory proportional to dataset size</li>
+<li>No adaptation to data distribution</li>
+</ul>
+<p><strong>Learned Bloom Filter</strong> (Kraska et al., NeurIPS 2018):</p>
+<ul>
+<li>Train a model to predict membership</li>
+<li>Use traditional Bloom filter as backup for false negatives</li>
+<li>Can achieve same FPR with less memory for skewed distributions</li>
+</ul>
+<pre><code>Traditional: FPR = (1 - e^(-kn/m))^k
+Learned: FPR = P(model says yes | not in set) * P(bloom says yes | model said yes, not in set)
+</code></pre>
+<p><strong>Key Paper</strong>: "The Case for Learned Index Structures" - Kraska et al., SIGMOD 2018</p>
+<h4 id="2-3-2-learned-compaction-scheduling">2.3.2 Learned Compaction Scheduling</h4>
+<p><strong>Research Direction</strong>: Use ML to predict:</p>
+<ul>
+<li>Which files to compact next (minimize total I/O)</li>
+<li>When to trigger compaction (avoid latency spikes)</li>
+<li>Optimal compaction granularity</li>
+</ul>
+<p><strong>Key Papers</strong>:</p>
+<ul>
+<li>"Learning Multi-dimensional Indexes" - Nathan et al., SIGMOD 2020</li>
+<li>"Bourbon: Learned Index Structures in Storage Engines" - Dai et al., SOSP 2020</li>
+</ul>
+<h4 id="2-3-3-learned-index-structures-within-sstables">2.3.3 Learned Index Structures Within SSTables</h4>
+<p>Instead of binary search within SSTable blocks, use:</p>
+<ul>
+<li>Linear regression for uniformly distributed keys</li>
+<li>Piecewise linear functions for sorted keys</li>
+<li>Recursive Model Index (RMI) for complex distributions</li>
+</ul>
+<p><strong>Potential Gains</strong>: 1.5-3x faster point lookups within SSTables</p>
+<h3 id="2-4-persistent-memory-pmem-optimizations">2.4 Persistent Memory (PMem) Optimizations</h3>
+<h4 id="2-4-1-challenges-with-pmem">2.4.1 Challenges with PMem</h4>
+<ul>
+<li>Byte-addressable but slower than DRAM</li>
+<li>Persistence requires explicit flushes (clwb, sfence)</li>
+<li>Write ordering constraints</li>
+<li>Limited write endurance compared to DRAM</li>
+</ul>
+<h4 id="2-4-2-lsm-optimizations-for-pmem">2.4.2 LSM Optimizations for PMem</h4>
+<p><strong>Approach 1: PMem as Extended Buffer Pool</strong></p>
+<ul>
+<li>Keep multiple memtables in PMem</li>
+<li>Delay flush to SSD</li>
+<li>Reduces write amplification</li>
+</ul>
+<p><strong>Approach 2: Hybrid Indexing</strong></p>
+<ul>
+<li>Keep upper levels (L0, L1) in PMem</li>
+<li>Keep lower levels on SSD</li>
+<li>Reduces read amplification for hot data</li>
+</ul>
+<p><strong>Approach 3: PMem-Aware WAL</strong></p>
+<ul>
+<li>WAL directly in PMem</li>
+<li>No fsync needed, just memory fence</li>
+<li>Dramatically faster commits</li>
+</ul>
+<p><strong>Key Papers</strong>:</p>
+<ul>
+<li>"SLM-DB: Single-Level Key-Value Store with Persistent Memory" - Kaiyrakhmet et al., FAST 2019</li>
+<li>"MatrixKV: Reducing Write Stalls and Write Amplification in LSM-tree Based KV Stores" - Yao et al., ATC 2020</li>
+</ul>
+<h3 id="2-5-nvme-and-modern-storage-optimizations">2.5 NVMe and Modern Storage Optimizations</h3>
+<h4 id="2-5-1-multi-queue-i-o">2.5.1 Multi-Queue I/O</h4>
+<p>Modern NVMe SSDs support:</p>
+<ul>
+<li>64K queues with 64K commands each</li>
+<li>Parallel I/O submission</li>
+<li>Interrupt coalescing</li>
+</ul>
+<p><strong>LSM Optimizations</strong>:</p>
+<ul>
+<li>Parallel SSTable reads during compaction</li>
+<li>Concurrent flush operations</li>
+<li>I/O prioritization between compaction and user reads</li>
+</ul>
+<h4 id="2-5-2-zone-storage-zns">2.5.2 Zone Storage (ZNS)</h4>
+<p>Zoned Namespace SSDs divide storage into sequential-write zones:</p>
+<ul>
+<li>Perfect fit for LSM-tree workloads</li>
+<li>Eliminates SSD garbage collection overhead</li>
+<li>Better write amplification at device level</li>
+</ul>
+<p><strong>Key Papers</strong>:</p>
+<ul>
+<li>"ZNS: Avoiding the Block Interface Tax for Flash-based SSDs" - Bjorling et al., ATC 2021</li>
+<li>"ZenFS: Append-only File System for LSM-based Key-Value Stores on ZNS SSDs" - Jung et al.</li>
+</ul>
+<h3 id="2-6-disaggregated-storage-architectures">2.6 Disaggregated Storage Architectures</h3>
+<h4 id="2-6-1-compute-storage-separation">2.6.1 Compute-Storage Separation</h4>
+<p>Modern cloud architectures separate:</p>
+<ul>
+<li><strong>Compute tier</strong>: Stateless, handles memtables and caching</li>
+<li><strong>Storage tier</strong>: Persistent, handles SSTables</li>
+<li><strong>Network</strong>: RDMA or NVMe-oF for low latency</li>
+</ul>
+<p><strong>Advantages</strong>:</p>
+<ul>
+<li>Independent scaling of compute and storage</li>
+<li>Better resource utilization</li>
+<li>Simplified failover</li>
+</ul>
+<p><strong>Challenges</strong>:</p>
+<ul>
+<li>Network latency on the read path</li>
+<li>Cache coherence across compute nodes</li>
+<li>Compaction placement (compute or storage?)</li>
+</ul>
+<h4 id="2-6-2-disaggregated-lsm-architectures">2.6.2 Disaggregated LSM Architectures</h4>
+<p><strong>Pattern 1: Shared Storage</strong></p>
+<ul>
+<li>All compute nodes read/write to shared storage</li>
+<li>Memtables local to compute</li>
+<li>SSTables in shared storage (S3, EBS, etc.)</li>
+</ul>
+<p><strong>Pattern 2: Tiered Placement</strong></p>
+<ul>
+<li>Hot data (memtable, L0, L1) on local NVMe</li>
+<li>Cold data (L2+) on remote storage</li>
+<li>Background migration between tiers</li>
+</ul>
+<p><strong>Key Papers</strong>:</p>
+<ul>
+<li>"REMIX: Efficient Range Query for LSM-trees" - Zhong et al., FAST 2021</li>
+<li>"Disaggregating RocksDB" - various industry talks and implementations</li>
+</ul>
+<hr />
+<h2 id="3-production-systems-techniques">3. Production Systems &amp; Techniques</h2>
+<h3 id="3-1-rocksdb-facebook-meta">3.1 RocksDB (Facebook/Meta)</h3>
+<p><strong>Overview</strong>:</p>
+<ul>
+<li>Fork of LevelDB with significant enhancements</li>
+<li>Used by: MySQL (MyRocks), TiKV, CockroachDB (via Pebble), Kafka Streams</li>
+<li>Written in C++, highly configurable</li>
+</ul>
+<p><strong>Key Features</strong>:</p>
+<pre><code data-lang="cpp">// RocksDB configuration example
+Options options;
+options.create_if_missing = true;
+
+// Compaction
+options.compaction_style = kCompactionStyleLevel;  // or kCompactionStyleUniversal
+options.level_compaction_dynamic_level_bytes = true;
+options.max_bytes_for_level_base = 256 * 1024 * 1024;  // 256MB
+options.max_bytes_for_level_multiplier = 10;
+
+// Memtable
+options.write_buffer_size = 64 * 1024 * 1024;  // 64MB
+options.max_write_buffer_number = 4;
+options.min_write_buffer_number_to_merge = 2;
+
+// Block cache
+BlockBasedTableOptions table_options;
+table_options.block_cache = NewLRUCache(512 * 1024 * 1024);  // 512MB
+table_options.filter_policy.reset(NewBloomFilterPolicy(10));  // 10 bits per key
+options.table_factory.reset(NewBlockBasedTableFactory(table_options));
+
+// Rate limiting
+options.rate_limiter.reset(NewGenericRateLimiter(100 * 1024 * 1024));  // 100MB/s for compaction
+</code></pre>
+<p><strong>Advanced Features</strong>:</p>
+<ol>
+<li><strong>Column Families</strong>: Logical separation within same DB, independent memtables and compaction</li>
+<li><strong>Merge Operator</strong>: User-defined merge logic for read-modify-write patterns</li>
+<li><strong>Prefix Bloom Filters</strong>: Optimize for prefix-based queries</li>
+<li><strong>Compaction Filters</strong>: Delete/modify entries during compaction</li>
+<li><strong>Direct I/O</strong>: Bypass page cache for predictable performance</li>
+<li><strong>Rate Limiter</strong>: Control background I/O impact</li>
+</ol>
+<p><strong>SSTable Format</strong>:</p>
+<pre><code>┌──────────────────────────────────────────────────────────────┐
+│                        DATA BLOCKS                           │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │ Block 1: [KV, KV, KV, ...] (compressed)                │ │
+│  │ Block 2: [KV, KV, KV, ...] (compressed)                │ │
+│  │ ...                                                     │ │
+│  └─────────────────────────────────────────────────────────┘ │
+├──────────────────────────────────────────────────────────────┤
+│                      META BLOCKS                             │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │ Filter Block (Bloom filter for all keys)               │ │
+│  │ Properties Block (file metadata)                        │ │
+│  │ Compression Dict Block (shared dictionary)              │ │
+│  │ Range Deletion Block (tombstone ranges)                │ │
+│  └─────────────────────────────────────────────────────────┘ │
+├──────────────────────────────────────────────────────────────┤
+│                      INDEX BLOCK                             │
+│  [last_key_block_1, offset_1]                               │
+│  [last_key_block_2, offset_2]                               │
+│  ...                                                         │
+├──────────────────────────────────────────────────────────────┤
+│                      META INDEX                              │
+│  [filter_block_handle, properties_block_handle, ...]        │
+├──────────────────────────────────────────────────────────────┤
+│                        FOOTER                                │
+│  [meta_index_handle, index_handle, magic_number]            │
+└──────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="3-2-leveldb-google">3.2 LevelDB (Google)</h3>
+<p><strong>Overview</strong>:</p>
+<ul>
+<li>Original modern LSM implementation (2011)</li>
+<li>Simpler than RocksDB, fewer features</li>
+<li>Good for understanding core concepts</li>
+</ul>
+<p><strong>Key Differences from RocksDB</strong>:</p>
+<ul>
+<li>Single threaded compaction</li>
+<li>No column families</li>
+<li>Simpler configuration</li>
+<li>No merge operators</li>
+</ul>
+<h3 id="3-3-wiredtiger-mongodb">3.3 WiredTiger (MongoDB)</h3>
+<p><strong>Overview</strong>:</p>
+<ul>
+<li>MongoDB's default storage engine since 3.2</li>
+<li>Hybrid approach: not pure LSM, uses B-tree with LSM-like write optimization</li>
+<li>Written in C</li>
+</ul>
+<p><strong>Key Architecture</strong>:</p>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│                     WiredTiger Architecture                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────────────┐    ┌────────────────────────────────┐ │
+│  │   In-Memory      │    │      On-Disk                   │ │
+│  │   ┌──────────┐   │    │   ┌────────────────────────┐   │ │
+│  │   │ Skip List│   │    │   │ Row Store (B+ Tree)    │   │ │
+│  │   │(Updates) │───┼────┼──&gt;│ - Page-based           │   │ │
+│  │   └──────────┘   │    │   │ - In-place updates     │   │ │
+│  │                  │    │   │ - BUT reconciliation   │   │ │
+│  │   ┌──────────┐   │    │   │   batches writes       │   │ │
+│  │   │Block Mgr │   │    │   └────────────────────────┘   │ │
+│  │   │ (Cache)  │   │    │                                │ │
+│  │   └──────────┘   │    │   ┌────────────────────────┐   │ │
+│  │                  │    │   │ Column Store (LSM-like)│   │ │
+│  │                  │    │   │ - Append-only          │   │ │
+│  │                  │    │   │ - Background merge     │   │ │
+│  │                  │    │   └────────────────────────┘   │ │
+│  └──────────────────┘    └────────────────────────────────┘ │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<p><strong>Key Features</strong>:</p>
+<ol>
+<li><strong>Document-level Concurrency</strong>: MVCC with hazard pointers</li>
+<li><strong>Compression</strong>: Snappy, zlib, zstd at page level</li>
+<li><strong>Checkpoint-based Durability</strong>: Periodic consistent snapshots</li>
+<li><strong>Journal</strong>: WAL for durability between checkpoints</li>
+</ol>
+<h3 id="3-4-pebble-cockroachdb">3.4 Pebble (CockroachDB)</h3>
+<p><strong>Overview</strong>:</p>
+<ul>
+<li>RocksDB-compatible LSM in Go</li>
+<li>Built specifically for CockroachDB's needs</li>
+<li>Focus on correctness and Go ecosystem integration</li>
+</ul>
+<p><strong>Key Differences from RocksDB</strong>:</p>
+<pre><code data-lang="go">// Pebble configuration
+opts := &amp;pebble.Options{
+    // Memory
+    MemTableSize:                64 &lt;&lt; 20,  // 64MB
+    MemTableStopWritesThreshold: 4,
+
+    // Compaction
+    L0CompactionThreshold:     2,
+    L0StopWritesThreshold:     1000,
+    LBaseMaxBytes:             64 &lt;&lt; 20,  // 64MB
+    MaxConcurrentCompactions:  3,
+
+    // Bloom filters
+    Levels: []pebble.LevelOptions{
+        {FilterPolicy: bloom.FilterPolicy(10)},
+    },
+}
+</code></pre>
+<p><strong>Notable Features</strong>:</p>
+<ol>
+<li><strong>Range Keys</strong>: Native support for range-based metadata (used for MVCC garbage)</li>
+<li><strong>Block Property Filters</strong>: Skip blocks during iteration based on properties</li>
+<li><strong>Pacing</strong>: Adaptive compaction pacing to prevent write stalls</li>
+<li><strong>Strict MVCC</strong>: Better support for CockroachDB's MVCC requirements</li>
+</ol>
+<h3 id="3-5-scylladb">3.5 ScyllaDB</h3>
+<p><strong>Overview</strong>:</p>
+<ul>
+<li>C++ rewrite of Cassandra</li>
+<li>Shard-per-core architecture</li>
+<li>Custom compaction strategies</li>
+</ul>
+<p><strong>Key Innovations</strong>:</p>
+<ol>
+<li><strong>Incremental Compaction Strategy (ICS)</strong>:</li>
+</ol>
+<pre><code>Traditional Compaction:
+[SST1] + [SST2] + [SST3] + [SST4] → [SST_merged]
+(All files must be read and written atomically)
+
+Incremental Compaction:
+[SST1] + [SST2] → [fragment1]
+[fragment1] + [SST3] → [fragment2]
+[fragment2] + [SST4] → [SST_merged]
+(Can pause and resume, lower space amplification)
+</code></pre>
+<ol start="2">
+<li><strong>Shard-per-Core</strong>: Each CPU core owns a shard, no cross-core synchronization</li>
+<li><strong>Seastar Framework</strong>: Async I/O throughout</li>
+</ol>
+<h3 id="3-6-cloud-native-implementations">3.6 Cloud-Native Implementations</h3>
+<h4 id="3-6-1-amazon-dynamodb">3.6.1 Amazon DynamoDB</h4>
+<p><strong>Architecture</strong>:</p>
+<ul>
+<li>Request routers → Storage nodes</li>
+<li>Storage nodes use B-trees (not LSM) for partitions</li>
+<li>But uses log-structured storage for durability</li>
+</ul>
+<p><strong>Key Insight</strong>: DynamoDB uses B-trees because partition sizes are bounded and read latency is critical.</p>
+<h4 id="3-6-2-google-bigtable">3.6.2 Google Bigtable</h4>
+<p><strong>Architecture</strong>:</p>
+<ul>
+<li>True LSM-tree based</li>
+<li>Tablets (partitions) stored as SSTables in GFS/Colossus</li>
+<li>Background compaction handled by tablet servers</li>
+</ul>
+<p><strong>Key Features</strong>:</p>
+<ul>
+<li>Bloom filters per SSTable</li>
+<li>Three compaction styles (minor, merging, major)</li>
+<li>Column family-based locality groups</li>
+</ul>
+<p><strong>Key Paper</strong>: "Bigtable: A Distributed Storage System for Structured Data" - Chang et al., OSDI 2006</p>
+<h4 id="3-6-3-apache-cassandra">3.6.3 Apache Cassandra</h4>
+<p><strong>Architecture</strong>:</p>
+<ul>
+<li>Pure LSM per partition</li>
+<li>Configurable compaction strategy per table</li>
+<li>Distributed across nodes using consistent hashing</li>
+</ul>
+<p><strong>Compaction Strategies</strong>:</p>
+<pre><code data-lang="yaml"># Size-Tiered (default, write-optimized)
+compaction:
+  class: SizeTieredCompactionStrategy
+  min_threshold: 4
+  max_threshold: 32
+
+# Leveled (read-optimized)
+compaction:
+  class: LeveledCompactionStrategy
+  sstable_size_in_mb: 160
+
+# Time-Window (time-series)
+compaction:
+  class: TimeWindowCompactionStrategy
+  compaction_window_unit: DAYS
+  compaction_window_size: 1
+</code></pre>
+<hr />
+<h2 id="4-advanced-optimization-techniques">4. Advanced Optimization Techniques</h2>
+<h3 id="4-1-bloom-filters-theory-and-practice">4.1 Bloom Filters: Theory and Practice</h3>
+<h4 id="4-1-1-standard-bloom-filter-math">4.1.1 Standard Bloom Filter Math</h4>
+<pre><code>Parameters:
+  n = number of elements
+  m = number of bits
+  k = number of hash functions
+
+Optimal k: k = (m/n) * ln(2) ≈ 0.693 * (m/n)
+
+False Positive Rate: FPR ≈ (1 - e^(-kn/m))^k
+
+Bits per key for target FPR:
+  m/n = -1.44 * log2(FPR)
+
+  FPR = 1%  → 9.6 bits/key
+  FPR = 0.1% → 14.4 bits/key
+</code></pre>
+<h4 id="4-1-2-blocked-bloom-filters">4.1.2 Blocked Bloom Filters</h4>
+<p>Problem: Standard Bloom filters have poor cache behavior (random memory access).</p>
+<p>Solution: Divide into cache-line-sized blocks:</p>
+<pre><code>┌────────────────────────────────────────────────────────────┐
+│                    Blocked Bloom Filter                     │
+├────────────────────────────────────────────────────────────┤
+│ Block 0 (64 bytes)  │ Block 1 (64 bytes)  │ Block 2 ...    │
+│ [bits for keys      │ [bits for keys      │                │
+│  hashing to block 0]│  hashing to block 1]│                │
+└────────────────────────────────────────────────────────────┘
+
+Lookup:
+1. Hash key to determine block
+2. All k probes within that single cache line
+</code></pre>
+<p><strong>Tradeoff</strong>: Slightly higher FPR but much better cache performance.</p>
+<h4 id="4-1-3-ribbon-filters-rocksdb">4.1.3 Ribbon Filters (RocksDB)</h4>
+<p><strong>Ribbon Filter</strong> (Rocksdb Improved Bloom-like Binary fused filter):</p>
+<ul>
+<li>30% less space than Bloom for same FPR</li>
+<li>Slightly slower construction</li>
+<li>Same query speed</li>
+</ul>
+<p><strong>Key Paper</strong>: "Ribbon filter: practically smaller than Bloom and Xor" - Dillinger &amp; Walzer, 2021</p>
+<h3 id="4-2-fence-pointers-and-index-structures">4.2 Fence Pointers and Index Structures</h3>
+<p><strong>Fence Pointers</strong>: Store the last (or first) key of each block</p>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│                     Index Block                              │
+├─────────────────────────────────────────────────────────────┤
+│ fence_key_1: &quot;apple&quot;   → block_offset_1                     │
+│ fence_key_2: &quot;banana&quot;  → block_offset_2                     │
+│ fence_key_3: &quot;cherry&quot;  → block_offset_3                     │
+│ ...                                                          │
+└─────────────────────────────────────────────────────────────┘
+
+To find &quot;ball&quot;:
+1. Binary search fence keys: &quot;apple&quot; &lt; &quot;ball&quot; &lt; &quot;banana&quot;
+2. Read block at offset_2
+3. Search within block
+</code></pre>
+<p><strong>Partitioned Indexes</strong> (RocksDB):</p>
+<ul>
+<li>Split large index blocks into partitions</li>
+<li>Only load needed partitions</li>
+<li>Reduces memory for large SSTables</li>
+</ul>
+<h3 id="4-3-block-caching-strategies">4.3 Block Caching Strategies</h3>
+<h4 id="4-3-1-cache-tiers">4.3.1 Cache Tiers</h4>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│                    Caching Hierarchy                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │              Row Cache (optional)                     │   │
+│  │   - Caches decoded key-value pairs                    │   │
+│  │   - Fastest for repeated point lookups               │   │
+│  │   - High memory per entry                             │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                          ↓                                   │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │              Block Cache (primary)                    │   │
+│  │   - Caches decompressed data blocks                   │   │
+│  │   - Typically LRU or LRU with high-priority pool     │   │
+│  │   - Most important cache                              │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                          ↓                                   │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │           Compressed Block Cache (optional)           │   │
+│  │   - Caches compressed blocks                          │   │
+│  │   - More entries, but decompression cost              │   │
+│  │   - Good for high memory pressure scenarios          │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                          ↓                                   │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │                 OS Page Cache                         │   │
+│  │   - Filesystem caching                                │   │
+│  │   - Can be bypassed with Direct I/O                  │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<h4 id="4-3-2-cache-admission-policies">4.3.2 Cache Admission Policies</h4>
+<p><strong>Problem</strong>: Not all blocks are equally valuable. Index and filter blocks are more valuable than data blocks accessed once.</p>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li><strong>Priority-based caching</strong>: High/medium/low priority entries</li>
+<li><strong>Tiered caching</strong>: Separate caches for different block types</li>
+<li><strong>Admission filters</strong>: Only cache blocks accessed multiple times</li>
+</ol>
+<h3 id="4-4-partitioning-and-sharding-strategies">4.4 Partitioning and Sharding Strategies</h3>
+<h4 id="4-4-1-range-partitioning">4.4.1 Range Partitioning</h4>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│                   Range Partitioning                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Partition 1: keys [a, g)     Partition 2: keys [g, m)      │
+│  ┌───────────────────┐        ┌───────────────────┐         │
+│  │ Memtable          │        │ Memtable          │         │
+│  │ L0 SSTables       │        │ L0 SSTables       │         │
+│  │ L1 SSTables       │        │ L1 SSTables       │         │
+│  │ ...               │        │ ...               │         │
+│  └───────────────────┘        └───────────────────┘         │
+│                                                              │
+│  Partition 3: keys [m, s)     Partition 4: keys [s, z]      │
+│  ┌───────────────────┐        ┌───────────────────┐         │
+│  │ ...               │        │ ...               │         │
+│  └───────────────────┘        └───────────────────┘         │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+Benefits:
+- Parallel compaction across partitions
+- Localized write amplification
+- Better cache locality
+- Easier load balancing (split/merge partitions)
+</code></pre>
+<h4 id="4-4-2-hash-partitioning">4.4.2 Hash Partitioning</h4>
+<ul>
+<li>Hash key to determine partition</li>
+<li>Good for uniform distribution</li>
+<li>Poor for range queries (must scan all partitions)</li>
+</ul>
+<h4 id="4-4-3-hybrid-approaches">4.4.3 Hybrid Approaches</h4>
+<p><strong>TiKV/CockroachDB Approach</strong>:</p>
+<ul>
+<li>Range partitioning at high level (regions)</li>
+<li>Within region, single LSM tree</li>
+<li>Region splits when too large</li>
+</ul>
+<h3 id="4-5-compaction-scheduling-and-i-o-prioritization">4.5 Compaction Scheduling and I/O Prioritization</h3>
+<h4 id="4-5-1-write-stall-prevention">4.5.1 Write Stall Prevention</h4>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│              Write Stall Triggers (RocksDB)                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Soft Limits (slowdown writes):                             │
+│    - L0 files &gt; level0_slowdown_writes_trigger (20)         │
+│    - Pending compaction bytes &gt; soft_pending_compaction     │
+│                                                              │
+│  Hard Limits (stop writes):                                  │
+│    - L0 files &gt; level0_stop_writes_trigger (36)             │
+│    - Memtables &gt; max_write_buffer_number (6)                │
+│    - Pending compaction bytes &gt; hard_pending_compaction     │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<h4 id="4-5-2-i-o-scheduling">4.5.2 I/O Scheduling</h4>
+<pre><code data-lang="rust">// Conceptual I/O scheduler
+enum IoPriority {
+    High,    // User reads/writes
+    Medium,  // L0 compaction (most urgent)
+    Low,     // Lower level compaction
+}
+
+struct IoScheduler {
+    rate_limiter: RateLimiter,
+    queues: HashMap&lt;IoPriority, VecDeque&lt;IoRequest&gt;&gt;,
+}
+
+impl IoScheduler {
+    fn submit(&amp;mut self, req: IoRequest) {
+        match req.io_type {
+            IoType::UserRead | IoType::UserWrite =&gt; {
+                // Execute immediately, no rate limiting
+                self.execute_immediate(req);
+            }
+            IoType::Flush =&gt; {
+                // High priority background, limited rate
+                self.queues[IoPriority::Medium].push_back(req);
+            }
+            IoType::Compaction { level } =&gt; {
+                let priority = if level == 0 {
+                    IoPriority::Medium  // L0 compaction is urgent
+                } else {
+                    IoPriority::Low
+                };
+                self.queues[priority].push_back(req);
+            }
+        }
+    }
+}
+</code></pre>
+<h3 id="4-6-mvcc-and-snapshot-isolation-with-lsm">4.6 MVCC and Snapshot Isolation with LSM</h3>
+<h4 id="4-6-1-version-encoding">4.6.1 Version Encoding</h4>
+<pre><code>Key Format with Version:
+┌────────────────────────────────────────────────────────────┐
+│  user_key  │  sequence_number (descending)  │  value_type  │
+│  variable  │         8 bytes                │    1 byte    │
+└────────────────────────────────────────────────────────────┘
+
+Example:
+&quot;user123&quot; @ seq=1000 → Put(&quot;profile&quot;, &quot;{...}&quot;)
+&quot;user123&quot; @ seq=900  → Put(&quot;profile&quot;, &quot;{old...}&quot;)
+&quot;user123&quot; @ seq=800  → Delete
+
+Reading at snapshot 950:
+- Returns value from seq=900
+- seq=1000 is &quot;in the future&quot;
+- seq=800 is deleted
+</code></pre>
+<h4 id="4-6-2-snapshot-implementation">4.6.2 Snapshot Implementation</h4>
+<pre><code data-lang="rust">struct Snapshot {
+    sequence_number: u64,
+}
+
+impl DB {
+    fn get_snapshot(&amp;self) -&gt; Snapshot {
+        Snapshot {
+            sequence_number: self.current_sequence.load(Ordering::SeqCst)
+        }
+    }
+
+    fn get_at_snapshot(&amp;self, key: &amp;[u8], snapshot: &amp;Snapshot) -&gt; Option&lt;Value&gt; {
+        // Only return values with seq &lt;= snapshot.sequence_number
+        // Iterate in descending sequence order, stop at first match
+    }
+}
+</code></pre>
+<h4 id="4-6-3-garbage-collection-of-old-versions">4.6.3 Garbage Collection of Old Versions</h4>
+<pre><code>MVCC GC Considerations:
+1. Cannot delete versions visible to any active snapshot
+2. Can only GC versions older than oldest active snapshot
+3. Compaction is the natural place to do GC
+
+During Compaction:
+  oldest_snapshot = min(active_snapshots)
+
+  For each key:
+    Keep: most recent version &lt;= oldest_snapshot
+    Keep: all versions &gt; oldest_snapshot (might be needed)
+    Delete: all older versions (safe to GC)
+</code></pre>
+<h3 id="4-7-zone-storage-and-append-only-optimizations">4.7 Zone Storage and Append-Only Optimizations</h3>
+<h4 id="4-7-1-zoned-namespaces-zns-ssds">4.7.1 Zoned Namespaces (ZNS) SSDs</h4>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│                    ZNS SSD Layout                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
+│  │  Zone 0  │ │  Zone 1  │ │  Zone 2  │ │  Zone 3  │ ...   │
+│  │Sequential│ │Sequential│ │Sequential│ │Sequential│       │
+│  │Write Only│ │Write Only│ │Write Only│ │Write Only│       │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
+│                                                              │
+│  Zone States:                                                │
+│    Empty → Open → Full → (Reset) → Empty                    │
+│                                                              │
+│  Operations:                                                 │
+│    - Write: Append to current write pointer                 │
+│    - Read: Random read anywhere                             │
+│    - Reset: Erase entire zone (only way to rewrite)         │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<h4 id="4-7-2-lsm-zns-integration">4.7.2 LSM-ZNS Integration</h4>
+<p><strong>ZenFS (RocksDB)</strong>:</p>
+<pre><code>Mapping Strategy:
+  - Each SSTable → one or more zones
+  - WAL → dedicated zone(s)
+  - Zone = unit of garbage collection
+
+Benefits:
+  - No SSD garbage collection (device-level WA = 1)
+  - Predictable performance
+  - Better endurance
+
+Challenges:
+  - Zone size alignment
+  - Compaction output must align
+  - Zone selection algorithm
+</code></pre>
+<hr />
+<h2 id="5-cutting-edge-research-areas">5. Cutting-Edge Research Areas</h2>
+<h3 id="5-1-computational-storage">5.1 Computational Storage</h3>
+<p><strong>Concept</strong>: Push computation (filtering, aggregation) to storage devices.</p>
+<p><strong>LSM Applications</strong>:</p>
+<ol>
+<li><strong>In-storage compaction</strong>: SSD performs compaction internally</li>
+<li><strong>Filter pushdown</strong>: Bloom filter checks at device level</li>
+<li><strong>Scan filtering</strong>: Predicate evaluation in storage</li>
+</ol>
+<p><strong>Key Papers</strong>:</p>
+<ul>
+<li>"SmartSSD: FPGA Accelerated Near-Storage Data Analytics" - Lee et al.</li>
+<li>"Biscuit: A Framework for Near-Data Processing of Big Data Workloads" - Gu et al., ISCA 2016</li>
+</ul>
+<h3 id="5-2-gpu-accelerated-operations">5.2 GPU-Accelerated Operations</h3>
+<p><strong>Opportunities</strong>:</p>
+<ol>
+<li><strong>Parallel merge sort</strong>: GPU can merge multiple sorted runs</li>
+<li><strong>Bloom filter construction</strong>: Parallel hashing</li>
+<li><strong>Compression/decompression</strong>: GPU-accelerated codecs</li>
+</ol>
+<p><strong>Challenges</strong>:</p>
+<ul>
+<li>PCIe bandwidth limitations</li>
+<li>CPU-GPU synchronization overhead</li>
+<li>Not suitable for all operations</li>
+</ul>
+<p><strong>Research Direction</strong>: Use GPU for large compactions, CPU for small ones.</p>
+<h3 id="5-3-adaptive-learned-compaction">5.3 Adaptive/Learned Compaction</h3>
+<h4 id="5-3-1-workload-aware-compaction">5.3.1 Workload-Aware Compaction</h4>
+<p><strong>Observation</strong>: Static compaction parameters are suboptimal for varying workloads.</p>
+<p><strong>Approach</strong>:</p>
+<pre><code>Monitor:
+  - Write rate over time
+  - Read patterns (point vs range)
+  - Key distribution
+  - Latency requirements
+
+Adapt:
+  - More aggressive compaction during low write periods
+  - Relax compaction during write bursts
+  - Prioritize compaction for hot key ranges
+</code></pre>
+<h4 id="5-3-2-reinforcement-learning-for-compaction">5.3.2 Reinforcement Learning for Compaction</h4>
+<p><strong>State</strong>: Current LSM-tree state (levels, sizes, pending compactions)
+<strong>Actions</strong>: Which compaction to trigger, which files to include
+<strong>Reward</strong>: Minimize latency or maximize throughput</p>
+<p><strong>Key Paper</strong>: "Lethe: A Tunable Delete-Aware LSM Engine" - Sarkar et al., SIGMOD 2020</p>
+<h3 id="5-4-integration-with-modern-file-systems">5.4 Integration with Modern File Systems</h3>
+<h4 id="5-4-1-zfs-integration">5.4.1 ZFS Integration</h4>
+<p><strong>Benefits</strong>:</p>
+<ul>
+<li>Copy-on-write semantics align with LSM</li>
+<li>Built-in compression</li>
+<li>Snapshots for consistent backups</li>
+<li>ARC (Adaptive Replacement Cache)</li>
+</ul>
+<p><strong>Considerations</strong>:</p>
+<ul>
+<li>Double buffering (ZFS ARC + LSM block cache)</li>
+<li>Disable ZFS compression if LSM already compresses</li>
+<li>Align recordsize to SSTable block size</li>
+</ul>
+<h4 id="5-4-2-btrfs-integration">5.4.2 Btrfs Integration</h4>
+<p><strong>Benefits</strong>:</p>
+<ul>
+<li>Copy-on-write</li>
+<li>Transparent compression</li>
+<li>Subvolumes for isolation</li>
+</ul>
+<p><strong>Considerations</strong>:</p>
+<ul>
+<li>Fragmentation over time</li>
+<li>May need periodic defragmentation</li>
+<li>Consider disabling CoW for WAL (nodatacow)</li>
+</ul>
+<h3 id="5-5-emerging-architecttic-patterns">5.5 Emerging Architecttic Patterns</h3>
+<h4 id="5-5-1-function-as-a-service-faas-integration">5.5.1 Function-as-a-Service (FaaS) Integration</h4>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│              Serverless LSM Architecture                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
+│  │  Lambda 1   │  │  Lambda 2   │  │  Lambda 3   │          │
+│  │  (writes)   │  │  (reads)    │  │  (compact)  │          │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘          │
+│         │                │                │                  │
+│         └────────────────┼────────────────┘                  │
+│                          │                                   │
+│                   ┌──────▼──────┐                            │
+│                   │ Shared Cache │                           │
+│                   │   (Redis)    │                           │
+│                   └──────┬──────┘                            │
+│                          │                                   │
+│                   ┌──────▼──────┐                            │
+│                   │  S3 Storage  │                           │
+│                   │  (SSTables)  │                           │
+│                   └─────────────┘                            │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<h4 id="5-5-2-rdma-enabled-distributed-lsm">5.5.2 RDMA-Enabled Distributed LSM</h4>
+<p><strong>Concept</strong>: Use RDMA for:</p>
+<ul>
+<li>Remote memtable reads (bypass remote CPU)</li>
+<li>Remote compaction coordination</li>
+<li>Distributed transaction coordination</li>
+</ul>
+<p><strong>Key Paper</strong>: "ROART: Range-query Optimized Persistent ART" - Ma et al., FAST 2021</p>
+<hr />
+<h2 id="6-key-papers-bibliography">6. Key Papers Bibliography</h2>
+<h3 id="foundational-papers">Foundational Papers</h3>
+<ol>
+<li>
+<p><strong>O'Neil et al., "The Log-Structured Merge-Tree (LSM-Tree)"</strong>, Acta Informatica, 1996</p>
+<ul>
+<li>The original LSM paper, must-read for understanding core concepts</li>
+</ul>
+</li>
+<li>
+<p><strong>Chang et al., "Bigtable: A Distributed Storage System for Structured Data"</strong>, OSDI 2006</p>
+<ul>
+<li>Google's seminal distributed LSM system</li>
+</ul>
+</li>
+<li>
+<p><strong>Ghemawat &amp; Dean, "LevelDB Implementation Notes"</strong>, Google, 2011</p>
+<ul>
+<li>Practical details of the first modern LSM implementation</li>
+</ul>
+</li>
+</ol>
+<h3 id="compaction-and-optimization">Compaction and Optimization</h3>
+<ol start="4">
+<li>
+<p><strong>Dayan &amp; Idreos, "Dostoevsky: Better Space-Time Trade-Offs for LSM-Tree Based Key-Value Stores via Adaptive Removal of Superfluous Merging"</strong>, SIGMOD 2018</p>
+<ul>
+<li>Defines the amplification tradeoff space rigorously</li>
+</ul>
+</li>
+<li>
+<p><strong>Dayan et al., "Monkey: Optimal Navigable Key-Value Store"</strong>, SIGMOD 2017</p>
+<ul>
+<li>Optimal Bloom filter memory allocation</li>
+</ul>
+</li>
+<li>
+<p><strong>Luo &amp; Carey, "LSM-based Storage Techniques: A Survey"</strong>, VLDB Journal, 2020</p>
+<ul>
+<li>Comprehensive survey of LSM techniques</li>
+</ul>
+</li>
+</ol>
+<h3 id="modern-systems">Modern Systems</h3>
+<ol start="7">
+<li>
+<p><strong>Dong et al., "RocksDB: Evolution of Development Priorities in a Key-Value Store Serving Large-scale Applications"</strong>, TODS 2021</p>
+<ul>
+<li>RocksDB design decisions and evolution</li>
+</ul>
+</li>
+<li>
+<p><strong>Yao et al., "MatrixKV: Reducing Write Stalls and Write Amplification in LSM-tree Based KV Stores"</strong>, ATC 2020</p>
+<ul>
+<li>PMem integration with LSM</li>
+</ul>
+</li>
+<li>
+<p><strong>Kaiyrakhmet et al., "SLM-DB: Single-Level Key-Value Store with Persistent Memory"</strong>, FAST 2019</p>
+<ul>
+<li>Rethinking LSM for persistent memory</li>
+</ul>
+</li>
+</ol>
+<h3 id="learned-structures">Learned Structures</h3>
+<ol start="10">
+<li>
+<p><strong>Kraska et al., "The Case for Learned Index Structures"</strong>, SIGMOD 2018</p>
+<ul>
+<li>Learned indexes foundation</li>
+</ul>
+</li>
+<li>
+<p><strong>Dai et al., "Bourbon: Learned Index Structures in Storage Engines"</strong>, SOSP 2020</p>
+<ul>
+<li>Practical learned indexes in LSM context</li>
+</ul>
+</li>
+</ol>
+<h3 id="disaggregation-and-cloud">Disaggregation and Cloud</h3>
+<ol start="12">
+<li>
+<p><strong>Zhong et al., "REMIX: Efficient Range Query for LSM-trees"</strong>, FAST 2021</p>
+<ul>
+<li>Remote index execution in disaggregated storage</li>
+</ul>
+</li>
+<li>
+<p><strong>Cao et al., "PolarFS: An Ultra-low Latency and Failure Resilient Distributed File System"</strong>, VLDB 2018</p>
+<ul>
+<li>Alibaba's disaggregated storage foundation</li>
+</ul>
+</li>
+</ol>
+<h3 id="emerging-hardware">Emerging Hardware</h3>
+<ol start="14">
+<li>
+<p><strong>Bjorling et al., "ZNS: Avoiding the Block Interface Tax for Flash-based SSDs"</strong>, ATC 2021</p>
+<ul>
+<li>Zoned namespaces for LSM workloads</li>
+</ul>
+</li>
+<li>
+<p><strong>Dillinger &amp; Walzer, "Ribbon filter: practically smaller than Bloom and Xor"</strong>, 2021</p>
+<ul>
+<li>Modern filter improvements</li>
+</ul>
+</li>
+</ol>
+<hr />
+<h2 id="7-decision-framework">7. Decision Framework</h2>
+<h3 id="7-1-when-to-choose-lsm-over-b-tree">7.1 When to Choose LSM Over B-Tree</h3>
+<p><strong>Choose LSM when</strong>:</p>
+<ul>
+<li>Write-heavy workload (&gt;50% writes)</li>
+<li>Append-heavy patterns (logs, time-series)</li>
+<li>Sequential write performance is critical</li>
+<li>Space efficiency matters (SSDs)</li>
+<li>Can tolerate slightly higher read latency</li>
+</ul>
+<p><strong>Choose B-Tree when</strong>:</p>
+<ul>
+<li>Read-heavy workload (&gt;80% reads)</li>
+<li>Low latency point queries are critical</li>
+<li>Range scan performance is paramount</li>
+<li>Data size fits mostly in memory</li>
+<li>Simpler operational model preferred</li>
+</ul>
+<h3 id="7-2-compaction-strategy-selection">7.2 Compaction Strategy Selection</h3>
+<pre><code>                    Workload Analysis
+                          │
+                          ▼
+              ┌───────────────────────┐
+              │  What is your primary │
+              │    optimization goal? │
+              └───────────────────────┘
+                          │
+          ┌───────────────┼───────────────┐
+          ▼               ▼               ▼
+    ┌─────────┐     ┌─────────┐     ┌─────────┐
+    │  Write  │     │  Read   │     │  Space  │
+    │Throughput│    │ Latency │     │Efficiency│
+    └────┬────┘     └────┬────┘     └────┬────┘
+         │               │               │
+         ▼               ▼               ▼
+    ┌─────────┐     ┌─────────┐     ┌─────────┐
+    │ Tiered  │     │ Leveled │     │ Leveled │
+    │Compaction│    │Compaction│    │Compaction│
+    └─────────┘     └─────────┘     └─────────┘
+</code></pre>
+<h3 id="7-3-configuration-checklist">7.3 Configuration Checklist</h3>
+<p>For a production LSM deployment, tune these parameters:</p>
+<pre><code data-lang="yaml"># Memory
+memtable_size: 64-256 MB per memtable
+max_memtables: 2-4 (write buffer count)
+block_cache_size: 30-50% of available RAM
+
+# Compaction
+compaction_style: leveled or universal
+level0_file_trigger: 4-8 files
+level0_slowdown_trigger: 20 files
+level0_stop_trigger: 36 files
+max_background_compactions: 2-4 (CPU cores / 2)
+target_file_size_base: 64-256 MB
+
+# Bloom Filters
+bloom_bits_per_key: 10 (1% FPR)
+bloom_locality: 1 (blocked bloom)
+partition_filters: true for large SSTables
+
+# Compression
+compression_per_level:
+  - L0-L1: LZ4 or no compression (speed)
+  - L2+: ZSTD (ratio)
+
+# I/O
+direct_io: true (bypass page cache)
+rate_limiter_bytes_per_sec: based on SSD IOPS budget
+</code></pre>
+<hr />
+<h2 id="8-practical-implementation-considerations-for-pg-arrow">8. Practical Implementation Considerations for pg_arrow</h2>
+<h3 id="8-1-relevance-to-pg-arrow-project">8.1 Relevance to pg_arrow Project</h3>
+<p>While pg_arrow primarily reads PostgreSQL's heap files (which use in-place update storage), understanding LSM is valuable for:</p>
+<ol>
+<li><strong>WAL-based Incremental Conversion</strong>: Your existing research on WAL-based conversion could benefit from LSM-like buffering strategies</li>
+<li><strong>Hybrid Storage Design</strong>: Future extensions might use LSM for write-heavy workloads</li>
+<li><strong>Compaction Concepts</strong>: Similar merge strategies apply to Arrow file consolidation</li>
+<li><strong>Bloom Filters</strong>: Useful for filtering during conversion</li>
+</ol>
+<h3 id="8-2-key-takeaways">8.2 Key Takeaways</h3>
+<ol>
+<li><strong>Sequential I/O is king</strong>: Any storage design should maximize sequential writes</li>
+<li><strong>Amplification tradeoffs are fundamental</strong>: Choose based on your workload</li>
+<li><strong>Background work needs scheduling</strong>: Compaction/maintenance must not block foreground</li>
+<li><strong>Modern hardware changes assumptions</strong>: NVMe, PMem, ZNS all shift optimal designs</li>
+<li><strong>Bloom filters are essential</strong>: Always include probabilistic filters</li>
+</ol>
+<hr />
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL, Torn Pages, and Disk Reliability</a> — WAL durability guarantees that LSM-trees rely on for crash recovery</li>
+<li><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/">MongoDB/WiredTiger Internals</a> — WiredTiger uses a hybrid B-tree/LSM approach with checkpointing</li>
+<li><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a> — Bloom filters, skip lists, and other structures used within LSM-tree implementations</li>
+<li><a href="https://nmbr7.github.io/notes/os/filesystem-design/">Filesystem Design</a> — Block allocation, journaling, and I/O patterns that affect LSM compaction performance</li>
+</ul>
+<hr />
+<p><em>Last updated: 2026-01-27</em>
+<em>Next review: Consider when designing any write-optimized storage component</em></p>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

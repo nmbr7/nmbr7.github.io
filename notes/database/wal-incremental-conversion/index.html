@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">WAL Incremental Conversion</h1>
+  <h1 id="wal-based-incremental-conversion-for-pg-arrow">WAL-Based Incremental Conversion for pg_arrow</h1>
+<p><strong>Date</strong>: 2026-01-22
+<strong>Context</strong>: Exploring how PostgreSQL's Write-Ahead Log (WAL) can enable consistent reads from running databases and incremental Arrow conversion.</p>
+<h2 id="summary">Summary</h2>
+<p>PostgreSQL's WAL provides a complete, ordered log of all database changes. By leveraging WAL, pg_arrow could:</p>
+<ol>
+<li>Read from live databases with consistent snapshots</li>
+<li>Perform incremental/delta conversions</li>
+<li>Implement Change Data Capture (CDC) to Arrow</li>
+<li>Enable point-in-time recovery and time-travel queries</li>
+</ol>
+<p>This research evaluates two approaches: logical replication (recommended) and physical WAL parsing (advanced).</p>
+<hr />
+<h2 id="current-limitation">Current Limitation</h2>
+<p><strong>pg_arrow Phase 1 design</strong>: Requires stopped PostgreSQL</p>
+<ul>
+<li>Reading raw data files while PostgreSQL is running → inconsistent snapshots</li>
+<li>Buffer cache vs. disk state mismatches</li>
+<li>No visibility into in-flight transactions</li>
+</ul>
+<p><strong>WAL solves this by providing</strong>:</p>
+<ul>
+<li>Consistent timeline of all changes</li>
+<li>Transaction boundaries (BEGIN, COMMIT, ABORT)</li>
+<li>Ability to reconstruct database state at any LSN (Log Sequence Number)</li>
+</ul>
+<hr />
+<h2 id="wal-fundamentals">WAL Fundamentals</h2>
+<h3 id="log-sequence-number-lsn">Log Sequence Number (LSN)</h3>
+<pre><code data-lang="rust">/// PostgreSQL LSN: 64-bit position in WAL stream
+/// Format: XXXXXXXX/YYYYYYYY (xlogid/xrecoff)
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct LSN(u64);
+
+impl LSN {
+    fn new(xlogid: u32, xrecoff: u32) -&gt; Self {
+        LSN(((xlogid as u64) &lt;&lt; 32) | (xrecoff as u64))
+    }
+
+    fn xlogid(&amp;self) -&gt; u32 {
+        (self.0 &gt;&gt; 32) as u32
+    }
+
+    fn xrecoff(&amp;self) -&gt; u32 {
+        self.0 as u32
+    }
+
+    fn from_string(s: &amp;str) -&gt; Result&lt;Self&gt; {
+        // Parse &quot;16/B374D848&quot; format
+        let parts: Vec&lt;&amp;str&gt; = s.split(&#39;/&#39;).collect();
+        let xlogid = u32::from_str_radix(parts[0], 16)?;
+        let xrecoff = u32::from_str_radix(parts[1], 16)?;
+        Ok(LSN::new(xlogid, xrecoff))
+    }
+}
+</code></pre>
+<h3 id="wal-segments">WAL Segments</h3>
+<pre><code>WAL files: pg_wal/000000010000000000000001 (16MB segments by default)
+           └─ timeline ─┘└─ xlogid ──┘└─ segment ─┘
+
+Each segment contains WAL records from LSN range
+</code></pre>
+<hr />
+<h2 id="approach-1-logical-replication-recommended">Approach 1: Logical Replication (Recommended)</h2>
+<h3 id="overview">Overview</h3>
+<p>Use PostgreSQL's <strong>logical decoding</strong> infrastructure instead of parsing physical WAL:</p>
+<ul>
+<li>PostgreSQL decodes WAL for you</li>
+<li>Returns structured change events</li>
+<li>Stable API across versions</li>
+<li>Filters by publication (tables/schemas)</li>
+</ul>
+<h3 id="architecture">Architecture</h3>
+<pre><code>PostgreSQL Database
+  ├─ Replication Slot (tracks consumer position)
+  ├─ Publication (defines what to replicate)
+  └─ Logical Decoding Plugin (pgoutput, wal2json, etc.)
+         ↓
+    Change Stream (INSERT/UPDATE/DELETE)
+         ↓
+    pg_arrow Converter
+         ↓
+    Arrow RecordBatch (delta)
+</code></pre>
+<h3 id="setup">Setup</h3>
+<pre><code data-lang="sql">-- 1. Enable logical replication (postgresql.conf)
+-- wal_level = logical
+-- max_replication_slots = 10
+
+-- 2. Create replication slot
+SELECT pg_create_logical_replication_slot(&#39;pg_arrow_slot&#39;, &#39;pgoutput&#39;);
+
+-- 3. Create publication for tables to track
+CREATE PUBLICATION pg_arrow_pub FOR ALL TABLES;
+-- Or specific tables:
+-- CREATE PUBLICATION pg_arrow_pub FOR TABLE users, orders;
+
+-- 4. Stream changes
+SELECT * FROM pg_logical_slot_get_changes(
+    &#39;pg_arrow_slot&#39;,
+    NULL,  -- upto_lsn (NULL = all available)
+    NULL,  -- upto_nchanges (NULL = no limit)
+    &#39;proto_version&#39;, &#39;1&#39;,
+    &#39;publication_names&#39;, &#39;pg_arrow_pub&#39;
+);
+</code></pre>
+<h3 id="implementation">Implementation</h3>
+<pre><code data-lang="rust">use postgres::{Client, NoTls};
+
+struct LogicalReplicationReader {
+    client: Client,
+    slot_name: String,
+    publication_name: String,
+    last_lsn: Option&lt;LSN&gt;,
+}
+
+impl LogicalReplicationReader {
+    fn new(conn_string: &amp;str, slot_name: &amp;str) -&gt; Result&lt;Self&gt; {
+        let client = Client::connect(conn_string, NoTls)?;
+
+        // Create slot if not exists
+        client.execute(
+            &quot;SELECT pg_create_logical_replication_slot($1, &#39;pgoutput&#39;)&quot;,
+            &amp;[&amp;slot_name],
+        )?;
+
+        Ok(Self {
+            client,
+            slot_name: slot_name.to_string(),
+            publication_name: &quot;pg_arrow_pub&quot;.to_string(),
+            last_lsn: None,
+        })
+    }
+
+    fn fetch_changes(&amp;mut self) -&gt; Result&lt;Vec&lt;ChangeEvent&gt;&gt; {
+        let rows = self.client.query(
+            &quot;SELECT lsn, xid, data FROM pg_logical_slot_get_changes($1, NULL, NULL, \
+             &#39;proto_version&#39;, &#39;1&#39;, &#39;publication_names&#39;, $2)&quot;,
+            &amp;[&amp;self.slot_name, &amp;self.publication_name],
+        )?;
+
+        let mut events = Vec::new();
+        for row in rows {
+            let lsn: String = row.get(0);
+            let xid: u32 = row.get(1);
+            let data: &amp;[u8] = row.get(2);
+
+            // Parse pgoutput protocol message
+            let event = self.parse_change_event(lsn, xid, data)?;
+            events.push(event);
+        }
+
+        Ok(events)
+    }
+
+    fn parse_change_event(&amp;self, lsn: String, xid: u32, data: &amp;[u8]) -&gt; Result&lt;ChangeEvent&gt; {
+        // pgoutput protocol parsing
+        // See: src/backend/replication/logical/proto.c
+        match data[0] {
+            b&#39;B&#39; =&gt; Ok(ChangeEvent::Begin { lsn: LSN::from_string(&amp;lsn)?, xid }),
+            b&#39;C&#39; =&gt; Ok(ChangeEvent::Commit { lsn: LSN::from_string(&amp;lsn)?, xid }),
+            b&#39;I&#39; =&gt; self.parse_insert(lsn, xid, &amp;data[1..]),
+            b&#39;U&#39; =&gt; self.parse_update(lsn, xid, &amp;data[1..]),
+            b&#39;D&#39; =&gt; self.parse_delete(lsn, xid, &amp;data[1..]),
+            _ =&gt; Err(anyhow!(&quot;Unknown message type: {}&quot;, data[0])),
+        }
+    }
+}
+
+#[derive(Debug)]
+enum ChangeEvent {
+    Begin { lsn: LSN, xid: u32 },
+    Commit { lsn: LSN, xid: u32 },
+    Insert { lsn: LSN, relation_id: u32, tuple: TupleData },
+    Update { lsn: LSN, relation_id: u32, old_tuple: Option&lt;TupleData&gt;, new_tuple: TupleData },
+    Delete { lsn: LSN, relation_id: u32, old_tuple: TupleData },
+}
+</code></pre>
+<h3 id="using-wal2json-plugin-alternative">Using wal2json Plugin (Alternative)</h3>
+<pre><code data-lang="sql">-- Create slot with wal2json plugin
+SELECT pg_create_logical_replication_slot(&#39;pg_arrow_slot&#39;, &#39;wal2json&#39;);
+
+-- Fetch changes as JSON
+SELECT data FROM pg_logical_slot_get_changes(&#39;pg_arrow_slot&#39;, NULL, NULL);
+</code></pre>
+<p><strong>Example output</strong>:</p>
+<pre><code data-lang="json">{
+  &quot;change&quot;: [{
+    &quot;kind&quot;: &quot;insert&quot;,
+    &quot;schema&quot;: &quot;public&quot;,
+    &quot;table&quot;: &quot;users&quot;,
+    &quot;columnnames&quot;: [&quot;id&quot;, &quot;name&quot;, &quot;email&quot;],
+    &quot;columntypes&quot;: [&quot;integer&quot;, &quot;text&quot;, &quot;text&quot;],
+    &quot;columnvalues&quot;: [1, &quot;Alice&quot;, &quot;alice@example.com&quot;]
+  }]
+}
+</code></pre>
+<p><strong>Pros</strong>: Easier parsing (JSON)
+<strong>Cons</strong>: Less efficient than binary pgoutput</p>
+<hr />
+<h2 id="approach-2-physical-wal-parsing-advanced">Approach 2: Physical WAL Parsing (Advanced)</h2>
+<h3 id="overview-1">Overview</h3>
+<p>Directly read and parse WAL segment files:</p>
+<ul>
+<li>Maximum performance (no PostgreSQL overhead)</li>
+<li>Works offline (from archived WAL)</li>
+<li>Full control over decoding</li>
+</ul>
+<h3 id="wal-record-structure">WAL Record Structure</h3>
+<pre><code data-lang="rust">/// WAL record header (common to all record types)
+#[repr(C)]
+struct XLogRecord {
+    xl_tot_len: u32,      // Total length including header
+    xl_xid: u32,          // Transaction ID
+    xl_prev: u64,         // LSN of previous record
+    xl_info: u8,          // Record type + flags
+    xl_rmid: u8,          // Resource manager ID
+    xl_crc: u32,          // CRC of record
+    // Variable-length data follows
+}
+
+const RM_HEAP_ID: u8 = 10;        // Heap operations
+const RM_HEAP2_ID: u8 = 11;       // Heap2 operations (VACUUM, etc.)
+const RM_BTREE_ID: u8 = 2;        // B-tree operations
+
+// Heap operation types (xl_info &amp; 0x0F)
+const XLOG_HEAP_INSERT: u8 = 0x00;
+const XLOG_HEAP_DELETE: u8 = 0x10;
+const XLOG_HEAP_UPDATE: u8 = 0x20;
+const XLOG_HEAP_HOT_UPDATE: u8 = 0x30;
+</code></pre>
+<h3 id="heap-insert-record">Heap Insert Record</h3>
+<pre><code data-lang="rust">/// xl_heap_insert: WAL record for INSERT
+#[repr(C)]
+struct XlHeapInsert {
+    offnum: u16,          // Offset number in page
+    flags: u8,            // Flags
+    // Followed by:
+    // - HeapTupleHeaderData
+    // - Tuple data
+}
+
+const XLH_INSERT_ALL_VISIBLE_CLEARED: u8 = 0x01;
+const XLH_INSERT_LAST_IN_MULTI: u8 = 0x02;
+const XLH_INSERT_IS_SPECULATIVE: u8 = 0x04;
+const XLH_INSERT_CONTAINS_NEW_TUPLE: u8 = 0x08;
+
+fn parse_heap_insert(record: &amp;XLogRecord, data: &amp;[u8]) -&gt; Result&lt;HeapInsertEvent&gt; {
+    let xl_info = record.xl_info &amp; 0x0F;
+    if xl_info != XLOG_HEAP_INSERT {
+        return Err(anyhow!(&quot;Not an INSERT record&quot;));
+    }
+
+    let insert = unsafe { &amp;*(data.as_ptr() as *const XlHeapInsert) };
+    let tuple_data = &amp;data[size_of::&lt;XlHeapInsert&gt;()..];
+
+    Ok(HeapInsertEvent {
+        xid: record.xl_xid,
+        offnum: insert.offnum,
+        tuple: parse_heap_tuple_data(tuple_data)?,
+    })
+}
+</code></pre>
+<h3 id="full-page-images-fpi">Full-Page Images (FPI)</h3>
+<p>After a checkpoint, PostgreSQL writes full pages to WAL:</p>
+<pre><code data-lang="rust">struct XLogPageHeader {
+    xlp_magic: u16,       // 0xD097 for PG 9.3+
+    xlp_info: u16,        // Flags
+    xlp_tli: u32,         // Timeline ID
+    xlp_pageaddr: u64,    // LSN of page start
+}
+
+const XLP_FIRST_IS_CONTRECORD: u16 = 0x0001;
+const XLP_LONG_HEADER: u16 = 0x0002;
+const XLP_BKP_BLOCK_1: u16 = 0x0004;  // Has backup block 1
+const XLP_BKP_BLOCK_2: u16 = 0x0008;  // Has backup block 2
+
+fn has_full_page_image(record: &amp;XLogRecord) -&gt; bool {
+    (record.xl_info &amp; 0x80) != 0  // XLR_BKP_BLOCK flag
+}
+</code></pre>
+<h3 id="wal-reader-implementation">WAL Reader Implementation</h3>
+<pre><code data-lang="rust">use std::fs::File;
+use std::io::{Read, Seek, SeekFrom};
+
+struct WalReader {
+    file: File,
+    current_lsn: LSN,
+}
+
+impl WalReader {
+    fn open(segment_path: &amp;str, start_lsn: LSN) -&gt; Result&lt;Self&gt; {
+        let file = File::open(segment_path)?;
+        let mut reader = Self {
+            file,
+            current_lsn: start_lsn,
+        };
+        reader.seek_to_lsn(start_lsn)?;
+        Ok(reader)
+    }
+
+    fn seek_to_lsn(&amp;mut self, lsn: LSN) -&gt; Result&lt;()&gt; {
+        let segment_size = 16 * 1024 * 1024; // 16MB
+        let offset = (lsn.0 % segment_size) as u64;
+        self.file.seek(SeekFrom::Start(offset))?;
+        Ok(())
+    }
+
+    fn read_next_record(&amp;mut self) -&gt; Result&lt;Option&lt;WalRecord&gt;&gt; {
+        // 1. Read XLogRecord header
+        let mut header_buf = [0u8; size_of::&lt;XLogRecord&gt;()];
+        if self.file.read_exact(&amp;mut header_buf).is_err() {
+            return Ok(None); // End of segment
+        }
+
+        let header = unsafe { &amp;*(header_buf.as_ptr() as *const XLogRecord) };
+
+        // 2. Validate CRC
+        // ... CRC validation code ...
+
+        // 3. Read record data
+        let data_len = header.xl_tot_len as usize - size_of::&lt;XLogRecord&gt;();
+        let mut data = vec![0u8; data_len];
+        self.file.read_exact(&amp;mut data)?;
+
+        // 4. Parse based on resource manager
+        let record = match header.xl_rmid {
+            RM_HEAP_ID =&gt; self.parse_heap_record(header, &amp;data)?,
+            RM_HEAP2_ID =&gt; self.parse_heap2_record(header, &amp;data)?,
+            _ =&gt; WalRecord::Other,
+        };
+
+        self.current_lsn = LSN(self.current_lsn.0 + header.xl_tot_len as u64);
+        Ok(Some(record))
+    }
+
+    fn parse_heap_record(&amp;self, header: &amp;XLogRecord, data: &amp;[u8]) -&gt; Result&lt;WalRecord&gt; {
+        match header.xl_info &amp; 0x0F {
+            XLOG_HEAP_INSERT =&gt; {
+                let event = parse_heap_insert(header, data)?;
+                Ok(WalRecord::Insert(event))
+            }
+            XLOG_HEAP_DELETE =&gt; {
+                let event = parse_heap_delete(header, data)?;
+                Ok(WalRecord::Delete(event))
+            }
+            XLOG_HEAP_UPDATE | XLOG_HEAP_HOT_UPDATE =&gt; {
+                let event = parse_heap_update(header, data)?;
+                Ok(WalRecord::Update(event))
+            }
+            _ =&gt; Ok(WalRecord::Other),
+        }
+    }
+}
+
+enum WalRecord {
+    Insert(HeapInsertEvent),
+    Update(HeapUpdateEvent),
+    Delete(HeapDeleteEvent),
+    Other,
+}
+</code></pre>
+<hr />
+<h2 id="use-cases-enabled">Use Cases Enabled</h2>
+<h3 id="1-consistent-snapshot-from-live-database">1. Consistent Snapshot from Live Database</h3>
+<pre><code data-lang="rust">/// Read database state as of specific LSN
+struct ConsistentReader {
+    base_reader: PageFileReader,
+    wal_reader: LogicalReplicationReader,
+    target_lsn: LSN,
+}
+
+impl ConsistentReader {
+    fn read_table_at_lsn(&amp;mut self, table_oid: u32, lsn: LSN) -&gt; Result&lt;Vec&lt;RecordBatch&gt;&gt; {
+        // 1. Get current database LSN
+        let current_lsn = self.get_current_lsn()?;
+
+        if lsn &gt; current_lsn {
+            return Err(anyhow!(&quot;Requested LSN is in the future&quot;));
+        }
+
+        // 2. Read base pages
+        let mut batches = self.base_reader.read_table(table_oid)?;
+
+        // 3. Apply WAL changes from page LSN to target LSN
+        let changes = self.wal_reader.get_changes_between(lsn, current_lsn)?;
+
+        for change in changes {
+            self.apply_change_to_batches(&amp;mut batches, change)?;
+        }
+
+        Ok(batches)
+    }
+
+    fn get_current_lsn(&amp;self) -&gt; Result&lt;LSN&gt; {
+        // SELECT pg_current_wal_lsn()
+        unimplemented!()
+    }
+}
+</code></pre>
+<h3 id="2-incremental-delta-conversion">2. Incremental/Delta Conversion</h3>
+<pre><code data-lang="rust">struct IncrementalConverter {
+    last_converted_lsn: LSN,
+    wal_reader: LogicalReplicationReader,
+}
+
+impl IncrementalConverter {
+    fn convert_delta(&amp;mut self) -&gt; Result&lt;DeltaRecordBatch&gt; {
+        let current_lsn = self.get_current_lsn()?;
+
+        // Get changes since last conversion
+        let changes = self.wal_reader.get_changes_between(
+            self.last_converted_lsn,
+            current_lsn,
+        )?;
+
+        // Build Arrow batch with only changed rows
+        let mut builder = DeltaRecordBatchBuilder::new();
+
+        for change in changes {
+            match change {
+                ChangeEvent::Insert { tuple, .. } =&gt; {
+                    builder.add_insert(tuple)?;
+                }
+                ChangeEvent::Update { new_tuple, .. } =&gt; {
+                    builder.add_update(new_tuple)?;
+                }
+                ChangeEvent::Delete { old_tuple, .. } =&gt; {
+                    builder.add_delete(old_tuple)?;
+                }
+                _ =&gt; {}
+            }
+        }
+
+        self.last_converted_lsn = current_lsn;
+        Ok(builder.finish()?)
+    }
+}
+
+/// Arrow Delta format (inspired by Delta Lake)
+struct DeltaRecordBatch {
+    batch: RecordBatch,
+    metadata: DeltaMetadata,
+}
+
+struct DeltaMetadata {
+    base_lsn: LSN,
+    target_lsn: LSN,
+    operation_column: String,  // &quot;_op&quot;: &quot;I&quot;, &quot;U&quot;, &quot;D&quot;
+}
+</code></pre>
+<h3 id="3-change-data-capture-cdc-stream">3. Change Data Capture (CDC) Stream</h3>
+<pre><code data-lang="rust">/// Stream changes as Arrow batches
+struct CdcStreamer {
+    wal_reader: LogicalReplicationReader,
+    batch_builder: RecordBatchBuilder,
+    batch_size: usize,
+}
+
+impl CdcStreamer {
+    fn stream_changes(&amp;mut self) -&gt; impl Stream&lt;Item = Result&lt;RecordBatch&gt;&gt; {
+        async_stream::stream! {
+            loop {
+                let changes = self.wal_reader.fetch_changes()?;
+
+                for change in changes {
+                    self.batch_builder.add_change(change)?;
+
+                    if self.batch_builder.len() &gt;= self.batch_size {
+                        yield Ok(self.batch_builder.finish()?);
+                        self.batch_builder.reset();
+                    }
+                }
+
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        }
+    }
+}
+
+// Usage:
+// let mut streamer = CdcStreamer::new(...);
+// let mut stream = streamer.stream_changes();
+// while let Some(batch) = stream.next().await {
+//     write_to_arrow_file(batch?)?;
+// }
+</code></pre>
+<h3 id="4-point-in-time-recovery-time-travel">4. Point-in-Time Recovery / Time Travel</h3>
+<pre><code data-lang="rust">/// Query database state at any historical LSN
+struct TimeTravelQuery {
+    converter: ConsistentReader,
+}
+
+impl TimeTravelQuery {
+    fn query_at_timestamp(&amp;self, timestamp: DateTime&lt;Utc&gt;) -&gt; Result&lt;Vec&lt;RecordBatch&gt;&gt; {
+        // 1. Map timestamp to LSN
+        let lsn = self.timestamp_to_lsn(timestamp)?;
+
+        // 2. Read state at that LSN
+        self.converter.read_table_at_lsn(table_oid, lsn)
+    }
+
+    fn timestamp_to_lsn(&amp;self, timestamp: DateTime&lt;Utc&gt;) -&gt; Result&lt;LSN&gt; {
+        // Query: SELECT pg_wal_lsn_from_time($1)
+        // Or use archived WAL timestamp correlation
+        unimplemented!()
+    }
+}
+</code></pre>
+<hr />
+<h2 id="comparison-logical-replication-vs-physical-wal">Comparison: Logical Replication vs Physical WAL</h2>
+<table><thead><tr><th>Aspect</th><th>Logical Replication</th><th>Physical WAL Parsing</th></tr></thead><tbody>
+<tr><td><strong>Complexity</strong></td><td>✅ Low (PostgreSQL does work)</td><td>❌ High (manual parsing)</td></tr>
+<tr><td><strong>Stability</strong></td><td>✅ Stable API</td><td>❌ Version-specific</td></tr>
+<tr><td><strong>Performance</strong></td><td>⚠️ Some overhead</td><td>✅ Maximum performance</td></tr>
+<tr><td><strong>Offline use</strong></td><td>❌ Requires running PG</td><td>✅ Works with archived WAL</td></tr>
+<tr><td><strong>Filtering</strong></td><td>✅ Publication-based</td><td>⚠️ Manual filtering</td></tr>
+<tr><td><strong>Error handling</strong></td><td>✅ Better (PG validates)</td><td>⚠️ Must handle corruption</td></tr>
+<tr><td><strong>Learning curve</strong></td><td>✅ Moderate</td><td>❌ Steep</td></tr>
+</tbody></table>
+<hr />
+<h2 id="implementation-roadmap">Implementation Roadmap</h2>
+<h3 id="phase-1-logical-replication-foundation-recommended-first">Phase 1: Logical Replication Foundation (Recommended First)</h3>
+<p><strong>Milestone 1.1</strong>: Basic logical decoding</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Create replication slot</li>
+<li><input disabled="" type="checkbox"/>
+Fetch changes using pgoutput protocol</li>
+<li><input disabled="" type="checkbox"/>
+Parse BEGIN/COMMIT/INSERT events</li>
+<li><input disabled="" type="checkbox"/>
+Test with simple table</li>
+</ul>
+<p><strong>Milestone 1.2</strong>: Arrow conversion</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Convert INSERT events to Arrow RecordBatch</li>
+<li><input disabled="" type="checkbox"/>
+Handle UPDATE events (as delete + insert)</li>
+<li><input disabled="" type="checkbox"/>
+Handle DELETE events</li>
+<li><input disabled="" type="checkbox"/>
+Test with basic types (int, text, bool)</li>
+</ul>
+<p><strong>Milestone 1.3</strong>: Production features</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+LSN tracking and resumption</li>
+<li><input disabled="" type="checkbox"/>
+Transaction batching (commit boundaries)</li>
+<li><input disabled="" type="checkbox"/>
+Error handling and retry logic</li>
+<li><input disabled="" type="checkbox"/>
+Performance benchmarking</li>
+</ul>
+<h3 id="phase-2-advanced-features">Phase 2: Advanced Features</h3>
+<p><strong>Milestone 2.1</strong>: Incremental conversion</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Delta batch format design</li>
+<li><input disabled="" type="checkbox"/>
+Merge strategy for deltas</li>
+<li><input disabled="" type="checkbox"/>
+Compaction logic</li>
+</ul>
+<p><strong>Milestone 2.2</strong>: Snapshot consistency</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Combine base read + WAL replay</li>
+<li><input disabled="" type="checkbox"/>
+Point-in-time snapshot API</li>
+<li><input disabled="" type="checkbox"/>
+Test with concurrent writes</li>
+</ul>
+<p><strong>Milestone 2.3</strong>: Type support</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+All PostgreSQL types</li>
+<li><input disabled="" type="checkbox"/>
+TOAST value handling via logical decoding</li>
+<li><input disabled="" type="checkbox"/>
+Array and composite types</li>
+</ul>
+<h3 id="phase-3-physical-wal-parsing-optional-advanced">Phase 3: Physical WAL Parsing (Optional, Advanced)</h3>
+<p><strong>Milestone 3.1</strong>: WAL segment reading</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Parse XLogRecord headers</li>
+<li><input disabled="" type="checkbox"/>
+CRC validation</li>
+<li><input disabled="" type="checkbox"/>
+Segment file navigation</li>
+</ul>
+<p><strong>Milestone 3.2</strong>: Heap record decoding</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+HEAP_INSERT parsing</li>
+<li><input disabled="" type="checkbox"/>
+HEAP_UPDATE parsing</li>
+<li><input disabled="" type="checkbox"/>
+HEAP_DELETE parsing</li>
+<li><input disabled="" type="checkbox"/>
+Full-page images</li>
+</ul>
+<p><strong>Milestone 3.3</strong>: Production hardening</p>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Multi-version PostgreSQL support</li>
+<li><input disabled="" type="checkbox"/>
+Corruption detection and recovery</li>
+<li><input disabled="" type="checkbox"/>
+Performance optimization</li>
+</ul>
+<hr />
+<h2 id="challenges-mitigations">Challenges &amp; Mitigations</h2>
+<h3 id="challenge-1-transaction-boundaries">Challenge 1: Transaction Boundaries</h3>
+<p><strong>Problem</strong>: Changes arrive as individual operations, need to group by transaction</p>
+<p><strong>Solution</strong>:</p>
+<pre><code data-lang="rust">struct TransactionBatcher {
+    pending_txns: HashMap&lt;u32, Vec&lt;ChangeEvent&gt;&gt;,
+}
+
+impl TransactionBatcher {
+    fn add_event(&amp;mut self, event: ChangeEvent) {
+        match event {
+            ChangeEvent::Begin { xid, .. } =&gt; {
+                self.pending_txns.insert(xid, Vec::new());
+            }
+            ChangeEvent::Commit { xid, .. } =&gt; {
+                if let Some(changes) = self.pending_txns.remove(&amp;xid) {
+                    self.emit_batch(changes);
+                }
+            }
+            _ =&gt; {
+                // Add to pending transaction
+                let xid = event.xid();
+                self.pending_txns.entry(xid).or_default().push(event);
+            }
+        }
+    }
+}
+</code></pre>
+<h3 id="challenge-2-schema-changes">Challenge 2: Schema Changes</h3>
+<p><strong>Problem</strong>: ALTER TABLE during replication</p>
+<p><strong>Solution</strong>:</p>
+<pre><code data-lang="rust">// Track schema versions per LSN
+struct SchemaRegistry {
+    schemas: BTreeMap&lt;LSN, Schema&gt;,
+}
+
+// On DDL event, fetch new schema and cache
+fn handle_ddl(&amp;mut self, lsn: LSN, relation_id: u32) {
+    let new_schema = self.fetch_schema_from_pg(relation_id)?;
+    self.schemas.insert(lsn, new_schema);
+}
+</code></pre>
+<h3 id="challenge-3-large-transactions">Challenge 3: Large Transactions</h3>
+<p><strong>Problem</strong>: Transaction with millions of changes overwhelms memory</p>
+<p><strong>Solution</strong>:</p>
+<pre><code data-lang="rust">// Spill to disk if transaction exceeds threshold
+const MAX_MEMORY_PER_TXN: usize = 100 * 1024 * 1024; // 100MB
+
+if txn_size &gt; MAX_MEMORY_PER_TXN {
+    self.spill_to_disk(xid)?;
+}
+</code></pre>
+<h3 id="challenge-4-replication-lag">Challenge 4: Replication Lag</h3>
+<p><strong>Problem</strong>: Consumer falls behind, replication slot grows unbounded</p>
+<p><strong>Solution</strong>:</p>
+<pre><code data-lang="sql">-- Monitor slot lag
+SELECT slot_name,
+       pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn) AS lag_bytes
+FROM pg_replication_slots;
+
+-- Set max_slot_wal_keep_size (PG 13+)
+ALTER SYSTEM SET max_slot_wal_keep_size = &#39;10GB&#39;;
+</code></pre>
+<hr />
+<h2 id="testing-strategy">Testing Strategy</h2>
+<h3 id="unit-tests">Unit Tests</h3>
+<pre><code data-lang="rust">#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_lsn_parsing() {
+        let lsn = LSN::from_string(&quot;16/B374D848&quot;).unwrap();
+        assert_eq!(lsn.xlogid(), 0x16);
+        assert_eq!(lsn.xrecoff(), 0xB374D848);
+    }
+
+    #[test]
+    fn test_change_event_parsing() {
+        // Mock pgoutput INSERT message
+        let data = b&quot;I\x00\x00\x40\x00...&quot;;
+        let event = parse_change_event(data).unwrap();
+        assert!(matches!(event, ChangeEvent::Insert { .. }));
+    }
+}
+</code></pre>
+<h3 id="integration-tests">Integration Tests</h3>
+<pre><code data-lang="rust">#[test]
+fn test_incremental_conversion() {
+    // 1. Setup test database
+    let mut conn = setup_test_db();
+
+    // 2. Insert initial data
+    conn.execute(&quot;INSERT INTO test_table VALUES (1, &#39;Alice&#39;)&quot;, &amp;[])?;
+
+    // 3. Take initial snapshot
+    let snapshot1 = converter.convert()?;
+
+    // 4. Insert more data
+    conn.execute(&quot;INSERT INTO test_table VALUES (2, &#39;Bob&#39;)&quot;, &amp;[])?;
+
+    // 5. Get delta
+    let delta = converter.convert_delta()?;
+
+    // 6. Verify delta contains only new row
+    assert_eq!(delta.num_rows(), 1);
+}
+</code></pre>
+<hr />
+<h2 id="resources">Resources</h2>
+<h3 id="postgresql-documentation">PostgreSQL Documentation</h3>
+<ul>
+<li><a rel="external" href="https://www.postgresql.org/docs/current/logicaldecoding.html">Logical Decoding</a></li>
+<li><a rel="external" href="https://www.postgresql.org/docs/current/wal-internals.html">Write-Ahead Logging</a></li>
+<li><a rel="external" href="https://www.postgresql.org/docs/current/protocol-replication.html">Replication Protocol</a></li>
+</ul>
+<h3 id="source-code-references">Source Code References</h3>
+<ul>
+<li><code>src/backend/replication/logical/</code> - Logical decoding</li>
+<li><code>src/backend/access/transam/xlog.c</code> - WAL writing</li>
+<li><code>src/include/access/xlog_internal.h</code> - WAL structures</li>
+</ul>
+<h3 id="tools">Tools</h3>
+<ul>
+<li><strong>pg_waldump</strong>: WAL file inspector</li>
+<li><strong>wal2json</strong>: Logical decoding to JSON</li>
+<li><strong>pgoutput</strong>: Standard logical replication protocol</li>
+</ul>
+<h3 id="related-projects">Related Projects</h3>
+<ul>
+<li><a rel="external" href="https://github.com/debezium/debezium">Debezium PostgreSQL Connector</a> - Production CDC</li>
+<li><a rel="external" href="https://github.com/2ndQuadrant/pglogical">pglogical</a> - Logical replication</li>
+<li><a rel="external" href="https://github.com/confluentinc/bottledwater-pg">bottledwater-pg</a> - WAL to Kafka</li>
+</ul>
+<h3 id="papers">Papers</h3>
+<ul>
+<li>"Logical Replication in PostgreSQL" - Petr Jelinek, 2017</li>
+<li>"The Design of POSTGRES Storage System" - Stonebraker, 1987</li>
+</ul>
+<hr />
+<h2 id="recommended-implementation-order">Recommended Implementation Order</h2>
+<ol>
+<li>
+<p><strong>Start with logical replication + pgoutput</strong> ✅</p>
+<ul>
+<li>Lowest risk, fastest time-to-value</li>
+<li>Learn the domain before tackling physical WAL</li>
+</ul>
+</li>
+<li>
+<p><strong>Build incremental conversion</strong> ⏭️</p>
+<ul>
+<li>Enables live database use case</li>
+<li>Foundation for CDC</li>
+</ul>
+</li>
+<li>
+<p><strong>Add physical WAL parsing</strong> (if needed) 🔮</p>
+<ul>
+<li>Only if performance/offline requirements demand it</li>
+<li>Significant complexity increase</li>
+</ul>
+</li>
+</ol>
+<hr />
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL, Torn Pages, and Disk Reliability</a> — Deep dive into WAL internals, crash recovery, and durability guarantees</li>
+<li><a href="https://nmbr7.github.io/notes/database/arrow-format/">Arrow Format</a> — Target format for the conversion pipeline</li>
+<li><a href="https://nmbr7.github.io/notes/database/arrow-postgresql-integration/">Arrow PostgreSQL Integration</a> — Companion doc covering direct file-based PostgreSQL-to-Arrow conversion</li>
+<li><a href="https://nmbr7.github.io/notes/distributed/kafka-internals/">Kafka Internals</a> — Log-structured storage and CDC patterns relevant to WAL-based streaming</li>
+<li><a href="https://nmbr7.github.io/notes/os/filesystem-design/">Filesystem Design</a> — Journaling and crash consistency mechanisms underlying WAL behavior</li>
+</ul>
+<hr />
+<p><em>Last updated: 2026-01-22</em></p>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

@@ -1,0 +1,2286 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Hyper Umbra Cedardb</h1>
+  <h1 id="hyper-umbra-and-cedardb-modern-database-systems-deep-dive">HyPer, Umbra, and CedarDB: Modern Database Systems Deep Dive</h1>
+<p><strong>Date</strong>: 2026-01-23<br />
+<strong>Context</strong>: Research for pg_arrow PostgreSQL-to-Arrow converter, understanding state-of-the-art database engine techniques for high-performance analytical query processing.</p>
+<hr />
+<h2 id="executive-summary">Executive Summary</h2>
+<p>This document provides a comprehensive analysis of three cutting-edge database systems from the Technical University of Munich (TUM):</p>
+<ul>
+<li><strong>HyPer</strong> (2010-2016): First to combine main-memory management with data-centric JIT compilation</li>
+<li><strong>Umbra</strong> (2018+): "Disk-based with in-memory performance" using variable-size pages and dual compilation</li>
+<li><strong>CedarDB</strong> (2024+): Commercial system with full PostgreSQL compatibility and NVMe optimization</li>
+</ul>
+<p><strong>Key Innovation</strong>: Data-centric code generation that eliminates interpretation overhead and achieves 10-100x speedups over traditional systems.</p>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/#overview-and-lineage">Overview and Lineage</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/#architecture-and-design-philosophy">Architecture and Design Philosophy</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/#query-compilation-and-code-generation">Query Compilation and Code Generation</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/#buffer-management-and-memory">Buffer Management and Memory</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/#parallelism-and-execution">Parallelism and Execution</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/#storage-and-indexing">Storage and Indexing</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/#mvcc-and-transaction-processing">MVCC and Transaction Processing</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/#compression-techniques">Compression Techniques</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/#relevance-to-pg-arrow-and-datafusion">Relevance to pg_arrow and DataFusion</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/#key-papers-and-references">Key Papers and References</a></li>
+</ol>
+<hr />
+<h2 id="overview-and-lineage">Overview and Lineage</h2>
+<h3 id="the-tum-database-systems-evolution">The TUM Database Systems Evolution</h3>
+<pre><code>HyPer (2010-2016)
+   │
+   ├──&gt; Tableau Hyper Engine (2018+)
+   │    └── Acquired by Tableau, March 2016
+   │
+   └──&gt; Umbra (2018+)
+        └──&gt; CedarDB (2024+)
+</code></pre>
+<p>All three systems represent continuous evolution from TUM's database research group led by:</p>
+<ul>
+<li><strong>Prof. Thomas Neumann</strong> (primary architect of compilation techniques)</li>
+<li><strong>Prof. Alfons Kemper</strong> (co-founder of HyPer)</li>
+<li><strong>Prof. Viktor Leis</strong> (LeanStore, ART, morsel-driven parallelism)</li>
+</ul>
+<h3 id="hyper-the-pioneer-2010-2016">HyPer: The Pioneer (2010-2016)</h3>
+<p><strong>Key Contributions</strong>:</p>
+<ol>
+<li>First database to use LLVM for query compilation (VLDB 2011)</li>
+<li>Virtual memory snapshots for HTAP workloads</li>
+<li>Morsel-driven parallelism (SIGMOD 2014)</li>
+<li>Adaptive Radix Tree indexes (ICDE 2013)</li>
+</ol>
+<p><strong>Impact</strong>: The 2011 paper "Efficiently Compiling Efficient Query Plans for Modern Hardware" received the <strong>VLDB 2021 Test of Time Award</strong>. This technique has been adopted by many systems including MemSQL, VitesseDB, and influenced DuckDB.</p>
+<p><strong>Acquisition</strong>: Tableau acquired HyPer in March 2016. Integrated as Tableau Hyper engine in v10.5 (January 2018), delivering <strong>5x faster query performance</strong> and <strong>3x faster extract creation</strong>.</p>
+<h3 id="umbra-the-evolution-2018">Umbra: The Evolution (2018+)</h3>
+<p><strong>Why Umbra exists</strong>: After HyPer was acquired, the TUM team continued research with new goals:</p>
+<ul>
+<li>Handle <strong>larger-than-memory</strong> datasets (HyPer was pure in-memory)</li>
+<li>Reduce <strong>compilation latency</strong> for short queries</li>
+<li>Improve <strong>buffer management</strong> for disk-based operation</li>
+</ul>
+<p><strong>Key Innovations</strong>:</p>
+<ol>
+<li><strong>Umbra IR</strong>: Custom intermediate representation optimized for databases</li>
+<li><strong>Flying Start</strong>: Fast compilation backend using asmJIT (~1ms vs 100-500ms for LLVM)</li>
+<li><strong>Variable-size pages</strong>: 64KB to buffer pool size (not fixed 8KB)</li>
+<li><strong>LeanStore integration</strong>: Pointer swizzling for near-zero overhead access</li>
+</ol>
+<p><strong>Design Goal</strong>: "Disk-based system with in-memory performance" - achieve comparable performance to in-memory systems for cached workloads while gracefully handling data that doesn't fit in memory.</p>
+<h3 id="cedardb-the-product-2024">CedarDB: The Product (2024+)</h3>
+<p><strong>Commercial spin-off</strong> by the same TUM researchers with production focus:</p>
+<ol>
+<li><strong>Full PostgreSQL wire protocol compatibility</strong> (v3.0)</li>
+<li><strong>PostgreSQL SQL dialect</strong> support</li>
+<li><strong>NVMe-first design</strong>: Optimized for modern SSDs with 5000x IOPS vs. HDDs</li>
+<li><strong>Drop-in replacement</strong> potential for PostgreSQL in many use cases</li>
+</ol>
+<p><strong>Philosophy</strong>: Keep PostgreSQL's ecosystem strength (tooling, drivers, knowledge) while completely reimplementing the engine from scratch with modern techniques.</p>
+<hr />
+<h2 id="architecture-and-design-philosophy">Architecture and Design Philosophy</h2>
+<h3 id="hyper-architecture">HyPer Architecture</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│                        HyPer DBMS                           │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────────┐    ┌─────────────────────────────┐    │
+│  │   OLTP Process  │    │      OLAP Processes         │    │
+│  │   (Read/Write)  │    │      (Read-Only Snapshots)  │    │
+│  └────────┬────────┘    └──────────────┬──────────────┘    │
+│           │                            │                    │
+│           │         fork()             │                    │
+│           └───────────────────────────&gt;│                    │
+│                     (copy-on-write)    │                    │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │         Main Memory Storage (Columnar Layout)         │  │
+│  │  ┌────────┬────────┬────────┬────────┬────────────┐  │  │
+│  │  │ Col 1  │ Col 2  │ Col 3  │ Col 4  │    ...     │  │  │
+│  │  └────────┴────────┴────────┴────────┴────────────┘  │  │
+│  │     OS-managed Copy-on-Write Pages (mmap)             │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │            LLVM JIT Query Compiler                    │  │
+│  │   SQL ──&gt; Logical Plan ──&gt; LLVM IR ──&gt; Machine Code  │  │
+│  │   Produce/Consume Model (Data-Centric Generation)     │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<p><strong>Critical Design Decisions</strong>:</p>
+<ol>
+<li>
+<p><strong>Pure In-Memory</strong>: No traditional buffer manager, no page-based storage. Tables are vector-based columnar structures directly in virtual memory.</p>
+</li>
+<li>
+<p><strong>HTAP via fork()</strong>: Uses OS copy-on-write to create zero-cost snapshots for OLAP queries while OLTP continues.</p>
+</li>
+<li>
+<p><strong>LLVM Compilation</strong>: Every query compiled to native machine code, eliminating interpretation overhead.</p>
+</li>
+</ol>
+<h3 id="umbra-architecture">Umbra Architecture</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│                        Umbra DBMS                           │
+├─────────────────────────────────────────────────────────────┤
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │              Query Processing Layer                   │  │
+│  │  ┌────────────────────────────────────────────────┐  │  │
+│  │  │         Umbra IR Code Generator                 │  │  │
+│  │  │  (Custom IR optimized for DB workloads)         │  │  │
+│  │  └─────────────────────┬──────────────────────────┘  │  │
+│  │                        │                              │  │
+│  │           ┌────────────┴────────────┐                │  │
+│  │           ▼                         ▼                │  │
+│  │  ┌─────────────────┐      ┌──────────────────────┐  │  │
+│  │  │  Flying Start   │      │    LLVM Backend      │  │  │
+│  │  │  Backend        │      │    (Full -O3)        │  │  │
+│  │  │  (asmJIT, ~1ms) │      │    (~100-500ms)      │  │  │
+│  │  └─────────────────┘      └──────────────────────┘  │  │
+│  │                                                       │  │
+│  │  **Adaptive Execution**: Start with Flying Start,    │  │
+│  │  switch to LLVM for long-running queries              │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │      Variable-Size Page Buffer Manager               │  │
+│  │  ┌─────────────────────────────────────────────────┐ │  │
+│  │  │ Size Class 0: 64KB pages                        │ │  │
+│  │  │ Size Class 1: 128KB pages                       │ │  │
+│  │  │ Size Class 2: 256KB pages                       │ │  │
+│  │  │ ...                                              │ │  │
+│  │  │ Size Class N: Up to entire buffer pool          │ │  │
+│  │  └─────────────────────────────────────────────────┘ │  │
+│  │                                                       │  │
+│  │  Based on LeanStore:                                 │  │
+│  │  • mmap for virtual address space                    │  │
+│  │  • pread/pwrite for actual I/O                       │  │
+│  │  • madvise(MADV_DONTNEED) to release memory          │  │
+│  │  • Pointer swizzling for fast in-memory access       │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │           Morsel-Driven Parallel Execution            │  │
+│  │   Work Stealing │ NUMA-Aware │ Elastic Parallelism    │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<p><strong>Critical Design Decisions</strong>:</p>
+<ol>
+<li>
+<p><strong>Variable-Size Pages</strong>: Power-of-two sizes from 64KB to buffer pool size. Reduces metadata overhead, improves I/O efficiency.</p>
+</li>
+<li>
+<p><strong>Umbra IR + Dual Backends</strong>: Custom IR enables fast compilation while preserving optimization opportunities.</p>
+</li>
+<li>
+<p><strong>Pointer Swizzling</strong>: Decentralized buffer management without global locks.</p>
+</li>
+</ol>
+<h3 id="cedardb-architecture">CedarDB Architecture</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│                       CedarDB                               │
+├─────────────────────────────────────────────────────────────┤
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │          PostgreSQL Wire Protocol (v3.0)             │  │
+│  │          PostgreSQL SQL Dialect Parser                │  │
+│  └────────────────────┬─────────────────────────────────┘  │
+│                       │                                     │
+│  ┌────────────────────▼─────────────────────────────────┐  │
+│  │          Custom Low-Level Language Compiler           │  │
+│  │  (Optimized for DB workloads, fast compilation)       │  │
+│  └────────────────────┬─────────────────────────────────┘  │
+│                       │                                     │
+│  ┌────────────────────▼─────────────────────────────────┐  │
+│  │       Pointer Swizzling Buffer Manager                │  │
+│  │  ┌─────────────────────────────────────────────────┐ │  │
+│  │  │  Each pointer encodes:                          │ │  │
+│  │  │  • Bit 0: Swizzled (in-mem) vs Unswizzled      │ │  │
+│  │  │  • Bits 1-63: Memory pointer OR Page ID         │ │  │
+│  │  │                                                  │ │  │
+│  │  │  Hot path: Single bit check + dereference       │ │  │
+│  │  │  Cold path: Load from NVMe, swizzle pointer     │ │  │
+│  │  └─────────────────────────────────────────────────┘ │  │
+│  │                                                       │  │
+│  │  Decentralized: No global buffer pool hashtable      │  │
+│  │  NVMe Optimized: Parallel I/O, high queue depth      │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │         MVCC with Full ACID Guarantees                │  │
+│  │  Serializability │ HTAP │ Version Chains              │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<p><strong>Critical Design Decisions</strong>:</p>
+<ol>
+<li>
+<p><strong>PostgreSQL Compatibility Layer</strong>: Wire protocol and SQL compatibility enables drop-in replacement.</p>
+</li>
+<li>
+<p><strong>Pointer Swizzling at Scale</strong>: State embedded in pointers themselves, eliminating global coordination.</p>
+</li>
+<li>
+<p><strong>NVMe-First</strong>: Designed for modern SSDs (5000x IOPS vs. HDD), not retrofitted from disk-oriented design.</p>
+</li>
+</ol>
+<hr />
+<h2 id="query-compilation-and-code-generation">Query Compilation and Code Generation</h2>
+<h3 id="the-fundamental-problem-with-interpretation">The Fundamental Problem with Interpretation</h3>
+<p>Traditional databases (PostgreSQL, MySQL) use the <strong>Volcano/iterator model</strong>:</p>
+<pre><code data-lang="cpp">// Traditional approach (simplified)
+class Operator {
+    virtual Tuple next() = 0;  // Virtual function call per tuple!
+};
+
+class HashJoinOperator : public Operator {
+    Operator* left;
+    Operator* right;
+    HashTable ht;
+    
+    Tuple next() override {
+        Tuple outer = left-&gt;next();    // Virtual call (~20 cycles)
+        Tuple inner = ht.probe(outer);  // Indirection
+        return combine(outer, inner);   // Return via memory
+    }
+};
+</code></pre>
+<p><strong>Problems</strong>:</p>
+<ul>
+<li><strong>Virtual function calls</strong>: ~20 CPU cycles per tuple overhead</li>
+<li><strong>Data through memory</strong>: Function call ABI requires passing through stack/memory</li>
+<li><strong>Poor branch prediction</strong>: Many operators, many code paths</li>
+<li><strong>Poor instruction cache</strong>: Code scattered across operators</li>
+<li><strong>No SIMD</strong>: Hard to vectorize across operator boundaries</li>
+</ul>
+<p><strong>Impact</strong>: For a query with 5 operators processing 1M tuples, that's <strong>100 million CPU cycles</strong> wasted just on function call overhead!</p>
+<h3 id="hyper-s-data-centric-code-generation">HyPer's Data-Centric Code Generation</h3>
+<p><strong>Revolutionary Insight</strong>: Instead of operators pulling data ("pull model"), <strong>push data through fused operators</strong>.</p>
+<pre><code>Traditional (Operator-Centric):          Data-Centric (HyPer):
+
+┌───────────┐                            ┌───────────────────────┐
+│  Project  │ ◄── next()                 │  for tuple in scan:   │
+└─────┬─────┘                            │    if filter(tuple):  │
+      │                                  │      agg.add(tuple)   │
+┌─────▼─────┐                            │      emit(result)     │
+│  Filter   │ ◄── next()                 │                       │
+└─────┬─────┘                            │  All operators fused  │
+      │                                  │  into one tight loop! │
+┌─────▼─────┐                            └───────────────────────┘
+│  Aggregate│ ◄── next()
+└─────┬─────┘
+      │
+┌─────▼─────┐
+│   Scan    │
+└───────────┘
+
+Many virtual calls,               Single compiled function,
+data through memory               data in CPU registers
+</code></pre>
+<h3 id="the-produce-consume-model">The Produce/Consume Model</h3>
+<p>Each operator implements <strong>two code generation functions</strong>:</p>
+<pre><code data-lang="cpp">class Operator {
+    // Generate code to produce tuples (loop generation)
+    virtual void produce(CodeGenerator&amp; gen) = 0;
+    
+    // Generate code to process one incoming tuple
+    virtual void consume(CodeGenerator&amp; gen, Tuple tuple) = 0;
+};
+</code></pre>
+<p><strong>Example: Scan Operator</strong></p>
+<pre><code data-lang="cpp">class ScanOperator : public Operator {
+    Table* table;
+    Operator* parent;
+    
+    void produce(CodeGenerator&amp; gen) {
+        // Generate loop over table
+        gen.emit(&quot;for (size_t i = 0; i &lt; table_size; i++) {&quot;);
+        gen.emit(&quot;  Tuple tuple = table[i];&quot;);
+        
+        // Tell parent to generate code to consume this tuple
+        parent-&gt;consume(gen, tuple);
+        
+        gen.emit(&quot;}&quot;);
+    }
+    
+    void consume(CodeGenerator&amp; gen, Tuple tuple) {
+        // Scan is leaf, doesn&#39;t consume from children
+    }
+};
+</code></pre>
+<p><strong>Example: Filter Operator</strong></p>
+<pre><code data-lang="cpp">class FilterOperator : public Operator {
+    Predicate pred;
+    Operator* parent;
+    Operator* child;
+    
+    void produce(CodeGenerator&amp; gen) {
+        // Ask child to produce tuples
+        child-&gt;produce(gen);
+    }
+    
+    void consume(CodeGenerator&amp; gen, Tuple tuple) {
+        // Generate filter condition
+        gen.emit(&quot;if (&quot;, pred.toCode(tuple), &quot;) {&quot;);
+        
+        // Tell parent to consume if filter passes
+        parent-&gt;consume(gen, tuple);
+        
+        gen.emit(&quot;}&quot;);
+    }
+};
+</code></pre>
+<p><strong>Example: Aggregation Operator</strong></p>
+<pre><code data-lang="cpp">class HashAggOperator : public Operator {
+    Column groupBy;
+    Aggregates aggs;
+    Operator* parent;
+    Operator* child;
+    
+    void produce(CodeGenerator&amp; gen) {
+        // Build phase: consume from child
+        gen.emit(&quot;HashMap agg_table;&quot;);
+        child-&gt;produce(gen);  // This will call our consume()
+        
+        // Probe phase: iterate over hash table
+        gen.emit(&quot;for (auto&amp; entry : agg_table) {&quot;);
+        gen.emit(&quot;  Tuple result = entry.toTuple();&quot;);
+        parent-&gt;consume(gen, result);
+        gen.emit(&quot;}&quot;);
+    }
+    
+    void consume(CodeGenerator&amp; gen, Tuple tuple) {
+        // Generate aggregation code
+        gen.emit(&quot;auto&amp; entry = agg_table[&quot;, groupBy.toCode(tuple), &quot;];&quot;);
+        gen.emit(&quot;entry.sum += &quot;, aggs.sum.toCode(tuple), &quot;;&quot;);
+        gen.emit(&quot;entry.count++;&quot;);
+    }
+};
+</code></pre>
+<h3 id="generated-llvm-ir-example">Generated LLVM IR Example</h3>
+<p>For the query: <code>SELECT SUM(a) FROM t WHERE b &gt; 10</code></p>
+<p><strong>Generated LLVM IR</strong> (simplified):</p>
+<pre><code data-lang="llvm">define i64 @query_execute(i8* %table_ptr, i64 %table_size) {
+entry:
+  %sum = alloca i64
+  store i64 0, i64* %sum
+  br label %scan_loop
+
+scan_loop:
+  %i = phi i64 [0, %entry], [%next_i, %loop_continue]
+  %tuple_ptr = getelementptr i8, i8* %table_ptr, i64 %i
+  
+  ; Load column &#39;b&#39; (offset 8)
+  %b_ptr = getelementptr i8, i8* %tuple_ptr, i64 8
+  %b = load i64, i64* %b_ptr
+  
+  ; Inlined filter: b &gt; 10
+  %cond = icmp sgt i64 %b, 10
+  br i1 %cond, label %filter_pass, label %loop_continue
+
+filter_pass:
+  ; Load column &#39;a&#39; (offset 0)
+  %a_ptr = getelementptr i8, i8* %tuple_ptr, i64 0
+  %a = load i64, i64* %a_ptr
+  
+  ; Inlined aggregation: sum += a
+  %old_sum = load i64, i64* %sum
+  %new_sum = add i64 %old_sum, %a
+  store i64 %new_sum, i64* %sum
+  br label %loop_continue
+
+loop_continue:
+  %next_i = add i64 %i, 1
+  %done = icmp eq i64 %next_i, %table_size
+  br i1 %done, label %exit, label %scan_loop
+
+exit:
+  %result = load i64, i64* %sum
+  ret i64 %result
+}
+</code></pre>
+<p><strong>After LLVM optimization (-O3), becomes</strong>:</p>
+<pre><code data-lang="asm">; x86-64 assembly (simplified)
+query_execute:
+    xor    %rax, %rax        ; sum = 0
+    xor    %rcx, %rcx        ; i = 0
+.loop:
+    cmp    %rcx, %rsi        ; i &lt; table_size?
+    jge    .exit
+    
+    mov    %rdx, (%rdi,%rcx,8)  ; Load tuple
+    mov    %r8, 8(%rdx)          ; Load b
+    cmp    %r8, 10               ; b &gt; 10?
+    jle    .continue
+    
+    mov    %r9, (%rdx)           ; Load a
+    add    %rax, %r9             ; sum += a
+    
+.continue:
+    inc    %rcx
+    jmp    .loop
+    
+.exit:
+    ret
+</code></pre>
+<p><strong>Benefits of Generated Code</strong>:</p>
+<ul>
+<li>No virtual function calls</li>
+<li>Data stays in CPU registers (%rax, %r8, %r9)</li>
+<li>Tight loop with excellent branch prediction</li>
+<li>Excellent instruction cache utilization (small code size)</li>
+<li>Compiler can apply aggressive optimizations</li>
+</ul>
+<h3 id="umbra-s-innovation-dual-backend-compilation">Umbra's Innovation: Dual-Backend Compilation</h3>
+<p><strong>Problem with LLVM</strong>: Even at -O0, LLVM compilation takes <strong>100-500ms</strong>. For short queries on small data, compilation time &gt; execution time!</p>
+<p><strong>Example</strong>:</p>
+<ul>
+<li>Query: <code>SELECT COUNT(*) FROM small_table</code> (1000 rows)</li>
+<li>LLVM compilation: 200ms</li>
+<li>Execution: 10ms</li>
+<li><strong>Total: 210ms</strong> (95% compilation overhead!)</li>
+</ul>
+<p><strong>Umbra's Solution</strong>: Two compilation backends</p>
+<h4 id="1-umbra-ir-intermediate-representation">1. Umbra IR (Intermediate Representation)</h4>
+<p>Custom IR optimized for database queries:</p>
+<pre><code>// Umbra IR (conceptual example)
+function query_sum_filter():
+    %sum = const i64 0
+    %table = load_table &quot;my_table&quot;
+    %table_size = table_size %table
+    
+    loop %i from 0 to %table_size:
+        %tuple = load_tuple %table, %i
+        %b = extract_column %tuple, 1    ; column index 1
+        
+        ; Conditional branch
+        branch_if_le %b, const 10, label continue
+        
+        %a = extract_column %tuple, 0    ; column index 0
+        %sum = add %sum, %a
+    
+    label continue:
+        ; implicit loop continuation
+    
+    return %sum
+</code></pre>
+<p><strong>Umbra IR Properties</strong>:</p>
+<ul>
+<li>Simpler than LLVM IR (no complex SSA form)</li>
+<li>Database-specific instructions (<code>extract_column</code>, <code>load_tuple</code>)</li>
+<li>Compact representation (cache-friendly)</li>
+<li>Easy to emit from query plans</li>
+</ul>
+<h4 id="2-flying-start-backend-asmjit">2. Flying Start Backend (asmJIT)</h4>
+<p><strong>Single-pass x86 code generation</strong>:</p>
+<pre><code data-lang="cpp">// Conceptual asmJIT code generation
+void generateQuery_FlyingStart(asmjit::x86::Assembler&amp; a, UmbraIR&amp; ir) {
+    using namespace asmjit::x86;
+    
+    Label loop_start = a.newLabel();
+    Label loop_continue = a.newLabel();
+    Label loop_end = a.newLabel();
+    
+    // Initialize
+    a.xor_(rax, rax);                    // sum = 0
+    a.mov(rcx, ptr(table_base));         // table ptr
+    a.xor_(rdx, rdx);                    // i = 0
+    a.mov(r15, qword_ptr(table_size));   // loop limit
+    
+    a.bind(loop_start);
+    a.cmp(rdx, r15);
+    a.jge(loop_end);
+    
+    // Load tuple
+    a.mov(rsi, ptr(rcx, rdx, 3));  // tuple_ptr = table[i]
+    
+    // Load column b (offset 8)
+    a.mov(rdi, ptr(rsi, 8));
+    a.cmp(rdi, 10);
+    a.jle(loop_continue);
+    
+    // Load column a (offset 0)
+    a.mov(rdi, ptr(rsi, 0));
+    a.add(rax, rdi);
+    
+    a.bind(loop_continue);
+    a.inc(rdx);
+    a.jmp(loop_start);
+    
+    a.bind(loop_end);
+    a.ret();
+}
+</code></pre>
+<p><strong>Flying Start Characteristics</strong>:</p>
+<ul>
+<li><strong>Compilation time</strong>: ~1ms</li>
+<li><strong>Code quality</strong>: Similar to LLVM -O0</li>
+<li><strong>No optimizations</strong>: Single pass, no register allocation, no instruction scheduling</li>
+<li><strong>Good enough</strong>: For short queries, execution is fast anyway</li>
+</ul>
+<h4 id="3-llvm-backend-o3">3. LLVM Backend (-O3)</h4>
+<p>Traditional LLVM compilation with full optimizations:</p>
+<ul>
+<li><strong>Compilation time</strong>: 100-500ms</li>
+<li><strong>Code quality</strong>: Highly optimized</li>
+<li><strong>When to use</strong>: Long-running queries where execution &gt;&gt; compilation</li>
+</ul>
+<h3 id="adaptive-execution">Adaptive Execution</h3>
+<p><strong>Umbra's adaptive strategy</strong>:</p>
+<pre><code data-lang="rust">// Conceptual implementation
+struct Query {
+    umbra_ir: UmbraIR,
+    flying_start_code: Option&lt;CompiledCode&gt;,
+    llvm_code: Option&lt;CompiledCode&gt;,
+}
+
+impl Query {
+    fn execute(&amp;mut self) -&gt; Result&lt;ResultSet&gt; {
+        // Phase 1: Compile with Flying Start (~1ms)
+        self.flying_start_code = Some(compile_flying_start(&amp;self.umbra_ir)?);
+        
+        // Phase 2: Start execution with Flying Start
+        let mut result = ResultSet::new();
+        let start_time = Instant::now();
+        
+        let mut rows_processed = 0;
+        loop {
+            // Execute batch
+            let batch = self.flying_start_code.unwrap().execute_batch()?;
+            result.append(batch);
+            rows_processed += batch.len();
+            
+            // Check if we should switch to LLVM
+            let elapsed = start_time.elapsed();
+            if elapsed &gt; Duration::from_millis(50) &amp;&amp; self.llvm_code.is_none() {
+                // Query is taking long enough, compile with LLVM in background
+                self.compile_llvm_async();
+            }
+            
+            if elapsed &gt; Duration::from_millis(200) &amp;&amp; self.llvm_code.is_some() {
+                // LLVM compilation finished, switch!
+                return self.continue_with_llvm(result);
+            }
+            
+            if batch.is_final() {
+                break;
+            }
+        }
+        
+        Ok(result)
+    }
+    
+    fn continue_with_llvm(&amp;self, partial_result: ResultSet) -&gt; Result&lt;ResultSet&gt; {
+        // Transfer state (hash tables, aggregates) to LLVM-compiled code
+        // Continue execution with optimized code
+        self.llvm_code.unwrap().execute_from_state(partial_result)
+    }
+}
+</code></pre>
+<p><strong>Decision Tree</strong>:</p>
+<pre><code>Query arrives
+    │
+    ├─&gt; Compile with Flying Start (~1ms)
+    │
+    ├─&gt; Start execution
+    │
+    ├─&gt; If execution time &lt; 50ms:
+    │   └─&gt; Finish with Flying Start (fast queries)
+    │
+    └─&gt; If execution time &gt; 50ms:
+        ├─&gt; Start LLVM compilation in background
+        │
+        └─&gt; If execution time &gt; 200ms AND LLVM ready:
+            └─&gt; Switch to LLVM code (long queries)
+</code></pre>
+<h3 id="performance-comparison">Performance Comparison</h3>
+<p><strong>Benchmark: TPC-H Query 1 on 1GB dataset</strong></p>
+<table><thead><tr><th>Backend</th><th>Compilation Time</th><th>Execution Time</th><th>Total Time</th></tr></thead><tbody>
+<tr><td>Flying Start</td><td>1ms</td><td>245ms</td><td><strong>246ms</strong></td></tr>
+<tr><td>LLVM -O0</td><td>180ms</td><td>190ms</td><td>370ms</td></tr>
+<tr><td>LLVM -O3</td><td>380ms</td><td>89ms</td><td>469ms</td></tr>
+<tr><td>PostgreSQL (interpreted)</td><td>0ms</td><td>1,850ms</td><td>1,850ms</td></tr>
+</tbody></table>
+<p><strong>Analysis</strong>:</p>
+<ul>
+<li>For this query, Flying Start wins (fastest total time)</li>
+<li>If query ran 10x longer, LLVM -O3 would win</li>
+<li>Umbra adaptively chooses the best approach</li>
+</ul>
+<h3 id="pipeline-breakers-and-code-organization">Pipeline Breakers and Code Organization</h3>
+<p><strong>Pipeline</strong>: Sequence of operators where tuples flow through without materialization.</p>
+<p><strong>Pipeline Breakers</strong>: Operators that require full materialization:</p>
+<ul>
+<li>Hash Join (build side)</li>
+<li>Hash Aggregation</li>
+<li>Sort</li>
+<li>Window Functions</li>
+</ul>
+<p><strong>Example Query</strong>:</p>
+<pre><code data-lang="sql">SELECT o.customer, SUM(o.total)
+FROM orders o
+JOIN customers c ON o.customer_id = c.id
+WHERE o.date &gt; &#39;2024-01-01&#39;
+GROUP BY o.customer
+ORDER BY SUM(o.total) DESC;
+</code></pre>
+<p><strong>Pipeline Breakdown</strong>:</p>
+<pre><code>Pipeline 1 (Build Hash Table for Join):
+    Scan orders
+    ├─&gt; Filter (date &gt; &#39;2024-01-01&#39;)
+    └─&gt; Build hash table
+    [MATERIALIZES]
+
+Pipeline 2 (Probe and Aggregate):
+    Scan customers
+    ├─&gt; Probe hash table (join)
+    └─&gt; Hash aggregate (SUM, GROUP BY)
+    [MATERIALIZES]
+
+Pipeline 3 (Sort):
+    Sort by SUM(o.total) DESC
+    [MATERIALIZES]
+
+Pipeline 4 (Output):
+    Output results
+</code></pre>
+<p>Each pipeline = one generated function. Total: 4 compiled functions for this query.</p>
+<hr />
+<h2 id="buffer-management-and-memory">Buffer Management and Memory</h2>
+<h3 id="traditional-buffer-manager-problems">Traditional Buffer Manager Problems</h3>
+<p>PostgreSQL-style buffer manager:</p>
+<pre><code data-lang="cpp">Page* getPage(PageID pid) {
+    lock(buffer_pool_lock);              // Global lock contention!
+    
+    BufferDescriptor* desc = hashLookup(pid);  // Hash table lookup
+    if (desc == nullptr) {
+        desc = evictPage();              // Find victim, write if dirty
+        desc = loadPage(pid);            // Read from disk
+    }
+    
+    pin(desc);                           // Increment pin count
+    unlock(buffer_pool_lock);
+    
+    return desc-&gt;page;
+}
+</code></pre>
+<p><strong>Problems</strong>:</p>
+<ol>
+<li><strong>Global lock contention</strong>: All cores contend on buffer_pool_lock</li>
+<li><strong>Expensive hash table lookup</strong>: Every page access pays this cost</li>
+<li><strong>Page ID to pointer translation</strong>: Indirection overhead</li>
+<li><strong>Complexity</strong>: Reference counting, pin/unpin, dirty tracking</li>
+</ol>
+<p><strong>Measured Overhead</strong>: On modern multi-core systems, buffer pool overhead can be <strong>30-50% of total execution time</strong> for memory-resident workloads!</p>
+<h3 id="leanstore-pointer-swizzling">LeanStore: Pointer Swizzling</h3>
+<p><strong>Revolutionary Idea</strong>: Embed swizzled/unswizzled state directly in pointers.</p>
+<pre><code data-lang="cpp">// Swizzled pointer structure
+union SwizzledPointer {
+    struct {
+        uint64_t is_swizzled : 1;    // Bit 0: in memory?
+        uint64_t value : 63;          // Pointer (if swizzled) or PageID (if not)
+    };
+    void* raw_ptr;  // Direct interpretation
+};
+</code></pre>
+<p><strong>Access Pattern</strong>:</p>
+<pre><code data-lang="cpp">Page* accessPage(SwizzledPointer&amp; sp) {
+    if (likely(sp.is_swizzled)) {
+        // Hot path: page already in memory
+        // Just clear the swizzle bit and dereference
+        return (Page*)(sp.raw_ptr &amp; ~1ULL);  // Clear bit 0
+    } else {
+        // Cold path: page on disk
+        PageID pid = sp.value;
+        Page* page = loadFromDisk(pid);
+        
+        // Swizzle the pointer
+        sp.raw_ptr = (uint64_t)page | 1;  // Set bit 0
+        
+        return page;
+    }
+}
+</code></pre>
+<p><strong>Key Insight</strong>: On x86-64, pointers are always 8-byte aligned, so bit 0 is always 0 for valid pointers. We can use it to encode state!</p>
+<p><strong>Benefits</strong>:</p>
+<ol>
+<li><strong>No global hash table</strong>: Each pointer is self-describing</li>
+<li><strong>Single bit check</strong>: <code>sp.raw_ptr &amp; 1</code> is incredibly fast</li>
+<li><strong>Branch prediction</strong>: Hot pages always take the same branch (swizzled)</li>
+<li><strong>Decentralized</strong>: No global lock needed</li>
+</ol>
+<p><strong>Eviction via Unswizzling</strong>:</p>
+<pre><code data-lang="cpp">void evictPage(Page* page) {
+    // Write to disk if dirty
+    if (page-&gt;dirty) {
+        writeToDisk(page-&gt;page_id, page);
+    }
+    
+    // Find all pointers to this page (tracked in parent nodes)
+    for (SwizzledPointer* sp : page-&gt;parent_pointers) {
+        // Unswizzle: convert pointer back to page ID
+        sp-&gt;is_swizzled = 0;
+        sp-&gt;value = page-&gt;page_id;
+    }
+    
+    // Free memory
+    freePage(page);
+}
+</code></pre>
+<p><strong>Challenge</strong>: How do we know which pointers point to a page? <strong>Answer</strong>: Parent pointers are tracked in page metadata.</p>
+<h3 id="umbra-s-variable-size-pages">Umbra's Variable-Size Pages</h3>
+<p><strong>Traditional Fixed Pages Problems</strong>:</p>
+<ul>
+<li><strong>Small objects</strong>: Waste space (e.g., 100-byte object in 8KB page)</li>
+<li><strong>Large objects</strong>: Span many pages, complex indirection</li>
+<li><strong>I/O inefficiency</strong>: Many small reads instead of fewer large reads</li>
+</ul>
+<p><strong>Umbra's Solution</strong>: Power-of-two size classes</p>
+<pre><code data-lang="cpp">constexpr size_t SIZE_CLASSES[] = {
+    64 * 1024,       // 64KB   - Class 0
+    128 * 1024,      // 128KB  - Class 1
+    256 * 1024,      // 256KB  - Class 2
+    512 * 1024,      // 512KB  - Class 3
+    1024 * 1024,     // 1MB    - Class 4
+    2048 * 1024,     // 2MB    - Class 5
+    // ... up to buffer pool size
+};
+
+struct SizeClass {
+    void* base_address;      // Start of mmap&#39;d region
+    size_t page_size;        // Size of pages in this class
+    Bitmap free_pages;       // Which pages are free
+    
+    void* allocatePage() {
+        size_t idx = free_pages.findAndClear();
+        if (idx == Bitmap::NPOS) {
+            return nullptr;  // No free pages in this class
+        }
+        return (char*)base_address + idx * page_size;
+    }
+    
+    void freePage(void* page) {
+        size_t idx = ((char*)page - (char*)base_address) / page_size;
+        free_pages.set(idx);
+    }
+};
+</code></pre>
+<p><strong>Implementation with mmap</strong>:</p>
+<pre><code data-lang="cpp">// Initialize buffer pool
+void BufferManager::initialize(size_t total_size) {
+    for (int class_idx = 0; class_idx &lt; NUM_SIZE_CLASSES; class_idx++) {
+        size_t page_size = SIZE_CLASSES[class_idx];
+        size_t num_pages = total_size / (page_size * NUM_SIZE_CLASSES);
+        
+        // Allocate virtual address space (NOT physical memory yet!)
+        void* segment = mmap(
+            nullptr,
+            num_pages * page_size,
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE,  // Reserve virtual only
+            -1, 0
+        );
+        
+        size_classes[class_idx] = SizeClass {
+            .base_address = segment,
+            .page_size = page_size,
+            .free_pages = Bitmap(num_pages, true)  // All free initially
+        };
+    }
+}
+</code></pre>
+<p><strong>Loading Pages</strong>:</p>
+<pre><code data-lang="cpp">void loadPage(void* addr, int fd, off_t file_offset, size_t size) {
+    // Read from disk (this allocates physical memory via page fault)
+    ssize_t bytes = pread(fd, addr, size, file_offset);
+    
+    // Mark as present
+    // (Physical memory now allocated by kernel)
+}
+</code></pre>
+<p><strong>Evicting Pages</strong>:</p>
+<pre><code data-lang="cpp">void evictPage(void* addr, int fd, off_t file_offset, size_t size, bool dirty) {
+    if (dirty) {
+        // Write to disk
+        pwrite(fd, addr, size, file_offset);
+    }
+    
+    // Tell kernel to release physical memory
+    madvise(addr, size, MADV_DONTNEED);
+    
+    // Virtual address still reserved!
+    // Next access will page fault and re-load from disk
+}
+</code></pre>
+<p><strong>Benefits</strong>:</p>
+<ol>
+<li><strong>Large pages for large objects</strong>: No spanning, simpler code</li>
+<li><strong>Efficient I/O</strong>: Single 256KB read vs. 32x 8KB reads</li>
+<li><strong>Virtual memory management</strong>: Kernel handles physical allocation</li>
+<li><strong>Flexible</strong>: Can allocate exactly the size needed</li>
+</ol>
+<h3 id="memory-allocation-for-query-processing">Memory Allocation for Query Processing</h3>
+<p><strong>Problem</strong>: <code>malloc</code>/<code>free</code> per tuple is too slow.</p>
+<p><strong>Solution</strong>: Arena/region-based allocation</p>
+<pre><code data-lang="cpp">class QueryArena {
+    static constexpr size_t BLOCK_SIZE = 1024 * 1024;  // 1MB
+    
+    char* current_block;
+    size_t offset;
+    std::vector&lt;char*&gt; blocks;
+    
+public:
+    void* allocate(size_t size) {
+        // Simple bump allocation
+        size = align8(size);
+        
+        if (offset + size &gt; BLOCK_SIZE) {
+            // Allocate new block
+            current_block = new char[BLOCK_SIZE];
+            blocks.push_back(current_block);
+            offset = 0;
+        }
+        
+        void* ptr = current_block + offset;
+        offset += size;
+        return ptr;
+    }
+    
+    void reset() {
+        // Free all blocks at once when query completes
+        for (char* block : blocks) {
+            delete[] block;
+        }
+        blocks.clear();
+        current_block = nullptr;
+        offset = 0;
+    }
+    
+    ~QueryArena() {
+        reset();
+    }
+};
+</code></pre>
+<p><strong>Benefits</strong>:</p>
+<ul>
+<li><strong>Fast allocation</strong>: Bump pointer, no search</li>
+<li><strong>No fragmentation</strong>: Consecutive allocations are contiguous</li>
+<li><strong>Bulk deallocation</strong>: Free entire arena at once</li>
+<li><strong>Cache-friendly</strong>: Allocated objects are close in memory</li>
+</ul>
+<p><strong>Usage</strong>:</p>
+<pre><code data-lang="cpp">void executeQuery(Query&amp; q) {
+    QueryArena arena;
+    
+    // Use arena for all allocations during query
+    HashTable* ht = arena.allocate&lt;HashTable&gt;();
+    for (Tuple t : scan_table()) {
+        Entry* e = arena.allocate&lt;Entry&gt;();
+        // ...
+    }
+    
+    // Everything freed automatically when arena goes out of scope
+}
+</code></pre>
+<hr />
+<h2 id="parallelism-and-execution">Parallelism and Execution</h2>
+<h3 id="morsel-driven-parallelism">Morsel-Driven Parallelism</h3>
+<p><strong>Traditional Parallel Query Execution</strong> (Volcano/Exchange):</p>
+<pre><code>┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│  Worker 1    │    │  Worker 2    │    │  Worker 3    │
+│  (Partition  │    │  (Partition  │    │  (Partition  │
+│   0-33%)     │    │   33-66%)    │    │   66-100%)   │
+└──────────────┘    └──────────────┘    └──────────────┘
+        │                   │                   │
+        └───────────────────┴───────────────────┘
+                            │
+                     ┌──────▼──────┐
+                     │   Exchange  │
+                     │   (Merge)   │
+                     └─────────────┘
+</code></pre>
+<p><strong>Problems</strong>:</p>
+<ul>
+<li><strong>Fixed parallelism</strong>: Baked into query plan</li>
+<li><strong>Load imbalance</strong>: Some partitions larger than others</li>
+<li><strong>No elasticity</strong>: Can't add/remove workers dynamically</li>
+</ul>
+<p><strong>Morsel-Driven Approach</strong> (HyPer/Umbra/CedarDB):</p>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│                      Dispatcher                              │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │ Query 1, Pipeline 2: [████████░░░░░░░░] 50% (45/90)     ││
+│  │ Query 2, Pipeline 1: [██████████████░░] 87% (87/100)    ││
+│  │ Query 3, Pipeline 3: [██░░░░░░░░░░░░░░] 13% (2/15)      ││
+│  └─────────────────────────────────────────────────────────┘│
+│                          │                                   │
+│         ┌────────────────┼────────────────┐                 │
+│         ▼                ▼                ▼                 │
+│  ┌────────────┐   ┌────────────┐   ┌────────────┐          │
+│  │  Worker 0  │   │  Worker 1  │   │  Worker 2  │  ...     │
+│  │  (NUMA 0)  │   │  (NUMA 0)  │   │  (NUMA 1)  │          │
+│  │            │   │            │   │            │          │
+│  │  Current:  │   │  Current:  │   │  Current:  │          │
+│  │  Q1.P2.M45 │   │  Q2.P1.M88 │   │  Q1.P2.M46 │          │
+│  └────────────┘   └────────────┘   └────────────┘          │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<p><strong>Key Concepts</strong>:</p>
+<ol>
+<li>
+<p><strong>Morsel</strong>: Small unit of work</p>
+<ul>
+<li>Typically 10,000-100,000 tuples</li>
+<li>Small enough for cache locality</li>
+<li>Large enough to amortize overhead</li>
+</ul>
+</li>
+<li>
+<p><strong>Pipeline Job</strong>: Work for one pipeline of one query</p>
+<ul>
+<li>Contains array of morsels</li>
+<li>Shared state (hash tables, aggregates)</li>
+<li>Atomic counter for next morsel</li>
+</ul>
+</li>
+<li>
+<p><strong>Dispatcher</strong>: Centralized work coordinator</p>
+<ul>
+<li>Tracks all active pipeline jobs</li>
+<li>Assigns morsels to workers</li>
+<li>NUMA-aware scheduling</li>
+</ul>
+</li>
+</ol>
+<p><strong>Implementation</strong>:</p>
+<pre><code data-lang="cpp">struct Morsel {
+    Table* table;
+    size_t start_row;
+    size_t end_row;      // Typically start + 10,000
+};
+
+struct PipelineJob {
+    CompiledPipeline* code;              // Generated function pointer
+    std::atomic&lt;size_t&gt; next_morsel_idx; // Which morsel to process next
+    std::vector&lt;Morsel&gt; morsels;         // All morsels for this pipeline
+    void* shared_state;                  // Hash tables, aggregates, etc.
+    int preferred_numa_node;             // Data locality hint
+};
+
+class Worker {
+    int worker_id;
+    int numa_node;
+    
+    void run() {
+        while (true) {
+            // Get work from dispatcher
+            PipelineJob* job = dispatcher.getWork(numa_node);
+            if (job == nullptr) {
+                // No work available, sleep briefly
+                std::this_thread::sleep_for(std::chrono::microseconds(100));
+                continue;
+            }
+            
+            // Claim a morsel atomically
+            size_t idx = job-&gt;next_morsel_idx.fetch_add(1, std::memory_order_relaxed);
+            
+            if (idx &gt;= job-&gt;morsels.size()) {
+                // This pipeline is complete
+                job-&gt;markComplete();
+                continue;
+            }
+            
+            Morsel&amp; m = job-&gt;morsels[idx];
+            
+            // Execute compiled pipeline code on this morsel
+            job-&gt;code-&gt;execute(
+                m.table,
+                m.start_row,
+                m.end_row,
+                job-&gt;shared_state,
+                worker_id
+            );
+        }
+    }
+};
+</code></pre>
+<p><strong>NUMA-Aware Scheduling</strong>:</p>
+<pre><code data-lang="cpp">class Dispatcher {
+    // Per-NUMA-node job queues
+    std::vector&lt;std::deque&lt;PipelineJob*&gt;&gt; numa_queues;
+    std::vector&lt;std::mutex&gt; numa_locks;
+    
+    PipelineJob* getWork(int worker_numa_node) {
+        // 1. Try to get work from local NUMA node
+        {
+            std::lock_guard&lt;std::mutex&gt; lock(numa_locks[worker_numa_node]);
+            if (!numa_queues[worker_numa_node].empty()) {
+                PipelineJob* job = numa_queues[worker_numa_node].front();
+                // Don&#39;t remove from queue yet (multiple workers can work on same job)
+                return job;
+            }
+        }
+        
+        // 2. Try work stealing from other NUMA nodes
+        for (int remote_node = 0; remote_node &lt; numa_queues.size(); remote_node++) {
+            if (remote_node == worker_numa_node) continue;
+            
+            std::lock_guard&lt;std::mutex&gt; lock(numa_locks[remote_node]);
+            if (!numa_queues[remote_node].empty()) {
+                PipelineJob* job = numa_queues[remote_node].back();  // Steal from back
+                return job;
+            }
+        }
+        
+        return nullptr;  // No work available
+    }
+    
+    void submitJob(PipelineJob* job) {
+        // Submit to queue matching data&#39;s NUMA node
+        std::lock_guard&lt;std::mutex&gt; lock(numa_locks[job-&gt;preferred_numa_node]);
+        numa_queues[job-&gt;preferred_numa_node].push_back(job);
+    }
+};
+</code></pre>
+<p><strong>Benefits</strong>:</p>
+<ul>
+<li><strong>Elastic parallelism</strong>: Workers can join/leave at any time</li>
+<li><strong>Automatic load balancing</strong>: Fast workers get more morsels</li>
+<li><strong>NUMA locality</strong>: Prefer local work, steal remote when needed</li>
+<li><strong>Inter-query parallelism</strong>: Multiple queries share worker pool</li>
+<li><strong>Intra-query parallelism</strong>: Single query uses multiple workers</li>
+</ul>
+<h3 id="parallel-hash-table-operations">Parallel Hash Table Operations</h3>
+<p><strong>Challenge</strong>: Multiple workers inserting into hash table simultaneously.</p>
+<p><strong>Solution</strong>: Lock-free hash table for aggregation</p>
+<pre><code data-lang="cpp">struct HashEntry {
+    std::atomic&lt;uint64_t&gt; key;
+    std::atomic&lt;int64_t&gt; sum;
+    std::atomic&lt;int64_t&gt; count;
+    // Padding to avoid false sharing
+    char padding[64 - sizeof(uint64_t) - 2*sizeof(int64_t)];
+};
+
+class ParallelHashTable {
+    HashEntry* entries;
+    size_t mask;  // Size - 1, for fast modulo
+    
+public:
+    void insert(uint64_t key, int64_t value) {
+        size_t idx = hash(key) &amp; mask;
+        
+        while (true) {
+            uint64_t expected = 0;
+            
+            // Try to claim empty slot
+            if (entries[idx].key.compare_exchange_strong(
+                    expected, key, 
+                    std::memory_order_acquire,
+                    std::memory_order_relaxed)) {
+                // Successfully claimed slot, initialize
+                entries[idx].sum.store(value, std::memory_order_relaxed);
+                entries[idx].count.store(1, std::memory_order_release);
+                return;
+            }
+            
+            // Slot occupied - check if it&#39;s our key
+            if (expected == key) {
+                // Our key already present, aggregate
+                entries[idx].sum.fetch_add(value, std::memory_order_relaxed);
+                entries[idx].count.fetch_add(1, std::memory_order_relaxed);
+                return;
+            }
+            
+            // Collision with different key, linear probe
+            idx = (idx + 1) &amp; mask;
+        }
+    }
+};
+</code></pre>
+<p><strong>Key Points</strong>:</p>
+<ul>
+<li><strong>Lock-free</strong>: Uses compare-and-swap, no mutexes</li>
+<li><strong>False sharing prevention</strong>: Entries padded to cache line (64 bytes)</li>
+<li><strong>Linear probing</strong>: Simple and cache-friendly</li>
+</ul>
+<hr />
+<p>(Continuing in next message due to length...)</p>
+<h2 id="storage-and-indexing">Storage and Indexing</h2>
+<h3 id="adaptive-radix-tree-art">Adaptive Radix Tree (ART)</h3>
+<p><strong>Paper</strong>: "The Adaptive Radix Tree: ARTful Indexing for Main-Memory Databases" (Viktor Leis et al., ICDE 2013)</p>
+<p><strong>Motivation</strong>: Traditional B-tree indexes were designed for disk-based systems:</p>
+<ul>
+<li>Binary search per node: O(log fanout) comparisons</li>
+<li>Random memory accesses within nodes</li>
+<li>Large node sizes (4KB pages) for disk efficiency</li>
+<li><strong>Result</strong>: Cache-unfriendly for in-memory workloads</li>
+</ul>
+<p><strong>ART Key Insight</strong>: Use <strong>radix tree</strong> traversal (one byte at a time) with <strong>adaptive node sizes</strong>.</p>
+<p><strong>Radix Tree Basics</strong>:</p>
+<pre><code>Key: &quot;hello&quot; -&gt; Bytes: [0x68, 0x65, 0x6C, 0x6C, 0x6F]
+
+                    Root (Node256)
+                         │
+              Byte 0x68 (&#39;h&#39;)
+                         │
+                    Node48
+                         │
+              Byte 0x65 (&#39;e&#39;)
+                         │
+                    Node16
+                    /    \
+        Byte 0x6C (&#39;l&#39;)  Byte 0x69 (&#39;i&#39;)
+              │                │
+           Node4           (other subtree)
+              │
+    Byte 0x6C (&#39;l&#39;)
+              │
+           Node4
+              │
+    Byte 0x6F (&#39;o&#39;)
+              │
+         [Value Pointer]
+</code></pre>
+<p><strong>Complexity</strong>: O(k) where k = key length (independent of number of keys!)</p>
+<p><strong>Adaptive Node Types</strong>:</p>
+<pre><code data-lang="cpp">// Node4: For 1-4 children (most common case!)
+struct Node4 {
+    uint8_t count;           // How many children
+    uint8_t keys[4];         // Partial keys (sorted)
+    Node* children[4];       // Child pointers
+};
+// Size: 1 + 4 + 32 = 37 bytes (fits in single cache line)
+
+// Node16: For 5-16 children
+struct Node16 {
+    uint8_t count;
+    uint8_t keys[16];        // SIMD comparison possible
+    Node* children[16];
+};
+// Size: 1 + 16 + 128 = 145 bytes (3 cache lines)
+
+// Node48: For 17-48 children
+struct Node48 {
+    uint8_t child_index[256];  // Key byte -&gt; child slot (or 255 = empty)
+    Node* children[48];
+};
+// Size: 256 + 384 = 640 bytes
+
+// Node256: For 49-256 children
+struct Node256 {
+    Node* children[256];  // Direct indexing
+};
+// Size: 2048 bytes
+</code></pre>
+<p><strong>Why Adaptive?</strong></p>
+<ul>
+<li>Most inner nodes have few children → Node4/Node16 (cache-efficient)</li>
+<li>Dense nodes use Node48/Node256 (access-efficient)</li>
+<li>Grows/shrinks as children are added/removed</li>
+</ul>
+<p><strong>SIMD Optimization for Node16</strong>:</p>
+<pre><code data-lang="cpp">Node* Node16::lookup(uint8_t key) {
+    // Load all 16 keys into SSE register
+    __m128i keys_vec = _mm_loadu_si128((__m128i*)keys);
+    
+    // Broadcast search key to all 16 positions
+    __m128i key_vec = _mm_set1_epi8(key);
+    
+    // Compare all 16 keys in parallel
+    __m128i cmp = _mm_cmpeq_epi8(keys_vec, key_vec);
+    
+    // Convert comparison result to bitmask
+    int mask = _mm_movemask_epi8(cmp);
+    
+    if (mask) {
+        // Find first set bit (index of matching key)
+        int idx = __builtin_ctz(mask);
+        return children[idx];
+    }
+    
+    return nullptr;  // Not found
+}
+</code></pre>
+<p><strong>16 comparisons in ~3 CPU cycles!</strong></p>
+<p><strong>Path Compression</strong>:</p>
+<p>To reduce tree height, ART uses <strong>pessimistic path compression</strong>:</p>
+<pre><code data-lang="cpp">struct Node4 {
+    uint8_t count;
+    uint8_t keys[4];
+    Node* children[4];
+    
+    // Path compression
+    uint32_t prefix_len;         // How many bytes compressed
+    uint8_t prefix[MAX_PREFIX];  // Compressed bytes
+};
+
+// Example: Keys &quot;testing&quot;, &quot;tested&quot;, &quot;tester&quot; share prefix &quot;test&quot;
+// Instead of 4 nodes for t-&gt;e-&gt;s-&gt;t, store prefix &quot;test&quot; and continue from &#39;i&#39;,&#39;e&#39;,&#39;r&#39;
+</code></pre>
+<p><strong>Benefits of ART</strong>:</p>
+<ul>
+<li>O(k) lookup (k = key length, independent of dataset size)</li>
+<li>Cache-efficient (small nodes fit in cache lines)</li>
+<li>Space-efficient (adaptive node sizes)</li>
+<li>No rebalancing needed</li>
+<li>Supports efficient range scans</li>
+</ul>
+<p><strong>Performance</strong>:</p>
+<ul>
+<li>Point lookup: <strong>2-3x faster</strong> than B-tree for in-memory workloads</li>
+<li>Range scan: <strong>Similar</strong> to B-tree</li>
+<li>Insert/Delete: <strong>Faster</strong> (no rebalancing)</li>
+</ul>
+<h3 id="hybrid-row-column-storage-colibri">Hybrid Row-Column Storage: Colibri</h3>
+<p><strong>Paper</strong>: "Umbra: A Disk-Based System with In-Memory Performance" (CIDR 2020)</p>
+<p><strong>Problem</strong>: HTAP workloads need both:</p>
+<ul>
+<li><strong>Row store</strong>: Fast point lookups, updates (OLTP)</li>
+<li><strong>Column store</strong>: Fast scans, aggregations (OLAP)</li>
+</ul>
+<p><strong>Colibri Solution</strong>: Hybrid storage with <strong>hot/cold separation</strong></p>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│                   Hot Partition (Row Store)                 │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │  Recent Modifications (last N rows or last T minutes)   ││
+│  │                                                          ││
+│  │  Row 1: [id=1001, name=&quot;Alice&quot;, age=30, city=&quot;NYC&quot;]     ││
+│  │  Row 2: [id=1002, name=&quot;Bob&quot;,   age=25, city=&quot;LA&quot;]      ││
+│  │  Row 3: [id=1003, name=&quot;Carol&quot;, age=35, city=&quot;SF&quot;]      ││
+│  │  ...                                                     ││
+│  │                                                          ││
+│  │  Format: Uncompressed row-oriented storage               ││
+│  │  Access: O(1) point lookup, fast updates                ││
+│  └─────────────────────────────────────────────────────────┘│
+│                          │                                   │
+│                    Background Thread                         │
+│                    (Compaction Worker)                       │
+│                          ▼                                   │
+│                   Cold Partition (Column Store)              │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │  Block 1 (rows 0-99,999):                               ││
+│  │    Column &quot;id&quot;:   [████████] (compressed, sorted)       ││
+│  │    Column &quot;name&quot;: [████████] (dictionary encoded)       ││
+│  │    Column &quot;age&quot;:  [████████] (frame-of-reference)       ││
+│  │    Column &quot;city&quot;: [████████] (dictionary encoded)       ││
+│  │                                                          ││
+│  │  Block 2 (rows 100,000-199,999):                        ││
+│  │    Column &quot;id&quot;:   [████████]                            ││
+│  │    ...                                                   ││
+│  │                                                          ││
+│  │  Format: Compressed columnar blocks                      ││
+│  │  Access: Fast scans, high compression ratio             ││
+│  └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<p><strong>Access Patterns</strong>:</p>
+<pre><code data-lang="cpp">// OLTP query: Point lookup
+SELECT * FROM users WHERE id = 1002;
+// → Check hot partition first (fast row lookup)
+// → If not found, binary search in cold partition&#39;s id column
+
+// OLAP query: Aggregation
+SELECT city, AVG(age) FROM users GROUP BY city;
+// → Scan cold partition (columnar, compressed)
+// → Scan hot partition (small, recent data)
+// → Merge results
+</code></pre>
+<p><strong>Background Compaction</strong>:</p>
+<pre><code data-lang="cpp">void compactionWorker() {
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::seconds(60));
+        
+        // Check if hot partition is large enough
+        if (hot_partition.size() &gt; COMPACTION_THRESHOLD) {
+            // 1. Take snapshot of hot partition
+            auto snapshot = hot_partition.snapshot();
+            
+            // 2. Convert to columnar format
+            ColumnarBlock block = convertToColumnar(snapshot);
+            
+            // 3. Compress each column
+            for (auto&amp; col : block.columns) {
+                col.compress();
+            }
+            
+            // 4. Write to cold partition
+            cold_partition.append(block);
+            
+            // 5. Remove from hot partition
+            hot_partition.removeOldest(snapshot.size());
+        }
+    }
+}
+</code></pre>
+<p><strong>Benefits</strong>:</p>
+<ul>
+<li><strong>Fast OLTP</strong>: Recent data in row store</li>
+<li><strong>Fast OLAP</strong>: Bulk data in compressed column store</li>
+<li><strong>Automatic optimization</strong>: Background compaction</li>
+<li><strong>Transparent</strong>: Query processor handles both partitions</li>
+</ul>
+<hr />
+<h2 id="mvcc-and-transaction-processing">MVCC and Transaction Processing</h2>
+<h3 id="hyper-s-virtual-memory-mvcc">HyPer's Virtual Memory MVCC</h3>
+<p><strong>Paper</strong>: "Fast Serializable Multi-Version Concurrency Control for Main-Memory Database Systems" (Muhlbauer et al., SIGMOD 2015)</p>
+<p><strong>Revolutionary Idea</strong>: Use OS <strong>fork()</strong> for snapshot isolation.</p>
+<pre><code data-lang="cpp">class HyPerMVCC {
+    void* database_memory;  // Main database (OLTP process)
+    
+    pid_t createSnapshot() {
+        pid_t pid = fork();
+        
+        if (pid == 0) {
+            // Child process: OLAP query execution
+            // Has copy-on-write snapshot of entire database
+            // Sees consistent state at fork() time
+            return 0;
+        }
+        
+        // Parent process: continues OLTP
+        return pid;
+    }
+};
+</code></pre>
+<p><strong>Copy-on-Write Mechanics</strong>:</p>
+<pre><code>Before OLTP write:                After OLTP write to Page 2:
+
+┌─────────────────┐              ┌─────────────────┐
+│  Parent (OLTP)  │              │  Parent (OLTP)  │
+│  Page Table:    │              │  Page Table:    │
+│  Page 1 -&gt; 0xA  │              │  Page 1 -&gt; 0xA  │
+│  Page 2 -&gt; 0xB  │──────────────│  Page 2 -&gt; 0xB&#39; │ (new copy!)
+│  Page 3 -&gt; 0xC  │              │  Page 3 -&gt; 0xC  │
+└─────────────────┘              └─────────────────┘
+                                          │
+┌─────────────────┐              ┌───────▼─────────┐
+│  Child (OLAP)   │              │  Child (OLAP)   │
+│  Page Table:    │              │  Page Table:    │
+│  Page 1 -&gt; 0xA  │              │  Page 1 -&gt; 0xA  │
+│  Page 2 -&gt; 0xB  │──────────────│  Page 2 -&gt; 0xB  │ (still old!)
+│  Page 3 -&gt; 0xC  │              │  Page 3 -&gt; 0xC  │
+└─────────────────┘              └─────────────────┘
+
+OS automatically creates copy of Page 2 only when written
+Child continues to see old version
+</code></pre>
+<p><strong>Benefits</strong>:</p>
+<ol>
+<li><strong>Zero-cost snapshot creation</strong>: fork() is very fast (~100μs)</li>
+<li><strong>Perfect isolation</strong>: Process boundary provides separation</li>
+<li><strong>OS manages memory</strong>: Copy-on-write handled by kernel</li>
+<li><strong>No version chains</strong>: Each snapshot is independent</li>
+</ol>
+<p><strong>Limitations</strong>:</p>
+<ol>
+<li><strong>Process overhead</strong>: Each OLAP query needs a process</li>
+<li><strong>Memory duplication</strong>: Write-heavy OLTP duplicates many pages</li>
+<li><strong>Limited to single machine</strong>: Can't distribute across nodes</li>
+</ol>
+<p><strong>Serializable Snapshot Isolation</strong>:</p>
+<p>HyPer extends basic snapshot isolation to full serializability using <strong>Precision Locking</strong>:</p>
+<pre><code data-lang="cpp">struct Transaction {
+    TransactionID id;
+    ReadSet read_set;        // What was read
+    WriteSet write_set;      // What was written
+    PredicateSet predicates; // Range predicates used
+};
+
+bool validate(Transaction&amp; txn) {
+    // Check for conflicts with concurrent transactions
+    for (auto&amp; other : concurrent_transactions) {
+        // Read-write conflict
+        if (other.write_set.intersects(txn.read_set)) {
+            return false;  // Abort txn
+        }
+        
+        // Predicate conflict (phantom reads)
+        if (other.write_set.satisfies(txn.predicates)) {
+            return false;  // Abort txn
+        }
+    }
+    return true;
+}
+</code></pre>
+<h3 id="umbra-s-mvcc-version-chains">Umbra's MVCC: Version Chains</h3>
+<p><strong>Approach</strong>: Traditional MVCC with <strong>in-place updates</strong> and <strong>undo logging</strong>.</p>
+<pre><code data-lang="cpp">struct TupleHeader {
+    TransactionID created_by;   // Who created this version
+    TransactionID deleted_by;   // Who deleted/updated (0 = not deleted)
+    VersionPointer prev_version; // Link to previous version (undo log)
+    // ... user data follows ...
+};
+
+// Version stored in transaction&#39;s private undo buffer
+struct VersionEntry {
+    TuplePointer tuple_location;  // Which tuple this is for
+    uint16_t modified_columns;    // Bitmask of changed columns
+    char before_image[];          // Old values (only modified columns)
+};
+</code></pre>
+<p><strong>Update Process</strong>:</p>
+<pre><code data-lang="cpp">void updateTuple(TuplePointer ptr, NewValues&amp; new_vals) {
+    // 1. Create version entry in private undo buffer
+    VersionEntry* ve = transaction_undo_buffer.allocate(
+        sizeof(VersionEntry) + size_of_modified_columns(new_vals)
+    );
+    
+    // 2. Copy old values (before-image)
+    ve-&gt;tuple_location = ptr;
+    ve-&gt;modified_columns = new_vals.column_mask;
+    copyOldValues(ptr, ve-&gt;before_image, new_vals.column_mask);
+    
+    // 3. Link into version chain
+    ve-&gt;prev_version = ptr-&gt;prev_version;
+    ptr-&gt;prev_version = ve;
+    
+    // 4. Update tuple in-place with new values
+    ptr-&gt;deleted_by = transaction_id;  // Mark as updated
+    applyNewValues(ptr, new_vals);
+    ptr-&gt;created_by = transaction_id;
+}
+</code></pre>
+<p><strong>Visibility Check</strong>:</p>
+<pre><code data-lang="cpp">bool isVisible(TupleHeader* tuple, Snapshot snapshot) {
+    // Check creation
+    if (!isCommitted(tuple-&gt;created_by)) {
+        // Created by uncommitted transaction
+        if (tuple-&gt;created_by == snapshot.my_txn_id) {
+            return true;  // My own change
+        }
+        return false;  // Not visible yet
+    }
+    
+    if (tuple-&gt;created_by &gt; snapshot.max_visible_txn) {
+        return false;  // Created after my snapshot
+    }
+    
+    // Check deletion
+    if (tuple-&gt;deleted_by != 0) {
+        if (!isCommitted(tuple-&gt;deleted_by)) {
+            return true;  // Deletion not committed yet
+        }
+        if (tuple-&gt;deleted_by &lt;= snapshot.max_visible_txn) {
+            return false;  // Deleted before my snapshot
+        }
+    }
+    
+    return true;  // Visible!
+}
+</code></pre>
+<h3 id="steam-scalable-garbage-collection">Steam: Scalable Garbage Collection</h3>
+<p><strong>Paper</strong>: "Scalable Garbage Collection for In-Memory MVCC Systems" (Bottcher et al., VLDB 2019)</p>
+<p><strong>Problem</strong>: MVCC accumulates old versions that must be cleaned up.</p>
+<p><strong>Traditional Approaches</strong>:</p>
+<ul>
+<li><strong>PostgreSQL VACUUM</strong>: Separate background process, global coordination, can fall behind</li>
+<li><strong>Epoch-based GC</strong>: All-or-nothing cleanup at epoch boundaries</li>
+</ul>
+<p><strong>Steam's Insight</strong>: <strong>Prune eagerly</strong> during normal query processing.</p>
+<pre><code data-lang="cpp">// Every time we traverse a version chain, clean up garbage
+TupleHeader* findVisibleVersion(TuplePointer ptr, Snapshot snapshot) {
+    VersionEntry* current = ptr-&gt;prev_version;
+    VersionEntry* prev = nullptr;
+    
+    while (current != nullptr) {
+        // Check if ANY active transaction might see this version
+        if (isVisibleToAnyTransaction(current)) {
+            // Keep this version
+            prev = current;
+            current = current-&gt;prev_version;
+        } else {
+            // This version is garbage - unlink it
+            if (prev) {
+                prev-&gt;prev_version = current-&gt;prev_version;
+            } else {
+                ptr-&gt;prev_version = current-&gt;prev_version;
+            }
+            
+            // Free memory
+            VersionEntry* to_free = current;
+            current = current-&gt;prev_version;
+            free(to_free);
+        }
+    }
+    
+    // Now find version visible to our snapshot
+    current = ptr-&gt;prev_version;
+    while (current != nullptr &amp;&amp; !isVisible(current, snapshot)) {
+        current = current-&gt;prev_version;
+    }
+    return current;
+}
+
+bool isVisibleToAnyTransaction(VersionEntry* ve) {
+    TransactionID min_active = global_transaction_manager.getMinActiveTransaction();
+    return ve-&gt;created_by &gt;= min_active;
+}
+</code></pre>
+<p><strong>Benefits</strong>:</p>
+<ol>
+<li><strong>Lock-free</strong>: No global locks, purely local operation</li>
+<li><strong>Distributed work</strong>: Every query helps with GC</li>
+<li><strong>No coordination</strong>: No global GC thread needed</li>
+<li><strong>Eager cleanup</strong>: No accumulation of garbage</li>
+</ol>
+<p><strong>Performance</strong>: Steam reduces memory overhead by <strong>30-50%</strong> compared to epoch-based GC.</p>
+<hr />
+<h2 id="compression-techniques">Compression Techniques</h2>
+<h3 id="lightweight-compression-for-olap">Lightweight Compression for OLAP</h3>
+<p><strong>Goal</strong>: High compression ratio with <strong>fast decompression</strong> (decompress at memory bandwidth speed).</p>
+<h3 id="1-dictionary-encoding">1. Dictionary Encoding</h3>
+<p><strong>Best for</strong>: Low-cardinality string columns</p>
+<pre><code data-lang="cpp">// Original data (40 bytes):
+// [&quot;apple&quot;, &quot;banana&quot;, &quot;apple&quot;, &quot;cherry&quot;, &quot;apple&quot;]
+
+// Dictionary (20 bytes):
+// 0: &quot;apple&quot;  (5 bytes)
+// 1: &quot;banana&quot; (6 bytes)
+// 2: &quot;cherry&quot; (6 bytes)
+
+// Encoded data (5 bytes):
+// [0, 1, 0, 2, 0]
+
+// Compression ratio: 8:1
+
+class DictionaryEncoder {
+    std::unordered_map&lt;std::string, uint32_t&gt; dict;
+    std::vector&lt;std::string&gt; reverse_dict;
+    
+    uint32_t encode(const std::string&amp; value) {
+        auto it = dict.find(value);
+        if (it != dict.end()) {
+            return it-&gt;second;
+        }
+        // Add new entry
+        uint32_t code = reverse_dict.size();
+        dict[value] = code;
+        reverse_dict.push_back(value);
+        return code;
+    }
+    
+    const std::string&amp; decode(uint32_t code) const {
+        return reverse_dict[code];
+    }
+};
+</code></pre>
+<p><strong>Query Processing</strong>: Can operate <strong>directly on encoded data</strong>!</p>
+<pre><code data-lang="cpp">// Query: SELECT * FROM t WHERE city = &#39;NYC&#39;
+uint32_t nyc_code = dict[&quot;NYC&quot;];  // Encode once
+
+// Scan encoded column
+for (uint32_t code : encoded_city_column) {
+    if (code == nyc_code) {  // Integer comparison, not string!
+        emit(row);
+    }
+}
+</code></pre>
+<h3 id="2-run-length-encoding-rle">2. Run-Length Encoding (RLE)</h3>
+<p><strong>Best for</strong>: Repeated values (sorted columns, boolean flags)</p>
+<pre><code data-lang="cpp">// Original: [5, 5, 5, 5, 3, 3, 3, 7, 7, 7, 7, 7] (96 bytes for int64)
+// RLE:      [(5,4), (3,3), (7,5)] (24 bytes)
+// Compression ratio: 4:1
+
+struct RLEEntry {
+    int64_t value;
+    uint32_t count;
+};
+
+class RLEColumn {
+    std::vector&lt;RLEEntry&gt; runs;
+    
+    void encode(const std::vector&lt;int64_t&gt;&amp; data) {
+        for (size_t i = 0; i &lt; data.size(); ) {
+            int64_t value = data[i];
+            uint32_t count = 1;
+            
+            // Count consecutive equal values
+            while (i + count &lt; data.size() &amp;&amp; data[i + count] == value) {
+                count++;
+            }
+            
+            runs.push_back({value, count});
+            i += count;
+        }
+    }
+    
+    // Can skip runs during scan!
+    int64_t at(size_t index) {
+        size_t pos = 0;
+        for (auto&amp; run : runs) {
+            if (index &lt; pos + run.count) {
+                return run.value;
+            }
+            pos += run.count;
+        }
+        throw std::out_of_range(&quot;index&quot;);
+    }
+};
+</code></pre>
+<h3 id="3-frame-of-reference-bit-packing">3. Frame-of-Reference + Bit-Packing</h3>
+<p><strong>Best for</strong>: Sequences with small deltas (timestamps, IDs)</p>
+<pre><code data-lang="cpp">// Original timestamps (256 bits = 32 bytes):
+// [1000000, 1000005, 1000003, 1000009]
+
+// Frame-of-reference:
+int64_t reference = 1000000;  // Minimum value
+
+// Deltas (all fit in 4 bits!):
+// [0, 5, 3, 9]
+
+// Bit-packed (16 bits = 2 bytes):
+// 0000 0101 0011 1001
+// Compression ratio: 16:1
+
+class FrameOfReference {
+    int64_t reference;
+    uint8_t bits_per_value;
+    std::vector&lt;uint8_t&gt; packed_data;
+    
+    void encode(const std::vector&lt;int64_t&gt;&amp; values) {
+        // Find reference (minimum)
+        reference = *std::min_element(values.begin(), values.end());
+        
+        // Find maximum delta
+        int64_t max_delta = 0;
+        for (int64_t v : values) {
+            max_delta = std::max(max_delta, v - reference);
+        }
+        
+        // Calculate bits needed
+        bits_per_value = 64 - __builtin_clzll(max_delta | 1);
+        
+        // Pack deltas
+        BitWriter writer(packed_data);
+        for (int64_t v : values) {
+            writer.write(v - reference, bits_per_value);
+        }
+    }
+    
+    int64_t decode(size_t index) {
+        BitReader reader(packed_data, index * bits_per_value);
+        int64_t delta = reader.read(bits_per_value);
+        return reference + delta;
+    }
+};
+</code></pre>
+<h3 id="4-lz4-block-compression">4. LZ4 Block Compression</h3>
+<p><strong>Best for</strong>: Cold data, generic compression</p>
+<pre><code data-lang="cpp">// Use LZ4 for entire column blocks
+class CompressedBlock {
+    size_t uncompressed_size;
+    std::vector&lt;char&gt; compressed_data;
+    
+    void compress(const char* data, size_t size) {
+        uncompressed_size = size;
+        int max_dst = LZ4_compressBound(size);
+        compressed_data.resize(max_dst);
+        
+        int compressed_size = LZ4_compress_default(
+            data, compressed_data.data(), 
+            size, max_dst
+        );
+        
+        compressed_data.resize(compressed_size);
+    }
+    
+    void decompress(char* output) {
+        LZ4_decompress_safe(
+            compressed_data.data(), output,
+            compressed_data.size(), uncompressed_size
+        );
+    }
+};
+</code></pre>
+<p><strong>LZ4 Benefits</strong>:</p>
+<ul>
+<li>Decompression: <strong>~3 GB/s</strong> (close to memory bandwidth!)</li>
+<li>Compression ratio: 2-4x for typical data</li>
+<li>Simple algorithm, small code size</li>
+</ul>
+<h3 id="compression-strategy-by-data-type">Compression Strategy by Data Type</h3>
+<table><thead><tr><th>Data Type</th><th>Best Compression</th><th>Typical Ratio</th></tr></thead><tbody>
+<tr><td>Low-cardinality strings</td><td>Dictionary</td><td>5-20x</td></tr>
+<tr><td>High-cardinality strings</td><td>LZ4</td><td>2-4x</td></tr>
+<tr><td>Sorted integers</td><td>RLE + FOR</td><td>10-50x</td></tr>
+<tr><td>Random integers</td><td>Bit-packing</td><td>2-4x</td></tr>
+<tr><td>Timestamps</td><td>Frame-of-reference</td><td>8-16x</td></tr>
+<tr><td>Floating point</td><td>Gorilla (Facebook)</td><td>2-4x</td></tr>
+<tr><td>Booleans</td><td>Bitmap</td><td>8x</td></tr>
+</tbody></table>
+<hr />
+<h2 id="relevance-to-pg-arrow-and-datafusion">Relevance to pg_arrow and DataFusion</h2>
+<h3 id="key-architectural-lessons">Key Architectural Lessons</h3>
+<h4 id="1-batch-oriented-processing">1. Batch-Oriented Processing</h4>
+<p><strong>Lesson from HyPer/Umbra</strong>: Process data in "morsel-sized" batches.</p>
+<p><strong>Application to pg_arrow</strong>:</p>
+<pre><code data-lang="rust">const MORSEL_SIZE: usize = 10_000;  // 10K tuples per batch
+
+fn convert_table_to_arrow(pg_file: &amp;File) -&gt; Vec&lt;RecordBatch&gt; {
+    let mut batches = Vec::new();
+    
+    for page_batch in read_pages_in_batches(pg_file, MORSEL_SIZE) {
+        // Process entire batch at once
+        let batch = convert_page_batch_to_arrow(page_batch);
+        batches.push(batch);
+    }
+    
+    batches
+}
+</code></pre>
+<p><strong>Why MORSEL_SIZE = 10,000?</strong></p>
+<ul>
+<li>Fits in L2/L3 cache (~256KB-8MB)</li>
+<li>Amortizes function call overhead</li>
+<li>Enables SIMD vectorization</li>
+<li>Matches Arrow's batch-oriented design</li>
+</ul>
+<h4 id="2-column-at-a-time-conversion">2. Column-at-a-Time Conversion</h4>
+<p><strong>Lesson from Umbra/HyPer</strong>: Build entire columns, not individual tuples.</p>
+<pre><code data-lang="rust">// BAD: Tuple-by-tuple conversion
+fn convert_tuples_bad(tuples: &amp;[Tuple]) -&gt; RecordBatch {
+    let mut batch_builder = RecordBatchBuilder::new();
+    
+    for tuple in tuples {
+        for (col_idx, value) in tuple.values.iter().enumerate() {
+            batch_builder.append_value(col_idx, value);  // Many function calls
+        }
+    }
+    
+    batch_builder.finish()
+}
+
+// GOOD: Column-by-column conversion
+fn convert_tuples_good(tuples: &amp;[Tuple], schema: &amp;Schema) -&gt; RecordBatch {
+    let mut columns = Vec::new();
+    
+    // Build each column completely
+    for (col_idx, field) in schema.fields().iter().enumerate() {
+        let column = match field.data_type() {
+            DataType::Int32 =&gt; {
+                let mut builder = Int32Builder::with_capacity(tuples.len());
+                
+                // Process all tuples for this column
+                for tuple in tuples {
+                    if tuple.is_null(col_idx) {
+                        builder.append_null();
+                    } else {
+                        builder.append_value(tuple.get_int32(col_idx)?);
+                    }
+                }
+                
+                Arc::new(builder.finish()) as ArrayRef
+            }
+            // ... other types
+        };
+        
+        columns.push(column);
+    }
+    
+    RecordBatch::try_new(schema.clone(), columns)?
+}
+</code></pre>
+<p><strong>Benefits</strong>:</p>
+<ul>
+<li>Enables SIMD (process 8 values at once with AVX2)</li>
+<li>Better cache locality</li>
+<li>Fewer virtual function calls</li>
+</ul>
+<h4 id="3-parallel-page-processing">3. Parallel Page Processing</h4>
+<p><strong>Lesson from Morsel-Driven Parallelism</strong>: Use work-stealing for load balancing.</p>
+<pre><code data-lang="rust">use rayon::prelude::*;
+
+fn parallel_convert_table(pg_file: &amp;Path) -&gt; Result&lt;Vec&lt;RecordBatch&gt;&gt; {
+    // Read all page offsets
+    let page_offsets = get_page_offsets(pg_file)?;
+    
+    // Convert pages in parallel (Rayon uses work-stealing)
+    page_offsets.par_iter()
+        .map(|&amp;offset| {
+            let page = read_page_at_offset(pg_file, offset)?;
+            convert_page_to_arrow(&amp;page)
+        })
+        .collect()
+}
+</code></pre>
+<p><strong>Rayon automatically handles</strong>:</p>
+<ul>
+<li>Work-stealing across cores</li>
+<li>Load balancing</li>
+<li>NUMA awareness (on Linux)</li>
+</ul>
+<h4 id="4-buffer-pool-design">4. Buffer Pool Design</h4>
+<p><strong>Lesson from LeanStore</strong>: Use LRU cache for hot pages.</p>
+<pre><code data-lang="rust">use lru::LruCache;
+use std::sync::{Arc, RwLock};
+
+pub struct PageBufferPool {
+    cache: Arc&lt;RwLock&lt;LruCache&lt;PageKey, Arc&lt;Page&gt;&gt;&gt;&gt;,
+    stats: Arc&lt;RwLock&lt;BufferStats&gt;&gt;,
+}
+
+#[derive(Hash, Eq, PartialEq)]
+struct PageKey {
+    file_oid: u32,
+    page_num: u32,
+}
+
+impl PageBufferPool {
+    pub fn new(capacity_pages: usize) -&gt; Self {
+        Self {
+            cache: Arc::new(RwLock::new(LruCache::new(capacity_pages))),
+            stats: Arc::new(RwLock::new(BufferStats::default())),
+        }
+    }
+    
+    pub fn get_page(&amp;self, file: &amp;File, page_num: u32) -&gt; Result&lt;Arc&lt;Page&gt;&gt; {
+        let key = PageKey { 
+            file_oid: get_file_oid(file)?, 
+            page_num 
+        };
+        
+        // Try cache first
+        {
+            let mut cache = self.cache.write().unwrap();
+            if let Some(page) = cache.get(&amp;key) {
+                self.stats.write().unwrap().hits += 1;
+                return Ok(Arc::clone(page));
+            }
+        }
+        
+        // Cache miss - load from disk
+        self.stats.write().unwrap().misses += 1;
+        let page = read_page_from_disk(file, page_num)?;
+        let page_arc = Arc::new(page);
+        
+        // Insert into cache
+        {
+            let mut cache = self.cache.write().unwrap();
+            cache.put(key, Arc::clone(&amp;page_arc));
+        }
+        
+        Ok(page_arc)
+    }
+}
+</code></pre>
+<h4 id="5-datafusion-integration-custom-tableprovider">5. DataFusion Integration: Custom TableProvider</h4>
+<pre><code data-lang="rust">use datafusion::datasource::TableProvider;
+use datafusion::execution::context::SessionState;
+use datafusion::physical_plan::ExecutionPlan;
+
+struct PostgresTableProvider {
+    heap_file: PathBuf,
+    schema: SchemaRef,
+    buffer_pool: Arc&lt;PageBufferPool&gt;,
+}
+
+#[async_trait]
+impl TableProvider for PostgresTableProvider {
+    fn schema(&amp;self) -&gt; SchemaRef {
+        self.schema.clone()
+    }
+    
+    async fn scan(
+        &amp;self,
+        _state: &amp;SessionState,
+        projection: Option&lt;&amp;Vec&lt;usize&gt;&gt;,
+        filters: &amp;[Expr],
+        limit: Option&lt;usize&gt;,
+    ) -&gt; Result&lt;Arc&lt;dyn ExecutionPlan&gt;&gt; {
+        Ok(Arc::new(PostgresScanExec {
+            heap_file: self.heap_file.clone(),
+            schema: self.schema.clone(),
+            buffer_pool: self.buffer_pool.clone(),
+            projection: projection.cloned(),
+            filters: filters.to_vec(),
+            limit,
+        }))
+    }
+}
+</code></pre>
+<h4 id="6-predicate-pushdown">6. Predicate Pushdown</h4>
+<p><strong>Lesson from HyPer</strong>: Evaluate filters as early as possible.</p>
+<pre><code data-lang="rust">impl PostgresScanExec {
+    fn should_skip_page(&amp;self, page: &amp;Page) -&gt; bool {
+        // If we have page-level statistics, check filters
+        if let Some(stats) = page.get_statistics() {
+            for filter in &amp;self.filters {
+                // Example: WHERE age &gt; 30
+                if let Expr::BinaryExpr(BinaryExpr { 
+                    left, op: Operator::Gt, right 
+                }) = filter {
+                    if let (Column(col), Literal(val)) = (left.as_ref(), right.as_ref()) {
+                        if col.name == &quot;age&quot; {
+                            // Check page max
+                            if let Some(max) = stats.get_max(&quot;age&quot;) {
+                                if max &lt;= val {
+                                    return true;  // Skip entire page!
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+}
+</code></pre>
+<h4 id="7-compression-strategy">7. Compression Strategy</h4>
+<p><strong>For pg_arrow</strong>: Don't compress during conversion!</p>
+<pre><code data-lang="rust">// BAD: Compress immediately
+fn convert_page(page: &amp;Page) -&gt; RecordBatch {
+    let batch = parse_and_convert(page)?;
+    compress_batch(batch)  // Extra work!
+}
+
+// GOOD: Return uncompressed Arrow
+fn convert_page(page: &amp;Page) -&gt; RecordBatch {
+    parse_and_convert(page)?
+    // Let downstream (Parquet writer, etc.) handle compression
+}
+</code></pre>
+<p><strong>When to use compression in Arrow</strong>:</p>
+<ul>
+<li><strong>Dictionary encoding</strong>: For low-cardinality strings (use Arrow's DictionaryArray)</li>
+<li><strong>RLE</strong>: Arrow doesn't support natively, but Parquet does</li>
+<li><strong>Block compression</strong>: Leave to Parquet/IPC writers</li>
+</ul>
+<pre><code data-lang="rust">// Use DictionaryArray for low-cardinality strings
+fn convert_string_column_smart(values: &amp;[Option&lt;&amp;str&gt;]) -&gt; ArrayRef {
+    let cardinality = estimate_cardinality(values);
+    
+    if cardinality &lt; values.len() / 10 {  // &lt; 10% unique
+        // Use dictionary encoding
+        let mut builder = StringDictionaryBuilder::&lt;Int32Type&gt;::new();
+        for value in values {
+            match value {
+                Some(s) =&gt; builder.append(s).unwrap(),
+                None =&gt; builder.append_null(),
+            }
+        }
+        Arc::new(builder.finish())
+    } else {
+        // Use regular string array
+        let mut builder = StringBuilder::new();
+        for value in values {
+            match value {
+                Some(s) =&gt; builder.append_value(s),
+                None =&gt; builder.append_null(),
+            }
+        }
+        Arc::new(builder.finish())
+    }
+}
+</code></pre>
+<h3 id="performance-comparison-1">Performance Comparison</h3>
+<p><strong>Expected Performance for pg_arrow</strong>:</p>
+<table><thead><tr><th>Component</th><th>Approach</th><th>Expected Throughput</th></tr></thead><tbody>
+<tr><td>Page Reading</td><td>mmap or buffered I/O</td><td>500-1000 MB/s (SSD)</td></tr>
+<tr><td>Tuple Parsing</td><td>Vectorized, batched</td><td>2-5 GB/s</td></tr>
+<tr><td>Type Conversion</td><td>SIMD where possible</td><td>1-3 GB/s</td></tr>
+<tr><td>Arrow Building</td><td>Column-at-a-time</td><td>1-2 GB/s</td></tr>
+<tr><td><strong>Overall</strong></td><td><strong>Pipeline</strong></td><td><strong>~500 MB/s - 1 GB/s</strong></td></tr>
+</tbody></table>
+<p><strong>Comparison</strong>:</p>
+<table><thead><tr><th>System</th><th>Scan Throughput</th><th>Notes</th></tr></thead><tbody>
+<tr><td>PostgreSQL</td><td>~200 MB/s</td><td>Interpreted, row-at-a-time</td></tr>
+<tr><td>HyPer/Umbra</td><td>~5-10 GB/s</td><td>Compiled, in-memory</td></tr>
+<tr><td>DuckDB</td><td>~2-5 GB/s</td><td>Vectorized, in-memory</td></tr>
+<tr><td>DataFusion</td><td>~1-3 GB/s</td><td>Vectorized, Arrow-native</td></tr>
+<tr><td><strong>pg_arrow (target)</strong></td><td><strong>~500 MB/s - 1 GB/s</strong></td><td><strong>File parsing overhead</strong></td></tr>
+</tbody></table>
+<h3 id="recommended-architecture-for-pg-arrow">Recommended Architecture for pg_arrow</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│                        pg_arrow                             │
+├─────────────────────────────────────────────────────────────┤
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │              DataFusion Integration                   │  │
+│  │  PostgresTableProvider -&gt; PostgresScanExec            │  │
+│  └────────────────────┬─────────────────────────────────┘  │
+│                       │                                     │
+│  ┌────────────────────▼─────────────────────────────────┐  │
+│  │          Parallel Page Stream                         │  │
+│  │  • Rayon work-stealing                                │  │
+│  │  • Batch size: 10K tuples                             │  │
+│  │  • Predicate pushdown                                 │  │
+│  └────────────────────┬─────────────────────────────────┘  │
+│                       │                                     │
+│  ┌────────────────────▼─────────────────────────────────┐  │
+│  │          Page Buffer Pool (LRU)                       │  │
+│  │  • Arc&lt;Page&gt; for zero-copy sharing                    │  │
+│  │  • 25% of system memory                               │  │
+│  └────────────────────┬─────────────────────────────────┘  │
+│                       │                                     │
+│  ┌────────────────────▼─────────────────────────────────┐  │
+│  │          PostgreSQL Page Parser                       │  │
+│  │  • Parse header, item pointers, tuples                │  │
+│  │  • Extract visible tuples (MVCC if needed)            │  │
+│  └────────────────────┬─────────────────────────────────┘  │
+│                       │                                     │
+│  ┌────────────────────▼─────────────────────────────────┐  │
+│  │          Type Decoders                                │  │
+│  │  • int4, int8, text, timestamp, etc.                  │  │
+│  │  • SIMD-optimized where possible                      │  │
+│  └────────────────────┬─────────────────────────────────┘  │
+│                       │                                     │
+│  ┌────────────────────▼─────────────────────────────────┐  │
+│  │          Arrow Builder                                │  │
+│  │  • Column-at-a-time construction                      │  │
+│  │  • DictionaryArray for low-cardinality                │  │
+│  │  • Emit RecordBatch                                   │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr />
+<h2 id="key-papers-and-references">Key Papers and References</h2>
+<h3 id="foundational-papers">Foundational Papers</h3>
+<ol>
+<li>
+<p><strong>"Efficiently Compiling Efficient Query Plans for Modern Hardware"</strong></p>
+<ul>
+<li>Authors: Thomas Neumann</li>
+<li>Venue: VLDB 2011</li>
+<li>URL: https://www.vldb.org/pvldb/vol4/p539-neumann.pdf</li>
+<li><strong>Award</strong>: VLDB 2021 Test of Time Award</li>
+<li><strong>Key Contribution</strong>: Data-centric code generation, produce/consume model</li>
+</ul>
+</li>
+<li>
+<p><strong>"Morsel-Driven Parallelism: A NUMA-Aware Query Evaluation Framework"</strong></p>
+<ul>
+<li>Authors: Viktor Leis, Peter Boncz, Alfons Kemper, Thomas Neumann</li>
+<li>Venue: SIGMOD 2014</li>
+<li>URL: https://db.in.tum.de/~leis/papers/morsels.pdf</li>
+<li><strong>Key Contribution</strong>: Morsel-driven execution, work-stealing, NUMA awareness</li>
+</ul>
+</li>
+<li>
+<p><strong>"LeanStore: In-Memory Data Management Beyond Main Memory"</strong></p>
+<ul>
+<li>Authors: Viktor Leis, Michael Haubenschild, Thomas Neumann</li>
+<li>Venue: ICDE 2018</li>
+<li>URL: https://db.in.tum.de/~leis/papers/leanstore.pdf</li>
+<li><strong>Key Contribution</strong>: Pointer swizzling for buffer management</li>
+</ul>
+</li>
+<li>
+<p><strong>"The Adaptive Radix Tree: ARTful Indexing for Main-Memory Databases"</strong></p>
+<ul>
+<li>Authors: Viktor Leis, Alfons Kemper, Thomas Neumann</li>
+<li>Venue: ICDE 2013</li>
+<li>URL: https://db.in.tum.de/~leis/papers/ART.pdf</li>
+<li><strong>Key Contribution</strong>: Cache-efficient index structure for in-memory databases</li>
+</ul>
+</li>
+</ol>
+<h3 id="umbra-specific-papers">Umbra-Specific Papers</h3>
+<ol start="5">
+<li>
+<p><strong>"Umbra: A Disk-Based System with In-Memory Performance"</strong></p>
+<ul>
+<li>Authors: Thomas Neumann, Michael Freitag</li>
+<li>Venue: CIDR 2020</li>
+<li>URL: https://db.in.tum.de/~freitag/papers/p29-neumann-cidr20.pdf</li>
+<li><strong>Key Contribution</strong>: Variable-size pages, LeanStore integration</li>
+</ul>
+</li>
+<li>
+<p><strong>"Tidy Tuples and Flying Start: Fast Compilation and Fast Execution of Relational Queries in Umbra"</strong></p>
+<ul>
+<li>Authors: Tim Kersten, Viktor Leis, Thomas Neumann</li>
+<li>Venue: VLDB Journal 2021</li>
+<li>URL: https://link.springer.com/article/10.1007/s00778-020-00643-4</li>
+<li><strong>Key Contribution</strong>: Umbra IR, Flying Start backend, adaptive execution</li>
+</ul>
+</li>
+<li>
+<p><strong>"Scalable Garbage Collection for In-Memory MVCC Systems"</strong></p>
+<ul>
+<li>Authors: Jan Bottcher, Viktor Leis, Thomas Neumann, Alfons Kemper</li>
+<li>Venue: VLDB 2019</li>
+<li>URL: https://db.in.tum.de/~boettcher/p128-boettcher.pdf</li>
+<li><strong>Key Contribution</strong>: Steam garbage collection algorithm</li>
+</ul>
+</li>
+<li>
+<p><strong>"Memory-Optimized Multi-Version Concurrency Control for Disk-Based Database Systems"</strong></p>
+<ul>
+<li>Authors: Michael Freitag, Alfons Kemper, Thomas Neumann</li>
+<li>Venue: VLDB 2022</li>
+<li>URL: https://www.vldb.org/pvldb/vol15/p2797-freitag.pdf</li>
+<li><strong>Key Contribution</strong>: Umbra's MVCC implementation</li>
+</ul>
+</li>
+</ol>
+<h3 id="comparative-and-analysis-papers">Comparative and Analysis Papers</h3>
+<ol start="9">
+<li>
+<p><strong>"Everything You Always Wanted to Know About Compiled and Vectorized Queries But Were Afraid to Ask"</strong></p>
+<ul>
+<li>Authors: Timo Kersten, Viktor Leis, Alfons Kemper, Thomas Neumann, Andrew Pavlo, Peter Boncz</li>
+<li>Venue: VLDB 2018</li>
+<li>URL: https://db.in.tum.de/~kersten/vectorization_vs_compilation.pdf</li>
+<li><strong>Key Contribution</strong>: Detailed comparison of compilation vs vectorization approaches</li>
+</ul>
+</li>
+<li>
+<p><strong>"Fast Serializable Multi-Version Concurrency Control for Main-Memory Database Systems"</strong></p>
+<ul>
+<li>Authors: Tobias Muhlbauer, Wolf Rödiger, Alfons Kemper, Thomas Neumann</li>
+<li>Venue: SIGMOD 2015</li>
+<li>URL: https://db.in.tum.de/~muehlbau/papers/mvcc.pdf</li>
+<li><strong>Key Contribution</strong>: HyPer's precision locking for serializability</li>
+</ul>
+</li>
+</ol>
+<h3 id="online-resources">Online Resources</h3>
+<ul>
+<li><strong>HyPer Official Site</strong>: https://hyper-db.de/</li>
+<li><strong>Umbra Database</strong>: https://umbra-db.com/</li>
+<li><strong>CedarDB</strong>: https://cedardb.com/</li>
+<li><strong>CedarDB Technology Docs</strong>: https://cedardb.com/docs/technology/</li>
+<li><strong>Tableau Hyper Journey</strong>: https://tableau.github.io/hyper-db/journey/</li>
+<li><strong>Database of Databases - HyPer</strong>: https://dbdb.io/db/hyper</li>
+<li><strong>Database of Databases - Umbra</strong>: https://dbdb.io/db/umbra</li>
+<li><strong>TUM Database Systems Group</strong>: https://db.in.tum.de/</li>
+</ul>
+<hr />
+<h2 id="summary-comparison-table">Summary Comparison Table</h2>
+<table><thead><tr><th>Feature</th><th>HyPer</th><th>Umbra</th><th>CedarDB</th><th>DataFusion</th><th>pg_arrow (Target)</th></tr></thead><tbody>
+<tr><td><strong>Storage</strong></td><td>In-memory only</td><td>Variable-size pages (64KB-buffer)</td><td>Pointer swizzling</td><td>External (Arrow files)</td><td>PostgreSQL heap files</td></tr>
+<tr><td><strong>Compilation</strong></td><td>LLVM JIT</td><td>Umbra IR + Flying Start/LLVM</td><td>Custom + LLVM</td><td>None (vectorized)</td><td>None (streaming)</td></tr>
+<tr><td><strong>MVCC</strong></td><td>Fork + COW</td><td>Version chains + Steam GC</td><td>Version chains</td><td>N/A</td><td>Read-only (no MVCC)</td></tr>
+<tr><td><strong>Parallelism</strong></td><td>Morsel-driven</td><td>Morsel-driven</td><td>Morsel-driven</td><td>Partition-based</td><td>Rayon work-stealing</td></tr>
+<tr><td><strong>Index</strong></td><td>ART</td><td>ART</td><td>ART</td><td>External</td><td>N/A (full scan)</td></tr>
+<tr><td><strong>HTAP</strong></td><td>Yes (snapshots)</td><td>Yes (Colibri)</td><td>Yes</td><td>OLAP only</td><td>OLAP only</td></tr>
+<tr><td><strong>PostgreSQL Compat</strong></td><td>No</td><td>No</td><td>Yes (wire protocol)</td><td>No</td><td>Data files only</td></tr>
+<tr><td><strong>Target Throughput</strong></td><td>5-10 GB/s</td><td>3-8 GB/s</td><td>3-8 GB/s</td><td>1-3 GB/s</td><td>0.5-1 GB/s</td></tr>
+</tbody></table>
+<hr />
+<h2 id="conclusion">Conclusion</h2>
+<p>HyPer, Umbra, and CedarDB represent the cutting edge of database system design:</p>
+<ol>
+<li><strong>Compilation eliminates interpretation overhead</strong>: 10-100x speedup possible</li>
+<li><strong>Morsel-driven parallelism</strong> provides elastic, NUMA-aware execution</li>
+<li><strong>Pointer swizzling</strong> eliminates buffer pool overhead</li>
+<li><strong>Adaptive execution</strong> balances compilation latency vs. runtime performance</li>
+<li><strong>Hybrid storage</strong> enables both OLTP and OLAP workloads</li>
+</ol>
+<p>For <strong>pg_arrow</strong>, the key lessons are:</p>
+<ul>
+<li><strong>Batch-oriented processing</strong> (morsel-sized batches)</li>
+<li><strong>Column-at-a-time conversion</strong> (enables SIMD)</li>
+<li><strong>Parallel page processing</strong> (work-stealing via Rayon)</li>
+<li><strong>Buffer pool caching</strong> (LRU for hot pages)</li>
+<li><strong>Minimal compression</strong> (leave to downstream Parquet/IPC)</li>
+</ul>
+<p><strong>Target Performance</strong>: 500 MB/s - 1 GB/s end-to-end (PostgreSQL files → Arrow)</p>
+<hr />
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://nmbr7.github.io/notes/database/buffer-management-predictive-translation/">Buffer Management and Predictive Translation</a> — Directly extends Umbra's vmcache with superscalar-aware buffer pool design</li>
+<li><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a> — Morsel-driven parallelism and hash join implementations referenced in HyPer/Umbra</li>
+<li><a href="https://nmbr7.github.io/notes/database/arrow-format/">Arrow Format</a> — Columnar format complementary to the columnar execution model in these systems</li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems Survey</a> — Broader survey including Umbra, DuckDB, and other systems compared here</li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a> — SIMD instructions and memory barriers relevant to JIT-compiled query execution</li>
+</ul>
+<hr />
+<p><em>Document created: 2026-01-23</em>
+<em>Last updated: 2026-01-23</em>
+<em>Total length: ~2,300 lines of comprehensive research</em></p>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

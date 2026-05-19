@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Join Algorithms</h1>
+  <h1 id="join-algorithms-classic-modern-and-distributed">Join Algorithms: Classic, Modern, and Distributed</h1>
+<p><strong>Date</strong>: 2026-02-25
+<strong>Context</strong>: Comprehensive research covering join algorithm fundamentals, state-of-the-art techniques, distributed join processing, and production system implementations. Intended as a reference for database systems engineers and researchers.</p>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="https://nmbr7.github.io/notes/database/join-algorithms/#notation-and-cost-model">Notation and Cost Model</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/join-algorithms/#classic-join-algorithms">Classic Join Algorithms</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/join-algorithms/#modern-and-advanced-join-algorithms">Modern and Advanced Join Algorithms</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/join-algorithms/#distributed-join-algorithms">Distributed Join Algorithms</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/join-algorithms/#join-trees-and-plan-shapes">Join Trees and Plan Shapes</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/join-algorithms/#multi-way-joins-and-query-optimization">Multi-Way Joins and Query Optimization</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/join-algorithms/#performance-characteristics">Performance Characteristics</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/join-algorithms/#correctness-concerns">Correctness Concerns</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/join-algorithms/#production-system-implementations">Production System Implementations</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/join-algorithms/#key-papers-and-references">Key Papers and References</a></li>
+</ol>
+<hr />
+<h2 id="notation-and-cost-model">Notation and Cost Model</h2>
+<p>Throughout this document, we use the following notation:</p>
+<table><thead><tr><th>Symbol</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>R</code>, <code>S</code></td><td>Relations (tables) being joined</td></tr>
+<tr><td><code>|R|</code></td><td>Cardinality (number of tuples) of R</td></tr>
+<tr><td><code>B(R)</code></td><td>Number of disk pages occupied by R</td></tr>
+<tr><td><code>M</code></td><td>Number of available buffer pages in memory</td></tr>
+<tr><td><code>p_R</code></td><td>Tuples per page in R</td></tr>
+<tr><td><code>f</code></td><td>Fan-out of an index (B-tree)</td></tr>
+<tr><td><code>h</code></td><td>Height of a B-tree index</td></tr>
+<tr><td><code>HT(R)</code></td><td>Number of pages for a hash table on R</td></tr>
+</tbody></table>
+<p><strong>I/O cost model</strong>: We count the number of page I/Os (reads + writes). CPU cost is noted separately where relevant. We assume R is the smaller (build) relation and S is the larger (probe) relation unless stated otherwise.</p>
+<p><strong>Memory model</strong>: M buffer pages are available. One page can hold <code>p_R</code> tuples of R. A relation R occupies <code>B(R) = |R| / p_R</code> pages.</p>
+<hr />
+<h2 id="classic-join-algorithms">Classic Join Algorithms</h2>
+<h3 id="1-nested-loop-join-nlj">1. Nested Loop Join (NLJ)</h3>
+<p>The simplest join algorithm. Three variants with dramatically different performance.</p>
+<h4 id="1a-tuple-at-a-time-nested-loop-join-simple-nlj">1a. Tuple-at-a-Time Nested Loop Join (Simple NLJ)</h4>
+<pre><code>for each tuple r in R:
+    for each tuple s in S:
+        if theta(r, s):      // join predicate
+            emit (r, s)
+</code></pre>
+<p><strong>I/O Cost</strong>: <code>B(R) + |R| * B(S)</code></p>
+<p>For each tuple of R, we scan all of S. Since R has <code>|R|</code> tuples and each requires a full scan of S (<code>B(S)</code> pages), the cost is enormous.</p>
+<p><strong>Example</strong>: R = 1000 pages, S = 5000 pages, 100 tuples/page.
+Cost = 1000 + (100 * 1000) * 5000 = 500,001,000 page I/Os.</p>
+<p><strong>When to use</strong>: Almost never in disk-based systems. Acceptable only when both relations fit in cache and are tiny (&lt; few hundred tuples).</p>
+<h4 id="1b-block-page-nested-loop-join-bnlj">1b. Block (Page) Nested Loop Join (BNLJ)</h4>
+<pre><code>for each block b_R of R (using M-2 pages):
+    for each page p_S of S:
+        for each tuple r in b_R:
+            for each tuple s in p_S:
+                if theta(r, s):
+                    emit (r, s)
+</code></pre>
+<p><strong>I/O Cost</strong>: <code>B(R) + ceil(B(R) / (M-2)) * B(S)</code></p>
+<p>We read R in chunks of (M-2) pages, using one page for S input and one for output. For each chunk of R, we scan all of S once.</p>
+<p><strong>Example</strong>: R = 1000 pages, S = 5000 pages, M = 102 pages.
+Cost = 1000 + ceil(1000/100) * 5000 = 1000 + 10 * 5000 = 51,000 page I/Os.</p>
+<p><strong>Key insight</strong>: Always put the smaller relation in the outer loop. If R fits in M-2 pages, cost reduces to <code>B(R) + B(S)</code> (one scan each).</p>
+<h4 id="1c-index-nested-loop-join-inlj">1c. Index Nested Loop Join (INLJ)</h4>
+<pre><code>for each tuple r in R:
+    use index on S.join_key to find matching tuples
+    for each matching tuple s:
+        emit (r, s)
+</code></pre>
+<p><strong>I/O Cost</strong>: <code>B(R) + |R| * C_index</code></p>
+<p>Where <code>C_index</code> is the cost of one index lookup:</p>
+<ul>
+<li><strong>Clustered B-tree</strong>: <code>h + 1</code> (traverse tree + read leaf page with matching tuples)</li>
+<li><strong>Unclustered B-tree</strong>: <code>h + |matching tuples|</code> (each match may be on a different page)</li>
+<li><strong>Hash index</strong>: <code>1.2</code> on average (one lookup + potential overflow)</li>
+</ul>
+<p><strong>Example</strong>: R = 1000 pages (100K tuples), S has clustered B-tree (h=3).
+Cost = 1000 + 100,000 * 4 = 401,000 page I/Os.</p>
+<p><strong>When optimal</strong>: Small outer relation, selective join predicate, index on inner relation's join key. This is the standard strategy for OLTP point lookups and foreign-key traversals.</p>
+<pre><code>            Nested Loop Join Performance Summary
+            =====================================
+
+Variant     | I/O Cost                        | Best When
+------------|--------------------------------|---------------------------
+Simple NLJ  | B(R) + |R| * B(S)             | Never (theoretical baseline)
+Block NLJ   | B(R) + ceil(B(R)/(M-2))*B(S)  | No index, small R
+Index NLJ   | B(R) + |R| * C_index          | Good index on S, small R
+</code></pre>
+<h3 id="2-sort-merge-join-smj">2. Sort-Merge Join (SMJ)</h3>
+<p>Two phases: sort both relations on the join key, then merge.</p>
+<h4 id="algorithm">Algorithm</h4>
+<pre><code>Phase 1: Sort
+    Sort R on join key -&gt; R&#39;
+    Sort S on join key -&gt; S&#39;
+
+Phase 2: Merge
+    r_ptr = first tuple in R&#39;
+    s_ptr = first tuple in S&#39;
+    while r_ptr and s_ptr are valid:
+        if R&#39;.key &lt; S&#39;.key:
+            advance r_ptr
+        elif R&#39;.key &gt; S&#39;.key:
+            advance s_ptr
+        else:  // match
+            // Mark start of matching group in S
+            s_mark = s_ptr
+            while r_ptr.key == s_ptr.key:
+                while s_ptr.key == r_ptr.key:
+                    emit (r_ptr, s_ptr)
+                    advance s_ptr
+                advance r_ptr
+                reset s_ptr to s_mark  // backtrack for duplicate keys
+</code></pre>
+<h4 id="i-o-cost-analysis">I/O Cost Analysis</h4>
+<p><strong>External sort cost per relation</strong> (using replacement-selection or quicksort):</p>
+<ul>
+<li>Pass 0 (run generation): <code>2 * B(R)</code> I/Os (read + write all pages)</li>
+<li>Each merge pass: <code>2 * B(R)</code> I/Os</li>
+<li>Number of merge passes: <code>ceil(log_{M-1}(ceil(B(R)/M)))</code></li>
+</ul>
+<p><strong>Total sort cost</strong>: <code>2 * B(R) * (1 + ceil(log_{M-1}(ceil(B(R)/M))))</code></p>
+<p><strong>Merge phase</strong>: <code>B(R) + B(S)</code> (single scan of each sorted relation)</p>
+<p><strong>Total cost</strong>: <code>Sort(R) + Sort(S) + B(R) + B(S)</code></p>
+<p>If both R and S are already sorted (e.g., clustered index on join key): cost is just <code>B(R) + B(S)</code>.</p>
+<p><strong>Example</strong>: R = 1000 pages, S = 5000 pages, M = 100 pages.
+Sort R: runs = ceil(1000/100) = 10 runs, 1 merge pass. Cost = 2<em>1000</em>2 = 4000
+Sort S: runs = ceil(5000/100) = 50 runs, 1 merge pass. Cost = 2<em>5000</em>2 = 20000
+Merge: 1000 + 5000 = 6000
+Total: 30,000 page I/Os.</p>
+<h4 id="interesting-orderings">Interesting Orderings</h4>
+<p>A critical optimization: if R is already sorted on the join key (e.g., from a preceding ORDER BY, GROUP BY, or clustered index), we skip sorting R entirely. The optimizer should propagate "interesting orderings" through the plan tree, recognizing that a sort-merge join can exploit upstream sort orders.</p>
+<p>This concept was first formalized in Selinger et al.'s System R paper (SIGMOD 1979) and remains central to all modern optimizers.</p>
+<p><strong>When optimal</strong>:</p>
+<ul>
+<li>One or both inputs already sorted on join key</li>
+<li>Result needs to be sorted (e.g., ORDER BY on join key)</li>
+<li>Very large relations where hash join would cause excessive partitioning</li>
+<li>Merge join is the only join that can be performed in a fully streaming manner with sorted inputs</li>
+</ul>
+<h3 id="3-hash-join">3. Hash Join</h3>
+<p>The workhorse of analytical query processing. Three major variants.</p>
+<h4 id="3a-simple-classic-hash-join">3a. Simple (Classic) Hash Join</h4>
+<pre><code>Build Phase:
+    for each tuple r in R:
+        insert r into in-memory hash table HT using h(r.join_key)
+
+Probe Phase:
+    for each tuple s in S:
+        probe HT using h(s.join_key)
+        for each matching r in HT bucket:
+            if r.join_key == s.join_key:  // resolve collisions
+                emit (r, s)
+</code></pre>
+<p><strong>Requirements</strong>: Hash table on R must fit in memory. <code>HT(R) &lt;= M</code> pages.</p>
+<p><strong>I/O Cost</strong>: <code>B(R) + B(S)</code> (optimal -- single scan of each relation)</p>
+<p><strong>CPU Cost</strong>: <code>O(|R| + |S|)</code> expected, assuming good hash function.</p>
+<p><strong>When to use</strong>: Build side fits in memory. This is the most common scenario in OLAP.</p>
+<h4 id="3b-grace-hash-join-partition-based">3b. Grace Hash Join (Partition-Based)</h4>
+<p>When neither relation fits in memory, partition both using the same hash function, then join matching partitions.</p>
+<pre><code>Partition Phase:
+    // Partition R into M-1 buckets using hash function h1
+    for each tuple r in R:
+        write r to partition h1(r.join_key) % (M-1)
+    // Partition S into M-1 buckets using same h1
+    for each tuple s in S:
+        write s to partition h1(s.join_key) % (M-1)
+
+Probe Phase:
+    for i = 0 to M-2:
+        // Load R_i into memory, build hash table using h2
+        build hash table on R_i using h2 (different from h1)
+        // Probe with S_i
+        for each tuple s in S_i:
+            probe hash table using h2(s.join_key)
+            emit matches
+</code></pre>
+<pre><code>   Grace Hash Join: Partition Phase
+   =================================
+
+   R                                S
+   +--------+                      +--------+
+   | tuples | --h1()--&gt; Buckets    | tuples | --h1()--&gt; Buckets
+   +--------+                      +--------+
+
+   R_0  R_1  R_2 ... R_{M-2}      S_0  S_1  S_2 ... S_{M-2}
+   [==] [==] [==]     [====]      [==] [==] [==]     [====]
+     |    |    |         |          |    |    |         |
+     v    v    v         v          v    v    v         v
+    disk disk disk     disk       disk disk disk     disk
+
+   Probe Phase: For each i, load R_i, build HT, probe with S_i
+   =============================================================
+
+   R_i (in memory)         S_i (streaming)
+   +----------------+      +--------+
+   | Hash Table h2  | &lt;--- | tuples |
+   +----------------+      +--------+
+          |
+          v
+       matches
+</code></pre>
+<p><strong>I/O Cost</strong>: <code>3 * (B(R) + B(S))</code></p>
+<ul>
+<li>Read R + S for partitioning: <code>B(R) + B(S)</code></li>
+<li>Write partitions: <code>B(R) + B(S)</code></li>
+<li>Read partitions for probe: <code>B(R) + B(S)</code></li>
+</ul>
+<p><strong>Requirement</strong>: Each partition of R must fit in memory: <code>B(R) / (M-1) &lt;= M</code>, so <code>B(R) &lt;= M * (M-1) ~= M^2</code>.</p>
+<p><strong>Recursive partitioning</strong>: If a partition is still too large, apply another round of partitioning with a different hash function. Cost increases to <code>2 * (B(R) + B(S)) * ceil(log_{M-1}(B(R)/M)) + B(R) + B(S)</code>.</p>
+<h4 id="3c-hybrid-hash-join">3c. Hybrid Hash Join</h4>
+<p>Optimization over Grace: keep one partition of R in memory during the partition phase, avoiding writing and re-reading it.</p>
+<pre><code>Partition Phase:
+    // Partition 0 of R stays in memory as a hash table
+    // Partitions 1..k are written to disk
+    for each tuple r in R:
+        p = h1(r.join_key) % k
+        if p == 0:
+            insert into in-memory hash table
+        else:
+            write to disk partition p
+
+    // Partition S: partition 0 is immediately probed
+    for each tuple s in S:
+        p = h1(s.join_key) % k
+        if p == 0:
+            probe in-memory hash table, emit matches
+        else:
+            write to disk partition p
+
+Remaining Partitions:
+    for i = 1 to k-1:
+        load R_i, build hash table, probe with S_i
+</code></pre>
+<p><strong>I/O Cost</strong>: <code>3 * (B(R) + B(S)) - 2 * (M - k)</code> where <code>(M - k)</code> pages are used for the in-memory partition.</p>
+<p>In the best case (R fits entirely in memory), this degenerates to the simple hash join: <code>B(R) + B(S)</code>.</p>
+<p><strong>Advantage</strong>: Smoothly adapts between in-memory and fully partitioned execution. Most production systems implement this variant.</p>
+<pre><code>    Hash Join Variant Comparison
+    ============================
+
+    Variant      | I/O Cost          | Memory Req.  | Notes
+    -------------|-------------------|-------------|---------------------------
+    Simple       | B(R)+B(S)         | HT(R)&lt;=M    | Optimal when R fits
+    Grace        | 3*(B(R)+B(S))     | B(R)&lt;=M^2   | Clean partitioning
+    Hybrid       | Between above     | Adaptive     | Best general-purpose
+</code></pre>
+<hr />
+<h2 id="modern-and-advanced-join-algorithms">Modern and Advanced Join Algorithms</h2>
+<h3 id="4-radix-hash-join-cache-conscious-hash-join">4. Radix Hash Join (Cache-Conscious Hash Join)</h3>
+<p>Proposed to address the primary bottleneck of hash joins on modern hardware: <strong>TLB and cache misses</strong> during the build and probe phases. Random access to a large hash table causes cache thrashing.</p>
+<h4 id="core-idea">Core Idea</h4>
+<p>Multi-pass radix partitioning ensures that each partition fits in the CPU cache (typically L2: 256KB-1MB). Joins within cache-resident partitions avoid TLB misses and exploit spatial locality.</p>
+<pre><code>Radix Partition Phase (multi-pass):
+    // Pass 1: Partition on bits b1..bk of hash (coarse)
+    // Pass 2: Partition on bits bk+1..bm (fine)
+    // ... until each partition fits in L2 cache
+
+Build + Probe Phase:
+    for each partition pair (R_i, S_i):
+        // Both fit in L2 cache
+        build hash table on R_i
+        probe with S_i
+</code></pre>
+<pre><code>    Radix Partitioning (2-pass example)
+    ====================================
+
+    Input R:  [a b c d e f g h i j k l m n o p]
+                        |
+              Pass 1: partition on bits 0-1
+                        |
+         +------+------+------+------+
+         | a e  | b f  | c g  | d h  |
+         | i m  | j n  | k o  | l p  |
+         +------+------+------+------+
+           P0     P1     P2     P3
+                        |
+              Pass 2: partition on bits 2-3
+                        |
+    P0: [a,i] [e,m]   P1: [b,j] [f,n]   ... (16 sub-partitions)
+
+    Each sub-partition fits in L2 cache.
+    Build + probe happens entirely in cache.
+</code></pre>
+<h4 id="tuning-parameters">Tuning Parameters</h4>
+<p>The number of radix bits is chosen based on hardware:</p>
+<ul>
+<li><strong>L2 cache size</strong> <code>C_L2</code>: Partitions must satisfy <code>|R_i| * tuple_size &lt; C_L2</code></li>
+<li><strong>TLB entries</strong> <code>T</code>: Number of partitions in each pass must be <code>&lt;= T</code> (typically 64-512)</li>
+<li><strong>Number of passes</strong>: <code>ceil(log_T(B(R) * page_size / C_L2))</code></li>
+</ul>
+<h4 id="performance">Performance</h4>
+<ul>
+<li>Achieves near-bandwidth-limited performance: up to <strong>200M tuples/sec</strong> on modern hardware (Balkesen et al., VLDB 2013)</li>
+<li><strong>2-5x faster</strong> than non-partitioned hash joins on large datasets</li>
+<li>Diminishing returns when data already fits in cache</li>
+</ul>
+<h4 id="key-papers">Key Papers</h4>
+<ul>
+<li>Shatdal, Kant, Naughton: "Cache Conscious Algorithms for Relational Query Processing", VLDB 1994</li>
+<li>Manegold, Boncz, Kersten: "Optimizing Main-Memory Join on Modern Hardware", TKDE 2002</li>
+<li>Balkesen, Alonso, Teubner, Ozsu: "Multi-Core, Main-Memory Joins: Sort vs. Hash Revisited", VLDB 2013</li>
+<li>Kim, Sedlar, Chhugani et al.: "Sort vs. Hash Revisited: Fast Join Implementation on Modern Multi-Core CPUs", VLDB 2009</li>
+</ul>
+<h3 id="5-massively-parallel-sort-merge-mpsm">5. Massively Parallel Sort-Merge (MPSM)</h3>
+<p>Designed for NUMA architectures where cross-socket memory access is expensive.</p>
+<h4 id="core-idea-1">Core Idea</h4>
+<p>Each thread sorts its local partition independently (no cross-NUMA traffic during sort). Then, each thread merges its local sorted run against all other sorted runs.</p>
+<pre><code>Phase 1: Local Sort
+    Each thread T_i sorts its local partition R_i of R
+
+Phase 2: Parallel Merge
+    Each thread T_i merges sorted R_i with all sorted S_j partitions
+    No data movement across NUMA nodes during sort phase
+</code></pre>
+<p><strong>Advantage</strong>: Avoids NUMA-remote writes entirely during the sort phase. The merge phase accesses remote data read-only, which is faster than remote writes.</p>
+<p><strong>Disadvantage</strong>: Redundant work -- each thread reads all of S. Total work is <code>O(n * |S|)</code> where n is thread count.</p>
+<p><strong>Key paper</strong>: Albutiu, Kemper, Neumann: "Massively Parallel Sort-Merge Joins in Main-Memory Multi-Core Database Systems", VLDB 2012.</p>
+<h3 id="6-worst-case-optimal-joins-wcoj">6. Worst-Case Optimal Joins (WCOJ)</h3>
+<p>A paradigm shift from binary (pairwise) joins to multi-way joins that process all relations simultaneously.</p>
+<h4 id="the-problem-with-binary-joins">The Problem with Binary Joins</h4>
+<p>Consider a triangle query: <code>R(A,B) JOIN S(B,C) JOIN T(A,C)</code>.</p>
+<p>Binary join plans (left-deep or bushy) may produce intermediate results of size <code>O(|R| * |S|)</code> before filtering with T, even when the final result is much smaller. The AGM bound (Atserias, Grohe, Marx, 2008) proves that the maximum output size is <code>O(N^{3/2})</code> for three relations of size N, but binary plans can produce <code>O(N^2)</code> intermediate tuples.</p>
+<h4 id="the-agm-bound">The AGM Bound</h4>
+<p>For a natural join query <code>Q = R_1 JOIN R_2 JOIN ... JOIN R_m</code>, the maximum result size is bounded by:</p>
+<p><code>|Q| &lt;= prod_{i=1}^{m} |R_i|^{x_i}</code></p>
+<p>where <code>x_i</code> are the optimal solution to the fractional edge cover LP. For the triangle query with <code>|R| = |S| = |T| = N</code>, this gives <code>O(N^{3/2})</code>.</p>
+<h4 id="generic-join-ngo-porat-re-rudra-pods-2012">Generic Join (Ngo, Porat, Re, Rudra -- PODS 2012)</h4>
+<p>The first worst-case optimal algorithm. It processes one attribute at a time:</p>
+<pre><code>GenericJoin(Q, bound_vars, assignment):
+    if all variables bound:
+        emit assignment
+        return
+
+    Pick next variable x
+    // Intersect the domains of x across all relations containing x
+    D_x = INTERSECT over all R_i containing x:
+              { v : exists tuple in R_i matching assignment with x=v }
+
+    for each v in D_x:
+        GenericJoin(Q, bound_vars + {x}, assignment + {x=v})
+</code></pre>
+<p><strong>Complexity</strong>: <code>O(|Q|_max * |attrs|)</code> where <code>|Q|_max</code> is the AGM bound. This is optimal up to the attribute count factor.</p>
+<h4 id="leapfrog-triejoin-veldhuizen-icdt-2014">Leapfrog TrieJoin (Veldhuizen, ICDT 2014)</h4>
+<p>A practical, elegant implementation of WCOJ using sorted trie iterators.</p>
+<pre><code>Data Structure: Each relation stored as a sorted trie (lexicographic order)
+    R(A,B): sorted on (A, B)
+    S(B,C): sorted on (B, C)
+    T(A,C): sorted on (A, C)
+
+Algorithm:
+    // Variable ordering: A, B, C
+    // Level 0: iterate over A values
+    for each A value via LeapfrogJoin on {R.A, T.A}:
+        // Level 1: iterate over B values for this A
+        for each B value via LeapfrogJoin on {R.B(A=a), S.B}:
+            // Level 2: iterate over C values for this (A,B)
+            for each C value via LeapfrogJoin on {S.C(B=b), T.C(A=a)}:
+                emit (a, b, c)
+</code></pre>
+<p><strong>LeapfrogJoin on k sorted iterators</strong>:</p>
+<pre><code>LeapfrogJoin(iter_1, ..., iter_k):
+    // All iterators positioned; find common values
+    Sort iterators by current value
+    loop:
+        if iter_1.value == iter_k.value:
+            emit value       // all agree
+            advance all iterators
+        else:
+            // iter_1 has smallest value, iter_k has largest
+            // leap iter_1 forward to seek(iter_k.value)
+            iter_1.seek(iter_k.value)
+            rotate iterator order
+            if any iterator exhausted: break
+</code></pre>
+<pre><code>    LeapfrogJoin Example on 3 Iterators
+    ====================================
+
+    iter_A: [1, 3, 5, 7, 9, 12, 15]
+    iter_B: [2, 3, 6, 9, 11, 15]
+    iter_C: [1, 3, 8, 9, 14, 15]
+
+    Step 1: Sort by current value
+            iter_A=1, iter_C=1, iter_B=2
+            min=1, max=2 -&gt; not equal
+            Seek iter_A to 2 -&gt; lands on 3
+
+    Step 2: iter_B=2, iter_A=3, iter_C=1
+            Seek iter_C to 3 -&gt; lands on 3
+            iter_B=2, iter_A=3, iter_C=3
+            Seek iter_B to 3 -&gt; lands on 3
+            All equal at 3! EMIT 3.
+
+    Step 3: Advance all. iter_A=5, iter_B=6, iter_C=8
+            Seek iter_A to 8 -&gt; lands on 9
+            Seek iter_B to 9 -&gt; lands on 9
+            Seek iter_C to 9 -&gt; lands on 9
+            All equal at 9! EMIT 9.
+
+    ... continues until iterators exhausted.
+</code></pre>
+<p><strong>Complexity</strong>: Worst-case optimal up to a log factor. <code>O(|Q|_AGM * log(N))</code> where N is the max relation size. The log factor comes from binary search in seek operations.</p>
+<p><strong>Practical significance</strong>: LogicBlox/RelationalAI uses LeapfrogTrieJoin as their core join engine. DuckDB added WCOJ support via adaptive factorization (CIDR 2025). Graph databases benefit enormously from WCOJ for cycle queries.</p>
+<h3 id="7-adaptive-join-algorithms">7. Adaptive Join Algorithms</h3>
+<p>Joins that adjust their strategy at runtime based on observed data characteristics.</p>
+<h4 id="eddies-avnur-and-hellerstein-sigmod-2000">Eddies (Avnur and Hellerstein, SIGMOD 2000)</h4>
+<p>Route individual tuples through a set of join operators adaptively. A central "eddy" router observes throughput and selectivity, sending tuples to operators that are currently most efficient.</p>
+<pre><code>                   +--------+
+      R tuples --&gt; | Eddy   | --&gt; Output
+      S tuples --&gt; | Router | --&gt;
+      T tuples --&gt; |        |
+                   +--------+
+                    /  |   \
+                   v   v    v
+                  J1   J2   J3
+              (R&gt;&lt;S)(S&gt;&lt;T)(R&gt;&lt;T)
+</code></pre>
+<p><strong>Key insight</strong>: Adapts to runtime conditions (data skew, index availability, memory pressure) without re-planning.</p>
+<h4 id="stem-state-modules-raman-and-hellerstein-vldb-2003">SteM (STate Modules) -- Raman and Hellerstein, VLDB 2003</h4>
+<p>Extension of eddies using state modules that maintain hash tables. Each SteM can function as either build-side or probe-side of a hash join, enabling symmetric processing.</p>
+<h4 id="xjoin-urhan-and-franklin-icde-2000">XJoin (Urhan and Franklin, ICDE 2000)</h4>
+<p>Designed for streaming/online environments where data arrives at unpredictable rates.</p>
+<pre><code>Phase 1 (in-memory):
+    As tuples arrive from R and S:
+        Insert into respective in-memory hash tables
+        Probe the OTHER table&#39;s hash table for matches
+        (Symmetric: each new tuple probes the other side)
+
+Phase 2 (cleanup):
+    When memory fills, flush partitions to disk
+    Later, join flushed partitions using standard hash join
+</code></pre>
+<p><strong>Advantage</strong>: Produces results incrementally as data arrives. Ideal for streaming, federated queries, and interactive systems where time-to-first-result matters.</p>
+<h4 id="hash-merge-join-adaptive">Hash-Merge Join (adaptive)</h4>
+<p>Starts as a hash join. If memory is exhausted, switches to sort-merge on remaining data. Combines the speed of in-memory hashing with the graceful degradation of sort-merge.</p>
+<h3 id="8-vectorized-and-simd-join-techniques">8. Vectorized and SIMD Join Techniques</h3>
+<p>Modern CPUs offer SIMD (Single Instruction, Multiple Data) instructions that process 4-16 values simultaneously. Join algorithms can exploit this.</p>
+<h4 id="vectorized-hash-table-probing">Vectorized Hash Table Probing</h4>
+<pre><code>// Scalar probe: 1 key at a time
+for each key in probe_batch:
+    bucket = hash(key) % num_buckets
+    scan chain at bucket for match
+
+// Vectorized probe: process VECTOR_SIZE keys simultaneously
+keys    = load_vector(probe_batch, offset, VECTOR_SIZE)
+hashes  = hash_vector(keys)             // SIMD hash
+buckets = modulo_vector(hashes, num_buckets)  // SIMD mod
+entries = gather(hash_table, buckets)    // SIMD gather
+matches = compare_vector(keys, entries)  // SIMD compare
+// Process matches, handle collisions for mismatches
+</code></pre>
+<p><strong>Key techniques</strong>:</p>
+<ul>
+<li><strong>SIMD gather</strong>: Load non-contiguous memory locations into a SIMD register (AVX2 <code>_mm256_i32gather</code>)</li>
+<li><strong>SIMD compare</strong>: Compare 8 or 16 keys simultaneously</li>
+<li><strong>Horizontal/vertical vectorization</strong>: Process one tuple across multiple buckets (horizontal) vs. multiple tuples across their respective buckets (vertical)</li>
+</ul>
+<h4 id="vectorized-partitioning-for-radix-join">Vectorized Partitioning (for Radix Join)</h4>
+<p>Software write-combine buffers avoid TLB misses during partitioning:</p>
+<pre><code>// Without SWCB: random writes to N partitions -&gt; N TLB entries needed
+// With SWCB: buffer a cache line of tuples per partition, flush when full
+
+for each tuple t:
+    p = radix_partition(t.key)
+    swcb[p].append(t)
+    if swcb[p].full():  // cache-line sized buffer
+        flush swcb[p] to partition[p]  // sequential write
+</code></pre>
+<h4 id="performance-impact">Performance Impact</h4>
+<ul>
+<li>Vectorized hash probing: <strong>2-4x</strong> speedup over scalar on AVX2/AVX-512</li>
+<li>SIMD partitioning: <strong>1.5-3x</strong> speedup</li>
+<li>Combined effect: radix join with SIMD achieves <strong>1-2 billion tuples/sec</strong> on modern multi-core CPUs</li>
+</ul>
+<p><strong>Key papers</strong>:</p>
+<ul>
+<li>Polychroniou, Raghavan, Ross: "Rethinking SIMD Vectorization for In-Memory Databases", SIGMOD 2015</li>
+<li>Kersten, Leis, Kemper, Neumann, Pavlo: "Everything You Always Wanted to Know About Compiled and Vectorized Queries But Were Afraid to Ask", VLDB 2018</li>
+</ul>
+<h3 id="9-sideways-information-passing-and-semi-join-reductions">9. Sideways Information Passing and Semi-Join Reductions</h3>
+<p>Reduce the data flowing into expensive joins by pre-filtering using information from other parts of the query plan.</p>
+<h4 id="semi-join-reduction">Semi-Join Reduction</h4>
+<p>Before joining R and S, compute the set of join key values that actually exist in S, and filter R to only those matching keys. This is especially valuable in distributed settings where R and S are on different nodes.</p>
+<pre><code>Step 1: Compute pi_{join_key}(S)         // project S onto join key
+Step 2: R&#39; = R SEMI-JOIN pi_{join_key}(S) // filter R
+Step 3: R&#39; JOIN S                         // join reduced R with S
+</code></pre>
+<p><strong>Cost</strong>: Extra pass over S to extract keys + filter R. Beneficial when the semi-join significantly reduces |R|.</p>
+<h4 id="bloom-filter-optimization">Bloom Filter Optimization</h4>
+<p>Instead of sending the exact set of join keys, build a compact Bloom filter:</p>
+<pre><code>Build Phase:
+    Create Bloom filter BF from S.join_key values
+
+Probe Phase:
+    for each tuple r in R:
+        if BF.might_contain(r.join_key):
+            keep r (may be false positive)
+        else:
+            discard r (guaranteed not in S)
+
+Join Phase:
+    Join filtered R&#39; with S
+</code></pre>
+<p><strong>Advantages</strong>:</p>
+<ul>
+<li>Bloom filter is tiny (few KB to few MB) compared to the key set</li>
+<li>Can be broadcast cheaply in distributed systems</li>
+<li>Filters out most non-matching tuples (false positive rate &lt; 1% with proper sizing)</li>
+<li>Can be pushed down into table scans (predicate pushdown)</li>
+</ul>
+<p><strong>Runtime filter pushdown</strong>: Systems like Velox, DataFusion, and Spark push Bloom filters into TableScan operators, enabling partition/row group pruning before data even enters the join pipeline.</p>
+<h3 id="10-hash-table-designs-for-joins">10. Hash Table Designs for Joins</h3>
+<p>The hash table is the central data structure for hash joins. Different designs have dramatically different performance characteristics.</p>
+<h4 id="chained-bucket-hash-table">Chained (Bucket) Hash Table</h4>
+<pre><code>+---+---+---+---+---+---+---+---+
+| 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |  Directory (pointers)
++---+---+---+---+---+---+---+---+
+  |       |           |
+  v       v           v
+ [a]-&gt;[d] [b]        [c]-&gt;[e]-&gt;[f]     Chains (linked lists)
+</code></pre>
+<p><strong>Pros</strong>: Simple, handles variable-length keys, no clustering issues.
+<strong>Cons</strong>: Pointer chasing (cache miss per chain hop), poor memory locality.</p>
+<h4 id="open-addressing-linear-probing">Open Addressing (Linear Probing)</h4>
+<pre><code>+---+---+---+---+---+---+---+---+
+| a |   | b |   | c | d | e |   |  Flat array
++---+---+---+---+---+---+---+---+
+</code></pre>
+<p><strong>Pros</strong>: Cache-friendly (sequential scan on collision), no pointer overhead.
+<strong>Cons</strong>: Clustering degrades performance at high load factors, deletion is complex, poor for n:m joins.</p>
+<h4 id="concise-hash-table-used-in-hyper-umbra">Concise Hash Table (used in HyPer/Umbra)</h4>
+<p>Two arrays: a dense tuple array and a hash directory with offsets.</p>
+<pre><code>Hash Directory:     [2|0|1|3|0|0|0|1]  (counts per bucket)
+Offset Array:       [0|2|2|3|6|6|6|6]  (prefix sum)
+Dense Tuple Store:  [a,d | b | c,e,f | g]
+                     ^       ^
+                     bucket0  bucket2
+</code></pre>
+<p><strong>Pros</strong>: Excellent cache behavior (sequential scan of dense array), very compact.
+<strong>Cons</strong>: Build requires two passes (count + insert).</p>
+<h4 id="unchained-adjacency-array-hash-table-birler-et-al-damon-2024-best-paper">Unchained Adjacency-Array Hash Table (Birler et al., DaMoN 2024, Best Paper)</h4>
+<p>Combines build-side partitioning, adjacency array layout, Bloom filters, pipelined probes, and software write-combine buffers:</p>
+<pre><code>Phase 1: Count keys per bucket
+Phase 2: Prefix sum to compute offsets
+Phase 3: Insert tuples into adjacency array at computed positions
+
+Directory:  [offset_0, offset_1, ..., offset_n]
+Tuples:     [bucket_0 tuples | bucket_1 tuples | ...]
+Bloom:      [filter bits for rapid rejection]
+</code></pre>
+<p><strong>Performance</strong>: Outperforms open addressing by 2x on average for relational queries and up to 20x for graph queries with heavy n:m joins.</p>
+<h4 id="linear-chained-hash-table-gross-et-al-cidr-2025">Linear-Chained Hash Table (Gross et al., CIDR 2025)</h4>
+<p>Used in DuckDB for adaptive factorization. Collisions resolved with linear probing (next bucket), but entries form logical chains. Enables "3D hash join" where probe emits chain pointers instead of expanding results:</p>
+<ul>
+<li>With caching: <strong>17.58x</strong> speedup on factorizable queries</li>
+<li>Without caching: <strong>1.25x</strong> speedup</li>
+</ul>
+<hr />
+<h2 id="distributed-join-algorithms">Distributed Join Algorithms</h2>
+<h3 id="11-broadcast-join-replication">11. Broadcast Join (Replication)</h3>
+<p>Send the entire smaller relation to all nodes holding partitions of the larger relation.</p>
+<pre><code>    Coordinator                Node 1          Node 2          Node 3
+    +----------+              +------+         +------+         +------+
+    | R (small)|  broadcast   | R    |         | R    |         | R    |
+    |          | -----------&gt; | S_1  |         | S_2  |         | S_3  |
+    +----------+              |JOIN  |         |JOIN  |         |JOIN  |
+                              +------+         +------+         +------+
+                                |                |                |
+                                v                v                v
+                             Result_1         Result_2         Result_3
+</code></pre>
+<p><strong>Network cost</strong>: <code>|R| * (N-1)</code> where N is the number of nodes. Each node receives a full copy of R.</p>
+<p><strong>When optimal</strong>: <code>|R| &lt;&lt; |S|</code> and <code>|R|</code> fits in memory on each node. Spark's default threshold: <code>spark.sql.autoBroadcastJoinThreshold = 10MB</code>.</p>
+<p><strong>Advantages</strong>: No shuffling of S (which is large), single-pass execution, no skew issues on S side.</p>
+<p><strong>Disadvantages</strong>: Prohibitive for large R, memory pressure on all nodes, redundant storage.</p>
+<h3 id="12-shuffle-repartition-hash-partitioned-join">12. Shuffle (Repartition / Hash-Partitioned) Join</h3>
+<p>Both relations are hash-partitioned on the join key and sent to the same set of nodes.</p>
+<pre><code>    Node 1 (R_1, S_1)     Node 2 (R_2, S_2)     Node 3 (R_3, S_3)
+         |                      |                      |
+         | hash-partition on join key (shuffle)
+         v                      v                      v
+    +----------+           +----------+           +----------+
+    | R&#39;_1,S&#39;_1|           | R&#39;_2,S&#39;_2|           | R&#39;_3,S&#39;_3|
+    | local    |           | local    |           | local    |
+    | hash join|           | hash join|           | hash join|
+    +----------+           +----------+           +----------+
+</code></pre>
+<p><strong>Network cost</strong>: <code>|R| + |S|</code> (every tuple is sent exactly once).</p>
+<p><strong>When optimal</strong>: Both R and S are large and not co-partitioned on the join key.</p>
+<p><strong>Skew problem</strong>: If join key values are highly skewed (e.g., one value appears in 50% of tuples), one node gets overloaded. Mitigation strategies:</p>
+<ul>
+<li><strong>Frequency-based partitioning</strong>: Heavy hitters detected and replicated across nodes</li>
+<li><strong>Spark AQE skew join</strong>: Splits skewed partitions and replicates the other side. Triggered when partition size &gt; <code>spark.sql.adaptive.skewJoin.skewedPartitionThresholdInBytes</code> (default 256MB) AND partition size &gt; 5x the median partition size.</li>
+</ul>
+<h3 id="13-semi-join-reduction-in-distributed-settings">13. Semi-Join Reduction in Distributed Settings</h3>
+<p>Minimize network transfer by pre-filtering.</p>
+<pre><code>    Site A (has R)                    Site B (has S)
+    +------------+                    +------------+
+    | R          |  1. Send BF(R)     | S          |
+    |            | -----------------&gt; |            |
+    |            |                    | Filter S   |
+    |            |  2. Send S&#39;        | using BF   |
+    |            | &lt;----------------- | S&#39; = S     |
+    |            |                    | semi-join  |
+    | R JOIN S&#39;  |                    | BF(R)      |
+    +------------+                    +------------+
+
+    BF(R) = Bloom filter on R&#39;s join keys (compact, few KB)
+    S&#39; = tuples of S that pass the Bloom filter (much smaller than S)
+</code></pre>
+<p><strong>Network cost</strong>: <code>|BF(R)| + |S'|</code> where <code>|S'| &lt;&lt; |S|</code> if the join is selective.</p>
+<p><strong>Two-phase semi-join</strong>: Send BF(R) to filter S, then send BF(S') back to filter R, then join. Worth it when the join is very selective and network is the bottleneck.</p>
+<h3 id="14-track-join-parallel-partition-discovery">14. Track Join (Parallel Partition Discovery)</h3>
+<p>An optimization for co-located data. If R and S are both range-partitioned on a related key, the join can be decomposed into independent sub-joins without any data movement:</p>
+<pre><code>If R partitioned on R.key as: [0-100], [101-200], [201-300]
+   S partitioned on S.key as: [0-100], [101-200], [201-300]
+
+Then: R[0-100] JOIN S[0-100], R[101-200] JOIN S[101-200], ...
+      All independent, no shuffling needed.
+</code></pre>
+<p><strong>When applicable</strong>: Both tables co-partitioned (same partition key, same partition boundaries). CockroachDB and TiDB exploit this when tables share partition schemes.</p>
+<h3 id="15-distributed-sort-merge-join">15. Distributed Sort-Merge Join</h3>
+<pre><code>Phase 1: Range-partition both R and S using sampled splitters
+    - Sample keys from both relations
+    - Determine range boundaries
+    - Shuffle tuples to appropriate nodes based on range
+
+Phase 2: Local sort-merge join at each node
+    - Each node sorts its partition of R and S
+    - Performs standard merge join
+</code></pre>
+<p><strong>Network cost</strong>: <code>|R| + |S|</code> (same as shuffle join).</p>
+<p><strong>Advantage over hash shuffle</strong>: Output is globally sorted. Useful when downstream operators need sorted data (e.g., window functions, ORDER BY).</p>
+<h3 id="16-symmetric-hash-join-streaming">16. Symmetric Hash Join (Streaming)</h3>
+<p>For streaming environments where tuples arrive asynchronously from both sides.</p>
+<pre><code>Hash Table for R: HT_R
+Hash Table for S: HT_S
+
+on_arrival(tuple t from R):
+    insert t into HT_R
+    probe HT_S for matches with t
+    emit all matches
+
+on_arrival(tuple t from S):
+    insert t into HT_S
+    probe HT_R for matches with t
+    emit all matches
+</code></pre>
+<p><strong>Properties</strong>:</p>
+<ul>
+<li>Non-blocking: produces output as soon as any match exists</li>
+<li>Handles out-of-order arrival</li>
+<li>Memory grows unboundedly (both hash tables kept)</li>
+<li>Used in streaming systems (Flink, RisingWave)</li>
+</ul>
+<h3 id="17-mapreduce-style-joins">17. MapReduce-Style Joins</h3>
+<h4 id="reduce-side-join">Reduce-Side Join</h4>
+<p>Both relations emit <code>(join_key, tagged_value)</code> pairs. The shuffle groups all values with the same key together. The reducer performs a local cross product.</p>
+<pre><code>Map(R):  for each (k, v) in R: emit (k, (&quot;R&quot;, v))
+Map(S):  for each (k, v) in S: emit (k, (&quot;S&quot;, v))
+
+Shuffle: group by key
+
+Reduce(key, values):
+    R_vals = [v for (tag, v) in values if tag == &quot;R&quot;]
+    S_vals = [v for (tag, v) in values if tag == &quot;S&quot;]
+    for r in R_vals:
+        for s in S_vals:
+            emit (key, r, s)
+</code></pre>
+<p><strong>Cost</strong>: Full shuffle of both relations. Simple but inefficient for broadcast-suitable joins.</p>
+<h4 id="map-side-join">Map-Side Join</h4>
+<p>Requires one relation (R) to be small enough to load into memory on each mapper.</p>
+<pre><code>Setup: Distribute R to all map tasks (via distributed cache)
+
+Map(S_split):
+    Load R into hash table
+    for each (k, v) in S_split:
+        probe hash table for matches
+        emit matches
+</code></pre>
+<p><strong>Cost</strong>: Broadcast R, then single-pass over S. Equivalent to broadcast join.</p>
+<h4 id="replicated-join-for-multi-way-joins-in-mapreduce">Replicated Join (for multi-way joins in MapReduce)</h4>
+<p>For theta-joins or multi-way joins, partition the join space into a grid and replicate tuples:</p>
+<pre><code>Two relations R(A) and S(B) with theta condition: R.A + S.B &lt; 100
+
+Partition space into p x q grid cells.
+Each R tuple sent to q cells (replicated across one dimension).
+Each S tuple sent to p cells (replicated across other dimension).
+Each cell independently evaluates theta condition.
+</code></pre>
+<p><strong>Key paper</strong>: Okcan and Riedewald: "Processing Theta-Joins using MapReduce", SIGMOD 2011.</p>
+<h3 id="18-theta-joins-in-distributed-settings">18. Theta Joins in Distributed Settings</h3>
+<p>Non-equi-joins (e.g., <code>R.A &lt; S.B</code>) cannot use hash partitioning. Strategies:</p>
+<ul>
+<li><strong>Band join</strong>: If <code>|R.A - S.B| &lt; delta</code>, partition into overlapping ranges</li>
+<li><strong>1-Bucket-Theta</strong>: Partition join matrix into roughly equal-sized regions using sampling</li>
+<li><strong>Block nested loop with partition</strong>: Each node gets a block of R and a block of S, performs cross product with theta filter</li>
+</ul>
+<p><strong>Cost</strong>: Fundamentally harder than equi-joins. Lower bound is <code>O(|R| * |S| / N)</code> for N nodes when no index exists.</p>
+<hr />
+<h2 id="join-trees-and-plan-shapes">Join Trees and Plan Shapes</h2>
+<p>The optimizer must decide the order in which to join multiple tables. The shape of the resulting join tree significantly impacts performance.</p>
+<h3 id="left-deep-trees">Left-Deep Trees</h3>
+<pre><code>         JOIN
+        /    \
+      JOIN    T4
+     /    \
+   JOIN    T3
+  /    \
+T1     T2
+</code></pre>
+<p><strong>Properties</strong>:</p>
+<ul>
+<li>Every right child is a base relation (leaf)</li>
+<li>Fully pipelined: each join reads its right input and probes/looks up in the left pipeline</li>
+<li><code>n!</code> possible left-deep trees for n relations (without commutativity)</li>
+<li>Standard for row-at-a-time (Volcano) execution with index nested loop joins</li>
+<li>Limited parallelism: linear chain, each operator depends on the previous</li>
+</ul>
+<h3 id="right-deep-trees">Right-Deep Trees</h3>
+<pre><code>    JOIN
+   /    \
+  T1   JOIN
+      /    \
+     T2   JOIN
+          /    \
+         T3    T4
+</code></pre>
+<p><strong>Properties</strong>:</p>
+<ul>
+<li>Every left child is a base relation</li>
+<li>All base relations can be hashed simultaneously (build all hash tables first, then probe through the chain)</li>
+<li>Good for hash joins: build phase of all joins can proceed in parallel</li>
+<li>Requires enough memory for all hash tables simultaneously: <code>sum(HT(T_i))</code></li>
+</ul>
+<h3 id="bushy-trees">Bushy Trees</h3>
+<pre><code>       JOIN
+      /    \
+   JOIN    JOIN
+  /    \  /    \
+T1    T2 T3    T4
+</code></pre>
+<p><strong>Properties</strong>:</p>
+<ul>
+<li>Interior nodes can have non-leaf children on both sides</li>
+<li>Strictly more general: includes left-deep and right-deep as special cases</li>
+<li><code>(2(n-1))! / (n-1)!</code> possible bushy trees for n relations (Catalan number growth)</li>
+<li>Enables inter-operator parallelism: independent sub-trees can execute concurrently</li>
+<li>Harder to enumerate: DPccp/DPhyp needed for efficient search</li>
+</ul>
+<h3 id="comparison">Comparison</h3>
+<pre><code>Plan Shape  | Search Space    | Parallelism    | Memory         | Pipeline
+------------|----------------|----------------|----------------|----------
+Left-deep   | O(n!)          | Limited        | 1 HT at a time | Full
+Right-deep  | O(n!)          | Build parallel | All HTs in mem | Full
+Bushy       | O(4^n / n^1.5) | Max parallel   | Flexible       | Partial
+</code></pre>
+<p>Most modern optimizers (DuckDB, CockroachDB, Umbra) consider bushy plans. PostgreSQL's GEQO (Genetic Query Optimizer) kicks in at &gt;= 12 tables because exhaustive enumeration is too expensive.</p>
+<hr />
+<h2 id="multi-way-joins-and-query-optimization">Multi-Way Joins and Query Optimization</h2>
+<h3 id="join-ordering-algorithms">Join Ordering Algorithms</h3>
+<p>Given n tables, find the optimal join order. This is one of the hardest problems in query optimization.</p>
+<h4 id="dynamic-programming-dpsize-system-r-style">Dynamic Programming: DPsize (System R style)</h4>
+<p>The classic bottom-up approach from Selinger et al. (SIGMOD 1979):</p>
+<pre><code>// Build optimal plan for each subset of relations
+for size = 1 to n:
+    for each subset S of size &#39;size&#39;:
+        for each way to split S into (S1, S2) where S1 JOIN S2 is valid:
+            cost = Cost(best_plan(S1)) + Cost(best_plan(S2)) + JoinCost(S1, S2)
+            if cost &lt; best_plan(S):
+                best_plan(S) = Plan(S1, S2)
+</code></pre>
+<p><strong>Complexity</strong>: <code>O(3^n)</code> with pruning, <code>O(2^n)</code> space.</p>
+<p><strong>Limitation</strong>: Considers only left-deep trees in the original System R formulation. Extended to bushy trees, but enumerates many disconnected subsets wastefully.</p>
+<h4 id="dpccp-moerkotte-and-neumann-sigmod-2006">DPccp (Moerkotte and Neumann, SIGMOD 2006)</h4>
+<p><strong>Dynamic Programming on Connected subgraph-Complement Pairs.</strong> Only enumerates pairs of subsets <code>(S1, S2)</code> that are both connected in the join graph and connected to each other. Avoids generating cross products.</p>
+<pre><code>DPccp(JoinGraph G):
+    for each vertex v in G:
+        dpTable[{v}] = AccessPlan(v)
+
+    for each connected subgraph S in G (in increasing size):
+        for each connected complement C of S in G:
+            // (S, C) is a csg-cmp pair
+            plan = MakeJoin(dpTable[S], dpTable[C])
+            if plan.cost &lt; dpTable[S union C].cost:
+                dpTable[S union C] = plan
+</code></pre>
+<p><strong>Complexity</strong>: <code>O(3^n)</code> worst case, but much faster in practice because it skips disconnected subsets.</p>
+<p><strong>Limitation</strong>: Only handles binary (simple) join predicates, not hyperedges.</p>
+<h4 id="dphyp-moerkotte-and-neumann-icde-2008">DPhyp (Moerkotte and Neumann, ICDE 2008)</h4>
+<p>Extends DPccp to handle <strong>hypergraph</strong> join predicates (predicates involving more than 2 relations, e.g., <code>R.a + S.b = T.c</code>).</p>
+<p>Models the join graph as a hypergraph where hyperedges connect sets of relations. The algorithm enumerates connected subgraph-complement pairs on the hypergraph.</p>
+<p><strong>Used by</strong>: MySQL 8.0.23+ (hypergraph optimizer), DuckDB, Umbra/CedarDB.</p>
+<h4 id="greedy-operator-ordering-goo">Greedy Operator Ordering (GOO)</h4>
+<pre><code>while more than one relation remains:
+    pick the pair (R_i, R_j) with minimum estimated join cost
+    replace R_i and R_j with their join result
+</code></pre>
+<p><strong>Complexity</strong>: <code>O(n^3)</code> (n iterations, each scanning <code>O(n^2)</code> pairs).</p>
+<p><strong>Quality</strong>: No optimality guarantee, but surprisingly good in practice. Useful as a fallback for very large queries where DP is infeasible.</p>
+<h4 id="genetic-algorithms-geqo-in-postgresql">Genetic Algorithms (GEQO in PostgreSQL)</h4>
+<p>PostgreSQL uses a genetic algorithm when the number of joined tables exceeds <code>geqo_threshold</code> (default 12):</p>
+<ul>
+<li>Represent join orders as permutations (chromosomes)</li>
+<li>Crossover: combine orderings from two good plans</li>
+<li>Mutation: swap random table positions</li>
+<li>Selection: keep plans with lowest cost</li>
+</ul>
+<p><strong>Rationale</strong>: <code>12! = 479,001,600</code> left-deep trees; DP on all subsets has <code>2^12 = 4096</code> entries for left-deep, but bushy search is <code>O(3^12 ~= 500K)</code> -- still feasible, but PostgreSQL is conservative.</p>
+<h3 id="cardinality-estimation-and-join-performance">Cardinality Estimation and Join Performance</h3>
+<p>Join ordering decisions depend critically on cardinality estimates. Errors compound multiplicatively through a plan:</p>
+<pre><code>True cardinality:  |R JOIN S| = 1000,  |R JOIN S JOIN T| = 5000
+Estimated:         |R JOIN S| = 100,   |R JOIN S JOIN T| = 50
+                   (10x under)          (100x under)
+
+Impact: Optimizer chooses nested loop join expecting 50 tuples,
+        actually gets 5000. 100x slower.
+</code></pre>
+<p><strong>Key insight</strong> from Leis et al., "How Good Are Query Optimizers, Really?", VLDB 2015: On the Join Order Benchmark (JOB), PostgreSQL's estimates are off by orders of magnitude for multi-way joins. The main sources of error:</p>
+<ol>
+<li>Independence assumption (attribute values are uncorrelated)</li>
+<li>Uniform distribution assumption</li>
+<li>Containment assumption for joins</li>
+</ol>
+<p><strong>Modern approaches</strong>:</p>
+<ul>
+<li><strong>Learned cardinality estimation</strong>: Use neural networks to predict cardinalities (e.g., MSCN, DeepDB, NeuroCard)</li>
+<li><strong>Adaptive re-optimization</strong>: If runtime cardinality diverges from estimate, re-plan mid-execution (e.g., Spark AQE)</li>
+<li><strong>Robust plan selection</strong>: Choose plans that perform well across a range of cardinality estimates (Babcock and Chaudhuri, "Towards a Robust Query Optimizer", VLDB 2005)</li>
+</ul>
+<h3 id="cost-models-for-joins">Cost Models for Joins</h3>
+<p>A cost model assigns a numeric cost to each physical operator. Typical components:</p>
+<pre><code>Cost(HashJoin(R, S)) =
+    C_cpu * (|R| + |S|)           // hash + compare
+  + C_io  * (B(R) + B(S))        // read cost
+  + C_mem * HT(R)                 // memory for hash table
+  + C_net * transfer(R, S)        // network (distributed only)
+</code></pre>
+<p><strong>Calibration challenge</strong>: The weights <code>C_cpu</code>, <code>C_io</code>, <code>C_mem</code>, <code>C_net</code> depend on hardware. PostgreSQL uses hand-tuned constants (<code>seq_page_cost = 1.0</code>, <code>random_page_cost = 4.0</code>, <code>cpu_tuple_cost = 0.01</code>). These are notoriously hard to get right, especially on cloud hardware with variable I/O latency.</p>
+<h3 id="join-enumeration-summary">Join Enumeration Summary</h3>
+<pre><code>Algorithm    | Complexity   | Trees          | Predicates    | Used By
+-------------|-------------|----------------|---------------|------------------
+DPsize       | O(3^n)      | Left-deep      | Binary        | System R (1979)
+DPccp        | O(3^n)*     | Bushy          | Binary        | Research
+DPhyp        | O(3^n)*     | Bushy          | Hypergraph    | MySQL, DuckDB, Umbra
+GOO          | O(n^3)      | Greedy         | Any           | Fallback
+GEQO         | O(gen*pop)  | Left-deep      | Any           | PostgreSQL (&gt;=12 tbls)
+Linearized DP| O(n*2^n)    | Left-deep only | Binary        | Classic textbook
+
+* Much faster in practice due to connectivity pruning
+</code></pre>
+<hr />
+<h2 id="performance-characteristics">Performance Characteristics</h2>
+<h3 id="cpu-cache-effects">CPU Cache Effects</h3>
+<p>Modern CPUs have multi-level caches with dramatically different access times:</p>
+<pre><code>Level   | Size          | Latency     | Bandwidth
+--------|---------------|-------------|------------
+L1      | 32-48 KB      | 1-2 ns      | ~500 GB/s
+L2      | 256 KB-1 MB   | 3-5 ns      | ~200 GB/s
+L3      | 8-64 MB       | 10-20 ns    | ~100 GB/s
+DRAM    | GBs           | 50-100 ns   | ~50 GB/s
+NVMe    | TBs           | 10-100 us   | ~5 GB/s
+</code></pre>
+<p><strong>Impact on joins</strong>:</p>
+<ul>
+<li>Hash table larger than L3: every probe is a cache miss (~100ns). For 100M tuples, that is 10 seconds of pure cache miss latency.</li>
+<li>Radix partitioning reduces each partition to L2 size: probes hit in ~5ns.</li>
+<li><strong>TLB misses</strong>: Each TLB entry covers a 4KB page. A hash table spanning 1GB uses 256K pages. The TLB (typically 1K-2K entries) thrashes constantly. Radix partitioning with TLB-aware fan-out (&lt; TLB entries per pass) eliminates this.</li>
+</ul>
+<h3 id="numa-awareness">NUMA Awareness</h3>
+<p>Non-Uniform Memory Access architectures have different costs for local vs. remote memory:</p>
+<pre><code>NUMA Node 0              NUMA Node 1
++-----------+            +-----------+
+| CPU 0-7   |            | CPU 8-15  |
+| L3 cache  | &lt;--QPI--&gt;  | L3 cache  |
+| Local RAM |   ~100ns   | Local RAM |
+| (~50ns)   |  penalty   | (~50ns)   |
++-----------+            +-----------+
+</code></pre>
+<p><strong>Join implications</strong>:</p>
+<ul>
+<li>Hash table built on Node 0, probed from Node 1: every probe pays QPI penalty</li>
+<li><strong>Morsel-driven</strong>: Assign morsels to threads local to the data's NUMA node</li>
+<li><strong>MPSM approach</strong>: Sort locally, merge across nodes (read-only remote access is faster than write)</li>
+<li><strong>Replicated hash tables</strong>: Each NUMA node builds its own copy. Doubles memory, eliminates remote accesses during probe.</li>
+</ul>
+<h3 id="memory-vs-disk-trade-offs">Memory vs. Disk Trade-offs</h3>
+<pre><code>Scenario              | Best Algorithm              | Key Constraint
+----------------------|-----------------------------|-------------------
+R fits in memory      | Simple hash join             | HT(R) &lt;= M
+R fits in L3 cache    | Hash join (no partitioning)  | HT(R) &lt;= L3
+R exceeds memory      | Grace/Hybrid hash join       | B(R) &lt;= M^2
+R &gt;&gt; memory, sorted   | External sort-merge          | Always works
+Both huge, no index   | Grace hash join              | Recursive partition
+Both huge, indexed    | Index nested loop or merge   | Depends on selectivity
+</code></pre>
+<h3 id="skew-handling">Skew Handling</h3>
+<p>Data skew -- where a few join key values are extremely frequent -- breaks hash join partitioning assumptions.</p>
+<h4 id="the-problem">The Problem</h4>
+<pre><code>Key distribution:    key=42 appears 10M times, all other keys &lt; 100 times
+Hash partitioning:   partition containing key=42 has 10M tuples
+                     all other partitions have ~1000 tuples
+Result:              One partition dominates, one thread/node overloaded
+</code></pre>
+<h4 id="solutions">Solutions</h4>
+<p><strong>1. Heavy Hitter Detection + Special Treatment</strong></p>
+<pre><code>Phase 1: Sample R to find keys with frequency &gt; threshold
+Phase 2: Heavy hitter tuples -&gt; broadcast to all partitions
+          Non-heavy-hitter tuples -&gt; normal hash partition
+Phase 3: Each partition joins normally, heavy hitter tuples
+          matched against all partitions of the other side
+</code></pre>
+<p><strong>2. Frequency-Based Partitioning</strong></p>
+<p>Assign heavy hitters to their own partitions, potentially splitting them across multiple partitions:</p>
+<pre><code>Key 42: 10M tuples -&gt; split into 100 sub-partitions of 100K each
+         Matching S tuples replicated to all 100 sub-partitions
+</code></pre>
+<p><strong>3. Spark AQE Skew Join</strong></p>
+<p>Detects skew at runtime after the shuffle:</p>
+<ul>
+<li>Partition &gt; 256MB AND &gt; 5x median size -&gt; skewed</li>
+<li>Split the large partition into smaller chunks</li>
+<li>Replicate the matching partition from the other side</li>
+<li>Join independently</li>
+</ul>
+<p><strong>4. Asymmetric Partitioning</strong></p>
+<p>Use different partition counts for build and probe sides. Build side gets more partitions for the skewed key range.</p>
+<h3 id="parallelism-models">Parallelism Models</h3>
+<pre><code>Model               | Description                                | Granularity
+--------------------|--------------------------------------------|------------------
+Intra-operator      | Single operator uses multiple threads       | Within one join
+Inter-operator      | Different operators run simultaneously      | Pipeline stages
+Pipeline            | Producer feeds consumer without materializing| Between operators
+Morsel-driven       | Work divided into cache-friendly morsels    | ~10K tuples/morsel
+Exchange operator   | Explicit data redistribution between threads | Volcano-style
+Bushy parallelism   | Independent sub-trees execute concurrently  | Plan-level
+</code></pre>
+<p><strong>Morsel-driven parallelism</strong> (Leis, Boncz, Kemper, Neumann -- SIGMOD 2014):</p>
+<pre><code>    Global Hash Table (lock-free build)
+    +----------------------------------+
+    |  Shared hash table               |
+    +----------------------------------+
+        ^         ^         ^
+        |         |         |
+    Thread 1  Thread 2  Thread 3
+    Morsel_a  Morsel_b  Morsel_c   (build phase: each thread
+     of R      of R      of R      inserts its morsel)
+
+    ---- barrier ----
+
+    Thread 1  Thread 2  Thread 3
+    Morsel_x  Morsel_y  Morsel_z   (probe phase: each thread
+     of S      of S      of S      probes independently)
+</code></pre>
+<p><strong>Key advantage</strong>: Perfect load balancing. If Thread 1 finishes its morsel early, it steals the next available morsel. No static partitioning needed.</p>
+<hr />
+<h2 id="correctness-concerns">Correctness Concerns</h2>
+<h3 id="null-handling-semantics">NULL Handling Semantics</h3>
+<p>NULL values require special treatment in every join type:</p>
+<pre><code>Join Type     | NULL = NULL match? | NULL in output?
+--------------|--------------------|---------------------------
+INNER JOIN    | No                 | No (NULLs filtered)
+LEFT OUTER    | No                 | Yes (unmatched left rows)
+RIGHT OUTER   | No                 | Yes (unmatched right rows)
+FULL OUTER    | No                 | Yes (both sides)
+SEMI JOIN     | No                 | No (existence check only)
+ANTI JOIN     | No*                | Yes (non-matching rows)
+CROSS JOIN    | N/A                | Yes (all combinations)
+</code></pre>
+<p>*Anti-join NULL handling is particularly tricky. <code>R ANTI JOIN S ON R.a = S.b</code> should NOT return R rows where <code>R.a IS NULL</code> if S contains any NULLs, because <code>NULL = NULL</code> is UNKNOWN, not FALSE. The SQL standard says anti-join returns rows with no match, and NULL comparisons never match. But <code>NOT IN (subquery)</code> with NULLs in the subquery returns empty! This is a notorious correctness pitfall.</p>
+<pre><code>-- This returns EMPTY SET if S.b contains any NULL:
+SELECT * FROM R WHERE R.a NOT IN (SELECT S.b FROM S)
+
+-- This returns rows correctly:
+SELECT * FROM R WHERE NOT EXISTS (SELECT 1 FROM S WHERE R.a = S.b)
+</code></pre>
+<p><strong>Implementation</strong>: Hash joins must handle NULL keys specially. Typically, NULL keys are excluded from the hash table and processed separately based on join type.</p>
+<h3 id="correctness-under-concurrent-modifications">Correctness Under Concurrent Modifications</h3>
+<p>For joins in MVCC systems:</p>
+<ul>
+<li>Both sides of the join must see a consistent snapshot</li>
+<li>If the build side is modified during probe, results may be incorrect</li>
+<li><strong>Solution</strong>: Snapshot isolation ensures both sides see the same committed state</li>
+</ul>
+<p>For streaming joins:</p>
+<ul>
+<li>Watermarks define completeness: "all events up to time T have arrived"</li>
+<li>Late-arriving tuples may miss their join partners</li>
+<li><strong>Solution</strong>: Allowed lateness windows, retraction/correction messages</li>
+</ul>
+<h3 id="duplicate-handling">Duplicate Handling</h3>
+<p>Joins must correctly handle duplicates in both relations:</p>
+<pre><code>R: {(1, a), (1, b)}     S: {(1, x), (1, y)}
+
+R JOIN S on key = 1 produces:
+{(1, a, x), (1, a, y), (1, b, x), (1, b, y)}   -- 4 rows, not 2
+</code></pre>
+<p>Hash join correctness: The hash table must store ALL tuples with the same key, not just one. Build phase must handle duplicate keys by chaining or using multi-match structures.</p>
+<p><strong>The diamond problem</strong> (Birler, Kemper, Neumann -- VLDB 2024): When intermediate join results are much larger than both input and output (because of duplicates that are later eliminated by a subsequent operation), performance suffers. Diamond-hardened joins split the operator into Lookup (find matches) and Expand (materialize matches), allowing the optimizer to defer expansion.</p>
+<h3 id="overflow-and-spill-to-disk-correctness">Overflow and Spill-to-Disk Correctness</h3>
+<p>When a hash join's build side exceeds available memory:</p>
+<p><strong>Correctness requirements for spilling</strong>:</p>
+<ol>
+<li><strong>Partition alignment</strong>: If R's partition i spills to disk, S's partition i must also be written to disk (or the in-memory probe results are incomplete for partition i)</li>
+<li><strong>No lost tuples</strong>: Every tuple must end up in exactly one partition</li>
+<li><strong>Hash function consistency</strong>: The same hash function must be used for both build and probe partitioning</li>
+</ol>
+<p><strong>DuckDB's approach</strong> (Kuiper et al., "Saving Private Hash Join", VLDB 2025):</p>
+<ul>
+<li>Unified buffer pool manages temporary and persistent data</li>
+<li>Graceful degradation: as memory pressure increases, partitions are spilled incrementally</li>
+<li>No abrupt transition from "in-memory mode" to "external mode"</li>
+<li>Correctness maintained because buffer manager handles page eviction transparently</li>
+</ul>
+<p><strong>Common bugs</strong>:</p>
+<ul>
+<li>Forgetting to flush the output buffer after the last partition</li>
+<li>Not handling the case where a single partition still exceeds memory (requires recursive partitioning)</li>
+<li>Hash table resize during build invalidates pointers held by concurrent probes (in parallel builds)</li>
+</ul>
+<h3 id="distributed-join-correctness">Distributed Join Correctness</h3>
+<p><strong>Network partition handling</strong>:</p>
+<ul>
+<li>Shuffle join: if a node becomes unreachable, its partition is lost. Recovery requires re-reading source data and re-shuffling.</li>
+<li>Broadcast join: if broadcast is incomplete, some nodes have partial R. Must use reliable broadcast (e.g., Spark's BitTorrent-like broadcast).</li>
+</ul>
+<p><strong>Straggler handling</strong>:</p>
+<ul>
+<li>One slow node delays the entire join. Spark launches speculative tasks on other nodes.</li>
+<li>Skew detection (AQE) can re-balance work dynamically.</li>
+</ul>
+<p><strong>Exactly-once semantics</strong>:</p>
+<ul>
+<li>In streaming joins, replay of input may cause duplicate output. Must deduplicate or use idempotent consumers.</li>
+<li>Flink checkpoints operator state (hash tables) atomically. On recovery, replay from checkpoint.</li>
+</ul>
+<hr />
+<h2 id="production-system-implementations">Production System Implementations</h2>
+<h3 id="duckdb">DuckDB</h3>
+<p><strong>Architecture</strong>: Vectorized push-based execution, single-node, larger-than-memory support.</p>
+<p><strong>Join operators</strong>:</p>
+<ul>
+<li><strong>Hash Join</strong>: Default for equi-joins. Build side selected by optimizer (smaller relation). Uses a concise hash table with linear probing. Morsel-driven parallel build, partitioned parallel probe. Standard vector size of 2048 tuples per batch.</li>
+<li><strong>Perfect Hash Join</strong>: For small, dense integer key ranges. Direct-indexed array where <code>index = key - min_value</code>. O(1) lookup, no hash collisions. Activated when <code>unique_keys == build_range</code> and no NULLs.</li>
+<li><strong>Cross Product</strong>: For non-equi joins or theta joins without equi-component.</li>
+<li><strong>Nested Loop Join</strong> (Index): For inequality predicates with range indexes.</li>
+<li><strong>IE Join</strong>: Inequality join optimization using sorted permutation arrays. Based on the Inequality Joins paper (Khayyat et al., VLDB 2015).</li>
+</ul>
+<p><strong>Recent advances</strong>:</p>
+<ul>
+<li><strong>Saving Private Hash Join</strong> (Kuiper et al., VLDB 2025): Graceful memory degradation. Hash join spills partitions to the unified buffer pool. Performance degrades linearly with memory pressure rather than cliff-diving.</li>
+<li><strong>Data Chunk Compaction</strong> (Qiao et al., SIGMOD 2025): Logical compaction reduces chunk count in hash join output. 1.7x speedup on tested workloads.</li>
+<li><strong>Adaptive Factorization</strong> (Gross et al., CIDR 2025): WCOJ-style factorized joins using linear-chained hash tables. Chain pointers instead of materialized results. 17.58x speedup with caching.</li>
+</ul>
+<h3 id="hyper-umbra-cedardb">HyPer / Umbra / CedarDB</h3>
+<p><strong>Architecture</strong>: Compiled (data-centric code generation), morsel-driven parallelism.</p>
+<p><strong>Join implementation</strong>:</p>
+<ul>
+<li>JIT-compiled join operators: the entire pipeline (scan -&gt; filter -&gt; hash build/probe -&gt; aggregate) is compiled into a single tight loop.</li>
+<li>Hash table: Concise hash table (count + prefix sum + dense array). Two-pass build.</li>
+<li><strong>Diamond-hardened joins</strong> (Birler et al., VLDB 2024): Split join into Lookup + Expand sub-operators, freely reorderable. Eliminates the diamond problem for n:m joins.</li>
+<li><strong>Unchained hash table</strong> (Birler et al., DaMoN 2024, Best Paper): Adjacency array layout + Bloom filter + software write-combine buffers + pipelined probes. 2x over open addressing on relational, 20x on graph queries.</li>
+<li><strong>Morsel-driven parallel join</strong>: Global hash table with lock-free build. Workers process morsels of 10K tuples. NUMA-aware morsel assignment.</li>
+</ul>
+<h3 id="apache-spark">Apache Spark</h3>
+<p><strong>Architecture</strong>: Distributed, JVM-based, batch and streaming.</p>
+<p><strong>Join strategies</strong> (in order of optimizer preference):</p>
+<ol>
+<li><strong>Broadcast Hash Join</strong>: Small table broadcast to all executors, in-memory hash join. Threshold: <code>spark.sql.autoBroadcastJoinThreshold</code> = 10MB default.</li>
+<li><strong>Shuffle Hash Join</strong>: Both sides hash-partitioned, local hash join. Used when one side fits in memory per-partition.</li>
+<li><strong>Sort-Merge Join</strong>: Default for large equi-joins. Both sides shuffle-sorted, then merge.</li>
+<li><strong>Broadcast Nested Loop Join</strong>: Fallback for non-equi joins with small table.</li>
+<li><strong>Cartesian Product</strong>: Last resort for non-equi joins with no small table.</li>
+</ol>
+<p><strong>Adaptive Query Execution (AQE)</strong>:</p>
+<ul>
+<li>Converts sort-merge to broadcast join if runtime statistics show one side is small</li>
+<li>Converts sort-merge to shuffle hash join if per-partition data is small</li>
+<li>Skew join: splits skewed partitions, replicates matching partitions from other side</li>
+<li>Coalesces small post-shuffle partitions</li>
+</ul>
+<h3 id="cockroachdb">CockroachDB</h3>
+<p><strong>Architecture</strong>: Distributed SQL, Raft-based replication, range-partitioned KV store.</p>
+<p><strong>Join operators</strong>:</p>
+<ul>
+<li><strong>Hash Join</strong>: Vectorized column-at-a-time execution (40x faster than row-at-a-time). Build side chosen by optimizer. Spill to disk using temp storage if memory exceeded.</li>
+<li><strong>Merge Join</strong>: Used when both sides ordered on join key (e.g., scans on the primary key).</li>
+<li><strong>Lookup Join</strong>: Probe an index on the right side for each left tuple. Preferred for small left side with good index on right. The optimizer explicitly models the cost of round-trips to remote ranges.</li>
+<li><strong>Inverted Index Join</strong>: For JSONB, array, and full-text search predicates.</li>
+</ul>
+<p><strong>Distributed execution</strong>:</p>
+<ul>
+<li>The optimizer is "distribution-aware": it considers data locality when choosing join strategies.</li>
+<li>Co-located joins: if both tables are partitioned on the join key with the same ranges, no shuffling needed.</li>
+<li>Cross-range joins: data shuffled via DistSQL processors.</li>
+</ul>
+<h3 id="tidb">TiDB</h3>
+<p><strong>Architecture</strong>: Distributed SQL, multi-Raft, TiKV storage (RocksDB-based).</p>
+<p><strong>Join operators</strong>:</p>
+<ul>
+<li><strong>Hash Join</strong>: parallel build, parallel probe. Build side chosen by smaller estimated cardinality.</li>
+<li><strong>Index Join</strong> (Lookup): outer relation scanned, inner relation probed via index. Batched lookups to amortize RPC overhead.</li>
+<li><strong>Merge Join</strong>: for pre-sorted inputs or when result ordering is needed.</li>
+<li><strong>Index Merge Join</strong>: combines index scan with merge join.</li>
+</ul>
+<p><strong>Distributed specifics</strong>:</p>
+<ul>
+<li>Coprocessor pushdown: part of the join may be pushed to TiKV nodes (filter + partial aggregation).</li>
+<li>MPP mode (TiFlash): columnar storage with hash-partitioned shuffle joins for OLAP.</li>
+</ul>
+<h3 id="snowflake">Snowflake</h3>
+<p><strong>Architecture</strong>: Cloud-native, separated storage (S3/Azure Blob/GCS) and compute (virtual warehouses).</p>
+<p><strong>Join execution</strong>:</p>
+<ul>
+<li><strong>Hash-Hash Join</strong>: Both sides hash-partitioned, distributed to compute nodes. Default for large-large joins.</li>
+<li><strong>Broadcast Join</strong>: Small side replicated. Chosen when one side is below threshold.</li>
+<li><strong>Merge Join</strong>: For sorted inputs.</li>
+</ul>
+<p><strong>Optimizations</strong>:</p>
+<ul>
+<li><strong>Dynamic partition pruning</strong>: During join, Bloom filters from build side prune micro-partitions of probe side before scanning.</li>
+<li><strong>Adaptive join decisions</strong> (2024): Runtime-adjusted join strategies. 9.5% average query speedup.</li>
+<li><strong>Result caching</strong>: identical subqueries (including join results) cached and reused.</li>
+</ul>
+<h3 id="clickhouse">ClickHouse</h3>
+<p><strong>Architecture</strong>: Columnar, vectorized, OLAP-focused, single-node and distributed.</p>
+<p><strong>Join algorithms</strong> (user-selectable or auto-chosen):</p>
+<ol>
+<li><strong>Hash Join</strong>: Default. Build side loaded into memory hash table. Fast but memory-bound.</li>
+<li><strong>Parallel Hash Join</strong>: Right table split among threads, each builds independent hash table. Faster for large builds, more memory.</li>
+<li><strong>Grace Hash Join</strong> (since v22.12): Non-memory-bound hash join. Recursive partitioning with disk spill. No sorting needed.</li>
+<li><strong>Full Sorting Merge Join</strong>: Both sides fully sorted, then merged. Low memory, but sorting overhead.</li>
+<li><strong>Partial Merge Join</strong>: Right table fully sorted + indexed on disk. Left table sorted block-by-block in memory. Minimal memory usage, slow.</li>
+<li><strong>Direct Join</strong>: Specialized for Dictionary/Join table engines. O(1) lookup, no hash table build.</li>
+</ol>
+<p><strong>Auto mode</strong>: <code>join_algorithm = auto</code> tries hash join first; if memory limit exceeded, switches to Grace hash join on-the-fly.</p>
+<h3 id="apache-datafusion">Apache DataFusion</h3>
+<p><strong>Architecture</strong>: Rust-based, Arrow-native, vectorized, embeddable query engine.</p>
+<p><strong>Join operators</strong>:</p>
+<ul>
+<li><strong>HashJoinExec</strong>: Standard hash join on Arrow RecordBatches. Build side determined by optimizer. Supports all join types (inner, left, right, full, semi, anti).</li>
+<li><strong>SortMergeJoinExec</strong>: For large inputs where build side exceeds memory. Sorts both sides (can spill to disk), then merges. External sort enables arbitrarily large inputs.</li>
+<li><strong>NestedLoopJoinExec</strong>: Rewritten in 2024 for 5x speed improvement and 99% memory reduction. Used for non-equi predicates.</li>
+<li><strong>CrossJoinExec</strong>: Full Cartesian product.</li>
+<li><strong>SymmetricHashJoinExec</strong>: For streaming/unbounded inputs. Maintains hash tables on both sides.</li>
+</ul>
+<p><strong>Optimizations</strong>:</p>
+<ul>
+<li>Dynamic filter pushdown from hash join build side into probe-side TableScan (partition pruning, row group pruning).</li>
+<li>Top-K pushdown through joins.</li>
+</ul>
+<h3 id="velox-meta">Velox (Meta)</h3>
+<p><strong>Architecture</strong>: C++ execution library, Arrow-compatible, used by Presto and others.</p>
+<p><strong>Join operators</strong>:</p>
+<ul>
+<li><strong>HashProbe + HashBuild</strong>: Split into two operators connected by JoinBridge. HashBuild creates hash table; last-finishing parallel builder merges all tables. HashProbe lookups with VectorHashers.</li>
+<li><strong>MergeJoin</strong>: Assumes sorted inputs. Uses MergeJoinSource to receive right-side data through a separate pipeline.</li>
+<li><strong>NestedLoopJoin</strong>: For non-equi and cross joins.</li>
+</ul>
+<p><strong>Key features</strong>:</p>
+<ul>
+<li><strong>Dynamic filter pushdown</strong>: VectorHashers contain full knowledge of build-side key values. Construct in-list filters for low-cardinality keys, push down to TableScan for file/row-group pruning.</li>
+<li><strong>Parallel hash build</strong>: Multiple threads build independent hash tables; last finisher merges.</li>
+<li><strong>Spilling</strong>: Hash join spills to disk when memory budget exceeded.</li>
+</ul>
+<hr />
+<h2 id="key-papers-and-references">Key Papers and References</h2>
+<h3 id="foundational">Foundational</h3>
+<ol>
+<li>
+<p><strong>Selinger et al.</strong> "Access Path Selection in a Relational Database Management System", SIGMOD 1979. -- Introduced cost-based optimization, interesting orderings, left-deep dynamic programming.</p>
+</li>
+<li>
+<p><strong>Shapiro, L.D.</strong> "Join Processing in Database Systems with Large Main Memories", ACM Computing Surveys, 1986. -- Classic survey of NLJ, SMJ, hash join variants.</p>
+</li>
+<li>
+<p><strong>DeWitt, Katz, Olken, Shapiro, Stonebraker, Wood.</strong> "Implementation Techniques for Main Memory Database Systems", SIGMOD 1984. -- Early main-memory join techniques.</p>
+</li>
+</ol>
+<h3 id="hash-joins-and-partitioning">Hash Joins and Partitioning</h3>
+<ol start="4">
+<li>
+<p><strong>Kitsuregawa, Tanaka, Moto-oka.</strong> "Application of Hash to Database Machine and Its Architecture", New Generation Computing, 1983. -- Introduced Grace hash join.</p>
+</li>
+<li>
+<p><strong>DeWitt, Gerber.</strong> "Multiprocessor Hash-Based Join Algorithms", VLDB 1985. -- Hybrid hash join.</p>
+</li>
+<li>
+<p><strong>Shatdal, Kant, Naughton.</strong> "Cache Conscious Algorithms for Relational Query Processing", VLDB 1994. -- First paper on cache-conscious join algorithms.</p>
+</li>
+<li>
+<p><strong>Manegold, Boncz, Kersten.</strong> "Optimizing Main-Memory Join on Modern Hardware", TKDE 2002. -- Radix-cluster join, hardware-conscious tuning.</p>
+</li>
+<li>
+<p><strong>Kim, Sedlar, Chhugani et al.</strong> "Sort vs. Hash Revisited: Fast Join Implementation on Modern Multi-Core CPUs", VLDB 2009. -- Comprehensive comparison of sort-based vs. hash-based joins on modern hardware.</p>
+</li>
+<li>
+<p><strong>Blanas, Li, Hellerstein, Patel.</strong> "Design and Evaluation of Main Memory Hash Join Algorithms for Multi-Core CPUs", SIGMOD 2011. -- No-partition, shared, independent, and radix hash join comparison.</p>
+</li>
+<li>
+<p><strong>Balkesen, Alonso, Teubner, Ozsu.</strong> "Multi-Core, Main-Memory Joins: Sort vs. Hash Revisited", VLDB 2013. -- Definitive experimental comparison. Radix join achieves ~200M tuples/sec. Hardware-conscious beats hardware-oblivious.</p>
+</li>
+<li>
+<p><strong>Schuh, Chen, Dittrich.</strong> "An Experimental Comparison of Thirteen Relational Equi-Joins in Main Memory", SIGMOD 2016. -- Most comprehensive experimental comparison of join algorithms.</p>
+</li>
+</ol>
+<h3 id="sort-merge-joins">Sort-Merge Joins</h3>
+<ol start="12">
+<li><strong>Albutiu, Kemper, Neumann.</strong> "Massively Parallel Sort-Merge Joins in Main Memory Multi-Core Database Systems", VLDB 2012. -- MPSM: NUMA-aware sort-merge.</li>
+</ol>
+<h3 id="worst-case-optimal-joins">Worst-Case Optimal Joins</h3>
+<ol start="13">
+<li>
+<p><strong>Atserias, Grohe, Marx.</strong> "Size Bounds and Query Plans for Relational Joins", FOCS 2008 / SICOMP 2013. -- AGM bound: tight bound on maximum join output size.</p>
+</li>
+<li>
+<p><strong>Ngo, Porat, Re, Rudra.</strong> "Worst-Case Optimal Join Algorithms", PODS 2012. -- First worst-case optimal join algorithm (NPRR).</p>
+</li>
+<li>
+<p><strong>Veldhuizen, T.L.</strong> "Leapfrog Triejoin: A Simple, Worst-Case Optimal Join Algorithm", ICDT 2014. -- Practical WCOJ using sorted tries. Finer-grained optimality than NPRR.</p>
+</li>
+<li>
+<p><strong>Ngo, Re, Rudra.</strong> "Skew Strikes Back: New Developments in the Theory of Join Algorithms", SIGMOD Record 2013. -- Survey of WCOJ theory.</p>
+</li>
+<li>
+<p><strong>Gross, ten Wolde, Boncz.</strong> "Adaptive Factorization Using Linear-Chained Hash Tables", CIDR 2025. -- WCOJ in DuckDB with adaptive factorization. 17.58x speedup with caching.</p>
+</li>
+</ol>
+<h3 id="adaptive-joins">Adaptive Joins</h3>
+<ol start="18">
+<li>
+<p><strong>Avnur and Hellerstein.</strong> "Eddies: Continuously Adaptive Query Processing", SIGMOD 2000. -- Adaptive tuple routing.</p>
+</li>
+<li>
+<p><strong>Urhan and Franklin.</strong> "XJoin: A Reactively-Scheduled Pipelined Join Operator", IEEE Data Engineering Bulletin, 2000. -- Symmetric hash join for streaming.</p>
+</li>
+<li>
+<p><strong>Raman and Hellerstein.</strong> "State Modules (SteMs) for Adaptive Query Processing", VLDB 2003.</p>
+</li>
+<li>
+<p><strong>Bandle, Giceva, Neumann.</strong> "To Partition, or Not to Partition, That Is the Join Question", SIGMOD 2021. -- Adaptive partitioning decisions for hash joins.</p>
+</li>
+</ol>
+<h3 id="vectorization-and-simd">Vectorization and SIMD</h3>
+<ol start="22">
+<li>
+<p><strong>Polychroniou, Raghavan, Ross.</strong> "Rethinking SIMD Vectorization for In-Memory Databases", SIGMOD 2015. -- SIMD-based partitioning, probing, and join processing.</p>
+</li>
+<li>
+<p><strong>Kersten, Leis, Kemper, Neumann, Pavlo.</strong> "Everything You Always Wanted to Know About Compiled and Vectorized Queries But Were Afraid to Ask", VLDB 2018. -- Compiled (HyPer) vs. vectorized (DuckDB) execution comparison.</p>
+</li>
+</ol>
+<h3 id="parallelism">Parallelism</h3>
+<ol start="24">
+<li><strong>Leis, Boncz, Kemper, Neumann.</strong> "Morsel-Driven Parallelism: A NUMA-Aware Query Evaluation Framework for the Many-Core Age", SIGMOD 2014. -- Morsel-driven work-stealing, NUMA-aware scheduling.</li>
+</ol>
+<h3 id="join-ordering-and-optimization">Join Ordering and Optimization</h3>
+<ol start="25">
+<li>
+<p><strong>Moerkotte and Neumann.</strong> "Analysis of Two Existing and One New Dynamic Programming Algorithm for the Generation of Optimal Bushy Join Trees Without Cross Products" (DPccp), VLDB 2006.</p>
+</li>
+<li>
+<p><strong>Moerkotte and Neumann.</strong> "Dynamic Programming Strikes Back" (DPhyp), SIGMOD 2008 (originally appeared at ICDE 2008). -- Hypergraph-aware join enumeration.</p>
+</li>
+<li>
+<p><strong>Leis, Gubichev, Mirber, Olteanu, Kemper, Neumann.</strong> "How Good Are Query Optimizers, Really?", VLDB 2015. -- JOB benchmark, cardinality estimation failures.</p>
+</li>
+</ol>
+<h3 id="distributed-joins">Distributed Joins</h3>
+<ol start="28">
+<li>
+<p><strong>Okcan and Riedewald.</strong> "Processing Theta-Joins using MapReduce", SIGMOD 2011. -- 1-Bucket-Theta algorithm for distributed non-equi joins.</p>
+</li>
+<li>
+<p><strong>Blanas, Patel, Ercegovac, Rao, Shekita, Tian.</strong> "A Comparison of Join Algorithms for Log Processing in MapReduce", SIGMOD 2010. -- Map-side, reduce-side, and broadcast joins in MapReduce.</p>
+</li>
+</ol>
+<h3 id="recent-advances-2024-2025">Recent Advances (2024-2025)</h3>
+<ol start="30">
+<li>
+<p><strong>Birler, Schmidt, Fent, Neumann.</strong> "Simple, Efficient, and Robust Hash Tables for Join Processing", DaMoN 2024 (Best Paper). -- Unchained hash tables with adjacency array layout.</p>
+</li>
+<li>
+<p><strong>Birler, Kemper, Neumann.</strong> "Robust Join Processing with Diamond Hardened Joins", VLDB 2024. -- Lookup/Expand decomposition for n:m join optimization.</p>
+</li>
+<li>
+<p><strong>Kuiper, Gross, Boncz, Muhleisen.</strong> "Saving Private Hash Join", VLDB 2025. -- Graceful memory degradation for hash joins in DuckDB.</p>
+</li>
+<li>
+<p><strong>Qiao, Huang, Zhang.</strong> "Data Chunk Compaction in Vectorized Execution", SIGMOD 2025. -- Logical compaction for hash join output chunks.</p>
+</li>
+</ol>
+<h3 id="inequality-and-theta-joins">Inequality and Theta Joins</h3>
+<ol start="34">
+<li><strong>Khayyat, Ilyas, Jindal, Madden, Ouzzani, Papotti, Quiane-Ruiz, Tang, Yin.</strong> "Lightning Fast and Space Efficient Inequality Joins", VLDB 2015 (published 2016). -- IEJoin algorithm using sorted permutation arrays. Used in DuckDB.</li>
+</ol>
+<h3 id="surveys">Surveys</h3>
+<ol start="35">
+<li>
+<p><strong>Ngo, Re, Rudra.</strong> "Worst-Case Optimal Join Algorithms", PODS 2018 (tutorial). -- Comprehensive survey of WCOJ theory and practice.</p>
+</li>
+<li>
+<p><strong>Graefe, G.</strong> "Query Evaluation Techniques for Large Databases", ACM Computing Surveys 25(2), 1993. -- Encyclopedic reference on query processing including all classic join algorithms.</p>
+</li>
+</ol>
+<hr />
+<h2 id="summary-of-recommendations">Summary of Recommendations</h2>
+<h3 id="choosing-a-join-algorithm">Choosing a Join Algorithm</h3>
+<pre><code>Decision Tree:
+=============
+
+Is it an equi-join?
+  |
+  +-- Yes
+  |    |
+  |    Is one side very small (&lt; 1% of other)?
+  |    +-- Yes --&gt; Index Nested Loop Join or Broadcast (distributed)
+  |    +-- No
+  |         |
+  |         Do both sides fit in memory?
+  |         +-- Yes --&gt; Hash Join (radix-partitioned for large data)
+  |         +-- No
+  |              |
+  |              Is one side sorted on join key?
+  |              +-- Yes --&gt; Sort-Merge Join
+  |              +-- No --&gt; Grace/Hybrid Hash Join
+  |
+  +-- No (theta join)
+       |
+       Is the predicate a range (inequality)?
+       +-- Yes --&gt; IEJoin, band join, or sort-based
+       +-- No --&gt; Block nested loop, or partitioned theta join
+</code></pre>
+<h3 id="for-multi-way-joins-3-tables">For Multi-Way Joins (3+ tables)</h3>
+<ul>
+<li><strong>Star/snowflake schema</strong>: Semi-join reduction from fact table, then hash join dimension tables</li>
+<li><strong>Cyclic queries (triangles, cliques)</strong>: Worst-case optimal join (LeapfrogTrieJoin)</li>
+<li><strong>Chain queries</strong>: Left-deep hash join plan usually optimal</li>
+<li><strong>Complex join graphs</strong>: Use DPhyp for enumeration, consider bushy plans</li>
+</ul>
+<h3 id="for-distributed-settings">For Distributed Settings</h3>
+<ul>
+<li><strong>Small-large</strong>: Broadcast the small side</li>
+<li><strong>Large-large, equi-join</strong>: Shuffle (hash-partitioned) join</li>
+<li><strong>Co-partitioned</strong>: Exploit co-location, avoid shuffle</li>
+<li><strong>Skewed</strong>: Detect heavy hitters, split + replicate</li>
+<li><strong>Streaming</strong>: Symmetric hash join with watermarks</li>
+</ul>
+<hr />
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/">HyPer/Umbra/CedarDB</a> — Morsel-driven parallelism and JIT-compiled join execution in production</li>
+<li><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a> — Hash tables, Bloom filters, and ART indexes used in join implementations</li>
+<li><a href="https://nmbr7.github.io/notes/database/arrow-format/">Arrow Format</a> — Columnar layout enabling SIMD-vectorized join processing</li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems Survey</a> — Production systems (DuckDB, Spark, CockroachDB) implementing these join algorithms</li>
+<li><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a> — Consensus protocols underlying distributed join coordination in CockroachDB and TiDB</li>
+</ul>
+<hr />
+<p><em>Last updated: 2026-02-25</em></p>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

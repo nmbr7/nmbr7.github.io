@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Compilers And JIT</h1>
+  <h1 id="compilers-and-jit-compilation-expert-reference">Compilers and JIT Compilation: Expert Reference</h1>
+<p>Expert-level reference covering compiler architecture, optimization theory, JIT compilation, high-performance backends, and the state of the art through 2026. Sufficient depth to implement a production compiler or JIT.</p>
+<hr />
+<h2 id="1-compiler-architecture-pipeline">1. Compiler Architecture &amp; Pipeline</h2>
+<h3 id="three-phase-design">Three-Phase Design</h3>
+<pre><code>Source Code
+    │
+    ▼
+┌─────────────┐
+│   Frontend  │  Lexing, parsing, semantic analysis, type checking
+│             │  → HIR (high-level IR, close to source)
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Optimizer  │  Platform-independent optimizations on IR
+│             │  HIR → MIR → multiple optimization passes
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│   Backend   │  Instruction selection, register allocation,
+│             │  scheduling → machine code / object files
+└─────────────┘
+</code></pre>
+<p>Lattner &amp; Adve (CGO 2004) codified this three-phase design for LLVM. The key insight: the IR is a first-class language, enabling a shared optimizer to serve many frontends and backends. LLVM IR exists in three isomorphic forms: in-memory (<code>Value*</code> graph), textual (<code>.ll</code>), and binary bitcode (<code>.bc</code>).</p>
+<h3 id="multi-tier-ir">Multi-Tier IR</h3>
+<p>Most production compilers use multiple IR levels, progressively lowering toward machine semantics:</p>
+<ul>
+<li><strong>HIR</strong> (high-level): preserves source-level structure — loops, expressions, named variables, type information. GCC uses GENERIC/GIMPLE, Rust uses HIR/THIR/MIR, Swift uses SIL (Swift Intermediate Language), HotSpot C2 uses its own typed HIR.</li>
+<li><strong>MIR</strong> (mid-level): SSA-based, control-flow graph over basic blocks. LLVM IR, GCC GIMPLE, Rust MIR. Most analyses and optimizations live here.</li>
+<li><strong>LIR</strong> (low-level / machine IR): virtual registers, platform-specific operations, no SSA. LLVM's MachineIR, GCC RTL. Pre-regalloc → post-regalloc transformations happen here.</li>
+</ul>
+<h3 id="control-flow-graph-cfg">Control Flow Graph (CFG)</h3>
+<p>A CFG is a directed graph where nodes are <strong>basic blocks</strong> (maximal straight-line sequences — single entry, single exit except for final terminator) and edges are branches. Properties:</p>
+<ul>
+<li>Entry block, exit block(s)</li>
+<li>Predecessor/successor relationships</li>
+<li>Each block ends with a <strong>terminator</strong>: branch, switch, return, unreachable</li>
+</ul>
+<p><strong>Dominators</strong>: Block A <em>dominates</em> B if every path from entry to B passes through A. The <strong>dominator tree</strong> is the tree of immediate dominators — critical for SSA construction and many optimizations. Computed efficiently via Lengauer-Tarjan O(n α(n)) or Cooper et al. simple iterative O(n²) in practice.</p>
+<p><strong>Post-dominators</strong>: reverse direction. Used for control-dependence analysis.</p>
+<p><strong>Natural loops</strong>: A back-edge is an edge from B → A where A dominates B. The natural loop of a back-edge is all nodes that can reach B without going through A (plus A). The loop header (A) is where all paths from outside must enter.</p>
+<h3 id="ssa-form">SSA Form</h3>
+<p>Static Single Assignment (SSA) ensures each variable is defined exactly once. Benefits: enables efficient dataflow analysis, many optimizations become linear-time.</p>
+<p>Construction (Cytron et al. 1991, TOPLAS):</p>
+<ol>
+<li>Compute dominance frontiers: DF(x) = {y | ∃ predecessor p of y s.t. x dominates p but x does not strictly dominate y}</li>
+<li>Insert φ-functions at dominance frontiers for each variable definition</li>
+<li>Rename variables using DFS over dominator tree</li>
+</ol>
+<p>Braun et al. (CC 2013) "Simple and Efficient Construction of SSA Form" — online algorithm that builds SSA during IR construction without a separate pass, by maintaining current definition map per block with lazy φ-insertion. Used in Go compiler, libFirm, Cranelift.</p>
+<p><strong>Phi nodes</strong> (<code>φ(v1, v2, ...)</code>) select a value from predecessors based on which predecessor was executed. Example:</p>
+<pre><code>if (cond) { x = 1; } else { x = 2; }
+// use x
+
+; In SSA:
+entry:
+    br cond, if_true, if_false
+if_true:
+    x1 = 1
+    br merge
+if_false:
+    x2 = 2
+    br merge
+merge:
+    x3 = φ(x1, x2)   ; φ from if_true → x1, if_false → x2
+</code></pre>
+<p><strong>SSA destruction</strong> (phi elimination) for code generation: insert parallel copies along edges, then sequentialize (break swap cycles with temporaries). Sreedhar et al. 1999 — SSA elimination algorithm handling critical edges.</p>
+<p><strong>Typed vs. untyped IRs</strong>: LLVM IR is typed (every <code>Value</code> has a <code>Type</code>). LLVM 15+ introduced <strong>opaque pointers</strong> (<code>ptr</code> instead of <code>i32*</code>) — reduces pointer type casts, simplifies IR, matches how modern CPUs work.</p>
+<hr />
+<h2 id="2-core-optimization-passes">2. Core Optimization Passes</h2>
+<h3 id="dead-code-elimination-dce">Dead Code Elimination (DCE)</h3>
+<p>Mark all reachable side-effecting instructions; sweep unreachable. SSA makes DCE trivial: an instruction is dead if its result has no uses (<code>use_empty()</code>). Aggressive DCE (ADCE) inverts: assume all dead, mark live instructions backward from side effects.</p>
+<h3 id="constant-folding-propagation">Constant Folding / Propagation</h3>
+<p>Evaluate constant expressions at compile time. <strong>IEEE 754 hazards</strong>:</p>
+<ul>
+<li><code>NaN</code> propagation: <code>NaN + 0 == NaN</code> but <code>NaN == NaN</code> is false</li>
+<li>Signed zero: <code>0.0 + (-0.0) == 0.0</code> (not <code>-0.0</code>)</li>
+<li>Rounding mode sensitivity: folding <code>a + b + c</code> ≠ <code>(a + b) + c</code> in general</li>
+<li><strong>fast-math</strong> flags (<code>nsz</code>, <code>nnan</code>, <code>ninf</code>, <code>reassoc</code>) explicitly relax these constraints in LLVM</li>
+</ul>
+<h3 id="global-value-numbering-gvn">Global Value Numbering (GVN)</h3>
+<p>Assigns the same value number to computations that always produce the same result. <strong>Hash-based GVN</strong> (Click 1995, PLDI): expressions hashed by opcode + operand value numbers. <strong>LLVM NewGVN</strong> uses Rosen/Wegman/Zadeck 1988 sparse formulation extended with MemorySSA for loads. Eliminates redundant computations across the entire function.</p>
+<h3 id="licm-loop-invariant-code-motion">LICM (Loop-Invariant Code Motion)</h3>
+<p>Hoist computations whose operands don't change inside a loop to the pre-header. Requires alias analysis to hoist loads safely.</p>
+<h3 id="loop-transformations">Loop Transformations</h3>
+<ul>
+<li><strong>Unrolling</strong>: replicate loop body N times, reduce branch overhead, expose instruction-level parallelism. Requires trip count or remainder loop.</li>
+<li><strong>Vectorization</strong>: auto-vectorize by identifying SIMD-parallelizable loops. LLVM's LoopVectorize pass uses <strong>dependence analysis</strong> (direction vectors, distance vectors from Banerjee test, Omega test for exact dependence). <strong>Polyhedral model</strong> (Feautrier 1991, Bondhugula PLDI 2008 — Pluto algorithm): represent loop nests as integer polyhedra, find affine transformations maximizing parallelism and locality.</li>
+<li><strong>Interchange</strong>, <strong>tiling</strong> (cache blocking), <strong>fusion</strong>, <strong>fission</strong>: classic loop transformations; fully automated in polyhedral frameworks (Polly LLVM extension, MLIR affine dialect).</li>
+</ul>
+<h3 id="function-inlining">Function Inlining</h3>
+<p>Replace a call site with the callee's body. Critical for performance: eliminates call overhead, enables cross-procedure optimization.</p>
+<p><strong>Cost model</strong>: LLVM inliner assigns cost based on IR instruction count weighted by: branch factor, call penalties, argument simplification bonuses (if constant arg eliminates branches). Threshold varies by optimization level and hotness. <strong>Call graph SCC order</strong>: process SCCs bottom-up to inline callees before callers (avoids exponential blowup on mutual recursion).</p>
+<p><strong>Devirtualization</strong>: replace virtual dispatch with direct call when receiver type is known. Requires Class Hierarchy Analysis (CHA) or exact type propagation. <strong>Speculative devirtualization</strong> (HotSpot C2): inline most common target, guard with type check + deopt on mismatch.</p>
+<h3 id="alias-analysis">Alias Analysis</h3>
+<p>Determines whether two memory accesses may refer to the same location.</p>
+<ul>
+<li><strong>Andersen's analysis</strong> (1994): flow-insensitive, context-insensitive, O(n³) worst case. Inclusion-based constraint solving; most precise flow-insensitive.</li>
+<li><strong>Steensgaard's analysis</strong> (1996, POPL): almost-linear O(n α(n)). Unification-based — less precise but far faster on large programs.</li>
+<li><strong>TBAA (Type-Based Alias Analysis)</strong>: uses strict aliasing rules (C/C++ UB: int* and float* can't alias) + explicit metadata tags. LLVM annotates all memory ops with <code>!tbaa</code> metadata.</li>
+<li><strong>Points-to sets</strong>: abstract heap locations as allocation sites; CFL-reachability formulation (Reps 1997).</li>
+</ul>
+<h3 id="escape-analysis-scalar-replacement">Escape Analysis &amp; Scalar Replacement</h3>
+<p>Determine if an object's lifetime is bounded to the allocating function (doesn't escape). Non-escaping objects can be <strong>stack-allocated</strong> or <strong>scalar-replaced</strong> (fields promoted to individual SSA values). LLVM's <strong>SROA</strong> (Scalar Replacement of Aggregates) promotes <code>alloca</code>s with only GEP+load/store uses to SSA values, enabling downstream DCE and GVN. HotSpot C2 eliminates heap allocations for non-escaping objects. Wuerthinger et al. (VEE 2010) — escape analysis for Java JITs.</p>
+<h3 id="sccp-sparse-conditional-constant-propagation">SCCP (Sparse Conditional Constant Propagation)</h3>
+<p>Wegman &amp; Zadeck 1991 (TOPLAS). Combined constant propagation + unreachable code elimination using a lattice: ⊤ (unknown) → constant → ⊥ (overdefined). Worklist algorithm on SSA def-use chains: more precise than separate passes because it handles conditional branches (if known-false branch, don't propagate its definitions).</p>
+<hr />
+<h2 id="3-instruction-selection">3. Instruction Selection</h2>
+<p>Map IR operations to target machine instructions. A fundamentally NP-hard problem (covering DAG with tiles); practice uses efficient heuristics.</p>
+<h3 id="burs-bottom-up-rewrite-systems">BURS (Bottom-Up Rewrite Systems)</h3>
+<p>Fraser &amp; Henry BURG (1992) and Aho et al. tree pattern matching: express isel as a tree grammar. Dynamic programming over expression tree to find minimum-cost tiling. BURS generates optimal code for expression trees in O(n) after O(|grammar|) precomputation.</p>
+<h3 id="llvm-selectiondag">LLVM SelectionDAG</h3>
+<p>LLVM's primary isel mechanism. Pipeline:</p>
+<ol>
+<li>Build <strong>SelectionDAG</strong> from LLVM MIR — nodes are typed SDValues, edges are data/chain/glue dependencies</li>
+<li>Target-independent DAG combines (peepholes)</li>
+<li><strong>Legalization</strong>: expand/promote/custom-lower illegal types and operations for target</li>
+<li>Target-specific DAG combines</li>
+<li><strong>Instruction selection</strong>: pattern-match DAG nodes to <code>MachineInstr</code> using tblgen-generated patterns from <code>.td</code> files</li>
+<li><strong>Scheduling</strong>: order MachineInstrs for the basic block</li>
+</ol>
+<p>SelectionDAG is powerful but slow (per-basic-block, high memory allocation). <code>FastISel</code> bypasses it for <code>-O0</code> builds: simple direct mapping, misses many opportunities, falls back to SelectionDAG for unsupported patterns.</p>
+<h3 id="globalisel">GlobalISel</h3>
+<p>LLVM's newer isel framework (merged 2016, production on AArch64 since ~2020). Works on <strong>MachineIR</strong> throughout rather than a parallel DAG. Passes: <code>IRTranslator</code> (LLVM IR → generic MIR), <code>Legalizer</code>, <code>RegBankSelect</code> (coarse register file assignment), <code>InstructionSelect</code> (pattern matching via tblgen). Benefits: operates across basic block boundaries, reuses MachineIR analysis infrastructure. Status 2026: AArch64 default at <code>-O0</code>/<code>-O1</code>; x86 migration ongoing.</p>
+<hr />
+<h2 id="4-register-allocation">4. Register Allocation</h2>
+<p>Map unlimited virtual registers to finite physical registers. Spill to stack when not enough registers.</p>
+<h3 id="graph-coloring-chaitin-briggs">Graph Coloring (Chaitin-Briggs)</h3>
+<p>Chaitin 1982 (CACM): build <strong>interference graph</strong> — nodes are live ranges (virtual registers), edges between live ranges that are simultaneously live. K-coloring where K = number of physical registers. NP-hard in general; heuristic via:</p>
+<ol>
+<li><strong>Simplification</strong>: remove nodes with degree &lt; K (can always be colored)</li>
+<li><strong>Coalescing</strong>: merge copy-related nodes (George &amp; Appel 1996 IRC — conservative coalescing avoids making graph uncolorable)</li>
+<li><strong>Freeze</strong>: give up coalescing for a low-degree move-related node</li>
+<li><strong>Spill selection</strong>: pick a node to potentially spill (cost = use/def frequency / spill weight)</li>
+<li><strong>Select</strong>: assign colors during stack pop; if can't color → actual spill</li>
+</ol>
+<p><strong>Chaitin-Briggs</strong> improvement (1982): conservative coalescing prevents Chaitin's aggressive coalescing from introducing uncolorable nodes.</p>
+<p><strong>George-Appel Iterated Register Coalescing</strong> (TOPLAS 1996): canonical modern algorithm, handles all cases cleanly, still used in GCC.</p>
+<h3 id="linear-scan">Linear Scan</h3>
+<p>Poletto &amp; Sarkar 1999 (TOPLAS): sort live intervals by start point, greedily assign registers, expire intervals ending before new one starts. O(n log n). Used for fast compilation (JIT -O1, LLVM legacy).</p>
+<p><strong>Wimmer &amp; Franz 2010</strong> (CGO): SSA-based linear scan with live interval splitting. Splits intervals at optimal split points to reduce spills. Used in HotSpot C1 and early GraalVM.</p>
+<p><strong>Braun &amp; Hack 2009</strong> (CC): "Register Allocation for Programs in SSA Form" — exploit SSA properties to simplify interference graph (SSA interference is chordal — graph coloring is polynomial). Efficient and clean.</p>
+<h3 id="cranelift-regalloc2">Cranelift regalloc2</h3>
+<p>Ion Baraff's algorithm (2022), used in Cranelift/Wasmtime. SSA-based, handles splits cleanly, ~20% faster compilation vs. previous allocator. Also has <code>fastalloc</code> single-pass allocator for <code>O0</code> compilation speed.</p>
+<h3 id="spilling-rematerialization">Spilling &amp; Rematerialization</h3>
+<p><strong>Spilling</strong>: insert store to stack slot before last use, load from stack before next use. <strong>Rematerialization</strong>: recompute a value rather than loading from stack (worthwhile for cheap computations: constants, address calculations). Spill weights = (use_count + def_count) / loop_depth_factor to prefer spilling cold values.</p>
+<hr />
+<h2 id="5-code-generation-scheduling">5. Code Generation &amp; Scheduling</h2>
+<h3 id="instruction-scheduling">Instruction Scheduling</h3>
+<p>Reorder instructions within a basic block to hide latencies and maximize ILP, without violating data/control dependencies.</p>
+<p><strong>List scheduling</strong>: topological sort of dependency DAG, greedily schedule ready instructions by priority (critical path, resource usage). Forward scheduling (minimize latency) vs. backward scheduling (from last instruction). Used universally in production compilers.</p>
+<p><strong>Software pipelining</strong> (Rau, MICRO 1994): overlap iterations of a loop in time. Find <strong>initiation interval</strong> II = max(RecMII, ResMII) where RecMII is recurrence-constrained minimum and ResMII is resource-constrained minimum. <strong>Modulo scheduling</strong>: schedule loop kernel with period II, fill prologue/epilogue. Dramatically improves throughput for loops (VLIW, in-order CPUs). Rarely used for OOO x86 (hardware handles dynamic scheduling).</p>
+<h3 id="abi-calling-conventions">ABI Calling Conventions</h3>
+<p><strong>System V AMD64 ABI</strong> (Linux/macOS):</p>
+<ul>
+<li>Integer args: RDI, RSI, RDX, RCX, R8, R9 (then stack)</li>
+<li>Float/SSE args: XMM0–XMM7 (then stack)</li>
+<li>Return: RAX (integer), XMM0 (float), RAX+RDX (128-bit)</li>
+<li><strong>Red zone</strong>: 128 bytes below RSP usable by leaf functions without adjusting stack (signal safety caveat)</li>
+<li>Callee-saved: RBX, RBP, R12-R15</li>
+</ul>
+<p><strong>ARM64 AAPCS</strong> (AArch64):</p>
+<ul>
+<li>Integer args: X0–X7, float/SIMD: V0–V7</li>
+<li>Return: X0/X1, V0/V1</li>
+<li>Callee-saved: X19–X28, V8–V15 (lower 64 bits)</li>
+<li>No red zone</li>
+</ul>
+<h3 id="prologue-epilogue-dwarf-cfi">Prologue/Epilogue &amp; DWARF CFI</h3>
+<p>Prologue: <code>push rbp; mov rbp, rsp; sub rsp, N</code>. <strong>Frame pointer omission</strong> (FPO): use RBP as a general register instead; requires <strong>DWARF CFI</strong> (Call Frame Information) directives (<code>.cfi_def_cfa_offset</code>, <code>.cfi_offset</code>) so debuggers/unwinders can reconstruct the stack frame without RBP. LLVM emits CFI by default at <code>-O1+</code>.</p>
+<h3 id="peephole-optimization">Peephole Optimization</h3>
+<p>Small local rewrites on final instruction sequence: <code>add r, 0 → nop</code>, <code>mul r, 2 → shl r, 1</code>, <code>mov r, r → nop</code>. LLVM's <code>PeepholeOptimizer</code> pass and target-specific <code>optimizeInstruction()</code> callbacks.</p>
+<hr />
+<h2 id="6-llvm-internals">6. LLVM Internals</h2>
+<h3 id="new-pass-manager-npm">New Pass Manager (NPM)</h3>
+<p>Legacy PM (2003–2021) used a single pass pipeline with poor analysis caching. <strong>New PM</strong> (Chandler Carruth, LLVM 9, default LLVM 14):</p>
+<ul>
+<li><strong>Analysis managers</strong>: <code>ModuleAnalysisManager</code>, <code>CGSCCAnalysisManager</code>, <code>FunctionAnalysisManager</code>, <code>LoopAnalysisManager</code> — each caches analysis results, invalidates on IR changes</li>
+<li><strong>PassBuilder</strong>: configures optimization pipeline (O0/O1/O2/O3/Os) with registered extension points</li>
+<li><strong>PreservedAnalyses</strong>: passes declare which analyses are preserved/invalidated</li>
+<li><strong>CGSCC pipeline</strong>: call graph SCC traversal for interprocedural passes (inliner, devirtualization)</li>
+</ul>
+<h3 id="ir-value-user-use-graph">IR Value/User/Use Graph</h3>
+<p>All LLVM IR entities are <code>Value</code> subclasses. <code>User</code> (extends <code>Value</code>) has a list of <code>Use</code> operands. <code>Use</code> is a linked-list node pointing back to its <code>User</code> — enables O(1) def-use traversal and O(1) RAUW (Replace All Uses With). <code>IRBuilder&lt;&gt;</code> provides type-safe API for constructing IR instructions.</p>
+<h3 id="machineir-mir">MachineIR (MIR)</h3>
+<p>After isel, IR is lowered to <code>MachineFunction</code> → <code>MachineBasicBlock</code> → <code>MachineInstr</code> → <code>MachineOperand</code>. Operands are: virtual registers, physical registers, immediates, frame indices, global addresses, etc. Pre-regalloc: virtual registers. Post-regalloc: physical registers. Accessed via <code>MachineRegisterInfo</code>, <code>TargetInstrInfo</code>, <code>TargetRegisterInfo</code>.</p>
+<h3 id="mc-layer">MC Layer</h3>
+<p>Machine Code layer: <code>MCInst</code> (abstract instruction), <code>MCStreamer</code> (abstract emitter — output to object file or assembly text), <code>MCCodeEmitter</code> (encode MCInst to bytes), <code>MCAsmBackend</code> (fixups, relaxation), <code>MCObjectFileInfo</code>. Supports ELF/Mach-O/COFF. <code>llvm-mc</code> assembler uses this layer directly.</p>
+<h3 id="orcv2-jit-api">ORCv2 JIT API</h3>
+<p>On-Request Compilation v2 (2019+). Architecture:</p>
+<pre><code>ExecutionSession      — owns all JIT state, thread-safe
+  └─ JITDylib         — dynamic library abstraction (symbol table, linking scope)
+       └─ MaterializationUnit — lazy source of definitions
+
+IRCompileLayer        — compiles LLVM IR → object code
+ObjectLinkingLayer    — links object code
+  ├─ RTDyldObjectLinkingLayer  — uses RuntimeDyld (legacy, in-process)
+  └─ JITLink              — new linker (out-of-process capable, ELF/MachO/COFF)
+</code></pre>
+<p><code>LLJIT</code>: eager compilation (IR → object → link on lookup). <code>LLLazyJIT</code>: lazy compilation via <code>IndirectStubsManager</code> — first call triggers compilation, subsequent calls go direct. <strong>Out-of-process JIT</strong>: executor process separate from compiler process via <code>OrcRemoteTarget</code> / <code>SimpleRemoteExecutor</code> — enables JIT in sandboxed environments.</p>
+<h3 id="mlir">MLIR</h3>
+<p>Multi-Level IR (Lattner et al., CGO 2021). Core insight: make the IR extensible with <strong>dialects</strong> — namespaced type and operation sets. Progressive lowering passes transform between dialects.</p>
+<p>Key dialects:</p>
+<ul>
+<li><code>affine</code>: polyhedral loop nests, affine maps, structured control flow</li>
+<li><code>linalg</code>: named tensor contractions (matmul, conv) with indexing maps for auto-scheduling</li>
+<li><code>vector</code>: n-D vectors, reduction/broadcast/shuffle operations</li>
+<li><code>arith</code>: arithmetic on scalars/vectors</li>
+<li><code>memref</code>: typed memory regions with layout maps (row-major, column-major, strided)</li>
+<li><code>gpu</code>: GPU kernel launch, block/thread IDs, barrier sync</li>
+<li><code>llvm</code>: direct LLVM IR constructs for final lowering</li>
+<li><code>transform</code> (CGO 2025): explicitly scheduled transformations as IR operations (tiling, vectorization, distribution) — deterministic optimization without heuristic passes</li>
+</ul>
+<p><strong>Bufferization</strong>: converts value semantics (tensors) to buffer semantics (memrefs). One-shot bufferization (MLIR 2022) handles in-place analysis to minimize copies. Used in TensorFlow/XLA, JAX, IREE, Mojo, Flang.</p>
+<hr />
+<h2 id="7-jit-compilation-deep-dive">7. JIT Compilation Deep Dive</h2>
+<h3 id="interpreter-dispatch-techniques">Interpreter Dispatch Techniques</h3>
+<p>Ertl &amp; Gregg (PLDI 2003) quantified dispatch overhead:</p>
+<table><thead><tr><th>Technique</th><th>Description</th><th>BTB pressure</th><th>Overhead</th></tr></thead><tbody>
+<tr><td>Switch dispatch</td><td><code>switch(opcode) { case OP_ADD: ... }</code></td><td>1 indirect branch (all opcodes → same predictor slot)</td><td>~100% misprediction for varied traces</td></tr>
+<tr><td>Computed goto</td><td>GCC <code>&amp;&amp;label</code>, <code>goto *dispatch_table[op]</code></td><td>N separate indirect branches</td><td>~50% misprediction</td></tr>
+<tr><td>Direct threading</td><td>Instruction words ARE code addresses; <code>goto *pc++</code></td><td>N direct threaded branches</td><td>Best for interpreted execution</td></tr>
+<tr><td>Indirect threading</td><td>Instruction words point to code vectors</td><td>Intermediate</td><td>Used in CPython pre-3.11</td></tr>
+<tr><td>Subroutine threading</td><td>Instructions are calls</td><td>Call overhead</td><td>Clean but slow</td></tr>
+</tbody></table>
+<p>CPython 3.11 specializing adaptive interpreter: inline caches embedded in bytecode stream, per-opcode specialization (e.g., <code>LOAD_ATTR</code> → <code>LOAD_ATTR_INSTANCE_VALUE</code> when shape known). Reduces dispatch + specializes hot paths without a JIT.</p>
+<h3 id="tracing-jit">Tracing JIT</h3>
+<p>HotpathVM (Gal &amp; Franz, VEE 2006): identify hot loop back-edges, record a <strong>trace</strong> (linear sequence of operations executed, including across calls), compile trace to native code with <strong>guards</strong> at each branch.</p>
+<pre><code>Loop body execution:
+  [guard: x is int] → side exit if fails
+  x = x + 1
+  [guard: x &lt; 100] → side exit if fails
+  → loop back
+</code></pre>
+<p><strong>Trace trees</strong>: multiple traces from same loop header; side exits can trigger new trace recording from that point → forms a tree. TraceMonkey (Mozilla Firefox 3.5, 2009): first production trace JIT for JavaScript.</p>
+<p><strong>Blacklisting</strong>: traces that side-exit too frequently are marked "not worth tracing" — avoid compilation thrash for unoptimizable code.</p>
+<p><strong>Limitations</strong>: trace explosion for loops with many branches; poor performance on OO dispatch-heavy code. Most major runtimes (V8, SpiderMonkey) moved away from tracing to method JIT.</p>
+<h3 id="tiered-compilation">Tiered Compilation</h3>
+<pre><code>Interpreter (T0)
+    │  hot method detection (invocation counter + back-edge counter)
+    ▼
+Baseline JIT (T1) — fast, unoptimized native code, collects type profiles
+    │  profile threshold
+    ▼
+Optimizing JIT (T2) — slow compilation, speculative opts, deopt on assumption violation
+</code></pre>
+<p><strong>HotSpot JVM</strong> (T0–T4):</p>
+<ul>
+<li>T0: interpreter (with profiling)</li>
+<li>T1: C1 client compiler (fast, local opts, no inlining)</li>
+<li>T2: C1 with full profiling</li>
+<li>T3: C1 with light profiling</li>
+<li>T4: C2 server compiler (aggressive opts, speculative inlining, escape analysis, loop vectorization)</li>
+</ul>
+<p><strong>V8 JavaScript</strong> (4-tier, 2023+):</p>
+<ul>
+<li>Ignition: register-based bytecode interpreter with inline caches, collects type feedback</li>
+<li>Sparkplug: baseline JIT — compiles Ignition bytecode 1:1 to native, no optimization, &lt; 1ms compilation</li>
+<li>Maglev: SSA-based mid-tier JIT (shipped Chrome 117, 2023) — 2-4x speedup vs Sparkplug, compiles in ~20ms</li>
+<li>TurboFan: optimizing JIT (Sea of Nodes IR) + <strong>Turboshaft</strong> (new CFG-based backend, Chrome 120+, 2x faster TF compilation)</li>
+</ul>
+<p><strong>.NET RyuJIT</strong>:</p>
+<ul>
+<li>Tier 0: fast no-opt JIT on first call</li>
+<li>Tier 1: re-JIT hot methods with full optimization + dynamic PGO (enabled by default .NET 8)</li>
+<li>On-stack replacement (OSR) for long-running methods</li>
+</ul>
+<p><strong>GraalVM Truffle</strong>: language-agnostic JIT via partial evaluation (see §9).</p>
+<h3 id="deoptimization">Deoptimization</h3>
+<p>When speculative assumptions are violated, the JIT must <strong>deoptimize</strong> — reconstruct interpreter state and fall back.</p>
+<p><strong>HotSpot uncommon traps</strong>: compiled code calls <code>Deoptimization::uncommon_trap()</code> on guard failure. Frame is rewritten in-place (deopt metadata maps compiled frame to interpreter frame). Deopt reasons tracked per call site; too many → recompile without that speculation.</p>
+<p><strong>Safepoints</strong>: positions where GC can safely run and deopt can be performed. All live references must be precisely known (stack maps). Two mechanisms:</p>
+<ul>
+<li><strong>Polling-based</strong>: compiled code polls a flag at loop back-edges and method entries (<code>test [safepoint_page], eax</code> — page is mprotect'd to PROT_NONE to trigger SIGSEGV on GC request)</li>
+<li><strong>Signal-based</strong>: no polling; use OS signals to interrupt threads at any point, but requires signal-safe frame unwinding</li>
+</ul>
+<p><strong>On-Stack Replacement (OSR)</strong> (Fink &amp; Qian, VEE 2003): replace a running interpreted method with compiled code (or compiled → recompiled) while it's in the middle of execution — critical for long-running loops that hit the compilation threshold mid-loop. Requires mapping interpreter state (locals, stack) to compiled frame layout.</p>
+<h3 id="speculative-optimization-inline-caches">Speculative Optimization &amp; Inline Caches</h3>
+<p><strong>Type feedback</strong>: interpreter/baseline JIT instruments call sites and property accesses to record types seen at runtime. Optimizing JIT uses this to specialize (assume <code>x</code> is always <code>int</code>).</p>
+<p><strong>Inline caches (ICs)</strong>: small stub at call site that caches last (or N) receiver types. First call: cache miss, slow path lookup + cache population. Subsequent calls: fast path check.</p>
+<ul>
+<li><strong>Monomorphic IC</strong>: 1 cached type, single comparison + direct call. ~1-2 ns.</li>
+<li><strong>Polymorphic IC (PIC)</strong>: 2-4 types, linear scan of stubs. ~3-5 ns.</li>
+<li><strong>Megamorphic IC</strong>: too many types seen → full vtable/dictionary lookup.</li>
+</ul>
+<p><strong>Hidden classes / Shapes / Maps</strong>: V8 assigns each object a <strong>Map</strong> (hidden class) encoding the object's layout (field names + offsets). Objects with same fields in same order share a Map. Property access becomes fixed offset load once Map matches. Shape transitions form a tree. SpiderMonkey: "Shapes" (property tree). JSC: "Structures". This enables C-struct-like field access for JS objects.</p>
+<p><strong>V8 Map transitions</strong>:</p>
+<pre><code>{} → Map0
+{x: 1} → Map1 (Map0 + field &#39;x&#39; at offset 8)
+{x: 1, y: 2} → Map2 (Map1 + field &#39;y&#39; at offset 16)
+</code></pre>
+<h3 id="profile-guided-optimization-pgo">Profile-Guided Optimization (PGO)</h3>
+<p><strong>Instrumented PGO</strong>: insert counters at branches/calls, run representative workload, use profile in recompilation. Standard in GCC/Clang (<code>-fprofile-generate</code> / <code>-fprofile-use</code>). Enables: block reordering (hot code in one cache line), inlining prioritization, branch prediction hints.</p>
+<p><strong>AutoFDO</strong> (Chen et al., CGO 2016, Google): sampling-based PGO using Linux <code>perf</code> hardware counters. No instrumentation overhead. Profile converted to IR-level feedback via <code>create_llvm_prof</code>. Used at scale in Google's production builds.</p>
+<p><strong>BOLT</strong> (Panchenko et al., CGO 2019, Facebook/Meta): post-link binary optimizer. Reads <code>perf</code> profile, reconstructs CFG from binary, reorders basic blocks for hot/cold separation, improves icache utilization. 5-15% improvement on already PGO-compiled binaries.</p>
+<p><strong>CSSPGO</strong> (LLVM 2021): context-sensitive PGO — tracks call context (call stack) in profile, enables precise per-callsite inlining decisions.</p>
+<hr />
+<h2 id="8-high-performance-jit-backends">8. High-Performance JIT Backends</h2>
+<h3 id="asmjit">asmjit</h3>
+<p>Zero-dependency C++ assembler library (Kobalicek). Full x86/x64 ISA including AVX-512. API:</p>
+<pre><code data-lang="cpp">JitRuntime rt;
+CodeHolder code;
+code.init(rt.environment());
+x86::Assembler a(&amp;code);
+a.mov(x86::eax, 1);
+a.ret();
+// Finalize → executable memory
+</code></pre>
+<p><strong>Dual-mapped W^X</strong>: allocates two virtual mappings of same physical page — one RW (for writing code), one RX (for execution). Avoids mprotect syscalls between write and execute. Critical for Apple Silicon (W^X enforced by hardware on non-JIT-entitled processes). Used in Umbra database for sub-millisecond query compilation.</p>
+<h3 id="mir-vladimir-makarov-red-hat">MIR (Vladimir Makarov, Red Hat)</h3>
+<p>Lightweight JIT backend, pure C, no dependencies, ~20kLOC. Three-address MIR instructions, SSA construction, GVN, inlining, simple regalloc. Benchmark: <strong>~180x faster compilation than GCC -O2</strong>, ~70% of GCC code quality. Also has C-to-MIR frontend. Designed as a lightweight GCC JIT option, also used for JIT-in-a-library scenarios.</p>
+<h3 id="qbe">QBE</h3>
+<p>14kLOC (vs. LLVM ~10MLOC). SSA-based IR, GVN, regalloc, ABI lowering for x86-64, AArch64, RISC-V. "Compiler backend in a weekend" scope. Achieves ~70% of GCC -O2 performance. Used by cproc (C11 compiler), scc (simple C compiler), several research compilers. Good reference implementation for learning backend design.</p>
+<h3 id="cranelift">Cranelift</h3>
+<p>Rust-based compiler backend (Mozilla, Bytecode Alliance). CLIF (Cranelift IR): SSA-based, typed, close to MIR level. Used in Wasmtime (WASM JIT) and SpiderMonkey (WASM tier).</p>
+<p>Key design decisions:</p>
+<ul>
+<li><strong>regalloc2</strong> (Ion Baraff, 2022): new register allocator, ~20% faster compilation vs. IonAlloc, supports move hints for coalescing without full coalescing logic, <code>fastalloc</code> single-pass mode for <code>-O0</code></li>
+<li>Explicit <strong>ABI lowering</strong> as a separate pass (not mixed with isel)</li>
+<li>No link-time optimization (kept intentional for JIT simplicity)</li>
+<li><strong>Filetests</strong>: test harness comparing compiled output register-by-register</li>
+</ul>
+<h3 id="copy-and-patch-jit">Copy-and-Patch JIT</h3>
+<p>Xu &amp; Kjolstad (OOPSLA 2021): template-based JIT with zero IR overhead. Compile handler stubs with Clang ahead of time, leaving <strong>holes</strong> (patches) for operands. At JIT time: copy stencil, patch operand slots. No IR, no regalloc, no optimization — just memcpy + patch.</p>
+<p><strong>CPython 3.13 JIT</strong>: uses copy-and-patch on specializing interpreter opcodes. Compiles one "micro-op" at a time. Not an optimizing JIT — more a "no-interpreter-overhead" tier. 5-15% faster on micro-benchmarks. CPython 3.14 adds a Tier 2 optimizer between specialization and copy-and-patch.</p>
+<h3 id="luajit">LuaJIT</h3>
+<p>Mike Pall's Lua 5.1 JIT. Widely considered the fastest scripting JIT ever written for its era.</p>
+<ul>
+<li><strong>DynASM</strong>: meta-assembler that processes mixed C/assembly source into a C file with code generation calls — used to hand-write both interpreter and JIT backend compactly</li>
+<li><strong>Dual VM</strong>: fast bytecode interpreter as fallback; trace JIT for hot loops</li>
+<li><strong>Trace compiler</strong>: records traces across Lua+C FFI boundaries; SSA IR with alias analysis; platform-specific backend (x86, x64, ARM, MIPS, PPC); no GVN or global opts — purely trace-local</li>
+<li><strong>FFI</strong>: call C functions and access C structs directly from Lua without writing C glue — eliminates GC object overhead for numeric workloads</li>
+<li>Performance: 5-20x CPython for numeric code, within 2x of C for many benchmarks</li>
+</ul>
+<hr />
+<h2 id="9-partial-evaluation-specialization">9. Partial Evaluation &amp; Specialization</h2>
+<h3 id="futamura-projections-futamura-1971">Futamura Projections (Futamura 1971)</h3>
+<p>Given: <code>interpreter</code> runs <code>program</code> on <code>data</code>: <code>interpreter(program, data) = output</code></p>
+<p>Let <code>mix</code> be a partial evaluator (specializes a program given some inputs):</p>
+<ul>
+<li><strong>1st projection</strong>: <code>mix(interpreter, program) = compiled_program</code> — specializing interpreter to program gives a compiled program</li>
+<li><strong>2nd projection</strong>: <code>mix(mix, interpreter) = compiler</code> — specializing partial evaluator to interpreter gives a compiler</li>
+<li><strong>3rd projection</strong>: <code>mix(mix, mix) = compiler_compiler</code> — specializing to the specializer gives a compiler generator</li>
+</ul>
+<p>The first projection is practically implemented by JITs: partial evaluation of the interpreter with respect to known bytecode.</p>
+<h3 id="pypy-rpython-metatracing">PyPy / RPython Metatracing</h3>
+<p>PyPy (Bolz et al., ECOOP 2009): write interpreter in <strong>RPython</strong> (restricted Python subset), run <strong>metatracer</strong> on the interpreter itself. Trace records interpreter's execution trace for a given bytecode sequence → compiled native code for that bytecode sequence. Automatically derives a JIT from any RPython interpreter. Achieves 2-5x CPython for many benchmarks (worse for I/O-bound). Used for PyPy, Pypy-STM, RPython runtimes for other languages.</p>
+<h3 id="graalvm-truffle">GraalVM Truffle</h3>
+<p>Wuerthinger et al. (ONWARD! 2012, ACM DL 2013). <strong>Self-optimizing AST interpreter</strong>: AST nodes rewrite themselves based on type feedback:</p>
+<pre><code data-lang="java">// Initially polymorphic add node
+class AddNode extends Node {
+    Object execute(Object a, Object b) {
+        if (a instanceof Integer &amp;&amp; b instanceof Integer) {
+            replace(new IntAddNode());  // specialize
+            return (int)a + (int)b;
+        }
+        // fallback...
+    }
+}
+</code></pre>
+<p><strong>Graal compiler</strong> performs partial evaluation of the AST interpreter: given specialization state, constant-folds interpreter dispatch, inlines AST node execute() methods → produces tight native code. Language-agnostic: same mechanism works for JavaScript (GraalJS), Python (GraalPy), Ruby (TruffleRuby), R, WebAssembly, LLVM bitcode (via Sulong). Native Image: AOT compile Java to standalone binary using closed-world assumption.</p>
+<hr />
+<h2 id="10-webassembly-compilation">10. WebAssembly Compilation</h2>
+<h3 id="wasm-semantics">WASM Semantics</h3>
+<ul>
+<li><strong>Structured control flow</strong>: <code>block</code>, <code>loop</code>, <code>if/else</code> constructs — no arbitrary goto. Simplifies validation and compilation. Branch targets are block depths (not addresses).</li>
+<li><strong>Linear memory</strong>: single or multi-memory, byte-addressable, no type safety. Bounds checks required (unless Spectre guards or OS trap-based).</li>
+<li><strong>Value types</strong>: <code>i32</code>, <code>i64</code>, <code>f32</code>, <code>f64</code>, <code>v128</code> (SIMD), <code>funcref</code>, <code>externref</code></li>
+<li><strong>Validation</strong>: typed stack machine; all programs type-check in a single linear pass before execution</li>
+</ul>
+<h3 id="compilation-tiers">Compilation Tiers</h3>
+<p><strong>V8 Liftoff</strong> (baseline, 2018): one-pass streaming compiler — generates code as it parses WASM, no IR. Fast startup (~10x faster than TurboFan). Each local maps to a stack slot or register; simple regalloc.</p>
+<p><strong>V8 TurboFan for WASM</strong>: same optimizing JIT as JS but typed. Lazy tier-up: Liftoff code counts hot function calls, triggers async TurboFan compilation, patches call sites when done.</p>
+<p><strong>V8 speculative WASM opts</strong> (Chrome M137, 2025): type speculation on <code>call_indirect</code> and <code>call_ref</code> — inline the most common callee with a type guard + deopt path. &gt;50% speedup on Dart/Flutter benchmarks.</p>
+<p><strong>Wasmtime/Cranelift</strong>: Rust-based, Cranelift backend, AOT or JIT mode. Used in production (Fastly Compute, Shopify). <code>winch</code>: new baseline compiler for Wasmtime (analogous to Liftoff).</p>
+<p><strong>Binaryen</strong>: WASM-to-WASM optimizer. <code>wasm-opt -O3</code> runs DCE, inlining, GVN, type narrowing on WASM IR. Used by Emscripten, Dart, Kotlin/WASM as a post-compilation optimization step.</p>
+<h3 id="wasmgc">WasmGC</h3>
+<p>Struct and array heap types with typed references, garbage-collected by host GC. Baseline support in all major browsers (December 2024). Enables JVM/CLR-style managed languages to target WASM without a bundled GC. Kotlin/WASM and Dart/Flutter ship WasmGC builds. V8 WasmGC speculative inlining (call_indirect with deopt) shows &gt;50% speedup in benchmarks.</p>
+<hr />
+<h2 id="11-gc-integration-with-jit">11. GC Integration with JIT</h2>
+<h3 id="precise-gc-roots">Precise GC Roots</h3>
+<p>GC must know exactly which stack slots and registers hold live GC references at every safepoint. LLVM provides:</p>
+<ul>
+<li><code>gc.statepoint</code> intrinsic: marks a call as a safepoint, accepts all live GC values as operands</li>
+<li><code>gc.relocate</code>: after statepoint, gets the potentially-moved new address of a GC value</li>
+<li><strong>Stack map section</strong>: emitted in <code>.llvm_stackmaps</code> ELF section; encodes for each call site: which stack offsets/registers hold references</li>
+<li><code>RewriteStatepointsForGC</code> pass: inserts statepoints and relocates throughout IR</li>
+</ul>
+<h3 id="safepoints">Safepoints</h3>
+<p>JVM safepoint mechanism: compiled code checks a <strong>safepoint polling page</strong> at method entries and loop back-edges. GC calls <code>os::protect_memory()</code> on the page → makes page PROT_NONE → next poll triggers SIGSEGV, caught by JVM signal handler → thread suspends at safepoint. All threads must reach safepoints before GC can proceed (stop-the-world).</p>
+<p>Signal-based safepoints (zero-cost probes unless GC active): send SIGPOLL/SIGUSR1 to threads; threads must be at async-safe points (function prologue/loop header); requires frame unwinding capability at any instruction.</p>
+<h3 id="write-barriers">Write Barriers</h3>
+<p>Needed for generational and concurrent GC:</p>
+<ul>
+<li><strong>Card table</strong> (generational): heap divided into 512-byte cards; on store to heap object, mark card as dirty (<code>card_table[addr &gt;&gt; 9] = dirty</code>). GC scans dirty cards for cross-generation references. ~1 additional store per heap write.</li>
+<li><strong>SATB</strong> (snapshot-at-the-beginning, G1 GC, ZGC): concurrent marking. Before overwriting a reference, log the old value to a thread-local buffer. Ensures all objects reachable at marking start are eventually marked.</li>
+<li><strong>Incremental update</strong> (CMS): log the new value. Requires re-scanning at the end of concurrent mark. Simpler but less precise.</li>
+</ul>
+<h3 id="gc-aware-register-allocation">GC-Aware Register Allocation</h3>
+<p>Regalloc must ensure GC references don't reside in callee-saved registers across a safepoint without proper tracking (since GC might move the object). LLVM's statepoint mechanism forces explicit use of <code>gc.relocate</code> — any reference used after a statepoint must use the relocated value, ensuring no stale pointer use.</p>
+<hr />
+<h2 id="12-jit-for-databases-specialized-domains">12. JIT for Databases &amp; Specialized Domains</h2>
+<h3 id="hyper-data-centric-compilation">HyPer Data-Centric Compilation</h3>
+<p>Neumann (VLDB 2011): "Efficiently Compiling Efficient Query Plans for Modern Hardware". Key insight: query compilation should produce <strong>pipelined</strong> code that processes tuples through multiple operators without materializing intermediate results.</p>
+<p><strong>Produce/Consume model</strong>: each operator has <code>produce()</code> and <code>consume(tuple)</code> methods. Compilation via recursive invocation:</p>
+<pre><code>HashJoin.produce():
+    build_side.produce()          // fill hash table
+    probe_side.produce()          // probe
+
+Scan.produce():
+    for each tuple t:
+        parent.consume(t)         // push up pipeline
+
+HashJoin.consume(t) [from probe side]:
+    if probe_hash_table(t):
+        parent.consume(merge(t, match))
+</code></pre>
+<p>This generates code where the inner loop contains the full pipeline — Scan → Filter → HashProbe — with no function call overhead. LLVM IR generated per query, compiled at O2. Throughput: 6.5 GB/s tuple processing on OLAP queries.</p>
+<h3 id="umbra-flying-start">Umbra Flying Start</h3>
+<p>Kersten et al. (VLDB J. 2021): two-tier compilation for sub-millisecond query latency:</p>
+<ul>
+<li><strong>U1</strong> (asmjit-based): ~1ms compilation, ~50% of LLVM-optimized performance</li>
+<li><strong>U2</strong> (LLVM-based): ~100ms compilation, full optimization</li>
+</ul>
+<p>Short queries run on U1; U2 compiles asynchronously; long queries migrate to U2 via on-stack replacement. See also <code>database/hyper_umbra_cedardb.md</code>.</p>
+<h3 id="other-database-jit-approaches">Other Database JIT Approaches</h3>
+<ul>
+<li><strong>DuckDB</strong>: no JIT. Pre-compiled vectorized kernels in C++ with templating, <code>#pragma GCC optimize("O3")</code>, AVX-512 where available. Expression evaluation via expression trees of pre-compiled functions. Fast development cycle.</li>
+<li><strong>Apache Spark Whole-Stage CodeGen</strong>: Janino (runtime Java source compiler) generates Java bytecode for operator pipelines at query start. ~2x faster than interpreted Volcano model.</li>
+<li><strong>Photon</strong> (Databricks, SIGMOD 2022): C++ native vectorized engine with JNI bridge. Pre-compiled columnar kernels, no JIT. 2-12x faster than Spark for supported operators.</li>
+</ul>
+<h3 id="ml-compiler-stack">ML Compiler Stack</h3>
+<ul>
+<li><strong>XLA</strong> (Accelerated Linear Algebra, Google/TensorFlow/JAX): HLO IR → backend-specific lowering (GPU/CPU/TPU). Auto-fusion, layout optimization, algebraic simplification. MLIR-based since XLA 2023.</li>
+<li><strong>TVM</strong> (Chen et al., OSDI 2018): compute/schedule separation (Halide-inspired). <code>te.compute()</code> defines computation; schedules specify tiling, vectorization, parallelism. <strong>AutoTVM</strong> and <strong>Ansor</strong> auto-tune schedules via ML-guided search.</li>
+<li><strong>Halide</strong> (Ragan-Kelley et al., PLDI 2013): image/signal processing. Separate algorithm (what to compute) from schedule (how: tiling, vectorization, parallelism, fusion). Schedule-space search finds near-optimal implementations.</li>
+</ul>
+<h3 id="gpu-compilation">GPU Compilation</h3>
+<p><strong>NVPTX backend</strong> (LLVM): target for CUDA compilation. CUDA C → Clang frontend → LLVM IR → NVPTX → PTX (assembly) → cubin (GPU binary via ptxas or NVVM). PTX is a virtual ISA — retargetable to different GPU generations by NVIDIA driver.</p>
+<p><strong>CUDA compilation model</strong>: <code>__global__</code> kernels compiled to PTX/cubin; host code compiled to x86. <code>nvcc</code> orchestrates Clang + ptxas. <strong>SASS</strong> = actual machine code (SM-specific). PTX provides forward compatibility.</p>
+<p><strong>ROCm HIP</strong>: AMD's CUDA-compatible API. <code>hipcc</code> → Clang with AMDGPU target (LLVM AMDGPU backend) → GCN/RDNA ISA. <strong>AMDGPU backend</strong> in LLVM supports both OpenCL and HIP/ROCm.</p>
+<hr />
+<h2 id="13-state-of-the-art-2023-2026">13. State of the Art (2023–2026)</h2>
+<h3 id="mlir-ecosystem">MLIR Ecosystem</h3>
+<ul>
+<li><strong>IREE</strong> (Intermediate Representation Execution Environment, Google): production ML deployment stack built on MLIR. Compiles TensorFlow/JAX/PyTorch ops through MLIR dialects to CPU/GPU/embedded targets. Used in Google production.</li>
+<li><strong>Mojo</strong> (Modular): Python-compatible systems language, MLIR-native compiler stack. MLIR dialects for Mojo IR; leverages <code>affine</code>/<code>linalg</code>/<code>vector</code> for kernel generation.</li>
+<li><strong>Flang</strong>: LLVM Fortran frontend, now MLIR-based. FIR (Fortran IR) dialect → LLVM IR.</li>
+<li><strong>circt</strong>: Circuit IR Compilers and Tools — MLIR dialects for hardware design (RTL, scheduling, synthesis). Bridges software and hardware compiler communities.</li>
+<li><strong>Transform dialect</strong> (CGO 2025): user-controlled, deterministic optimization scheduling. Replaces heuristic passes with explicit IR-level transformation recipes. Game changer for ML kernel authors.</li>
+</ul>
+<h3 id="jit-advances-2024-2026">JIT Advances (2024–2026)</h3>
+<p><strong>CPython 3.13 JIT</strong>: copy-and-patch on micro-ops. 5-15% improvement. <strong>3.14 outlook</strong>: Tier 2 optimizer (abstract interpretation + type narrowing on micro-op traces) + free-threaded mode (GIL-free with per-object locking). Target: 2-5x speedup over 3.10 by 3.14.</p>
+<p><strong>YJIT (Ruby)</strong>: Lazy Basic Block Versioning (Chevalier-Boisvert 2016, DLS) — compile one basic block at a time, specialized per type context; defer compilation until types are known at each branch. Shopify rewrote in Rust (2022), shipped Ruby 3.1+. Numbers: 15-19% faster on Shopify production workloads; 2-3x on micro-benchmarks.</p>
+<p><strong>V8 Turboshaft</strong> (Chrome 120+, 2023): replaces TurboFan's Sea-of-Nodes backend with a conventional CFG-based IR. Sea-of-Nodes had pathological compile time on certain IR patterns. Turboshaft: 2x faster TurboFan compilation, cleaner architecture.</p>
+<p><strong>.NET 8 Dynamic PGO</strong>: enabled by default since .NET 8 (2023). RyuJIT instruments Tier 0 code, collects profiles, re-JITs hot methods at Tier 1 with optimization. ~15% improvement on average workloads.</p>
+<h3 id="superoptimizers">Superoptimizers</h3>
+<ul>
+<li><strong>Souper</strong> (Regehr et al., 2018): LLVM IR superoptimizer. Extracts "dataflow slices" from LLVM IR, queries Z3 SMT solver for stronger rewrites. Finds non-obvious peephole rules that humans miss. ~5% improvement on benchmarks when integrated into LLVM pipeline.</li>
+<li><strong>Minotaur</strong>: synthesis-based vectorized peephole optimizer (2023). Extends Souper to vector operations; discovers AVX-512 rewrites. Merged into LLVM as proof-of-concept optimizations.</li>
+<li><strong>Hydra</strong> (2024): multi-target superoptimizer using Alive2 (LLVM IR correctness verifier) for soundness checking.</li>
+</ul>
+<h3 id="wasmgc-browser-jit">WasmGC &amp; Browser JIT</h3>
+<p>WasmGC baseline all major browsers Dec 2024. V8 adding speculative inlining of <code>call_indirect</code> through WasmGC types (Chrome M137, 2025). Kotlin/WASM and Dart/Flutter WasmGC production builds available.</p>
+<h3 id="effects-reference-counting">Effects &amp; Reference Counting</h3>
+<p><strong>Perceus</strong> (Reinking et al., POPL 2021): provably efficient reference counting via <strong>reuse analysis</strong> — if an object's refcount drops to 1 before a constructor, reuse its memory in-place. Eliminates most RC overhead for functional programs. Implemented in Koka language.</p>
+<p><strong>Koka v3</strong> (Leijen, MSR): effects system enables compiler to reason about resource lifetimes and optimize allocations. Reference counting with Perceus reuse achieves GC-like throughput without GC pauses.</p>
+<hr />
+<h2 id="key-references">Key References</h2>
+<h3 id="compiler-architecture">Compiler Architecture</h3>
+<ul>
+<li>Lattner &amp; Adve. "LLVM: A Compilation Framework for Lifelong Program Analysis and Transformation." CGO 2004.</li>
+<li>Cytron, Ferrante, Rosen, Wegman, Zadeck. "Efficiently Computing Static Single Assignment Form and the Control Dependence Graph." TOPLAS 13(4), 1991.</li>
+<li>Braun, Buchwald, Hack, Leißa, Mallon, Zwinkau. "Simple and Efficient Construction of Static Single Assignment Form." CC 2013.</li>
+<li>Cooper, Harvey, Kennedy. "A Simple, Fast Dominance Algorithm." RICE TR-06-33870, 2001.</li>
+</ul>
+<h3 id="optimization">Optimization</h3>
+<ul>
+<li>Wegman &amp; Zadeck. "Constant Propagation with Conditional Branches." TOPLAS 13(2), 1991.</li>
+<li>Click &amp; Cooper. "Combining Analyses, Combining Optimizations." TOPLAS 17(2), 1995.</li>
+<li>Andersen. "Program Analysis and Specialization for the C Programming Language." PhD Thesis, DIKU, 1994.</li>
+<li>Steensgaard. "Points-to Analysis in Almost Linear Time." POPL 1996.</li>
+</ul>
+<h3 id="instruction-selection-register-allocation">Instruction Selection &amp; Register Allocation</h3>
+<ul>
+<li>Fraser, Henry, Proebsting. "BURG—Fast Optimal Instruction Selection and Tree Parsing." SIGPLAN Notices 27(4), 1992.</li>
+<li>Chaitin, Auslander, Chandra, Cocke, Hopkins, Markstein. "Register Allocation via Coloring." Computer Languages 6(1), 1981.</li>
+<li>George &amp; Appel. "Iterated Register Coalescing." TOPLAS 18(3), 1996.</li>
+<li>Poletto &amp; Sarkar. "Linear Scan Register Allocation." TOPLAS 21(5), 1999.</li>
+<li>Wimmer &amp; Franz. "Linear Scan Register Allocation on SSA Form." CGO 2010.</li>
+<li>Braun &amp; Hack. "Register Allocation for Programs in SSA Form." CC 2009.</li>
+</ul>
+<h3 id="jit-dynamic-compilation">JIT &amp; Dynamic Compilation</h3>
+<ul>
+<li>Aycock. "A Brief History of Just-In-Time." ACM Computing Surveys 35(2), 2003.</li>
+<li>Ertl &amp; Gregg. "The Structure and Performance of Efficient Interpreters." J. Instruction-Level Parallelism 5, 2003.</li>
+<li>Gal &amp; Franz. "Incremental Dynamic Code Generation with Trace Trees." VEE 2006.</li>
+<li>Fink &amp; Qian. "Design, Implementation and Evaluation of Adaptive Recompilation with On-Stack Replacement." CGO 2003.</li>
+</ul>
+<h3 id="high-performance-backends">High-Performance Backends</h3>
+<ul>
+<li>Xu &amp; Kjolstad. "Copy-and-Patch Compilation: A fast compilation algorithm for high-level languages and bytecode." OOPSLA 2021.</li>
+<li>Chevalier-Boisvert &amp; Feeley. "Simple and Effective Type Check Removal through Lazy Basic Block Versioning." ECOOP 2015.</li>
+<li>Bolz, Cuni, Fijalkowski, Rigo. "Tracing the Meta-Level: PyPy's Tracing JIT Compiler." ICOOOLPS 2009.</li>
+<li>Wuerthinger et al. "Self-Optimizing AST Interpreters." DLS 2012.</li>
+</ul>
+<h3 id="database-jit">Database JIT</h3>
+<ul>
+<li>Neumann. "Efficiently Compiling Efficient Query Plans for Modern Hardware." PVLDB 4(9), 2011.</li>
+<li>Kersten, Leis, Kemper, Neumann. "Tidy Tuples and Flying Start: Fast Compilation and Fast Execution of Relational Queries in Umbra." VLDB J. 30(5), 2021.</li>
+</ul>
+<h3 id="ml-compilers">ML Compilers</h3>
+<ul>
+<li>Chen, Moreau, et al. "TVM: An Automated End-to-End Optimizing Compiler for Deep Learning." OSDI 2018.</li>
+<li>Ragan-Kelley, Barnes, Adams, Paris, Durand, Amarasinghe. "Halide: A Language and Compiler for Optimizing Parallelism, Locality, and Recomputation in Image Processing Pipelines." PLDI 2013.</li>
+<li>Lattner et al. "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation." CGO 2021.</li>
+</ul>
+<h3 id="pgo-superoptimization">PGO &amp; Superoptimization</h3>
+<ul>
+<li>Chen, Luk, Xu. "AutoFDO: Automatic Feedback-Directed Optimization for Warehouse-Scale Applications." CGO 2016.</li>
+<li>Panchenko, Auler, Dawson, Ottoni. "BOLT: A Practical Binary Optimizer for Data Centers and Beyond." CGO 2019.</li>
+<li>Sasnauskas et al. "Souper: A Synthesizing Superoptimizer." arXiv 2018.</li>
+</ul>
+<h3 id="gc-memory-safety">GC &amp; Memory Safety</h3>
+<ul>
+<li>Reinking, Xie, de Moura, Leijen. "Perceus: Garbage Free Reference Counting with Reuse." PLDI 2021.</li>
+<li>Futamura. "Partial Evaluation of Computation Process — An Approach to a Compiler-Compiler." Systems, Computers, Controls 2(5), 1971.</li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

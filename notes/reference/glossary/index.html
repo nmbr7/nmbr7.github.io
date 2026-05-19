@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Glossary</h1>
+  <h1 id="glossary">Glossary</h1>
+<p>Acronyms and technical terms used across research docs.</p>
+<table><thead><tr><th>Term</th><th>Definition</th><th>Covered In</th></tr></thead><tbody>
+<tr><td>BTB</td><td>Branch Target Buffer — hardware cache mapping instruction PCs to predicted branch targets; hierarchical (L0 µBTB / L1 / L2)</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>ACS</td><td>Access Control Services — PCIe capability ensuring peer-to-peer isolation for IOMMU groups</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>AES-NI</td><td>Advanced Encryption Standard New Instructions — x86 hardware-accelerated AES encryption</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>AMQP</td><td>Advanced Message Queuing Protocol — wire-level messaging protocol implemented by RabbitMQ</td><td><a href="https://nmbr7.github.io/notes/distributed/rabbitmq-internals/">RabbitMQ Internals</a></td></tr>
+<tr><td>AQE</td><td>Adaptive Query Execution — Spark 3.0+ runtime re-optimization based on actual data statistics</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>ARIES</td><td>Algorithm for Recovery and Isolation Exploiting Semantics — foundational WAL recovery protocol using LSN-based redo/undo</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a></td></tr>
+<tr><td>ART</td><td>Adaptive Radix Tree — cache-friendly trie with variable node sizes (Node4/16/48/256), developed at TUM</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>AVX-512</td><td>Advanced Vector Extensions 512-bit — x86 SIMD instruction set processing 16 floats per instruction</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>BAR</td><td>Base Address Register — PCI configuration space register defining device memory-mapped I/O regions</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>BFT</td><td>Byzantine Fault Tolerance — ability to reach consensus despite arbitrary (malicious) node failures</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>BMI</td><td>Bit Manipulation Instructions — x86 extension for PEXT/PDEP/BLSR and other bit-level operations</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>BNLJ</td><td>Block Nested Loop Join — join variant reading outer relation in memory-sized blocks to reduce I/O</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>BRIN</td><td>Block Range Index — PostgreSQL lightweight index storing min/max per physical block range</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>BTI</td><td>Branch Target Identification — ARM control-flow integrity mechanism marking valid indirect branch targets</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>Bw-Tree</td><td>Lock-free B+ tree using delta records and CAS operations, developed for Hekaton/Azure Cosmos DB</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>CAP</td><td>Consistency, Availability, Partition tolerance — Brewer/Gilbert-Lynch theorem on distributed system trade-offs</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>CAS</td><td>Compare-And-Swap — atomic instruction for lock-free programming; CMPXCHG on x86, CAS/LDXR-STXR on ARM</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>CBO</td><td>Cost-Based Optimization — query optimization using table/column statistics for plan selection</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>CMS</td><td>Count-Min Sketch (Cormode &amp; Muthukrishnan 2005) — d×w counter matrix for streaming frequency estimation with O(ε⁻¹ log δ⁻¹) space</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>CDC</td><td>Change Data Capture — technique for streaming database changes as events, often via Debezium or logical replication</td><td><a href="https://nmbr7.github.io/notes/database/wal-incremental-conversion/">WAL Incremental Conversion</a></td></tr>
+<tr><td>CDNA</td><td>Compute DNA — AMD's compute-focused GPU microarchitecture (MI-series accelerators)</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>CET</td><td>Control-flow Enforcement Technology — Intel's shadow stack + ENDBR indirect branch tracking for CFI</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>CLOG</td><td>Commit Log — PostgreSQL structure tracking transaction commit/abort status for MVCC visibility</td><td><a href="https://nmbr7.github.io/notes/database/arrow-postgresql-integration/">Arrow PostgreSQL Integration</a></td></tr>
+<tr><td>COW</td><td>Copy-On-Write — technique where data is shared until modified; used in WiredTiger B-trees, Neon branching, btrfs</td><td><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/">MongoDB/WiredTiger Internals</a></td></tr>
+<tr><td>CoWoS</td><td>Chip-on-Wafer-on-Substrate — TSMC advanced packaging for multi-die integration (used in H100/A100)</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>CPL</td><td>Consistency Point LSN — Aurora's highest LSN representing a transaction-consistent boundary</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>CQE</td><td>Completion Queue Entry — io_uring kernel-to-user result structure for completed I/O operations</td><td><a href="https://nmbr7.github.io/notes/os/io-uring-internals/">io_uring Internals</a></td></tr>
+<tr><td>CRDT</td><td>Conflict-free Replicated Data Type — data structure achieving eventual consistency without coordination</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>CXL</td><td>Compute Express Link — cache-coherent interconnect for CPU-to-device memory sharing over PCIe physical layer</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>DBSP</td><td>Database Stream Processor — formal mathematical framework for incremental computation over Z-sets (Feldera)</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>DMA</td><td>Direct Memory Access — hardware capability for devices to read/write main memory without CPU involvement</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>DMB</td><td>Data Memory Barrier — ARM instruction ordering memory accesses without stalling execution</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>DPccp</td><td>Dynamic Programming connected complement pairs — join enumeration algorithm for bushy plans</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>DPhyp</td><td>Dynamic Programming on hypergraphs — join enumeration supporting multi-relation predicates</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>DPDK</td><td>Data Plane Development Kit — userspace networking framework using VFIO for kernel-bypass packet processing (~30-40 Mpps)</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>DSB</td><td>Data Synchronization Barrier — ARM instruction that stalls execution until all prior memory accesses complete</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>DST</td><td>Deterministic Simulation Testing — technique running distributed systems in a single-threaded deterministic simulator</td><td><a href="https://nmbr7.github.io/notes/distributed/deterministic-simulation-testing/">Deterministic Simulation Testing</a></td></tr>
+<tr><td>EBR</td><td>Epoch-Based Reclamation — memory reclamation scheme for lock-free data structures using global epoch tracking</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>EPT</td><td>Extended Page Tables — Intel VT-x hardware-assisted two-level address translation for VM memory</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>EVEX</td><td>Extended VEX — x86 instruction prefix encoding for AVX-512/APX supporting 32 vector registers and masking</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>FDW</td><td>Foreign Data Wrapper — PostgreSQL mechanism for querying external data sources as local tables</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>FLP</td><td>Fischer-Lynch-Paterson impossibility — proof that deterministic asynchronous consensus is impossible with even one crash</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>FMA</td><td>Fused Multiply-Add — single instruction computing a*b+c with one rounding; used in Tensor Cores and CPU SIMD</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>FP8</td><td>8-bit floating point — low-precision format (E4M3/E5M2) for LLM training/inference on Hopper+ GPUs</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>FPW</td><td>Full Page Writes — PostgreSQL technique writing complete page images to WAL after checkpoint to prevent torn pages</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a></td></tr>
+<tr><td>FTL</td><td>Flash Translation Layer — SSD firmware mapping logical block addresses to physical NAND pages</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a></td></tr>
+<tr><td>GAA</td><td>Gate-All-Around — transistor architecture (replacing FinFET at 2nm) where gate wraps channel on all sides</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>GDSII</td><td>Graphic Data System II — standard file format for IC layout data sent to semiconductor foundries for fabrication</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>GEQO</td><td>Genetic Query Optimizer — PostgreSQL's join ordering strategy using genetic algorithms for queries with &gt;= 12 tables</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>GIN</td><td>Generalized Inverted Index — PostgreSQL index for composite values (arrays, JSONB, full-text tsvector)</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>GiST</td><td>Generalized Search Tree — PostgreSQL extensible indexing framework for complex data types (geometric, range)</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>GOO</td><td>Greedy Operator Ordering — O(n^3) heuristic join ordering algorithm used as fallback for large queries</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>GST</td><td>Global Stabilization Time — the (unknown) point after which network timing bounds hold in partial synchrony models</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>GTID</td><td>Global Transaction Identifier — MySQL identifier simplifying replication topology management and failover</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>HAMT</td><td>Hash Array Mapped Trie — persistent data structure with near-O(1) operations via structural sharing (Clojure, Scala)</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>HBM</td><td>High Bandwidth Memory — stacked DRAM (HBM2/HBM3) providing &gt;1 TB/s bandwidth for GPU/accelerator designs</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>HLC</td><td>Hybrid Logical Clock — clock combining wall-clock time with a logical counter for causal ordering (CockroachDB)</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>HLL</td><td>HyperLogLog (Flajolet et al. 2007) — probabilistic NDV sketch: 2^b registers, harmonic mean estimate, 1.04/√(2^b) relative error; merges via elementwise max</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a>, <a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>HOT</td><td>Heap-Only Tuple — PostgreSQL optimization where updated tuples stay on the same page, avoiding index updates</td><td><a href="https://nmbr7.github.io/notes/database/arrow-postgresql-integration/">Arrow PostgreSQL Integration</a></td></tr>
+<tr><td>HTAP</td><td>Hybrid Transactional/Analytical Processing — system handling both OLTP and OLAP workloads (HyPer, TiDB)</td><td><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/">HyPer/Umbra/CedarDB</a></td></tr>
+<tr><td>IOMMU</td><td>I/O Memory Management Unit — hardware translating device DMA addresses (IOVA) to physical addresses</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>IOMMUFD</td><td>IOMMU File Descriptor — newer Linux interface replacing VFIO container/group model with fd-centric API</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>IOTLB</td><td>I/O Translation Lookaside Buffer — IOMMU's cache for IOVA-to-PA translations; hugepages reduce miss rate dramatically</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>IOVA</td><td>I/O Virtual Address — the address space a device sees through the IOMMU, analogous to virtual addresses for CPUs</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>ILP</td><td>Instruction-Level Parallelism — overlap of independent instructions from a single thread exploited by OoO execution</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>IPC</td><td>Instructions Per Cycle — microarchitectural efficiency metric; PrediCache achieves 0.55 IPC vs 0.31 for traditional</td><td><a href="https://nmbr7.github.io/notes/database/buffer-management-predictive-translation/">Buffer Management</a></td></tr>
+<tr><td>IQ</td><td>Issue Queue / Reservation Stations — buffer holding dispatched µops waiting for operands before execution; unified or distributed</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>ISR</td><td>In-Sync Replicas — Kafka replicas caught up with the partition leader, eligible for leader election</td><td><a href="https://nmbr7.github.io/notes/distributed/kafka-internals/">Kafka Internals</a></td></tr>
+<tr><td>JIT</td><td>Just-In-Time compilation — compiling code at runtime; used by HyPer (LLVM), Umbra (asmJIT), PostgreSQL 11+</td><td><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/">HyPer/Umbra/CedarDB</a></td></tr>
+<tr><td>JOB</td><td>Join Order Benchmark (Leis et al. VLDB 2015) — 113 IMDB queries, 3–16-way joins; standard benchmark for cardinality estimation accuracy (Q-error)</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>KPTI</td><td>Kernel Page Table Isolation — Meltdown mitigation separating user/kernel page tables; adds ~5-30% overhead on syscall-heavy workloads</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>KLL</td><td>KLL Sketch (Karnin-Lang-Liberty 2016) — near-optimal mergeable quantile sketch; O(ε⁻¹ log log 1/δ) space; better than GK sketch for distributed merge</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a>, <a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>KMV</td><td>K-Minimum Values sketch — maintains k smallest hash values; NDV ≈ (k-1)/max(kth_smallest); merges by union + take k smallest</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>KRaft</td><td>Kafka Raft — Kafka's built-in Raft-based consensus replacing ZooKeeper for metadata management</td><td><a href="https://nmbr7.github.io/notes/distributed/kafka-internals/">Kafka Internals</a></td></tr>
+<tr><td>kTLS</td><td>Kernel TLS — Linux kernel offload of TLS encryption/decryption for socket I/O, reducing context switches</td><td><a href="https://nmbr7.github.io/notes/os/linux-expert-syscalls/">Linux Expert Syscalls</a></td></tr>
+<tr><td>LDAR</td><td>Load-Acquire Register — ARM instruction providing acquire semantics (no subsequent access reordered before it)</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>LDAPR</td><td>Load-Acquire RCpc Register — ARM weaker acquire load (ARMv8.3-RCPC) matching C++ memory_order_consume-like behavior</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>LIPAH</td><td>Logical-ID Pointer Augmented Hinting — buffer manager using fat pointers (PID + hint address); limited to 32-bit PIDs</td><td><a href="https://nmbr7.github.io/notes/database/buffer-management-predictive-translation/">Buffer Management</a></td></tr>
+<tr><td>LL/SC</td><td>Load-Linked/Store-Conditional — ARM/RISC-V atomic primitive pair (LDXR/STXR, LR/SC) for lock-free operations</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>LMUL</td><td>Length Multiplier — RISC-V Vector extension register grouping factor controlling effective vector length</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>LQ</td><td>Load Queue — per-core buffer tracking all in-flight loads for STLF lookup and memory ordering violation detection</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>LPS</td><td>Log Processing Service — AlloyDB component that receives WAL and materializes data blocks asynchronously</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>LSE</td><td>Large System Extensions — ARMv8.1 atomic instructions (CAS, LDADD, SWP) replacing LL/SC for better scalability</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>LSM</td><td>Log-Structured Merge tree — write-optimized structure converting random writes to sequential via leveled compaction</td><td><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a></td></tr>
+<tr><td>LSN</td><td>Log Sequence Number — monotonically increasing identifier for WAL records, used for recovery and page versioning</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a></td></tr>
+<tr><td>MESIF</td><td>Modified/Exclusive/Shared/Invalid/Forward — Intel's extension of MESI with a Forward state for peer-to-peer cache supply</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>MESI</td><td>Modified/Exclusive/Shared/Invalid — CPU cache coherence protocol tracking cache line states across cores</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>MCV</td><td>Most Common Values — per-column list of (value, frequency) pairs stored in pg_statistic stakind=1; used for exact selectivity on high-frequency values</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>NDV</td><td>Number of Distinct Values — column statistic driving join selectivity (1/max(NDV_R, NDV_S)); estimated via HLL or Haas-Stokes sampler</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>MLP</td><td>Memory-Level Parallelism — number of simultaneous outstanding cache misses a core can sustain; bounded by ROB size and MSHR count</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>MOESI</td><td>Modified/Owned/Exclusive/Shared/Invalid — AMD's extension of MESI with Owned state for dirty-line sharing without writeback</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>MPKI</td><td>Misses Per Kilo-Instructions — branch or cache miss rate metric; TAGE achieves &lt;3% branch MPKI on SPEC CPU 2006</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>MSHR</td><td>Miss Status Holding Register — tracks outstanding cache misses and coalesces accesses to the same line; count ≈ MLP</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>MMA</td><td>Matrix Multiply-Accumulate — Tensor Core operation computing D = A * B + C on small matrix tiles</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>MMIO</td><td>Memory-Mapped I/O — mapping device registers into CPU address space for direct read/write access</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>MPSM</td><td>Massively Parallel Sort-Merge — NUMA-aware join algorithm with local sort + parallel merge across nodes</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>MSI-X</td><td>Message Signaled Interrupts Extended — PCIe interrupt delivery via memory writes, supporting per-queue interrupt vectors</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>MTE</td><td>Memory Tagging Extension — ARM hardware feature for detecting memory safety bugs (use-after-free, buffer overflow)</td><td><a href="https://nmbr7.github.io/notes/os/linux-expert-syscalls/">Linux Expert Syscalls</a></td></tr>
+<tr><td>MVCC</td><td>Multi-Version Concurrency Control — concurrency scheme where readers see snapshots and writers create new versions</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>NoC</td><td>Network-on-Chip — on-die interconnect (ring/mesh/torus) routing traffic between cores, caches, and memory controllers</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a>, <a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>NLJ</td><td>Nested Loop Join — simplest join algorithm scanning inner relation for each outer tuple; O(|R| * B(S)) I/O</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>NUMA</td><td>Non-Uniform Memory Access — multi-socket architecture where memory access latency depends on which socket owns the memory</td><td><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/">HyPer/Umbra/CedarDB</a></td></tr>
+<tr><td>NVIC</td><td>Nested Vectored Interrupt Controller — ARM Cortex-M interrupt controller with priority-based preemption</td><td><a href="https://nmbr7.github.io/notes/os/timer-interrupts-stm32/">Timer Interrupts STM32</a></td></tr>
+<tr><td>NVLink</td><td>NVIDIA proprietary high-bandwidth GPU-to-GPU interconnect (NVLink5: 1.8 TB/s bidirectional)</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>OCC</td><td>Optimistic Concurrency Control — transaction scheme allowing concurrent execution, validating at commit time</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>OID</td><td>Object Identifier — PostgreSQL's internal numeric identifier for database objects (types, relations, functions)</td><td><a href="https://nmbr7.github.io/notes/database/arrow-postgresql-integration/">Arrow PostgreSQL Integration</a></td></tr>
+<tr><td>OLAP</td><td>Online Analytical Processing — workload pattern of complex read-heavy aggregation queries (DuckDB, ClickHouse)</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>OLTP</td><td>Online Transaction Processing — workload pattern of high-throughput short read-write transactions (PostgreSQL, MySQL)</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>OoO</td><td>Out-of-Order execution — CPU technique issuing instructions in data-dependency order rather than program order to hide latency</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>PAC</td><td>Pointer Authentication Code — ARM cryptographic signature embedded in pointer unused bits for control-flow integrity</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>PACELC</td><td>Partition-Availability-Consistency / Else Latency-Consistency — extension of CAP capturing normal-operation trade-offs</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>PASID</td><td>Process Address Space ID — IOMMU feature enabling per-process DMA address translation for shared virtual addressing</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>PAX</td><td>Partition Attributes Across — hybrid row/column page layout storing columns within each page (Umbra)</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>PBFT</td><td>Practical Byzantine Fault Tolerance — first practical BFT protocol tolerating f Byzantine faults with 3f+1 replicas</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>PEBS</td><td>Precise Event-Based Sampling — Intel hardware profiling capturing exact instruction pointer on performance counter overflow</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>PRF</td><td>Physical Register File — centralized storage for all in-flight register values; separate INT and FP files sized at ROB + arch_regs</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>PG</td><td>Protection Group — Aurora's 10 GB storage segment replicated 6 ways across 3 AZs</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>PID</td><td>Page ID — logical identifier for a database page, translated to a buffer frame address by the buffer manager</td><td><a href="https://nmbr7.github.io/notes/database/buffer-management-predictive-translation/">Buffer Management</a></td></tr>
+<tr><td>PITR</td><td>Point-In-Time Recovery — restoring a database to any past moment by replaying WAL to a target LSN/timestamp</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>PLL</td><td>Phase-Locked Loop — clock generation circuit multiplying a reference crystal frequency for the system clock</td><td><a href="https://nmbr7.github.io/notes/os/timer-interrupts-stm32/">Timer Interrupts STM32</a></td></tr>
+<tr><td>PMU</td><td>Performance Monitoring Unit — hardware counters (cycles, cache misses, branch mispredictions) for CPU profiling</td><td><a href="https://nmbr7.github.io/notes/hardware/cycle-counters-and-energy/">Cycle Counters &amp; Energy</a></td></tr>
+<tr><td>RBPEX</td><td>Resilient Buffer Pool Extension — local SSD cache in Azure SQL Hyperscale surviving process restarts</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>Q-error</td><td>Cardinality estimation accuracy metric: max(est/actual, actual/est) ≥ 1; Q-error=1 is perfect; JOB benchmark shows PostgreSQL p95 ≈ 12×</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>RAS</td><td>Return Address Stack — hardware stack that speculatively captures call targets to predict return addresses</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>RAT</td><td>Register Alias Table — maps architectural register names to physical register IDs during OoO rename stage</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>RCU</td><td>Read-Copy-Update — Linux kernel synchronization allowing lock-free reads with deferred reclamation of old data</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>RDMA</td><td>Remote Direct Memory Access — network hardware reading/writing remote memory without CPU involvement (~10 us latency)</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>RDTSC</td><td>Read Time-Stamp Counter — x86 instruction reading the 64-bit cycle counter; RDTSCP variant serializes prior instructions</td><td><a href="https://nmbr7.github.io/notes/hardware/cycle-counters-and-energy/">Cycle Counters &amp; Energy</a></td></tr>
+<tr><td>ROB</td><td>Reorder Buffer — circular buffer holding all in-flight µops; enables in-order retirement and precise exception handling</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>RLE</td><td>Run-Length Encoding — compression encoding consecutive identical values as (value, count) pairs</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>RMI</td><td>Recursive Model Index — learned index structure using a hierarchy of ML models to predict key positions</td><td><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a></td></tr>
+<tr><td>RTL</td><td>Register Transfer Level — hardware description abstraction (Verilog/VHDL) defining logic in terms of registers and operations</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>RUM</td><td>Read, Update, Memory conjecture — states you can optimize at most two of read/write/space overhead in an index</td><td><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a></td></tr>
+<tr><td>RVWMO</td><td>RISC-V Weak Memory Ordering — RISC-V's relaxed memory model preserving only data dependencies and same-address ordering</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>RVV</td><td>RISC-V Vector extension — scalable vector ISA with LMUL register grouping and vector-length agnostic (VLA) programming</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>SQ</td><td>Store Queue — buffer holding committed stores until they drain to the L1D cache; used for STLF and memory ordering</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>SCL</td><td>Segment Complete LSN — per-Protection-Group completeness tracker in Aurora's storage layer</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>seccomp</td><td>Secure Computing Mode — Linux syscall filtering mechanism using BPF programs for sandboxing (used in Neon WAL redo)</td><td><a href="https://nmbr7.github.io/notes/os/linux-expert-syscalls/">Linux Expert Syscalls</a></td></tr>
+<tr><td>SFU</td><td>Special Function Unit — GPU hardware computing transcendentals (sin, cos, rsqrt, log) at reduced throughput</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>SIMT</td><td>Single Instruction, Multiple Thread — GPU execution model where warps of 32 threads execute in lockstep</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>SM</td><td>Streaming Multiprocessor — fundamental GPU compute unit containing CUDA cores, Tensor Cores, register file, and shared memory</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>SME</td><td>Scalable Matrix Extension — ARM extension for matrix operations using a 2D tile register (ZA) for GEMM acceleration</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>SMJ</td><td>Sort-Merge Join — join algorithm sorting both relations then merging; optimal when inputs are pre-sorted</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>SMMU</td><td>System Memory Management Unit — ARM's IOMMU implementation (SMMUv3) for DMA address translation and device isolation</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>STLF</td><td>Store-to-Load Forwarding — hardware mechanism supplying load data directly from the store queue, bypassing cache (~4-5 cycles)</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>SPDK</td><td>Storage Performance Development Kit — userspace NVMe driver framework using VFIO for millions of IOPS per core</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>SPSC</td><td>Single Producer Single Consumer — lock-free queue variant with one writer and one reader thread</td><td><a href="https://nmbr7.github.io/notes/programming/data-structures/">Data Structures</a></td></tr>
+<tr><td>SQE</td><td>Submission Queue Entry — io_uring user-to-kernel I/O request structure (opcode, fd, buffer, offset)</td><td><a href="https://nmbr7.github.io/notes/os/io-uring-internals/">io_uring Internals</a></td></tr>
+<tr><td>SQPOLL</td><td>Submission Queue Polling — io_uring mode where a kernel thread polls the SQ, eliminating syscalls entirely</td><td><a href="https://nmbr7.github.io/notes/os/io-uring-internals/">io_uring Internals</a></td></tr>
+<tr><td>SR-IOV</td><td>Single Root I/O Virtualization — PCIe spec creating lightweight virtual functions from one physical device</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>SSI</td><td>Serializable Snapshot Isolation — PostgreSQL's true serializable isolation via predicate locking and conflict detection</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>SSTable</td><td>Sorted String Table — immutable, sorted on-disk file in LSM trees containing key-value pairs with index/bloom filter</td><td><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a></td></tr>
+<tr><td>STLR</td><td>Store-Release Register — ARM instruction providing release semantics (no preceding access reordered after it)</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>SVA</td><td>Shared Virtual Addressing — IOMMU feature letting devices use the same virtual addresses as the CPU process</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>SVE</td><td>Scalable Vector Extension — ARM vector ISA with hardware-defined vector length (128-2048 bits) for portable SIMD</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>TAGE</td><td>Tagged Geometric History Length Branch Predictor — state-of-the-art predictor using multiple tagged components indexed by geometric history lengths (Seznec 2006)</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>THP</td><td>Transparent Huge Pages — Linux kernel feature automatically promoting 4KB page allocations to 2MB pages to reduce TLB pressure</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>TF32</td><td>TensorFloat-32 — NVIDIA 19-bit format (8-bit exponent, 10-bit mantissa) for Tensor Core GEMM on Ampere+</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>TLB</td><td>Translation Lookaside Buffer — CPU/IOMMU cache for virtual-to-physical address translations</td><td><a href="https://nmbr7.github.io/notes/database/buffer-management-predictive-translation/">Buffer Management</a></td></tr>
+<tr><td>TOAST</td><td>The Oversized-Attribute Storage Technique — PostgreSQL mechanism compressing/storing large field values out-of-line</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>TrueTime</td><td>Google's globally-synchronized clock API returning bounded time intervals using GPS + atomic clocks (Spanner)</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>TSC</td><td>Time Stamp Counter — x86 hardware counter incrementing at a fixed reference frequency, read via RDTSC/RDTSCP</td><td><a href="https://nmbr7.github.io/notes/hardware/cycle-counters-and-energy/">Cycle Counters &amp; Energy</a></td></tr>
+<tr><td>TSO</td><td>Total Store Order — x86 memory model where only Store-Load reordering is permitted; most lock-free code "just works"</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>TSX</td><td>Transactional Synchronization Extensions — Intel hardware transactional memory (XBEGIN/XEND), deprecated due to security issues</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>UCIe</td><td>Universal Chiplet Interconnect Express — open standard for die-to-die communication in chiplet-based designs</td><td><a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU Accelerator Design</a></td></tr>
+<tr><td>UIO</td><td>Userspace I/O — early Linux framework for userspace device drivers; no DMA isolation (predecessor to VFIO)</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>userfaultfd</td><td>User Fault File Descriptor — Linux syscall letting userspace handle page faults (used for live migration, lazy restore)</td><td><a href="https://nmbr7.github.io/notes/os/linux-expert-syscalls/">Linux Expert Syscalls</a></td></tr>
+<tr><td>VIPT</td><td>Virtually Indexed Physically Tagged — I-cache design using virtual bits for set index (fast) and physical tag for correctness (no aliasing if index bits lie within page offset)</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
+<tr><td>VCL</td><td>Volume Complete LSN — Aurora's highest LSN for which all prior log records reached all storage quorum nodes</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>VDL</td><td>Volume Durable LSN — Aurora's effective recovery point: highest CPL &lt;= VCL</td><td><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a></td></tr>
+<tr><td>VFIO</td><td>Virtual Function I/O — Linux kernel framework for safe userspace device drivers using IOMMU DMA isolation</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>VLA</td><td>Vector-Length Agnostic — programming model where code adapts to hardware vector width at runtime (ARM SVE, RISC-V RVV)</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>VR</td><td>Viewstamped Replication — consensus protocol by Oki/Liskov using views and viewstamps, equivalent to Multi-Paxos</td><td><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a></td></tr>
+<tr><td>VT-d</td><td>Virtualization Technology for Directed I/O — Intel's IOMMU implementation for DMA remapping and device isolation</td><td><a href="https://nmbr7.github.io/notes/os/vfio-internals/">VFIO Internals</a></td></tr>
+<tr><td>WAL</td><td>Write-Ahead Log — durability mechanism requiring all changes to be logged before being written to data files</td><td><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL &amp; Torn Pages</a></td></tr>
+<tr><td>WATT</td><td>Write-Aware Timestamp Tracking — eviction policy tracking write timestamps for better page replacement decisions</td><td><a href="https://nmbr7.github.io/notes/database/buffer-management-predictive-translation/">Buffer Management</a></td></tr>
+<tr><td>WCOJ</td><td>Worst-Case Optimal Join — join algorithm (e.g., LeapfrogTrieJoin) matching the AGM bound for cyclic queries</td><td><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a></td></tr>
+<tr><td>WiredTiger</td><td>MongoDB's default B-tree storage engine using copy-on-write, MVCC, and hazard pointers for concurrency</td><td><a href="https://nmbr7.github.io/notes/database/mongodb-wiredtiger-internals/">MongoDB/WiredTiger Internals</a></td></tr>
+<tr><td>XDP</td><td>eXpress Data Path — Linux eBPF-based programmable network processing at the NIC driver level before kernel stack</td><td><a href="https://nmbr7.github.io/notes/os/linux-expert-syscalls/">Linux Expert Syscalls</a></td></tr>
+<tr><td>Z-set</td><td>Generalized multiset with integer weights (positive=insert, negative=delete) — core data model of DBSP/Feldera</td><td><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems</a></td></tr>
+<tr><td>Ztso</td><td>RISC-V TSO extension — provides Total Store Order semantics for x86 binary translation compatibility</td><td><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a></td></tr>
+<tr><td>AMS</td><td>AMS Sketch (Alon-Matias-Szegedy 1999) — randomized sketch estimating second frequency moment F₂ = Σfᵢ²; basis for join size estimation</td><td><a href="https://nmbr7.github.io/notes/database/database-statistics/">Database Statistics</a></td></tr>
+<tr><td>ACORN</td><td>Approximate search framework supporting predicate-agnostic filtered ANN by expanding beam width to compensate for filtered nodes in HNSW graph</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>ADC</td><td>Asymmetric Distance Computation — ANN technique precomputing query-to-codebook distances into lookup table; O(M) distance vs O(d)</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>ANN</td><td>Approximate Nearest Neighbor — find vector within (1+ε) × optimal distance; trades recall for speed; graph/IVF/quantization methods</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>BEIR</td><td>Benchmark for heterogeneous zero-shot IR evaluation — 18 datasets (web/bio/legal/sci); reveals generalization gap of dense models vs BM25</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>BKD-tree</td><td>Disk-friendly k-d tree variant used in Lucene for numeric and geo range queries; leaf blocks of 512–1024 points</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>BM25</td><td>Best Match 25 — probabilistic term-weighting ranking function (Robertson et al. 1994); de-facto standard for keyword search</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>BMW</td><td>Block-Max WAND — extends WAND with per-block max scores for finer-grained postings skipping (Ding &amp; Suel SIGIR 2011)</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>CAGRA</td><td>CUDA ANNS GRAph-based — NVIDIA GPU-native graph ANN algorithm; 33–77× faster than CPU HNSW for batch search</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>ColBERT</td><td>Contextualized Late Interaction over BERT — per-token embeddings + MaxSim aggregation; stronger quality than bi-encoder, more storage</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>DiskANN</td><td>Microsoft disk-resident ANN system using Vamana graph; 1B vectors on 64GB RAM + NVMe; &gt;95% recall@1 at &lt;5ms (NeurIPS 2019)</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>DPR</td><td>Dense Passage Retrieval — bi-encoder dense retrieval (Karpukhin et al. EMNLP 2020); trained with in-batch + BM25 hard negatives</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>HNSW</td><td>Hierarchical Navigable Small World — multi-layer proximity graph for ANN; O(ef × log n) search; dominant algorithm on ann-benchmarks</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>IVF</td><td>Inverted File Index — k-means partition ANN; scan only nprobe nearest centroid lists; base of FAISS IVFPQ</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>LSH</td><td>Locality Sensitive Hashing — hash collision probability proportional to similarity; random projections for L2, SimHash for cosine</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>MaxScore</td><td>Early termination algorithm splitting postings into essential/non-essential lists; rank-safe top-K (Turtle &amp; Flood 1995)</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>MIPS</td><td>Maximum Inner Product Search — variant of ANN for inner product similarity; used in recommendation and dense retrieval</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>MRL</td><td>Matryoshka Representation Learning — embeddings meaningful at all prefix lengths [8..2048]; truncate at inference (Kusupati NeurIPS 2022)</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>MTEB</td><td>Massive Text Embedding Benchmark — 56 tasks across 8 categories; standard leaderboard for sentence/passage embedding models</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>PQ</td><td>Product Quantization — split d-dim vector into M subspaces of d/M dims each, quantize independently; M bytes per vector (Jégou 2011)</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>PLAID</td><td>Performance-optimized Late Interaction Driver — centroid interaction pre-filter for ColBERT; 45× faster on CPU (CIKM 2022)</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>RaBitQ</td><td>Rotation + 1-bit quantization — apply random rotation before binary quantization; tight theoretical error bound (Gao SIGMOD 2024)</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>RRF</td><td>Reciprocal Rank Fusion — score = Σ 1/(k + rank_r); parameter-free fusion of multiple ranked lists (Cormack SIGIR 2009)</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>ScaNN</td><td>Scalable Nearest Neighbor — Google ANN library using anisotropic quantization; 2× faster than competitors on ann-benchmarks (ICML 2020)</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>SPLADE</td><td>Sparse Lexical and Expansion — BERT MLM head → 30K sparse vector with term expansion + weighting; served via inverted index (SIGIR 2021)</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>WAND</td><td>Weak AND — pivot-based postings skip algorithm for top-K; rank-safe, 10–25× faster than DAAT (Broder et al. CIKM 2003)</td><td><a href="@/notes/programming/text_and_vector_search.md">Text &amp; Vector Search</a></td></tr>
+<tr><td>ACE</td><td>AXI Coherency Extensions — ARM extension adding snoop channels (AC/CR/CD) to AXI for cache-coherent masters; ACE-Lite for non-cached coherent agents (DMA, accelerators)</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>AIB</td><td>Advanced Interface Bus — Intel-originated open chiplet D2D standard (1024 wires/channel); used in EMIB-based Sapphire Rapids/Ponte Vecchio; largely subsumed by UCIe Advanced</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>AXI</td><td>Advanced eXtensible Interface — Arm AMBA bus standard; AXI4 has 5 independent channels (AW/W/B/AR/R); AXI5 adds atomics and unique-ID interleave</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>BoW</td><td>Bunch of Wires — OCP/OIF chiplet D2D parallel-wire standard targeting &lt; 2 mm; up to 16 GT/s/wire; largely subsumed by UCIe</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>CHI</td><td>Coherent Hub Interface — Arm AMBA packet-based mesh fabric; scales to 256-core server chips (Neoverse N2/V2 CMN-700); supports snoopy + directory coherence</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>CPO</td><td>Co-Packaged Optics — placing optical engines directly on switch ASIC substrate to eliminate PCB trace loss at 1.6T+; Broadcom Tomahawk 5/6, NVIDIA Quantum-X Photonics</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>CQ</td><td>Completion Queue — RDMA structure where NIC writes a CQE per completed Work Request; polled or interrupt-driven</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>DCB</td><td>Data Center Bridging — IEEE 802.1 extensions (PFC + ETS + QCN + DCBX) enabling lossless Ethernet for RoCE/FCoE</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>DCBX</td><td>Data Center Bridging Exchange — LLDP-based protocol exchanging DCB capabilities/config between switch and endpoint</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>DCQCN</td><td>Datacenter QCN — RoCEv2 congestion control combining switch ECN marking, CNP feedback, and rate adjustment at endpoint (Zhu SIGCOMM 2015)</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>DCT</td><td>Dynamic Connected Transport — InfiniBand QP type using shared pool of QPs dynamically retargeted per peer; required for 10k+ rank scale</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>DCTCP</td><td>Datacenter TCP (Alizadeh SIGCOMM 2010) — TCP variant using ECN with fractional marking + α-smoothing for low-latency DC</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>ECMP</td><td>Equal-Cost Multi-Path — routing technique distributing flows across multiple equal-cost paths via hash of packet fields; suffers hash collision under skew</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>ETS</td><td>Enhanced Transmission Selection (IEEE 802.1Qaz) — DCB feature for proportional bandwidth allocation across 8 traffic class groups</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>FCP</td><td>Fibre Channel Protocol — SCSI-over-FC mapping; the original SAN protocol; largely replaced by NVMe-oF/FC for new deployments</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>FEC</td><td>Forward Error Correction — channel coding (RS(528,514), RS(544,514), KR4) used in 25/50/100+ GbE to recover from bit errors; mandatory above 50G PAM4</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>GFAM</td><td>Global Fabric Attached Memory — CXL 3.0+ pooled coherent memory accessible by any host in a CXL fabric; sub-µs latency at TB scale</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>GMI</td><td>Global Memory Interconnect — AMD on-package coherent interconnect linking CCDs to the IOD on EPYC; GMI3 at 36 GT/s</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>HDM-DB</td><td>Host-managed Device Memory — Device-managed coherence (CXL 3.0+) where device tracks host caches and issues back-invalidations; enables fabric-attached coherent memory pools &gt;1 TB</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>HPCC</td><td>High Precision Congestion Control (Li SIGCOMM 2019) — in-band-telemetry-based CC for RDMA; per-hop queue + utilization embedded in packets</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>IBA</td><td>InfiniBand Architecture — IBTA's full layered spec; covers physical, link, network, transport, and management layers</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>ICI</td><td>Inter-Chip Interconnect — Google's TPU pod fabric; 3D torus with OCS reconfiguration in v4+ (Jouppi et al. ISCA 2023)</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>IDE</td><td>Integrity and Data Encryption — CXL link-layer AES-GCM encryption per FLIT; selectable per virtual channel</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>IFIS</td><td>Infinity Fabric Inter-Socket — AMD inter-socket coherent interconnect (xGMI variant); 32 GT/s at Zen 4</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>IFOP</td><td>Infinity Fabric On-Package — AMD on-package coherent link between CCD and IOD; 32-36 GT/s at Zen 4/5</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>MACsec</td><td>IEEE 802.1AE — L2 line-rate AES-128/256-GCM encryption between Ethernet hops; standard on enterprise/DC NICs</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>MR</td><td>Memory Region — RDMA registered+pinned+IOMMU-mapped buffer; has lkey (local) and rkey (remote) tokens; expensive to register (10s of ms per GB)</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>MTU</td><td>Maximum Transmission Unit — largest L2 frame supported; default 1500B Ethernet; "jumbo" 9000B common in DC; matters for PFC headroom + RoCE</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>MZM</td><td>Mach-Zehnder Modulator — silicon-photonics modulator that splits light into two arms, applies electrical phase shift on one, recombines; output amplitude = cos²(Δφ/2)</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>NCCL</td><td>NVIDIA Collective Communications Library — GPU-native AllReduce/AllGather/Broadcast library; uses NVLink/IB/RoCE; supports NVLS in-network reduction</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>NeuronLink</td><td>AWS Trainium proprietary interconnect; NeuronLink-v3 at ~12 Tbps aggregate per chip on Trainium2</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>NIXL</td><td>NVIDIA Inference Transfer Library (2024-2025) — disaggregated KV-cache transport for LLM serving; integrates Dynamo/vLLM</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>NPIV</td><td>N_Port ID Virtualization — Fibre Channel feature letting multiple virtual ports share one HBA; required for VM passthrough on FC SANs</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>NRZ</td><td>Non-Return-to-Zero — binary signaling (1 bit/symbol); used in PCIe 1-5, Ethernet up to 25 Gbaud; superseded by PAM4 above 50 Gbaud</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>NVL72</td><td>NVIDIA NVLink 72 — rack-scale architecture with 72 B200 GPUs in single coherent NVLink domain; 9 NVSwitch trays, 130 TB/s aggregate, copper backplane</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>NVLS</td><td>NVLink Sharp — in-switch reduction on NVSwitch 3.0+; halves AllReduce bandwidth requirement vs ring</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>NVMe-oF</td><td>NVMe over Fabrics — NVMe wire protocol over RDMA (RoCE/IB), TCP, or FC; replaces iSCSI/FC for SSD-class storage networking</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>OCS</td><td>Optical Circuit Switch — switch routing entirely in optical domain (MEMS mirrors or AWG); slow reconfig (ms), but very high BW/power efficiency once configured</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>ODP</td><td>On-Demand Paging — RDMA NIC feature replacing MR page-pinning with on-the-fly page faults via PCIe ATS+PRI; ~5-10 µs fault penalty</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>OFI</td><td>OpenFabrics Interfaces — libfabric API and provider framework (verbs/EFA/psm3/cxi/tcp); alternative to UCX, preferred by AWS/Cray/Intel stacks</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>OpenHBI</td><td>OCP High Bandwidth Interface — chiplet D2D spec targeting HBM-class memory interconnect; largely overlapped by HBM PHY and UCIe</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>PAM4</td><td>Pulse Amplitude Modulation 4-level — 2 bits/symbol signaling; doubles baud-rate vs NRZ at cost of lower SNR; standard for 50G+ per-lane Ethernet/PCIe 6+</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>PFC</td><td>Priority-based Flow Control (IEEE 802.1Qbb) — pause only one of 8 traffic classes per port; required for lossless Ethernet (RoCEv2, FCoE)</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>QCN</td><td>Quantized Congestion Notification (IEEE 802.1Qau) — DCB explicit-feedback CC; largely superseded by ECN-based protocols</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>QP</td><td>Queue Pair — RDMA endpoint pair (send queue + receive queue); types: RC, UC, UD, XRC, DCT</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>RNR</td><td>Receiver Not Ready — RDMA NAK indicating receiver had no posted RECV when SEND arrived; triggers sender backoff + retry</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>RoCE</td><td>RDMA over Converged Ethernet — verbs over Ethernet (v1 L2-only, dead) or UDP/IP (v2, port 4791, dominant)</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>RoCEv2</td><td>RoCE version 2 — RDMA verbs encapsulated in UDP/IP; routable; requires lossless fabric (PFC) + ECN-based CC (DCQCN); UDP port 4791</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>SerDes</td><td>Serializer/Deserializer — high-speed parallel-to-serial signaling IP; the fundamental scaling unit (per-lane signaling) of all modern interconnects</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>SHARP</td><td>Scalable Hierarchical Aggregation and Reduction Protocol — Mellanox in-switch reduction for IB; halves AllReduce bandwidth requirement</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>TDISP</td><td>TEE Device Interface Security Protocol — PCIe spec (adopted by CXL) for attesting confidential devices; required for confidential CXL/PCIe accelerator workloads</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>TileLink</td><td>Open RISC-V coherent chip protocol (UC Berkeley); three tiers TL-UL/TL-UH/TL-C; used in SiFive/BOOM/Chipyard</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>UALink</td><td>Ultra Accelerator Link — 2024 open consortium (AMD/Broadcom/Cisco/Google/Intel/Meta/MS/HPE); coherent NVLink alternative; targets 1024-GPU domains via Ethernet PHY + custom protocol</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>UEC</td><td>Ultra Ethernet Consortium — 2023-2025 Linux Foundation project; UEC 1.0 spec (Jun 2025) defines RUD/RUDI transport with packet spraying + modern CC for AI on commodity Ethernet</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>UPI</td><td>Ultra Path Interconnect — Intel inter-socket/inter-die coherent fabric (MESIF protocol); 10.4 GT/s (SKL) → 24 GT/s (GNR)</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>WR</td><td>Work Request — RDMA element posted to a QP's send or receive queue describing an I/O (opcode, sg_list, remote_addr/rkey, etc.)</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>xGMI</td><td>Inter-Socket Global Memory Interconnect — AMD coherent link between EPYC sockets (and between MI300 GPUs); 32 GT/s at gen4-5</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+<tr><td>ZR</td><td>Coherent optical pluggable family — 400ZR/800ZR for metro distances (80-120 km unamplified) using DP-16QAM with integrated DSP</td><td><a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a></td></tr>
+</tbody></table>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

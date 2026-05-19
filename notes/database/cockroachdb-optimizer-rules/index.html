@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Cockroachdb Optimizer Rules</h1>
+  <h1 id="cockroachdb-optimizer-rules-deep-research-note">CockroachDB Optimizer Rules: Deep Research Note</h1>
+<h2 id="context">Context</h2>
+<p>CockroachDB's SQL optimizer (<code>pkg/sql/opt</code>) uses a declarative DSL called <strong>Optgen</strong> to define
+transformation rules on query expression trees. These rules are written in <code>.opt</code> files and compiled
+into Go code by the <code>optgen</code> tool. The system separates logical simplification (normalization) from
+physical plan enumeration (exploration), enabling a cost-based optimizer that is both maintainable
+and extensible.</p>
+<p>This document catalogs every <code>.opt</code> file, lists every rule, and explains why each rule exists. It also covers the memo data structure, physical properties system, cost model, statistics pipeline, join ordering algorithm, plan caching, and DistSQL execution integration.</p>
+<hr />
+<h2 id="architecture-overview">Architecture Overview</h2>
+<pre><code>SQL AST
+  │
+  ▼
+optbuilder  →  builds initial expression tree
+  │
+  ▼
+norm.Factory  →  applies NORM rules during construction (single canonical form)
+  │
+  ▼
+MEMO  →  stores equivalence classes of expressions
+  │
+  ▼
+xform.Explorer  →  applies XFORM rules (generate alternative plans)
+  │
+  ▼
+xform.Coster  →  assigns cost to each alternative
+  │
+  ▼
+Best plan selected
+</code></pre>
+<h3 id="two-rule-categories">Two Rule Categories</h3>
+<table><thead><tr><th></th><th>Normalization (norm)</th><th>Exploration (xform)</th></tr></thead><tbody>
+<tr><td><strong>When</strong></td><td>During expression construction</td><td>During optimization pass</td></tr>
+<tr><td><strong>Goal</strong></td><td>Canonical, simplified form</td><td>Enumerate cost-relevant alternatives</td></tr>
+<tr><td><strong>Cost-aware</strong></td><td>No</td><td>Yes (generates candidates for costing)</td></tr>
+<tr><td><strong>Output</strong></td><td>One result per expression</td><td>Many alternatives per group</td></tr>
+<tr><td><strong>Tag</strong></td><td><code>Normalize</code></td><td><code>Explore</code></td></tr>
+</tbody></table>
+<h3 id="rule-syntax">Rule Syntax</h3>
+<pre><code># Comment explaining WHY
+[RuleName, Tag, OptionalPriorityTag]
+(MatchPattern $var:TypeOrWildcard ...)
+=&gt;
+(ReplacementExpression ...)
+</code></pre>
+<ul>
+<li><code>$x:*</code> — bind anything to <code>$x</code></li>
+<li><code>$x:(Type)</code> — bind only if node is <code>Type</code></li>
+<li><code>&amp; (Func $x)</code> — additional boolean guard</li>
+<li><code>^ (Func $x)</code> — negation guard</li>
+<li><code>HighPriority</code> / <code>LowPriority</code> — control rule ordering within a pass</li>
+</ul>
+<hr />
+<h2 id="operator-definitions-ops">Operator Definitions (<code>ops/</code>)</h2>
+<p>These files define the expression tree node types — not rules per se, but the vocabulary that
+rules operate on.</p>
+<h3 id="ops-relational-opt-71-operators"><code>ops/relational.opt</code> — ~71 operators</h3>
+<p>Defines relational (table-returning) operators: <code>Scan</code>, <code>Select</code>, <code>Project</code>, <code>InnerJoin</code>,
+<code>LeftJoin</code>, <code>RightJoin</code>, <code>FullJoin</code>, <code>SemiJoin</code>, <code>AntiJoin</code>, <code>IndexJoin</code>, <code>LookupJoin</code>,
+<code>MergeJoin</code>, <code>ZigzagJoin</code>, <code>GroupBy</code>, <code>ScalarGroupBy</code>, <code>DistinctOn</code>, <code>UpsertDistinctOn</code>,
+<code>EnsureUpsertDistinctOn</code>, <code>EnsureDistinctOn</code>, <code>Union</code>, <code>Intersect</code>, <code>Except</code>, <code>UnionAll</code>,
+<code>IntersectAll</code>, <code>ExceptAll</code>, <code>Limit</code>, <code>Offset</code>, <code>Max1Row</code>, <code>ProjectSet</code>, <code>WindowExpr</code>,
+<code>WithScan</code>, <code>Barrier</code>, <code>RecursiveCTE</code>, <code>Values</code>, <code>FakeRel</code>, etc.</p>
+<p><strong>Why:</strong> Every SQL plan node type must be registered here so optgen can generate typed match/replace
+code for it.</p>
+<h3 id="ops-scalar-opt-173-operators"><code>ops/scalar.opt</code> — ~173 operators</h3>
+<p>Defines scalar (value-returning) expression operators: all comparison ops (<code>Eq</code>, <code>Ne</code>, <code>Lt</code>, <code>Gt</code>,
+<code>Le</code>, <code>Ge</code>), arithmetic (<code>Plus</code>, <code>Minus</code>, <code>Mult</code>, <code>Div</code>, <code>Mod</code>), logical (<code>And</code>, <code>Or</code>, <code>Not</code>),
+string (<code>Like</code>, <code>ILike</code>, <code>SimilarTo</code>, <code>RegMatch</code>, <code>Concat</code>), casts, functions, aggregates
+(<code>Sum</code>, <code>Count</code>, <code>Avg</code>, <code>Min</code>, <code>Max</code>, <code>StringAgg</code>, etc.), subquery ops (<code>Exists</code>, <code>Any</code>, <code>All</code>),
+<code>Case</code>/<code>When</code>/<code>Else</code>, <code>Tuple</code>, <code>Array</code>, <code>Coalesce</code>, <code>IfErr</code>, <code>AggFilter</code>, <code>AggDistinct</code>, etc.</p>
+<p><strong>Why:</strong> Scalar expressions compose into filters, projections, and join conditions; they each need
+defined operator types for pattern matching.</p>
+<h3 id="ops-mutation-opt-16-operators"><code>ops/mutation.opt</code> — ~16 operators</h3>
+<p><code>Insert</code>, <code>Update</code>, <code>Delete</code>, <code>Upsert</code>, <code>CreateTable</code>, <code>CreateIndex</code>, <code>AlterTable</code>, etc.</p>
+<p><strong>Why:</strong> DML operations have special optimization considerations (FK checks, uniqueness checks,
+returning clauses).</p>
+<h3 id="ops-statement-opt-39-operators"><code>ops/statement.opt</code> — ~39 operators</h3>
+<p>DDL and control-flow: <code>Explain</code>, <code>ExplainOpt</code>, <code>ShowTrace</code>, <code>Call</code>, <code>AlterRange</code>, etc.</p>
+<h3 id="ops-enforcer-opt-2-operators"><code>ops/enforcer.opt</code> — 2 operators</h3>
+<p><code>Sort</code>, <code>Distribution</code> — physical enforcers that impose ordering/distribution properties.</p>
+<p><strong>Why:</strong> When a plan requires sorted output and the child doesn't provide it, the optimizer
+injects a <code>Sort</code> enforcer. Same for distribution in multi-region plans.</p>
+<h3 id="ops-cycle-opt-2-operators"><code>ops/cycle.opt</code> — 2 operators</h3>
+<p><code>RecursiveCTE</code>, <code>CycleDetector</code> — operators for WITH RECURSIVE support.</p>
+<hr />
+<h2 id="normalization-rules-norm-rules">Normalization Rules (<code>norm/rules/</code>)</h2>
+<p>Applied eagerly during expression construction. Each fires at most once per expression node;
+together they reduce the expression to a unique canonical form.</p>
+<hr />
+<h3 id="norm-rules-bool-opt-19-rules"><code>norm/rules/bool.opt</code> — 19 rules</h3>
+<p><strong>Purpose:</strong> Simplify boolean logic expressions algebraically.</p>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>NormalizeNestedAnds</code></td><td>Flatten <code>A AND (B AND C)</code> to left-deep tree so other rules can traverse conjuncts uniformly</td></tr>
+<tr><td><code>SimplifyTrueAnd</code></td><td><code>TRUE AND x</code> → <code>x</code>. Eliminates vacuous conjunct</td></tr>
+<tr><td><code>SimplifyAndTrue</code></td><td><code>x AND TRUE</code> → <code>x</code>. Symmetric</td></tr>
+<tr><td><code>SimplifyFalseAnd</code></td><td><code>FALSE AND x</code> → <code>FALSE</code>. Short-circuit</td></tr>
+<tr><td><code>SimplifyAndFalse</code></td><td><code>x AND FALSE</code> → <code>FALSE</code>. Symmetric</td></tr>
+<tr><td><code>SimplifyTrueOr</code></td><td><code>TRUE OR x</code> → <code>TRUE</code>. Short-circuit</td></tr>
+<tr><td><code>SimplifyOrTrue</code></td><td><code>x OR TRUE</code> → <code>TRUE</code>. Symmetric</td></tr>
+<tr><td><code>SimplifyFalseOr</code></td><td><code>FALSE OR x</code> → <code>x</code>. Eliminates vacuous disjunct</td></tr>
+<tr><td><code>SimplifyOrFalse</code></td><td><code>x OR FALSE</code> → <code>x</code>. Symmetric</td></tr>
+<tr><td><code>SimplifyNotTrue</code></td><td><code>NOT TRUE</code> → <code>FALSE</code></td></tr>
+<tr><td><code>SimplifyNotFalse</code></td><td><code>NOT FALSE</code> → <code>TRUE</code></td></tr>
+<tr><td><code>NegateComparison</code></td><td><code>NOT (a = b)</code> → <code>a &lt;&gt; b</code>. Pushes NOT inward to enable further simplification</td></tr>
+<tr><td><code>EliminateNot</code></td><td><code>NOT NOT x</code> → <code>x</code>. Double negation elimination</td></tr>
+<tr><td><code>SimplifyAnd</code></td><td>Removes duplicate conjuncts in AND (deduplication)</td></tr>
+<tr><td><code>SimplifyOr</code></td><td>Removes duplicate disjuncts in OR</td></tr>
+<tr><td><code>ExtractRedundantConjunct</code></td><td><code>(A AND B) OR (A AND C)</code> → <code>A AND (B OR C)</code>. Factors out common conjuncts to reduce filter complexity</td></tr>
+<tr><td><code>SimplifyAnds</code></td><td>Flattens list-form And with True/False handling</td></tr>
+<tr><td><code>FlattenAnd</code></td><td>Converts nested And tree to flat conjunction list</td></tr>
+<tr><td><code>FlattenOr</code></td><td>Converts nested Or tree to flat disjunction list</td></tr>
+</tbody></table>
+<hr />
+<h3 id="norm-rules-scalar-opt-32-rules"><code>norm/rules/scalar.opt</code> — 32 rules</h3>
+<p><strong>Purpose:</strong> Simplify scalar expressions: comparisons, coalesce, subqueries, type casts.</p>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>CommuteVar</code></td><td>Canonicalize <code>const op var</code> → <code>var op const</code> so index constraint code only needs to handle one form</td></tr>
+<tr><td><code>CommuteConst</code></td><td>Same but for const groups</td></tr>
+<tr><td><code>EliminateCoalesce</code></td><td><code>COALESCE(x)</code> (single arg) → <code>x</code></td></tr>
+<tr><td><code>SimplifyCoalesce</code></td><td>Removes NULL first args, folds constant non-NULL first arg</td></tr>
+<tr><td><code>EliminateIfErr</code></td><td><code>IFERROR(non-error-expr)</code> → <code>non-error-expr</code> when inner can't error</td></tr>
+<tr><td><code>EliminateCast</code></td><td><code>CAST(x AS T)</code> when x already has type T → <code>x</code></td></tr>
+<tr><td><code>EliminateExistsProject</code></td><td><code>EXISTS(Project(x))</code> → <code>EXISTS(x)</code>. Projections don't affect existence</td></tr>
+<tr><td><code>EliminateExistsGroupBy</code></td><td><code>EXISTS(ScalarGroupBy(x))</code> → scalar true if non-empty (scalar agg always returns a row)</td></tr>
+<tr><td><code>SimplifyEquality</code></td><td>Constant folding for trivially equal/unequal expressions</td></tr>
+<tr><td><code>NormalizeNotAnyToAllNot</code></td><td><code>NOT (a = ANY(x))</code> → <code>a &lt;&gt; ALL(x)</code>. Enables index usage</td></tr>
+<tr><td><code>NormalizeAnyEqAll</code></td><td><code>a = ALL(x)</code> when x has single value → <code>a = x[0]</code></td></tr>
+<tr><td><code>EliminateAnyArray</code></td><td><code>a = ANY(ARRAY[c])</code> with single const → scalar equality</td></tr>
+<tr><td><code>FoldInNull</code></td><td><code>x IN (NULL, ...)</code> handling: IN with all NULLs → NULL</td></tr>
+<tr><td><code>NormalizeInConst</code></td><td>Sort IN list, remove duplicates; enables better constraint generation</td></tr>
+<tr><td><code>EliminateExistsLimit</code></td><td><code>EXISTS(Limit(x, 0))</code> → <code>FALSE</code></td></tr>
+<tr><td><code>InlineWith</code></td><td>Inlines CTE when used exactly once and safe to do so</td></tr>
+<tr><td><code>FoldNullCast</code></td><td><code>CAST(NULL AS T)</code> → typed NULL constant</td></tr>
+<tr><td><code>EliminateUnnecessaryCast</code></td><td>Removes no-op casts between compatible types</td></tr>
+<tr><td><code>SimplifyCase</code></td><td>Removes WHEN branches that are always false, short-circuits to ELSE</td></tr>
+<tr><td><code>SimplifyCaseWhenNull</code></td><td><code>CASE WHEN NULL THEN x ELSE y END</code> → <code>y</code></td></tr>
+<tr><td><code>NormalizeInToContains</code></td><td>Rewrites IN to JSON/array containment when applicable</td></tr>
+<tr><td>(+ more)</td><td>Various comparison normalization and null propagation rules</td></tr>
+</tbody></table>
+<hr />
+<h3 id="norm-rules-comp-opt-26-rules"><code>norm/rules/comp.opt</code> — 26 rules</h3>
+<p><strong>Purpose:</strong> Normalize comparison operators, especially for index constraint generation.</p>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>NormalizeCmpPlusConst</code></td><td><code>a + 1 = 5</code> → <code>a = 4</code>. Moves constants to RHS so index constraints work</td></tr>
+<tr><td><code>NormalizeCmpMinusConst</code></td><td><code>a - 1 &lt; 5</code> → <code>a &lt; 6</code>. Same reason</td></tr>
+<tr><td><code>NormalizeCmpConstMinus</code></td><td><code>1 - a &lt; 5</code> → <code>a &gt; -4</code>. Flips inequality direction</td></tr>
+<tr><td><code>NormalizeCmpDivConst</code></td><td><code>a / 2 = 4</code> → <code>a = 8</code>. Division to RHS</td></tr>
+<tr><td><code>NormalizeTupleEquality</code></td><td><code>(a, b) = (1, 2)</code> → <code>a = 1 AND b = 2</code>. Decomposes for per-column constraint extraction</td></tr>
+<tr><td><code>NormalizeTupleInConst</code></td><td><code>(a,b) IN ((1,2),(3,4))</code> → conjunctive form; enables constraint generation</td></tr>
+<tr><td><code>FoldCmpBetween</code></td><td><code>a BETWEEN 1 AND 5</code> → <code>a &gt;= 1 AND a &lt;= 5</code>. Desugar BETWEEN</td></tr>
+<tr><td><code>NormalizeGtToLt</code></td><td><code>5 &gt; a</code> → <code>a &lt; 5</code>. Ensures variable always on left</td></tr>
+<tr><td><code>NormalizeGeToLe</code></td><td>Same for <code>&gt;=</code>/<code>&lt;=</code></td></tr>
+<tr><td><code>EliminateNullEquality</code></td><td><code>x = NULL</code> → <code>FALSE</code> (since NULL ≠ NULL in SQL equality)</td></tr>
+<tr><td><code>NormalizeEqToIs</code></td><td><code>a IS DISTINCT FROM b</code> handling</td></tr>
+<tr><td><code>SimplifyComparison</code></td><td>Constant folding for compile-time-evaluable comparisons</td></tr>
+<tr><td><code>FoldIsNull</code></td><td><code>IS NULL</code> on non-nullable expr → <code>FALSE</code>; important for NOT NULL constrained columns</td></tr>
+<tr><td><code>FoldIsNotNull</code></td><td><code>IS NOT NULL</code> on non-nullable → <code>TRUE</code></td></tr>
+<tr><td><code>NormalizeInequality</code></td><td>Various inequality normalizations</td></tr>
+<tr><td>(+ more)</td><td>Type coercion normalizations, redundancy elimination</td></tr>
+</tbody></table>
+<p><strong>Key insight:</strong> Most comp rules exist to transform expressions into forms that the constraint
+solver (<code>pkg/sql/opt/constraint/</code>) can extract index constraints from. Without these, a filter like
+<code>a + 1 = 5</code> would not generate a span <code>[/5 - /5]</code>.</p>
+<hr />
+<h3 id="norm-rules-fold-constants-opt-19-rules"><code>norm/rules/fold_constants.opt</code> — 19 rules</h3>
+<p><strong>Purpose:</strong> Evaluate constant expressions at optimization time (compile-time constant folding).</p>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>FoldNullUnary</code></td><td><code>op(NULL)</code> → <code>NULL</code> for ops that propagate nulls</td></tr>
+<tr><td><code>FoldNullBinary</code></td><td><code>NULL op x</code> or <code>x op NULL</code> → <code>NULL</code></td></tr>
+<tr><td><code>FoldNullCompare</code></td><td><code>NULL = x</code> → <code>NULL</code> (not FALSE — SQL three-valued logic)</td></tr>
+<tr><td><code>FoldNullInCondition</code></td><td>NULL in filter → treated as FALSE in boolean filter context</td></tr>
+<tr><td><code>FoldBinary</code></td><td><code>1 + 2</code> → <code>3</code>. Evaluates binary ops on literal constants</td></tr>
+<tr><td><code>FoldUnary</code></td><td><code>-3</code> → <code>-3</code> (literal). Evaluates unary ops on constants</td></tr>
+<tr><td><code>FoldComparison</code></td><td><code>1 &lt; 2</code> → <code>TRUE</code>. Evaluates comparisons on literals</td></tr>
+<tr><td><code>FoldCast</code></td><td><code>CAST(1 AS FLOAT)</code> → <code>1.0</code> at opt time</td></tr>
+<tr><td><code>FoldFunction</code></td><td>Pure functions on constants: <code>length('abc')</code> → <code>3</code></td></tr>
+<tr><td><code>FoldIndirection</code></td><td><code>ARRAY[1,2,3][2]</code> → <code>2</code>. Array indexing on constant arrays</td></tr>
+<tr><td><code>FoldColumnAccess</code></td><td><code>.field</code> access on constant tuple</td></tr>
+<tr><td><code>FoldEqualsAnyNull</code></td><td><code>x = ANY(NULL)</code> → <code>NULL</code></td></tr>
+<tr><td><code>FoldEqualsAnyScalar</code></td><td><code>x = ANY(single value)</code> → <code>x = value</code></td></tr>
+<tr><td><code>FoldAnyNull</code></td><td><code>ANY(NULL)</code> → <code>NULL</code></td></tr>
+<tr><td><code>FoldNullTupleInaccessible</code></td><td>Tuple field access on NULL tuple → NULL</td></tr>
+<tr><td><code>FoldIn</code></td><td><code>x IN (1, 2, 3)</code> when x is constant → evaluate at opt time</td></tr>
+<tr><td>(+ more)</td><td>Various specific constant-folding cases</td></tr>
+</tbody></table>
+<p><strong>Why critical:</strong> Eliminates branches of the plan that can never execute, reduces predicate
+complexity, enables downstream rules to fire.</p>
+<hr />
+<h3 id="norm-rules-select-opt-22-rules"><code>norm/rules/select.opt</code> — 22 rules</h3>
+<p><strong>Purpose:</strong> Push and simplify filters on <code>Select</code> nodes.</p>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>SimplifySelectFilters</code> <em>(HighPriority)</em></td><td>Remove TRUE conjuncts, fold FALSE, flatten ANDs. Must run first</td></tr>
+<tr><td><code>ConsolidateSelectFilters</code> <em>(LowPriority)</em></td><td>Merge <code>x &gt;= 5 AND x &lt;= 10</code> into Range op for better selectivity estimation</td></tr>
+<tr><td><code>DeduplicateSelectFilters</code> <em>(LowPriority)</em></td><td>Remove exact duplicate filter predicates</td></tr>
+<tr><td><code>EliminateSelect</code></td><td><code>Select(input, [])</code> → <code>input</code>. Empty filter = no filtering</td></tr>
+<tr><td><code>MergeSelects</code></td><td><code>Select(Select(x, f1), f2)</code> → <code>Select(x, f1 AND f2)</code>. Merge nested selects</td></tr>
+<tr><td><code>PushSelectIntoProject</code></td><td><code>Select(Project(x, cols), filter)</code> → <code>Project(Select(x, filter), cols)</code> when filter only refs input cols. Enables pushing filter below projection</td></tr>
+<tr><td><code>RemoveNotNullCondition</code></td><td><code>col IS NOT NULL</code> on NOT NULL column → TRUE. Eliminates redundant null check</td></tr>
+<tr><td><code>InlineSelectProject</code></td><td>Inlines Project columns into Select filter when safe</td></tr>
+<tr><td><code>PushFilterIntoJoinLeft</code></td><td>Move filter referencing only left side of join to left input</td></tr>
+<tr><td><code>PushFilterIntoJoinRight</code></td><td>Move filter referencing only right side of join to right input</td></tr>
+<tr><td><code>PushFilterIntoJoinLeftAndRight</code></td><td>For filters that apply to both sides (e.g., joining col = col), push copies to both</td></tr>
+<tr><td><code>MapFilterIntoJoinLeft</code></td><td>Use functional dependencies to map filter to left side</td></tr>
+<tr><td><code>MapFilterIntoJoinRight</code></td><td>Same for right side</td></tr>
+<tr><td><code>PushSelectCondLeftIntoJoinLeftFilter</code></td><td>Specialized push for complex join conditions</td></tr>
+<tr><td><code>PushSelectIntoGroupBy</code></td><td>Push HAVING-equivalent filters below GroupBy when they only reference grouping cols</td></tr>
+<tr><td><code>PushSelectIntoValues</code></td><td>Filter on constant VALUES rows — evaluate at opt time</td></tr>
+<tr><td><code>PushSelectIntoInlinableProject</code></td><td>Push through project that can be inlined</td></tr>
+<tr><td><code>EliminateJoinUnderSelect</code></td><td>Eliminate join made redundant by filter</td></tr>
+<tr><td><code>SimplifySelectFiltersWithComputedCol</code></td><td>Derive filter implications from computed column definitions</td></tr>
+<tr><td><code>InlineConstVar</code></td><td><code>x = 5, x &gt; 3</code> — substitute constant into other filters</td></tr>
+<tr><td><code>PushSelectIntoWindow</code></td><td>Push partition-column filters into window operators</td></tr>
+</tbody></table>
+<p><strong>Why this file matters:</strong> Filter pushdown is the #1 optimization for reducing rows processed.
+The further down the tree a filter is pushed, the fewer rows join and project operations see.</p>
+<hr />
+<h3 id="norm-rules-project-opt-12-rules"><code>norm/rules/project.opt</code> — 12 rules</h3>
+<p><strong>Purpose:</strong> Simplify and eliminate unnecessary projections.</p>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>EliminateProject</code></td><td><code>Project(x, cols)</code> when cols == output(x) → <code>x</code>. No-op projection removal</td></tr>
+<tr><td><code>MergeProjects</code></td><td><code>Project(Project(x, c1), c2)</code> → <code>Project(x, c2 computed from c1)</code>. Merge nested projections</td></tr>
+<tr><td><code>EliminateProjectNoopOrdering</code></td><td>Remove Project that only exists to enforce ordering already satisfied</td></tr>
+<tr><td><code>SimplifyProjections</code></td><td>Remove unused computed columns from projection list</td></tr>
+<tr><td><code>EliminateComputedCol</code></td><td>Remove computed column if result is never referenced</td></tr>
+<tr><td><code>InlineProjectInProject</code></td><td>Inline inner projection computations into outer when cols used exactly once</td></tr>
+<tr><td><code>NormalizeProjectExprs</code></td><td>Normalize expressions in projections (reuse norm scalar rules)</td></tr>
+<tr><td><code>EliminateProjectCycles</code></td><td>Handle projection cycles in recursive CTEs</td></tr>
+<tr><td><code>PushProjectIntoJoinLeft</code></td><td>Move projection below join to reduce row width during join</td></tr>
+<tr><td><code>PushProjectIntoJoinRight</code></td><td>Symmetric</td></tr>
+<tr><td><code>EliminateProjectUnderScan</code></td><td>Remove project on scan when scan already projects exact cols</td></tr>
+<tr><td><code>SimplifyProjectSet</code></td><td>Simplify SRF (set-returning function) projections</td></tr>
+</tbody></table>
+<hr />
+<h3 id="norm-rules-join-opt-31-rules"><code>norm/rules/join.opt</code> — 31 rules</h3>
+<p><strong>Purpose:</strong> Normalize joins — eliminate, simplify, push filters, handle null-rejection.</p>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>EliminateJoinNoRows</code></td><td><code>Join(x, Values[0 rows])</code> → empty. Join with empty input = empty</td></tr>
+<tr><td><code>EliminateLeftJoinNoRows</code></td><td><code>LeftJoin(x, empty)</code> → <code>Project(x, ...)</code> with NULLs for right cols</td></tr>
+<tr><td><code>EliminateFullJoinNoRows</code></td><td>Both sides empty → empty</td></tr>
+<tr><td><code>SimplifyJoinFilters</code></td><td>Remove TRUE from join ON clause</td></tr>
+<tr><td><code>SimplifyJoinNotNullEquality</code></td><td>Simplify null-safety predicates on NOT NULL columns</td></tr>
+<tr><td><code>EliminateSelfJoin</code></td><td><code>Join(x, x, x.pk = x.pk)</code> → <code>x</code> when provably the same rows</td></tr>
+<tr><td><code>SimplifyLeftJoinFilters</code></td><td>Move LeftJoin ON condition to WHERE when it rejects NULLs (converts to InnerJoin)</td></tr>
+<tr><td><code>SimplifyFullJoinFilters</code></td><td>Same for FullJoin</td></tr>
+<tr><td><code>ConvertAntiToLeftJoin</code></td><td>AntiJoin → LeftJoin + filter, enables more join ordering options</td></tr>
+<tr><td><code>ConvertSemiToInnerJoin</code></td><td>SemiJoin to InnerJoin + DistinctOn when safe</td></tr>
+<tr><td><code>DecorrelateJoin</code></td><td>Remove correlated subquery by converting to join (normalization side)</td></tr>
+<tr><td><code>PushFilterIntoJoin</code></td><td>Push outer Select filter into join ON clause</td></tr>
+<tr><td><code>SimplifyJoinFiltersOnKey</code></td><td>When join is on full key, ON simplifications possible</td></tr>
+<tr><td><code>MapEqualityFilter</code></td><td>Use equalities to substitute equivalent expressions in filters</td></tr>
+<tr><td><code>EliminateJoinWithKey</code></td><td>Join on unique key where result provably not more rows → simplify</td></tr>
+<tr><td><code>PushJoinIntoIndexJoin</code></td><td>Rewrite to IndexJoin form when beneficial</td></tr>
+<tr><td><code>EliminateCrossJoin</code></td><td><code>CrossJoin(x, Values[()])</code> → <code>x</code></td></tr>
+<tr><td><code>NormalizeJoinAnyFilter</code></td><td><code>ANY</code> subqueries in join conditions → semi/anti joins</td></tr>
+<tr><td><code>NormalizeJoinExistsFilter</code></td><td><code>EXISTS</code> in join condition → SemiJoin</td></tr>
+<tr><td><code>NormalizeJoinNotExistsFilter</code></td><td><code>NOT EXISTS</code> → AntiJoin</td></tr>
+<tr><td><code>NormalizeJoinInFilter</code></td><td><code>col IN (subquery)</code> → SemiJoin</td></tr>
+<tr><td><code>NormalizeJoinNotInFilter</code></td><td><code>col NOT IN (subquery)</code> → AntiJoin</td></tr>
+<tr><td>(+ more)</td><td>Null-rejection rewrites, filter mapping via functional deps</td></tr>
+</tbody></table>
+<hr />
+<h3 id="norm-rules-decorrelate-opt-33-rules"><code>norm/rules/decorrelate.opt</code> — 33 rules</h3>
+<p><strong>Purpose:</strong> Remove correlated subqueries by converting them to joins.</p>
+<p>Correlated subqueries (where inner query references outer query cols) are expensive — they must
+re-execute for every outer row. Decorrelation converts them to equivalent joins that execute once.</p>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>DecorrelateSelect</code></td><td><code>Select(x, correlated-filter)</code> → <code>x JOIN subquery</code></td></tr>
+<tr><td><code>DecorrelateProjectCorrelatedScan</code></td><td>Pull correlated scan out of subquery into join</td></tr>
+<tr><td><code>DecorrelateGroupByCorrelatedScan</code></td><td>Same for aggregation subqueries</td></tr>
+<tr><td><code>UnnestSelectInExists</code></td><td><code>EXISTS(Select(x, f))</code> → SemiJoin form</td></tr>
+<tr><td><code>UnnestProjectInExists</code></td><td><code>EXISTS(Project(x, cols))</code> → SemiJoin</td></tr>
+<tr><td><code>UnnestGroupByInExists</code></td><td>Exists with aggregation</td></tr>
+<tr><td><code>UnnestSelectInAny</code></td><td><code>ANY(Select(x, f))</code> → SemiJoin</td></tr>
+<tr><td><code>UnnestScalarInExists</code></td><td>Scalar subquery <code>= EXISTS(...)</code> handling</td></tr>
+<tr><td><code>InlineWith</code></td><td>Inline a CTE used in correlated position</td></tr>
+<tr><td><code>HoistSelectExists</code></td><td>Hoist correlated EXISTS out of Select filters</td></tr>
+<tr><td><code>HoistSelectAny</code></td><td>Hoist correlated ANY</td></tr>
+<tr><td><code>HoistSelectSubquery</code></td><td>Hoist scalar correlated subquery to outer join</td></tr>
+<tr><td><code>HoistProjectExists</code></td><td>Hoist correlated EXISTS from Project</td></tr>
+<tr><td><code>HoistProjectAny</code></td><td>Hoist correlated ANY from Project</td></tr>
+<tr><td><code>HoistProjectSubquery</code></td><td>Hoist scalar subquery from Project</td></tr>
+<tr><td><code>HoistJoinSubquery</code></td><td>Hoist from Join ON clause</td></tr>
+<tr><td><code>HoistValuesSubquery</code></td><td>Hoist from VALUES expressions</td></tr>
+<tr><td><code>HoistGroupBySubquery</code></td><td>Hoist from aggregation expressions</td></tr>
+<tr><td><code>HoistWhereOr</code></td><td>Handle OR of correlated subqueries</td></tr>
+<tr><td>(+ 14 more)</td><td>Additional hoisting and decorrelation patterns</td></tr>
+</tbody></table>
+<p><strong>Why critical:</strong> Without decorrelation, queries like <code>SELECT * FROM t WHERE id IN (SELECT id FROM s WHERE s.col = t.col)</code> run in O(n) subquery executions. With decorrelation → SemiJoin, it runs in O(1) join.</p>
+<hr />
+<h3 id="norm-rules-groupby-opt-20-rules"><code>norm/rules/groupby.opt</code> — 20 rules</h3>
+<p><strong>Purpose:</strong> Simplify and eliminate aggregations.</p>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>EliminateDistinct</code></td><td><code>DistinctOn(x)</code> on a key column → <code>x</code> (already unique)</td></tr>
+<tr><td><code>EliminateGroupByProject</code></td><td>GroupBy with empty agg list on key → identity</td></tr>
+<tr><td><code>EliminateGroupBySingleRow</code></td><td>GroupBy on input with at most 1 row → ScalarGroupBy or eliminate</td></tr>
+<tr><td><code>EliminateGroupByConstCols</code></td><td>Remove constant cols from GROUP BY (don't affect grouping)</td></tr>
+<tr><td><code>RemoveGroupByColumn</code></td><td>Column in GROUP BY that's functionally determined by key → remove</td></tr>
+<tr><td><code>EliminateAggregation</code></td><td><code>COUNT(*)</code> on 1 row → 1; <code>MIN/MAX(const)</code> → const</td></tr>
+<tr><td><code>SimplifyCountRows</code></td><td><code>COUNT(*)</code> → <code>COUNT_ROWS()</code> which has an optimized path</td></tr>
+<tr><td><code>ConvertCountToCountRows</code></td><td><code>COUNT(not-null-col)</code> → <code>COUNT_ROWS()</code> since nulls can't occur</td></tr>
+<tr><td><code>EliminateDistinctAggregation</code></td><td><code>SUM(DISTINCT col)</code> where col is key → <code>SUM(col)</code></td></tr>
+<tr><td><code>ReplaceMinWithLimit</code></td><td><code>MIN(col ORDER BY col)</code> → <code>Limit(Sort(x), 1)</code> — often faster via index</td></tr>
+<tr><td><code>ReplaceMaxWithLimit</code></td><td>Same for MAX</td></tr>
+<tr><td><code>EliminateMaxMinGroupByKey</code></td><td><code>MAX(col) GROUP BY col</code> → <code>col</code> (trivially equal)</td></tr>
+<tr><td><code>FoldGroupByHaving</code></td><td>Push simple HAVING filters into WHERE (before aggregation)</td></tr>
+<tr><td><code>SimplifyGroupByKey</code></td><td>Remove redundant grouping columns using functional dependencies</td></tr>
+<tr><td>(+ more)</td><td>Null handling in aggregates, functional dep simplification</td></tr>
+</tbody></table>
+<hr />
+<h3 id="norm-rules-prune-cols-opt-23-rules"><code>norm/rules/prune_cols.opt</code> — 23 rules</h3>
+<p><strong>Purpose:</strong> Remove unused columns from every operator in the tree.</p>
+<p>Every rule here follows the pattern: if the parent only uses a subset of child's output columns,
+pass that requirement down so the child generates fewer columns. This reduces tuple width
+throughout the plan.</p>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>PruneScanCols</code></td><td>Scan only those table columns actually needed</td></tr>
+<tr><td><code>PruneSelectCols</code></td><td>Propagate column pruning through Select</td></tr>
+<tr><td><code>PruneProjectCols</code></td><td>Remove projection exprs whose output cols are unused</td></tr>
+<tr><td><code>PruneProjectSetCols</code></td><td>SRF column pruning</td></tr>
+<tr><td><code>PruneInnerJoinLeftCols</code></td><td>InnerJoin: only output cols actually needed from left</td></tr>
+<tr><td><code>PruneInnerJoinRightCols</code></td><td>Same for right</td></tr>
+<tr><td><code>PruneLeftJoinRightCols</code></td><td>LeftJoin: right side cols that aren't output → prune (keeping NULL-fill cols)</td></tr>
+<tr><td><code>PruneSemiJoinRightCols</code></td><td>SemiJoin right side: only cols needed for join condition</td></tr>
+<tr><td><code>PruneAntiJoinRightCols</code></td><td>AntiJoin right side</td></tr>
+<tr><td><code>PruneGroupByCols</code></td><td>GroupBy: only keep needed grouping + aggregate result cols</td></tr>
+<tr><td><code>PruneDistinctOnCols</code></td><td>DistinctOn column pruning</td></tr>
+<tr><td><code>PruneWindowCols</code></td><td>Window function partition/order col pruning</td></tr>
+<tr><td><code>PruneUnionCols</code></td><td>Set operation: only output needed cols from each side</td></tr>
+<tr><td><code>PruneLimitCols</code></td><td>Limit operator column pruning</td></tr>
+<tr><td><code>PruneOffsetCols</code></td><td>Offset operator column pruning</td></tr>
+<tr><td><code>PruneOrdinality</code></td><td>Remove ordinality col if not needed</td></tr>
+<tr><td><code>PruneMutationCols</code></td><td>INSERT/UPDATE/DELETE: only fetch cols actually used</td></tr>
+<tr><td><code>PruneWithScan</code></td><td>With (CTE) scan column pruning</td></tr>
+<tr><td>(+ more)</td><td>Various operator-specific prune rules</td></tr>
+</tbody></table>
+<p><strong>Why critical:</strong> Reducing column count reduces tuple memory, network bandwidth (in distributed
+plans), and enables further optimizations (narrower indexes can be used).</p>
+<hr />
+<h3 id="norm-rules-limit-opt-13-rules"><code>norm/rules/limit.opt</code> — 13 rules</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>EliminateLimitZero</code></td><td><code>LIMIT 0</code> → empty result set immediately</td></tr>
+<tr><td><code>EliminateLimitOneGroupBy</code></td><td><code>LIMIT 1</code> on input with key → may eliminate GroupBy</td></tr>
+<tr><td><code>FoldLimits</code></td><td><code>LIMIT(LIMIT(x, 5), 3)</code> → <code>LIMIT(x, 3)</code>. Inner limit always ≥ outer</td></tr>
+<tr><td><code>EliminateLimitWithMaxRows</code></td><td>Remove LIMIT when input provably has fewer rows than limit</td></tr>
+<tr><td><code>PushLimitIntoProject</code></td><td>Push LIMIT below Project to stop projecting unnecessary rows</td></tr>
+<tr><td><code>PushLimitIntoValues</code></td><td>Evaluate LIMIT on constant VALUES at opt time</td></tr>
+<tr><td><code>PushLimitIntoScan</code></td><td>Convert LIMIT to Scan's internal row limit (avoids reading extra rows from storage)</td></tr>
+<tr><td><code>PushLimitIntoOffset</code></td><td><code>LIMIT(OFFSET(x, o), l)</code> → add offset to scan limit</td></tr>
+<tr><td><code>EliminateOffsetZero</code></td><td><code>OFFSET 0</code> → identity</td></tr>
+<tr><td><code>EliminateLimitUnderMax1Row</code></td><td>Max1Row already guarantees ≤ 1 row; LIMIT n ≥ 1 is redundant</td></tr>
+<tr><td><code>PushLimitIntoUnionAll</code></td><td>Push LIMIT into each side of UNION ALL (can short-circuit)</td></tr>
+<tr><td>(+ more)</td><td>Ordering preservation under limit</td></tr>
+</tbody></table>
+<hr />
+<h3 id="norm-rules-ordering-opt-6-rules"><code>norm/rules/ordering.opt</code> — 6 rules</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>SimplifyLimitOrdering</code></td><td>Remove ORDER BY cols not needed given the required output ordering</td></tr>
+<tr><td><code>SimplifyGroupByOrdering</code></td><td>Remove unnecessary ordering requirements from GroupBy</td></tr>
+<tr><td><code>SimplifyWindowOrdering</code></td><td>Same for window functions</td></tr>
+<tr><td><code>SimplifyDistinctOnOrdering</code></td><td>DistinctOn ordering simplification</td></tr>
+<tr><td><code>SimplifyExplainOrdering</code></td><td>Remove redundant ordering from Explain</td></tr>
+<tr><td><code>NormalizeOrdering</code></td><td>Canonicalize ordering expressions (consistent column references)</td></tr>
+</tbody></table>
+<hr />
+<h3 id="norm-rules-inline-opt-9-rules"><code>norm/rules/inline.opt</code> — 9 rules</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>InlineProjectConstants</code></td><td>Replace references to projected constant cols with the constant directly</td></tr>
+<tr><td><code>InlineSelectProject</code></td><td>Inline projection into select filter (avoids extra Project node)</td></tr>
+<tr><td><code>InlineJoinConstantsLeft</code></td><td>Constants from left input inlined into join ON condition</td></tr>
+<tr><td><code>InlineJoinConstantsRight</code></td><td>Same for right</td></tr>
+<tr><td><code>InlineWith</code></td><td>Inline CTE body when CTE referenced exactly once</td></tr>
+<tr><td><code>InlineWithScan</code></td><td>When WithScan is provably single-use, inline</td></tr>
+<tr><td><code>InlineConstantEqualities</code></td><td><code>col = 5 AND col &gt; 3</code> → <code>5 &gt; 3 → TRUE</code> — substitute constant into other exprs</td></tr>
+<tr><td><code>DetectValuesContradiction</code></td><td>Detect contradiction in VALUES rows, eliminate those rows</td></tr>
+<tr><td>(+ more)</td><td>Expression inlining for constant propagation</td></tr>
+</tbody></table>
+<hr />
+<h3 id="norm-rules-reject-nulls-opt-6-rules"><code>norm/rules/reject_nulls.opt</code> — 6 rules</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>RejectNullsLeftJoin</code></td><td>Left join ON condition rejects NULLs from right → effectively InnerJoin</td></tr>
+<tr><td><code>RejectNullsRightJoin</code></td><td>Symmetric</td></tr>
+<tr><td><code>RejectNullsFullJoin</code></td><td>FullJoin → LeftJoin or InnerJoin based on null-rejecting WHERE predicates</td></tr>
+<tr><td><code>RejectNullsGroupBy</code></td><td>Group by key where NULLs are filtered → simplify null handling</td></tr>
+<tr><td><code>RejectNullsProject</code></td><td>Propagate null-rejection through projection</td></tr>
+<tr><td><code>MarkUnionDistinctNullsRejected</code></td><td>UNION with NOT NULL context — mark appropriately</td></tr>
+</tbody></table>
+<p><strong>Why needed:</strong> LEFT/FULL JOIN semantics require NULL-filling when there's no match, but if
+the query then filters those NULLs away (e.g., <code>WHERE right.col IS NOT NULL</code>), the join is
+effectively an INNER JOIN. Converting to INNER JOIN enables more join orderings.</p>
+<hr />
+<h3 id="norm-rules-set-opt-8-rules"><code>norm/rules/set.opt</code> — 8 rules</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>EliminateUnionAllLeft</code></td><td><code>UNION ALL(empty, x)</code> → <code>x</code></td></tr>
+<tr><td><code>EliminateUnionAllRight</code></td><td><code>UNION ALL(x, empty)</code> → <code>x</code></td></tr>
+<tr><td><code>EliminateExceptAll</code></td><td><code>EXCEPT ALL(x, empty)</code> → <code>x</code></td></tr>
+<tr><td><code>EliminateExceptAllRight</code></td><td><code>EXCEPT ALL(empty, x)</code> → empty</td></tr>
+<tr><td><code>EliminateIntersectAll</code></td><td><code>INTERSECT ALL(x, empty)</code> → empty</td></tr>
+<tr><td><code>EliminateUnion</code></td><td><code>UNION(x, x)</code> where x same expression → <code>x</code></td></tr>
+<tr><td><code>EliminateDistinct</code></td><td>DISTINCT on key col → not needed</td></tr>
+<tr><td><code>SimplifyUnionAllDistinct</code></td><td>UNION into UNION ALL + DistinctOn when provably equivalent</td></tr>
+</tbody></table>
+<hr />
+<h3 id="norm-rules-numeric-opt-9-rules"><code>norm/rules/numeric.opt</code> — 9 rules</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>FoldPlusZero</code></td><td><code>x + 0</code> → <code>x</code></td></tr>
+<tr><td><code>FoldZeroPlus</code></td><td><code>0 + x</code> → <code>x</code></td></tr>
+<tr><td><code>FoldMinusZero</code></td><td><code>x - 0</code> → <code>x</code></td></tr>
+<tr><td><code>FoldMultOne</code></td><td><code>x * 1</code> → <code>x</code></td></tr>
+<tr><td><code>FoldOneMult</code></td><td><code>1 * x</code> → <code>x</code></td></tr>
+<tr><td><code>FoldDivOne</code></td><td><code>x / 1</code> → <code>x</code></td></tr>
+<tr><td><code>FoldNegNeg</code></td><td><code>--x</code> → <code>x</code></td></tr>
+<tr><td><code>NormalizeUnaryMinus</code></td><td><code>-(-x)</code> → <code>x</code></td></tr>
+<tr><td><code>FoldModOne</code></td><td><code>x % 1</code> → <code>0</code></td></tr>
+</tbody></table>
+<hr />
+<h3 id="norm-rules-mutation-opt-3-rules"><code>norm/rules/mutation.opt</code> — 3 rules</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>SimplifyInsertOrUpdateFilters</code></td><td>Simplify filters in upsert operations</td></tr>
+<tr><td><code>EliminateMutationFKChecks</code></td><td>Remove FK checks for cols that didn't change in UPDATE</td></tr>
+<tr><td><code>EliminateMutationUniqueChecks</code></td><td>Remove uniqueness checks for non-updated unique columns</td></tr>
+</tbody></table>
+<hr />
+<h3 id="norm-rules-with-opt-3-rules"><code>norm/rules/with.opt</code> — 3 rules</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>InlineWith</code></td><td>Inline CTE when referenced once and safe (no side effects, not recursive)</td></tr>
+<tr><td><code>EliminateWith</code></td><td>Remove unused CTE entirely</td></tr>
+<tr><td><code>HoistWithExpression</code></td><td>Hoist With above operators to maximize sharing</td></tr>
+</tbody></table>
+<hr />
+<h3 id="norm-rules-window-opt-5-rules"><code>norm/rules/window.opt</code> — 5 rules</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>SimplifyWindowOrdering</code></td><td>Remove redundant ordering cols from window function OVER clause</td></tr>
+<tr><td><code>EliminateWindowNoopProject</code></td><td>Window function that produces same col as input → identity</td></tr>
+<tr><td><code>PushSelectIntoWindow</code></td><td>Push partition-col filter below window computation</td></tr>
+<tr><td><code>ReduceWindowPartitionCols</code></td><td>Remove redundant partition cols using functional deps</td></tr>
+<tr><td><code>ReduceWindowOrderingCols</code></td><td>Same for ordering cols</td></tr>
+</tbody></table>
+<hr />
+<h3 id="norm-rules-agg-opt-1-rule"><code>norm/rules/agg.opt</code> — 1 rule</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>ReplaceAggsWithConstant</code></td><td>When grouping is on a key and aggregate input is constant, fold to constant</td></tr>
+</tbody></table>
+<hr />
+<h3 id="norm-rules-barrier-opt-1-rule"><code>norm/rules/barrier.opt</code> — 1 rule</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>EliminateBarrier</code></td><td>Remove optimization barrier when no longer needed (barriers block certain rewrites)</td></tr>
+</tbody></table>
+<hr />
+<h3 id="norm-rules-max1row-opt-1-rule"><code>norm/rules/max1row.opt</code> — 1 rule</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>EliminateMax1Row</code></td><td>When input provably has ≤ 1 row (from key/cardinality analysis), remove Max1Row wrapper</td></tr>
+</tbody></table>
+<hr />
+<h3 id="norm-rules-project-set-opt-1-rule"><code>norm/rules/project_set.opt</code> — 1 rule</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>EliminateProjectSet</code></td><td><code>ProjectSet</code> (SRF cross join) with no actual SRFs → plain projection</td></tr>
+</tbody></table>
+<hr />
+<h3 id="norm-rules-cycle-opt-2-rules"><code>norm/rules/cycle.opt</code> — 2 rules</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>SimplifyCycleDetector</code></td><td>Remove cycle detector wrapper when it's provably not in a recursive CTE context</td></tr>
+<tr><td><code>EliminateCycleDetector</code></td><td>Remove entirely when no recursive reference is possible</td></tr>
+</tbody></table>
+<hr />
+<h2 id="exploration-rules-xform-rules">Exploration Rules (<code>xform/rules/</code>)</h2>
+<p>Applied by <code>xform.Explorer</code> during the optimization pass. Unlike norm rules, exploration rules
+generate <em>additional</em> alternatives in the memo without replacing the original. The cost model
+then selects the best one.</p>
+<hr />
+<h3 id="xform-rules-scan-opt-2-rules"><code>xform/rules/scan.opt</code> — 2 rules</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>GenerateIndexScans</code></td><td>For each secondary index on a table, generate an alternative Scan using that index. Without this, only the primary index would be considered</td></tr>
+<tr><td><code>GeneratePartialIndexScans</code></td><td>For each partial index whose predicate is implied by the query filter, generate a Scan. Partial indexes are smaller → faster scans</td></tr>
+</tbody></table>
+<hr />
+<h3 id="xform-rules-select-opt-9-rules"><code>xform/rules/select.opt</code> — 9 rules</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>GenerateConstrainedScans</code></td><td>For each index, attempt to extract index constraints from the SELECT filter and generate constrained Scan variants. Core of index-accelerated queries</td></tr>
+<tr><td><code>GenerateInvertedIndexScans</code></td><td>For each inverted index (JSON, array, FTS), generate inverted Scan. Needed for containment/overlap queries</td></tr>
+<tr><td><code>GeneratePartialIndexScans</code></td><td>Index-specific partial scan generation for each eligible partial index</td></tr>
+<tr><td><code>GenerateZigzagJoins</code></td><td>When multiple indexes each satisfy part of the filter, generate ZigzagJoin (intersect via index merge). Often faster than single-index scan + filter</td></tr>
+<tr><td><code>GenerateInvertedIndexZigzagJoins</code></td><td>ZigzagJoin variant for inverted indexes</td></tr>
+<tr><td><code>GenerateSkipScanIndex</code></td><td>Generate skip-scan (jumping over index groups) for multi-column indexes where leading col is unconstrained</td></tr>
+<tr><td><code>SplitScanIntoUnionScans</code></td><td>Split single constrained scan into UNION ALL of multiple scans (for better parallelism on disjoint ranges)</td></tr>
+<tr><td><code>SplitDisjunctionIntoUnionScans</code></td><td>OR predicates → UNION ALL of scans, each handling one disjunct</td></tr>
+<tr><td><code>GenerateLocalityOptimizedScan</code></td><td>Multi-region: generate a scan that prefers local region replicas first</td></tr>
+</tbody></table>
+<hr />
+<h3 id="xform-rules-join-opt-20-rules"><code>xform/rules/join.opt</code> — 20 rules</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>ReorderJoins</code></td><td>Generate all valid join orderings (using join order builder). The optimizer then picks the cheapest order based on cardinality estimates</td></tr>
+<tr><td><code>CommuteLeftJoin</code></td><td><code>LeftJoin(A, B)</code> → <code>RightJoin(B, A)</code>. Symmetric form opens more ordering options</td></tr>
+<tr><td><code>CommuteSemiJoin</code></td><td><code>SemiJoin(A, B)</code> → <code>InnerJoin(A, DistinctOn(B))</code> when safe. Opens reordering</td></tr>
+<tr><td><code>ConvertSemiToInnerJoin</code></td><td>Alternative semi→inner conversion without distinct</td></tr>
+<tr><td><code>GenerateLookupJoins</code></td><td>For each index on the right side of a join, generate LookupJoin variant. LookupJoin is often faster when right side is small/indexed</td></tr>
+<tr><td><code>GenerateLookupJoinsWithVirtualCols</code></td><td>Same but involving virtual (computed) columns in the index</td></tr>
+<tr><td><code>GenerateInvertedJoins</code></td><td>Generate join that uses inverted index for containment/proximity predicates</td></tr>
+<tr><td><code>GenerateMergeJoins</code></td><td>When both sides can be sorted on join key, generate MergeJoin (avoids hash table, good for large sorted inputs)</td></tr>
+<tr><td><code>GenerateHashJoin</code></td><td>Explicitly generate HashJoin alternative (usually the default, but explicit for memo)</td></tr>
+<tr><td><code>GenerateInvertedIndexJoins</code></td><td>Inverted index join variant</td></tr>
+<tr><td><code>GenerateLocalityOptimizedAntiJoin</code></td><td>Anti-join preferring local replicas in multi-region</td></tr>
+<tr><td><code>GenerateLocalityOptimizedLookupJoin</code></td><td>Lookup join preferring local replicas</td></tr>
+<tr><td><code>GenerateLocalityOptimizedSemiJoin</code></td><td>Semi-join with locality preference</td></tr>
+<tr><td><code>GenerateGeoInvertedJoins</code></td><td>Geo-spatial inverted index joins</td></tr>
+<tr><td><code>SplitDisjunctionOfJoinTerms</code></td><td>OR in join ON clause → UNION ALL of two joins, each handling one disjunct</td></tr>
+<tr><td><code>PairGeoInvertedJoins</code></td><td>Pair geo inverted joins for compound geo predicates</td></tr>
+<tr><td>(+ more)</td><td>Parametrized join variants, cross-join reductions</td></tr>
+</tbody></table>
+<hr />
+<h3 id="xform-rules-groupby-opt-10-rules"><code>xform/rules/groupby.opt</code> — 10 rules</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>GenerateStreamingGroupBy</code></td><td>If input is ordered on grouping cols, generate streaming (sort-based) GroupBy instead of hash-based. Often faster as avoids hash table</td></tr>
+<tr><td><code>GenerateIndexScanGroupBy</code></td><td>If an index provides the needed order for grouping, generate Scan + StreamingGroupBy</td></tr>
+<tr><td><code>GenerateDistinctOnStreamingGroupBy</code></td><td>Streaming DistinctOn using sorted input</td></tr>
+<tr><td><code>GenerateStreamingDistinct</code></td><td>Streaming DISTINCT on sorted input</td></tr>
+<tr><td><code>GenerateStreamingDistinctOnStreamingGroupBy</code></td><td>Combined streaming distinct + groupby</td></tr>
+<tr><td><code>SplitGroupByOrdinality</code></td><td>Split groupby by ordinality for ordered output</td></tr>
+<tr><td><code>GenerateEfficientMinMax</code></td><td><code>MIN(col)</code> / <code>MAX(col)</code> where col has an index → <code>Limit(IndexScan, 1)</code>. Avoids full scan</td></tr>
+<tr><td><code>GenerateEfficientGroupByMinMax</code></td><td><code>GROUP BY key, MIN(val)</code> → IndexScan with limit per group</td></tr>
+<tr><td><code>GenerateLocalityOptimizedGroupBy</code></td><td>Multi-region: prefer local nodes for grouping</td></tr>
+<tr><td><code>GenerateLimitedGroupBy</code></td><td>When GROUP BY followed by LIMIT, propagate limit into groupby</td></tr>
+</tbody></table>
+<hr />
+<h3 id="xform-rules-limit-opt-12-rules"><code>xform/rules/limit.opt</code> — 12 rules</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>GenerateLimitedScans</code></td><td><code>LIMIT n</code> on a Scan → generate Scan with internal row limit (stops reading early)</td></tr>
+<tr><td><code>GenerateLimitedIndexScans</code></td><td>Same for index scans</td></tr>
+<tr><td><code>PushLimitIntoLookupJoin</code></td><td>Propagate limit into lookup join (stop after n results)</td></tr>
+<tr><td><code>PushLimitIntoUnionAll</code></td><td>Push limit into each side of UNION ALL</td></tr>
+<tr><td><code>PushLimitIntoDistinctOn</code></td><td>Limit + DistinctOn → limit within distinct computation</td></tr>
+<tr><td><code>GenerateOrderedTopK</code></td><td><code>ORDER BY + LIMIT</code> → TopK operator (heap-based, avoids full sort)</td></tr>
+<tr><td><code>GenerateStreamingTopK</code></td><td>TopK when input partially ordered</td></tr>
+<tr><td><code>GenerateIndexScanTopK</code></td><td><code>ORDER BY col LIMIT n</code> → forward/reverse IndexScan with limit</td></tr>
+<tr><td><code>GenerateLimitedHashGroupBy</code></td><td>LIMIT after GROUP BY → limit hash groupby output early</td></tr>
+<tr><td><code>GenerateLimitedStreamingGroupBy</code></td><td>Same for streaming groupby</td></tr>
+<tr><td><code>GenerateLimitedDistinctOn</code></td><td>LIMIT + DistinctOn combination</td></tr>
+<tr><td><code>GenerateLocalityOptimizedLimit</code></td><td>Multi-region limit with local preference</td></tr>
+</tbody></table>
+<hr />
+<h3 id="xform-rules-project-opt-1-rule"><code>xform/rules/project.opt</code> — 1 rule</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>GenerateProjectedInvertedIndexScans</code></td><td>When projection output requires an inverted index, generate the scan variant</td></tr>
+</tbody></table>
+<hr />
+<h3 id="xform-rules-set-opt-1-rule"><code>xform/rules/set.opt</code> — 1 rule</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>GenerateUnionAllExchange</code></td><td>UNION ALL in distributed setting → add Exchange operators to distribute work, potentially parallelizing across nodes</td></tr>
+</tbody></table>
+<hr />
+<h3 id="xform-rules-insert-opt-1-rule"><code>xform/rules/insert.opt</code> — 1 rule</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>GenerateFastPathInsert</code></td><td>When INSERT satisfies fast-path conditions (no FK checks needed, simple values), generate optimized FastPathInsert that skips normal write pipeline overhead</td></tr>
+</tbody></table>
+<hr />
+<h3 id="xform-rules-generic-opt-2-rules"><code>xform/rules/generic.opt</code> — 2 rules</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>GenerateParameterizedJoin</code></td><td>For generic plans (placeholder values unknown at opt time), convert <code>Select(Scan, placeholder-filter)</code> to <code>InnerJoin(Values[placeholders], Scan, filter)</code>. Allows lookup join to be planned without knowing actual values</td></tr>
+<tr><td><code>ConvertParameterizedLookupJoinToPlaceholderScan</code></td><td>Refine parameterized join into a placeholder-based scan for specific execution</td></tr>
+</tbody></table>
+<hr />
+<h3 id="xform-rules-cycle-opt-2-rules"><code>xform/rules/cycle.opt</code> — 2 rules</h3>
+<table><thead><tr><th>Rule</th><th>Why Needed</th></tr></thead><tbody>
+<tr><td><code>GenerateCycleDetectedPlan</code></td><td>Generate a recursive CTE execution plan with cycle detection enabled</td></tr>
+<tr><td><code>GenerateCycleDetectedScan</code></td><td>Variant that uses index scan for cycle detection in recursive CTEs</td></tr>
+</tbody></table>
+<hr />
+<h2 id="summary-statistics">Summary Statistics</h2>
+<table><thead><tr><th>Category</th><th>Files</th><th>Rules/Operators</th></tr></thead><tbody>
+<tr><td>Operator definitions (ops/)</td><td>6</td><td>~303 operators</td></tr>
+<tr><td>Normalization rules (norm/rules/)</td><td>25</td><td>~371 rules</td></tr>
+<tr><td>Exploration rules (xform/rules/)</td><td>10</td><td>~60 rules</td></tr>
+<tr><td><strong>Total</strong></td><td><strong>41</strong></td><td><strong>~734</strong></td></tr>
+</tbody></table>
+<h2 id="key-design-principles">Key Design Principles</h2>
+<ol>
+<li>
+<p><strong>Normalization reduces search space.</strong> By canonicalizing expressions first, exploration rules
+see fewer distinct forms to enumerate. E.g., <code>NormalizeNestedAnds</code> ensures And trees are always
+left-deep — exploration rules only need to match one shape.</p>
+</li>
+<li>
+<p><strong>Exploration generates alternatives, not replacements.</strong> Exploration rules add new expressions
+to a memo <em>group</em> (equivalence class). The original expression stays. Cost model picks winner.</p>
+</li>
+<li>
+<p><strong>Priority tags control rule ordering.</strong> <code>HighPriority</code> rules (like <code>SimplifySelectFilters</code>)
+run before others in the same file. <code>LowPriority</code> rules run after, allowing higher-priority
+rules to create opportunities they can then exploit.</p>
+</li>
+<li>
+<p><strong>Custom functions bridge DSL and Go.</strong> Complex matching/construction that can't be expressed
+in Optgen syntax is implemented in <code>*_funcs.go</code> files and called from rules with <code>&amp; (FuncName ...)</code>.</p>
+</li>
+<li>
+<p><strong>Functional dependencies drive many rules.</strong> The FD (functional dependency) system tracks
+which columns are determined by others. Many rules use FDs to prove that grouping columns
+are redundant, that joins can be simplified, etc.</p>
+</li>
+<li>
+<p><strong>Index constraint extraction is the payoff of comp/select normalization.</strong> Rules in <code>comp.opt</code>
+that rewrite <code>a + 1 = 5</code> → <code>a = 4</code> exist specifically so the constraint solver can extract
+the index span <code>[/4 - /4]</code> and turn a full scan into a point lookup.</p>
+</li>
+<li>
+<p><strong>Multi-region rules are additive.</strong> Rules like <code>GenerateLocalityOptimizedScan</code> add
+region-aware alternatives; if the query is not multi-region, these alternatives simply cost
+more and are never selected.</p>
+</li>
+</ol>
+<hr />
+<h2 id="memo-data-structure">Memo Data Structure</h2>
+<p>The memo (<code>pkg/sql/opt/memo/memo.go</code>) is the core data structure of the optimizer. It efficiently stores a forest of logically equivalent query plans by exploiting the fact that many sub-plans are shared across alternatives.</p>
+<h3 id="structure">Structure</h3>
+<pre><code>Memo
+  └── groups: []memoGroup
+        └── memoGroup
+              ├── relProps: *relationalProps   (shared by all exprs in group)
+              ├── scalarProps: *scalarProps
+              └── exprs: []memoExpr
+                    └── memoExpr
+                          ├── op: operator
+                          ├── children: []groupID   (references to other groups)
+                          ├── physProps: *physicalProps
+                          └── private: interface{}  (operator-specific data)
+</code></pre>
+<p><strong>Group identity:</strong> Each group is identified by a fingerprint = <code>(operator, child group IDs)</code>. Before inserting a new expression, the factory computes its fingerprint. If a group with that fingerprint already exists, the expression joins that group. If not, a new group is created.</p>
+<p><strong>Equivalence invariant:</strong> All memo-expressions in a group are logically equivalent — they produce the same rows (modulo ordering). Normalization rules fire at construction time (via <code>norm.Factory</code>) so non-normalized forms never enter the memo.</p>
+<p><strong>Expression extraction (binding):</strong> Transformation rules don't traverse raw Go data structures. Instead, they use a <strong>binding</strong> step: patterns are matched against the memo, extracting only the parts the rule needs. Pattern leaves match opaquely (entire subtree as a group reference); pattern trees recursively extract for manipulation.</p>
+<h3 id="exploration-vs-normalization-in-the-memo">Exploration vs Normalization in the Memo</h3>
+<table><thead><tr><th>Phase</th><th>When</th><th>Adds to memo?</th><th>Replaces?</th></tr></thead><tbody>
+<tr><td>Normalization</td><td>During construction</td><td>Yes (new group)</td><td>Replaces root (single canonical form)</td></tr>
+<tr><td>Exploration</td><td>During optimization</td><td>Yes (new expr in existing group)</td><td>Never — original stays</td></tr>
+</tbody></table>
+<p><code>norm.Factory.ConstructXxx()</code> builds normalized expressions and inserts them, firing norm rules eagerly. <code>xform.Explorer.exploreGroup()</code> iterates over groups, applies exploration rules, adds new alternatives to existing groups.</p>
+<h3 id="cascades-style-search">Cascades-Style Search</h3>
+<p>CockroachDB uses <strong>Cascades</strong> (Graefe 1995) style optimization — interleaved exploration and costing — rather than Volcano's separate expansion and costing phases.</p>
+<pre><code>OptimizeGroup(group, requiredProps):
+  exploreGroup(group)           // fire all applicable xform rules, add alternatives
+  for each expr in group.exprs:
+    cost = CostExpr(expr, requiredProps)
+    track minimum cost expr
+  return bestExpr
+
+CostExpr(expr, requiredProps):
+  for each child group:
+    OptimizeGroup(child, derivedRequiredProps)  // recursive
+  cost += operatorCost(expr, childCardinalities)
+  if !childSatisfiesRequiredProps:
+    inject enforcer, add enforcer cost
+</code></pre>
+<p><strong>Branch-and-bound pruning:</strong> If an expression's lower-bound cost already exceeds the best known cost for the group, its subtree is pruned. This is critical for large join search spaces.</p>
+<hr />
+<h2 id="logical-properties">Logical Properties</h2>
+<p>Logical properties are attached to <strong>memo groups</strong> (shared by all expressions in the group). Computed once per group when first constructed.</p>
+<h3 id="relational-logical-properties">Relational Logical Properties</h3>
+<p>Defined in <code>pkg/sql/opt/props/logical.go</code>:</p>
+<table><thead><tr><th>Property</th><th>Type</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>OutputCols</code></td><td><code>ColSet</code> (bitmap)</td><td>Columns produced by expression</td></tr>
+<tr><td><code>OuterCols</code></td><td><code>ColSet</code></td><td>Columns referenced but not produced (free variables — indicates correlated subquery)</td></tr>
+<tr><td><code>NotNullCols</code></td><td><code>ColSet</code></td><td>Columns provably never NULL</td></tr>
+<tr><td><code>Cardinality</code></td><td><code>CardinalitySet</code></td><td>Min/max row estimate (exact where possible)</td></tr>
+<tr><td><code>FuncDeps</code></td><td><code>FuncDepSet</code></td><td>Functional dependencies (see below)</td></tr>
+<tr><td><code>Stats</code></td><td><code>Statistics</code></td><td>Row count, column stats, histograms</td></tr>
+</tbody></table>
+<h3 id="scalar-logical-properties">Scalar Logical Properties</h3>
+<table><thead><tr><th>Property</th><th>Type</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>InputCols</code></td><td><code>ColSet</code></td><td>Columns consumed</td></tr>
+<tr><td><code>OuterCols</code></td><td><code>ColSet</code></td><td>Free variables (correlated)</td></tr>
+<tr><td><code>HasVolatileFunc</code></td><td><code>bool</code></td><td>Contains <code>NOW()</code>, <code>random()</code> etc — blocks caching</td></tr>
+<tr><td><code>HasSubquery</code></td><td><code>bool</code></td><td>Contains subquery — triggers decorrelation</td></tr>
+</tbody></table>
+<h3 id="functional-dependencies-fd-set">Functional Dependencies (FD Set)</h3>
+<p><code>pkg/sql/opt/props/func_dep.go</code>. The FD set tracks:</p>
+<ol>
+<li><strong>Strict keys</strong> — column set S is a key if no two rows have identical values on S. All cols must be NOT NULL. Derived from PRIMARY KEY, UNIQUE NOT NULL indexes.</li>
+<li><strong>Lax keys (weak keys)</strong> — uniqueness on non-NULL values only. From UNIQUE indexes with nullable columns.</li>
+<li><strong>Determiners</strong> — <code>{A} → {B}</code>: column A functionally determines B. From computed column definitions.</li>
+<li><strong>Equivalency groups</strong> — <code>{A = B = C}</code>: columns proven equal via join or filter. Enables predicate inference across joins.</li>
+<li><strong>Constant columns</strong> — <code>{A = const}</code>: column has been equated to a constant. From <code>col = 5</code> filters.</li>
+</ol>
+<p><strong>How FDs drive rules:</strong></p>
+<ul>
+<li><code>EliminateGroupBySingleRow</code>: if grouping columns contain a key → at most one group → GroupBy unnecessary.</li>
+<li><code>SimplifyGroupByKey</code>: if a non-key column is functionally determined by other grouping cols → remove it.</li>
+<li><code>MapFilterIntoJoinLeft/Right</code>: if <code>a.x = b.x</code> via join condition and <code>a.x</code> has FD to another col → predicate can be mapped.</li>
+<li>Decorrelation: outer column FDs help prove that hoisted subquery join is a key-join → distinct is not needed.</li>
+</ul>
+<hr />
+<h2 id="physical-properties-system">Physical Properties System</h2>
+<p>Physical properties describe <strong>how</strong> data is presented, not <strong>what</strong> data — they live outside relational algebra.</p>
+<h3 id="tracked-physical-properties">Tracked Physical Properties</h3>
+<table><thead><tr><th>Property</th><th>Description</th><th>Enforcer</th></tr></thead><tbody>
+<tr><td><code>Presentation</code></td><td>Column ordering and naming in output</td><td>No-op reproject</td></tr>
+<tr><td><code>Ordering</code></td><td>Row sort order (<code>ORDER BY</code>)</td><td><code>Sort</code> operator</td></tr>
+<tr><td><code>Distribution</code></td><td>Which KV ranges / regions own rows</td><td><code>Distribution</code> enforcer</td></tr>
+</tbody></table>
+<h3 id="required-vs-provided">Required vs Provided</h3>
+<p><strong>Required properties</strong> flow top-down: parent specifies what it needs from child. Originate from:</p>
+<ul>
+<li><code>ORDER BY</code> → ordering requirement</li>
+<li><code>DISTINCT</code> → key requirement (handled via norm rules, not physical props)</li>
+<li>Merge join → requires both inputs sorted on join keys</li>
+<li>Lookup join → requires left input sorted on prefix matching index</li>
+</ul>
+<p><strong>Provided properties</strong> flow bottom-up: each operator specifies what physical properties its output satisfies given its child's properties. E.g.:</p>
+<ul>
+<li><code>IndexScan(idx)</code> provides ordering = <code>idx.columns</code> (ascending or descending).</li>
+<li><code>HashJoin</code> provides no ordering (output is unordered).</li>
+<li><code>MergeJoin</code> provides merged ordering on join key.</li>
+<li><code>Sort(input, ordering)</code> provides the specified ordering.</li>
+</ul>
+<p><strong>Mismatch → Enforcer injection:</strong> When a required property is not provided by any alternative in a group, the optimizer introduces an enforcer:</p>
+<pre><code>Sort(child, ordering) -- satisfies ordering requirement
+Distribution(child)   -- routes data to required gateway node
+</code></pre>
+<p>Enforcers have costs (Sort = O(n log n) I/O + CPU; Distribution = network transfer).</p>
+<h3 id="multi-region-distribution-properties">Multi-Region Distribution Properties</h3>
+<p>For <code>REGIONAL BY ROW</code> tables, each row has a <code>crdb_region</code> hidden column. The optimizer:</p>
+<ol>
+<li>Adds <code>Distribution</code> required property at query root (gateway region).</li>
+<li>Generates <code>GenerateLocalityOptimizedScan</code> — scans local region first with <code>LIMIT</code>.</li>
+<li>If local scan produces insufficient rows, a follow-up scan covers other regions.</li>
+<li><code>GenerateLocalityOptimizedAntiJoin</code>, <code>GenerateLocalityOptimizedLookupJoin</code> extend this to join operators.</li>
+</ol>
+<p>This turns cross-region queries into cheap local-first queries for most workloads.</p>
+<hr />
+<h2 id="cost-model">Cost Model</h2>
+<p><code>pkg/sql/opt/xform/coster.go</code>. Costs are dimensionless "time units" — relative, not absolute.</p>
+<h3 id="cost-components">Cost Components</h3>
+<pre><code>Cost(expr) = SeqIOCost + RandIOCost + CPUCost + NetworkCost
+
+SeqIOCost  = rows × scanFactor × seqIOCostFactor
+RandIOCost = rows × randomIOCostFactor  (for random-access index lookups)
+CPUCost    = rows × cpuCostFactor × perRowWork
+NetworkCost = rows × rowWidth × networkCostFactor  (for distributed plans, 0 for local)
+</code></pre>
+<p>Default cost factors (normalized, not real seconds):</p>
+<ul>
+<li><code>seqIOCostFactor = 1.0</code></li>
+<li><code>randomIOCostFactor = 4.0</code> (random I/O ≈ 4× sequential)</li>
+<li><code>cpuCostFactor = 0.01</code> (CPU cheap vs I/O)</li>
+<li><code>networkCostFactor = 1.0</code> (same as seq I/O by default)</li>
+</ul>
+<h3 id="per-operator-cost-logic">Per-Operator Cost Logic</h3>
+<table><thead><tr><th>Operator</th><th>Dominant Cost Factor</th></tr></thead><tbody>
+<tr><td><code>Scan</code> (full)</td><td>SeqIO × estimated row count</td></tr>
+<tr><td><code>IndexScan</code> (constrained)</td><td>RandIO × selectivity × rows</td></tr>
+<tr><td><code>LookupJoin</code></td><td>RandIO × left_rows × matches_per_row</td></tr>
+<tr><td><code>HashJoin</code></td><td>CPU × (left_rows + right_rows) + possible spill IO</td></tr>
+<tr><td><code>MergeJoin</code></td><td>CPU × rows (requires pre-sorted inputs; amortizes Sort cost)</td></tr>
+<tr><td><code>Sort</code></td><td>CPU × n log n (dominated by comparison cost)</td></tr>
+<tr><td><code>IndexJoin</code></td><td>RandIO × rows (one random KV read per row)</td></tr>
+<tr><td><code>ZigzagJoin</code></td><td>RandIO × (rows_in_index1 + rows_in_index2) × selectivity</td></tr>
+</tbody></table>
+<h3 id="spill-cost">Spill Cost</h3>
+<p>When hash join or sort input exceeds <code>work_mem</code> equivalent, the optimizer adds disk spill cost:</p>
+<pre><code>spillCost = (rows × rowWidth / diskBlockSize) × seqIOCostFactor × spillFactor
+</code></pre>
+<h3 id="network-cost-in-distributed-plans">Network Cost in Distributed Plans</h3>
+<p>For queries spanning multiple nodes, each data shuffle (hash join redistribution, aggregation scatter-gather) incurs:</p>
+<pre><code>networkCost = rowBytes × networkCostFactor × hops
+</code></pre>
+<p>Gateway node is cheapest (0 network); remote node data costs proportional to transfer size.</p>
+<h3 id="optimal-substructure">Optimal Substructure</h3>
+<p>Cost model satisfies optimal substructure: <code>Cost(tree) = Cost(root) + Σ Cost(subtrees)</code>. This enables dynamic programming — optimize each group independently, then compose. Critical invariant for Cascades to work correctly.</p>
+<hr />
+<h2 id="statistics-cardinality-estimation">Statistics &amp; Cardinality Estimation</h2>
+<p><code>pkg/sql/opt/memo/statistics_builder.go</code> + <code>pkg/sql/stats/</code>.</p>
+<h3 id="what-gets-collected">What Gets Collected</h3>
+<p><code>CREATE STATISTICS</code> / auto-stats collects per table:</p>
+<ul>
+<li><strong>Row count</strong>: exact count at scan time</li>
+<li><strong>Null count</strong>: per column</li>
+<li><strong>Distinct count</strong>: HyperLogLog (HLL-TailCut+ variant). Parallel-friendly: HLL sketches merge across nodes.</li>
+<li><strong>Histogram</strong>: equi-depth histogram on first column of each index. Also collected for any explicitly requested column.</li>
+</ul>
+<p>Histogram format: up to 200 buckets, each bucket stores <code>(upper_bound, row_count, distinct_count, null_count)</code>. Equi-depth = each bucket covers approximately equal number of rows.</p>
+<h3 id="multi-column-statistics">Multi-Column Statistics</h3>
+<p>By default collects multi-column stats on the <strong>prefix columns of each index</strong> (columns that appear together in WHERE clauses for that index). Purpose: estimate correlation between columns — e.g., <code>(country, city)</code> tuple cardinality is much lower than <code>distinct(country) × distinct(city)</code> if city is nested within country.</p>
+<h3 id="automatic-stats-refresh">Automatic Stats Refresh</h3>
+<p><code>pkg/sql/stats/automatic_stats.go</code>:</p>
+<ul>
+<li>Trigger: probabilistic after each mutation. After a batch of mutations on table T: <code>P(refresh) = (rows_mutated / total_rows) / threshold</code> where threshold ≈ 0.20 (20% changed).</li>
+<li>Background job: global serialization, one stats collection at a time. If node fails, another node adopts.</li>
+<li>Throttling: adaptive sleep inserted every 10K rows scanned. Sleep duration scales with CPU utilization.</li>
+<li>Sampling: reservoir sampling for histograms — sample S rows from table scan, compute histogram from sample.</li>
+</ul>
+<h3 id="statistics-forecasting">Statistics Forecasting</h3>
+<p>When ≥3 historical stats collections exist and row counts fit a linear trend, CockroachDB generates <strong>forecasted statistics</strong> extrapolating to the current time. Used between refreshes when table is changing rapidly.</p>
+<pre><code>forecasted_row_count = last_row_count + slope × (now - last_collection_time)
+forecasted_distinct_count[col] = scale proportionally
+</code></pre>
+<p>Forecasting prevents stale stats from causing catastrophic plan regressions during bulk loads.</p>
+<h3 id="selectivity-estimation">Selectivity Estimation</h3>
+<p><code>statistics_builder.go</code> propagates histograms up the operator tree:</p>
+<pre><code>Select(input, filter):
+  sel = selectivity(filter, input.stats)
+  output.rowCount = input.rowCount × sel
+  output.histogram[col] = input.histogram[col].ApplySelectivity(sel, filter.bounds)
+
+Join(left, right, condition):
+  if equijoin on col:
+    sel = 1 / max(distinct(left.col), distinct(right.col))
+  output.rowCount = left.rowCount × right.rowCount × sel
+  // histogram intersection for equijoin columns
+</code></pre>
+<p><strong>Selectivity for range predicates:</strong> computed by scanning histogram buckets that overlap the predicate range, summing their row counts.</p>
+<p><strong>Null handling:</strong> null count tracked separately. <code>IS NULL</code> selectivity = null_count / row_count. <code>IS NOT NULL</code> = 1 - (null_count / row_count).</p>
+<p><strong>Distinct count propagation through joins:</strong> for join output column from left, <code>distinct(col) = min(distinct(left.col), output.rowCount)</code>.</p>
+<hr />
+<h2 id="join-ordering">Join Ordering</h2>
+<p><code>pkg/sql/opt/xform/join_order_builder.go</code>. The <code>ReorderJoins</code> exploration rule delegates to this.</p>
+<h3 id="algorithm">Algorithm</h3>
+<p>CockroachDB uses a <strong>DPhyp</strong> (Dynamic Programming on Hypergraphs) variant — the same algorithm used by HyPer, Umbra, DuckDB. Enumerate all subsets of joined relations, find minimum-cost join tree for each subset.</p>
+<pre><code>DPhyp:
+  for each subset S of relations (bottom-up, size 1 → n):
+    for each valid partition (S1, S2) of S where S1 ∪ S2 = S:
+      if there exists a join predicate between S1 and S2:
+        cost = Cost(BestPlan(S1)) + Cost(BestPlan(S2)) + joinCost(S1, S2)
+        BestPlan(S) = min(BestPlan(S), cost)
+</code></pre>
+<p><strong>Hyperedges:</strong> join predicates that reference more than 2 tables (e.g., from OR conditions or transitive predicates) are represented as hyperedges. DPhyp handles these without enumerating invalid cross products.</p>
+<h3 id="cardinality-limit-fallback">Cardinality Limit &amp; Fallback</h3>
+<p><code>reorderJoinsLimit</code> session variable (default 8). When join count &gt; limit:</p>
+<ul>
+<li><strong>Greedy fallback</strong>: iteratively pick the pair (left, right) with cheapest immediate join cost. O(n²) instead of O(2ⁿ).</li>
+<li>Greedy avoids cross products but may miss globally optimal orderings.</li>
+</ul>
+<p>For <code>n ≤ 8</code>: full DPhyp, optimal for tree-structured queries and near-optimal for cyclic queries. DP table entries = O(2ⁿ), manageable for n ≤ 8.</p>
+<h3 id="what-dphyp-considers">What DPhyp Considers</h3>
+<ul>
+<li>All join types: inner, left, full, semi, anti (with correctness constraints on associativity/commutativity)</li>
+<li>All plan shapes: left-deep, right-deep, bushy</li>
+<li>Join implementations: hash join, merge join, lookup join (index), zigzag join</li>
+<li>Cross joins excluded unless no predicate exists (forced by schema)</li>
+</ul>
+<h3 id="cardinality-estimation-for-join-ordering">Cardinality Estimation for Join Ordering</h3>
+<p>Row count for join output = <code>left.rows × right.rows × joinSelectivity</code>. Join selectivity:</p>
+<ul>
+<li>Equijoin on indexed column: <code>1 / max(distinct(left.col), distinct(right.col))</code></li>
+<li>Non-equijoin: default selectivity 0.333 (heuristic)</li>
+<li>FK join (foreign key relationship detected): selectivity = <code>1 / distinct(pk_side)</code> — usually very precise</li>
+</ul>
+<hr />
+<h2 id="plan-caching-prepared-statements">Plan Caching &amp; Prepared Statements</h2>
+<p><code>pkg/sql/plan_opt.go</code>, <code>pkg/sql/querycache/</code>.</p>
+<h3 id="five-planning-stages">Five Planning Stages</h3>
+<pre><code>1. Parse      → SQL string → AST
+2. OptBuild   → AST → relational expression tree (semantic analysis, name resolution)
+3. Normalize  → norm.Factory applies all norm rules → canonical memo
+4. Explore    → xform.Optimizer applies xform rules + costs → best plan
+5. ExecBuild  → optimized plan → execinfrapb.ProcessorSpec tree (DistSQL specs)
+</code></pre>
+<h3 id="what-gets-cached">What Gets Cached</h3>
+<table><thead><tr><th>Protocol</th><th>Cached State</th><th>Reuse Condition</th></tr></thead><tbody>
+<tr><td>Simple query (same SQL string)</td><td>Final explored plan (stage 4 output)</td><td>Identical SQL string, same schema version</td></tr>
+<tr><td><code>PREPARE</code> once, execute N times</td><td>Normalized memo through stage 3</td><td>Same schema; re-runs stages 4+5 per execution</td></tr>
+<tr><td>Generic plans (v23.1+)</td><td>Full plan including exploration (stage 4)</td><td>Parameter-independent plan; checked after 5 custom executions</td></tr>
+</tbody></table>
+<h3 id="assignplaceholders">AssignPlaceholders</h3>
+<p>Between stages 3 and 4 for prepared statements: substitute <code>$1, $2, ...</code> with actual values. This triggers additional normalization (e.g., <code>FoldBinary</code> on <code>col + $1</code> with $1=5 → <code>col + 5 → a = 4</code> after comp rules). The explore stage then sees concrete values — better selectivity estimates, better plans.</p>
+<p><strong>Generic plans</strong> skip AssignPlaceholders — the plan is optimized with placeholder types but no values. The optimizer generates parameter-independent execution. Chosen when: plan shape doesn't change across values (e.g., simple point lookup) OR custom plan cost is consistently ≥ generic plan cost.</p>
+<h3 id="replanning-triggers">Replanning Triggers</h3>
+<p>Cache invalidation occurs when:</p>
+<ul>
+<li>Schema change: column added/removed, index created/dropped, table renamed/dropped.</li>
+<li>Database context change (<code>SET database</code>).</li>
+<li>Session setting affecting planning (<code>SET optimizer_*</code>, <code>SET reorder_joins_limit</code>).</li>
+<li>Statistics refresh on a table used by the query (triggers replan in background via <code>sql.planner.replanQuery()</code>).</li>
+</ul>
+<h3 id="query-fingerprinting">Query Fingerprinting</h3>
+<p>Queries are fingerprinted by normalizing the SQL string: strip literal values, normalize whitespace, replace <code>$N</code> with <code>?</code>. Fingerprint → statement bundle in <code>system.statement_statistics</code>. Used for plan regression detection and <code>EXPLAIN BUNDLE</code>.</p>
+<hr />
+<h2 id="distsql-execution-integration">DistSQL Execution Integration</h2>
+<p><code>pkg/sql/distsql_physical_planner.go</code>, <code>pkg/sql/colflow/</code>.</p>
+<h3 id="pipeline-optimizer-execution">Pipeline: Optimizer → Execution</h3>
+<pre><code>Optimizer best plan (memo tree)
+  ↓ execbuilder.Builder.Build()
+planNode tree (scanNode, filterNode, joinNode, ...)
+  ↓ DistSQLPlanner.PlanAndRun()
+PhysicalPlan (ProcessorSpec DAG)
+  ↓ FlowSpec per node
+  ↓ SetupFlowRequest RPC to each node
+colflow.VectorizedFlow (operator DAG)
+  ↓ BatchFlowCoordinator.Run()
+results → client
+</code></pre>
+<h3 id="processorspec-types">ProcessorSpec Types</h3>
+<p><code>pkg/sql/execinfrapb/processors.proto</code>:</p>
+<table><thead><tr><th>Spec</th><th>Corresponds To</th><th>Notes</th></tr></thead><tbody>
+<tr><td><code>TableReaderSpec</code></td><td><code>Scan</code> / <code>IndexScan</code></td><td>Specifies key spans, index, column IDs</td></tr>
+<tr><td><code>FiltererSpec</code></td><td><code>Select</code></td><td>Post-processor on TableReader</td></tr>
+<tr><td><code>HashJoinerSpec</code></td><td><code>HashJoin</code></td><td>Left/right types, equality cols, join type</td></tr>
+<tr><td><code>MergeJoinerSpec</code></td><td><code>MergeJoin</code></td><td>Ordering spec for both inputs</td></tr>
+<tr><td><code>SorterSpec</code></td><td><code>Sort</code></td><td>Output ordering, mem limit</td></tr>
+<tr><td><code>AggregatorSpec</code></td><td><code>GroupBy</code> / <code>Agg</code></td><td>Agg functions, grouping cols, partial vs final</td></tr>
+<tr><td><code>ProjectSetSpec</code></td><td>SRF projection</td><td>Set-returning functions</td></tr>
+<tr><td><code>NoopCoreSpec</code></td><td>Final merge at gateway</td><td>Used to collect distributed results</td></tr>
+</tbody></table>
+<h3 id="physical-planning-decisions">Physical Planning Decisions</h3>
+<p><code>DistSQLPlanner.checkSupportForPlanNode()</code> decides: local execution vs distributed.</p>
+<ul>
+<li><strong>Local</strong>: simple queries on single node, admin statements, DDL.</li>
+<li><strong>Distributed</strong>: queries where table ranges span multiple nodes. Scan processors placed on nodes owning the data ranges (locality-aware placement).</li>
+</ul>
+<p>For joins: if one side fits in memory and the other is distributed → <strong>broadcast join</strong> (copy small side to all nodes). Otherwise → <strong>hash-shuffle join</strong> (redistribute both sides by join key hash).</p>
+<h3 id="vectorized-execution-engine">Vectorized Execution Engine</h3>
+<p><code>pkg/sql/colflow/</code>, <code>pkg/sql/colexec/</code>:</p>
+<ul>
+<li>All operators implement <code>colexecop.Operator</code> with <code>Next() coldata.Batch</code> returning columnar batches of 1024 rows.</li>
+<li>Columnar format: each column is a typed Go slice + validity bitmap (for NULLs). No row-oriented iteration.</li>
+<li>Cross-node data transport: <code>colrpc.Outbox</code> serializes batches as <strong>Apache Arrow IPC</strong> format, sends via gRPC stream. <code>colrpc.Inbox</code> deserializes.</li>
+<li><code>execgen</code> tool generates type-specialized operator implementations for all type combinations at compile time — no runtime reflection.</li>
+</ul>
+<h3 id="explain-output">Explain Output</h3>
+<pre><code data-lang="sql">EXPLAIN (DISTSQL, VERBOSE) SELECT ...
+</code></pre>
+<p>Returns per-node processor graph. <code>EXPLAIN ANALYZE (DISTSQL)</code> adds runtime row counts, memory usage, and time per processor — essential for diagnosing plan quality issues.</p>
+<hr />
+<h2 id="apply-operator-decorrelation-internals">Apply Operator &amp; Decorrelation Internals</h2>
+<p>The <code>decorrelate.opt</code> rules translate correlated subqueries into joins. The mechanism:</p>
+<h3 id="apply-operator">Apply Operator</h3>
+<p>A correlated subquery is initially represented as an <strong>Apply</strong> operator:</p>
+<pre><code>Apply(left: R, right: S(outer_cols), join_type)
+  -- right side references columns from left; must re-execute per left row
+  -- O(|R|) subquery executions
+</code></pre>
+<h3 id="decorrelation-algorithm-unnesting">Decorrelation Algorithm (Unnesting)</h3>
+<p>Rules in <code>decorrelate.opt</code> transform Apply into regular Join by <strong>hoisting</strong> the correlated expression:</p>
+<pre><code>Step 1: Identify outer column references in right subtree
+Step 2: For each correlated operator in right (Select, Project, GroupBy, etc.):
+  - &quot;Hoist&quot; the correlated computation above the Apply
+  - Replace inner correlation reference with a new column
+Step 3: Apply becomes InnerJoin / SemiJoin / AntiJoin
+  - Join condition = original correlation predicate
+  - Right side is now a standalone expression (no outer column refs)
+</code></pre>
+<p><strong>Example:</strong></p>
+<pre><code data-lang="sql">SELECT * FROM t WHERE id IN (SELECT id FROM s WHERE s.col = t.col)
+-- Initial: Apply(t, Select(Scan(s), s.col = t.col), SemiJoin)
+-- After DecorrelateSelect:
+--   SemiJoin(t, Scan(s), t.col = s.col)
+-- t.col = s.col is now a regular join predicate; executes once
+</code></pre>
+<p><strong>When decorrelation fails:</strong> subquery references multiple levels of outer scope, or contains volatile functions, or uses complex aggregation patterns that can't be unnested. Fallback: apply operator with subquery cache (memo per distinct outer-col value).</p>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

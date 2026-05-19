@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Pgbouncer</h1>
+  <h1 id="pgbouncer-connection-pooling-for-postgresql-deep-dive">PgBouncer: Connection Pooling for PostgreSQL -- Deep Dive</h1>
+<h2 id="changelog">Changelog</h2>
+<table><thead><tr><th>Date</th><th>Section added / updated</th></tr></thead><tbody>
+<tr><td>2026-03-26</td><td>Initial comprehensive write-up: architecture, pooling modes, connection lifecycle, configuration, performance, monitoring, deployment patterns, limitations, recent developments</td></tr>
+</tbody></table>
+<hr />
+<h2 id="1-architecture-internals">1. Architecture &amp; Internals</h2>
+<h3 id="1-1-why-connection-pooling-matters">1.1 Why Connection Pooling Matters</h3>
+<p>PostgreSQL forks a new OS process for every client connection. Each backend process consumes roughly 5-10 MB of resident memory (stack, shared buffer pointers, local catalog caches, work_mem allocations). At 500 connections that is 2.5-5 GB of memory purely for process overhead, even if those connections are idle. Worse, the process-per-connection model means that context switching overhead grows with connection count, and shared buffer contention (via LWLocks, especially ProcArrayLock and buffer partition locks) degrades throughput once you exceed a few hundred active backends. The PostgreSQL community has measured that peak throughput often occurs at 2-4x the number of CPU cores, and declines after that.</p>
+<p>PgBouncer sits between clients and PostgreSQL, maintaining a much smaller pool of actual server connections that are shared across a larger number of client connections. A deployment might accept 10,000 client connections through PgBouncer but only ever open 100 connections to PostgreSQL.</p>
+<h3 id="1-2-single-threaded-event-loop-libevent">1.2 Single-Threaded Event Loop (libevent)</h3>
+<p>PgBouncer is written in C and is single-threaded by design (until very recent multi-threading efforts; see Section 9). It uses <strong>libevent</strong> (specifically libevent2 in modern builds) as its event notification framework, which abstracts over OS-specific mechanisms:</p>
+<ul>
+<li><strong>epoll</strong> on Linux</li>
+<li><strong>kqueue</strong> on macOS/FreeBSD</li>
+<li><strong>select/poll</strong> as fallback</li>
+</ul>
+<p>The event loop is the heart of PgBouncer. It runs a tight loop that:</p>
+<ol>
+<li>Calls <code>event_base_loop()</code> (or equivalent) to wait for I/O readiness on all registered file descriptors (client sockets, server sockets, the listening socket, DNS resolution sockets, admin console socket, pipes for signal handling).</li>
+<li>When a file descriptor becomes readable or writable, the corresponding callback fires.</li>
+<li>The callback reads/writes data, advances the state machine for that connection, and returns control to the event loop.</li>
+</ol>
+<p>Because it is single-threaded, there is <strong>zero lock contention</strong> within PgBouncer itself. This is the source of its extreme efficiency -- there are no mutexes, no atomic operations on hot paths, no thread synchronization overhead. The trade-off is that PgBouncer can only use one CPU core. For most workloads, a single core running an event loop can handle tens of thousands of connections because the work per event is minimal (just copying packets between sockets).</p>
+<h3 id="1-3-wire-protocol-handling">1.3 Wire Protocol Handling</h3>
+<p>PgBouncer implements a substantial subset of the PostgreSQL v3 wire protocol (the protocol used since PostgreSQL 7.4). It does <strong>not</strong> implement the full protocol -- it only needs to understand enough to:</p>
+<ol>
+<li><strong>Parse startup messages</strong>: SSLRequest, GSSEncRequest, StartupMessage (with protocol version, user, database, options).</li>
+<li><strong>Handle authentication exchanges</strong>: Cleartext, MD5, SCRAM-SHA-256 (added later), certificate auth.</li>
+<li><strong>Identify transaction boundaries</strong>: It must detect when a transaction starts and ends to know when a server connection can be reassigned (in transaction pooling mode). It does this by tracking:
+<ul>
+<li><code>ReadyForQuery</code> messages from the server, which include a transaction status byte: <code>I</code> (idle), <code>T</code> (in transaction), <code>E</code> (in failed transaction).</li>
+<li><code>Query</code> and <code>Parse</code> messages from the client (simple and extended query protocol).</li>
+</ul>
+</li>
+<li><strong>Forward packets opaquely</strong>: For the most part, PgBouncer does not interpret the contents of Query, Parse, Bind, Execute, Describe, or data row messages. It forwards them as-is between client and server sockets, acting as a transparent proxy.</li>
+</ol>
+<p>The key insight is that PgBouncer operates at the <strong>packet level</strong>, not the SQL level. It does not parse SQL. It reads the 1-byte message type tag and the 4-byte length prefix of each protocol message, and forwards the entire message. The only messages it deeply inspects are authentication-related messages, <code>ReadyForQuery</code> (for transaction boundary detection), and <code>ParameterStatus</code> messages (to track GUC settings like <code>client_encoding</code>, <code>DateStyle</code>, <code>TimeZone</code>, etc. that need to be replayed when reassigning connections).</p>
+<h3 id="1-4-memory-model">1.4 Memory Model</h3>
+<p>PgBouncer is extremely memory-efficient:</p>
+<ul>
+<li><strong>Per client connection</strong>: Approximately 2 KB of state (the <code>PgSocket</code> structure, read/write buffers). The packet buffer (<code>pkt_buf</code>) size is configurable (default 4096 bytes) and is the primary per-connection memory cost. For 10,000 client connections, that is roughly 40 MB of buffer memory.</li>
+<li><strong>Per server connection</strong>: Similar overhead to client connections.</li>
+<li><strong>Slab allocator</strong>: PgBouncer uses a custom slab allocator for <code>PgSocket</code> structures and related objects to avoid malloc fragmentation and keep allocation fast.</li>
+<li><strong>sbuf (SBuf)</strong>: The streaming buffer abstraction. Each connection has an <code>SBuf</code> that manages non-blocking I/O. The sbuf implements scatter-gather-style buffering where data is read from one socket into a buffer and then written to the paired socket. When the buffer fills, back-pressure is applied by not reading from the source socket (removing it from the readable set in the event loop) until the destination socket drains.</li>
+<li><strong>pkt_buf</strong>: Controls the maximum packet size that PgBouncer can handle in a single read. If a PostgreSQL protocol message exceeds <code>pkt_buf</code> size, PgBouncer can still handle it by streaming it in chunks, but certain messages that must be parsed in their entirety (like startup/auth) need to fit in the buffer.</li>
+</ul>
+<h3 id="1-5-connection-multiplexing">1.5 Connection Multiplexing</h3>
+<p>The core multiplexing works as follows:</p>
+<ul>
+<li>Client connects to PgBouncer. PgBouncer accepts the TCP connection and creates a <code>PgSocket</code> in the <code>CL_LOGIN</code> state.</li>
+<li>After authentication, the client socket moves to <code>CL_ACTIVE</code> (if a server connection is available) or <code>CL_WAITING</code> (if none is available, and the client must wait in a queue).</li>
+<li>When a server connection is assigned, the client's <code>SBuf</code> and the server's <code>SBuf</code> are <strong>linked</strong>: data arriving on the client socket is forwarded to the server socket, and vice versa. This is the "fast path" -- PgBouncer is essentially doing <code>splice()</code> semantics at the userspace level.</li>
+<li>When the transaction completes (in transaction mode) or the client disconnects (in session mode), the server connection is <strong>unlinked</strong> from the client and returned to the pool.</li>
+</ul>
+<h3 id="1-6-dns-resolution">1.6 DNS Resolution</h3>
+<p>PgBouncer performs asynchronous DNS resolution. It supports:</p>
+<ul>
+<li>Built-in DNS using <code>getaddrinfo_a</code> or its own resolver (c-ares integration in newer versions).</li>
+<li><code>dns_max_ttl</code> controls caching duration.</li>
+<li>This matters for cloud environments where database endpoints may resolve to different IPs over time (e.g., RDS failover).</li>
+</ul>
+<hr />
+<h2 id="2-pooling-modes">2. Pooling Modes</h2>
+<p>PgBouncer supports three pooling modes, configured per-database or globally via <code>pool_mode</code>.</p>
+<h3 id="2-1-session-pooling-pool-mode-session">2.1 Session Pooling (<code>pool_mode = session</code>)</h3>
+<p><strong>How it works</strong>: A server connection is assigned to a client when the client connects and is released only when the client disconnects. This is the least aggressive pooling mode.</p>
+<p><strong>What it provides</strong>: Connection reuse between sequential client sessions. If client A disconnects and client B connects, client B can reuse the server connection that client A was using, avoiding the overhead of establishing a new backend process.</p>
+<p><strong>What works</strong>: Everything. Since the client has exclusive use of a server connection for its entire session, all PostgreSQL features work:</p>
+<ul>
+<li>Prepared statements (named and unnamed)</li>
+<li>SET / SET LOCAL for GUC variables</li>
+<li>LISTEN / NOTIFY</li>
+<li>Advisory locks (session-level)</li>
+<li>Temporary tables</li>
+<li>Cursors (WITH HOLD and without)</li>
+<li>DECLARE ... CURSOR</li>
+<li>Sequences with currval() state</li>
+<li>Connection-level state in extensions</li>
+</ul>
+<p><strong>What breaks</strong>: Nothing, from a feature perspective.</p>
+<p><strong>Trade-offs</strong>:</p>
+<ul>
+<li>Pros: Maximum compatibility. Zero risk of state leakage between sessions.</li>
+<li>Cons: Minimal pooling benefit. If clients hold connections open for long periods (as connection pools in application servers typically do), the pool provides little reduction in server connections. You get the N:N mapping where N clients need N server connections.</li>
+<li>Best suited for: Applications that cannot be modified to work with transaction pooling, or workloads where clients connect, do work, and disconnect quickly (short-lived connections like PHP-FPM, serverless functions).</li>
+</ul>
+<h3 id="2-2-transaction-pooling-pool-mode-transaction">2.2 Transaction Pooling (<code>pool_mode = transaction</code>)</h3>
+<p><strong>How it works</strong>: A server connection is assigned to a client only for the duration of a single transaction. Between transactions (when the server sends <code>ReadyForQuery</code> with status <code>I</code>), the server connection is returned to the pool and can be used by another client. For autocommit queries (no explicit BEGIN), the connection is assigned for the duration of that single query.</p>
+<p><strong>What it provides</strong>: Dramatic reduction in required server connections. If 1,000 clients each spend 5% of their time in a transaction, you only need ~50 server connections instead of 1,000.</p>
+<p><strong>What breaks in transaction mode -- the complete list</strong>:</p>
+<table><thead><tr><th>Feature</th><th>Why it breaks</th><th>Workaround</th></tr></thead><tbody>
+<tr><td><strong>Prepared statements</strong> (pre-1.21)</td><td>PREPARE creates server-side state on a specific backend. Next transaction may go to a different backend.</td><td>Use protocol-level prepared statements with <code>PQprepare()</code> instead of SQL PREPARE. Or use PgBouncer 1.21+ with <code>track_extra_parameters</code>. See Section 8.</td></tr>
+<tr><td><strong>SET / SET LOCAL</strong></td><td>SET changes persist for the session on the server. Next transaction on a different server will have different settings. SET LOCAL is fine (scoped to transaction).</td><td>Use SET LOCAL within transactions. Or use PgBouncer's <code>server_reset_query</code> (default: DISCARD ALL) to clean up, but this adds overhead.</td></tr>
+<tr><td><strong>LISTEN / NOTIFY</strong></td><td>LISTEN registers interest on a specific backend. If the client is moved to a different backend, it misses notifications. NOTIFY works but is fragile.</td><td>Do not use LISTEN through PgBouncer in transaction mode. Use a dedicated non-pooled connection for LISTEN.</td></tr>
+<tr><td><strong>Advisory locks (session-level)</strong></td><td><code>pg_advisory_lock()</code> is held on a backend. If the client moves, the lock is orphaned (held until that backend's session ends, which may be a long time).</td><td>Use <code>pg_advisory_xact_lock()</code> (transaction-scoped advisory locks) instead.</td></tr>
+<tr><td><strong>Temporary tables</strong></td><td>Created on a backend, persist for the session. Next transaction may go to a different backend where the temp table does not exist.</td><td>Create and drop temp tables within the same transaction, or use <code>ON COMMIT DROP</code>.</td></tr>
+<tr><td><strong>Cursors (WITH HOLD)</strong></td><td>A WITH HOLD cursor persists after the transaction that created it. It exists on a specific backend.</td><td>Only use cursors within a single transaction.</td></tr>
+<tr><td><strong>DEALLOCATE / DISCARD</strong></td><td>These reference session-level state on a specific backend.</td><td>Avoid, or use <code>server_reset_query = DISCARD ALL</code>.</td></tr>
+<tr><td><strong>Sequences (currval/lastval)</strong></td><td><code>currval()</code> depends on <code>nextval()</code> having been called in the same session/backend.</td><td>Call <code>nextval()</code> and <code>currval()</code> in the same transaction.</td></tr>
+<tr><td><strong>Large objects</strong></td><td>Large object descriptors are session-scoped.</td><td>Open and close large objects within the same transaction.</td></tr>
+<tr><td><strong>SET ROLE / SET SESSION AUTHORIZATION</strong></td><td>Session-level identity changes.</td><td>Avoid or scope to transaction.</td></tr>
+</tbody></table>
+<p><strong>How PgBouncer handles the transition</strong>: When the server sends <code>ReadyForQuery</code> with <code>I</code> status, PgBouncer:</p>
+<ol>
+<li>Optionally runs <code>server_reset_query</code> (default: <code>DISCARD ALL</code>) on the server connection to clean up any session state. This adds a round-trip. Setting it to empty string skips this, improving performance but risking state leakage.</li>
+<li>Returns the server connection to the pool's free list.</li>
+<li>If there are clients waiting in the queue, the server connection is immediately assigned to the next waiting client.</li>
+</ol>
+<p><strong>Trade-offs</strong>:</p>
+<ul>
+<li>Pros: Massive connection reduction. The most commonly used mode in production.</li>
+<li>Cons: Application must be aware of the constraints. Session-level state is unreliable.</li>
+<li>Best suited for: Most web applications, microservices, and serverless workloads that use simple request-response patterns.</li>
+</ul>
+<h3 id="2-3-statement-pooling-pool-mode-statement">2.3 Statement Pooling (<code>pool_mode = statement</code>)</h3>
+<p><strong>How it works</strong>: A server connection is assigned for a single SQL statement (a single <code>Query</code> message or a single extended query cycle). After each statement completes, the connection is returned to the pool. Multi-statement transactions are <strong>not allowed</strong> -- PgBouncer will reject BEGIN/COMMIT/ROLLBACK and any attempt to run multiple statements in a transaction.</p>
+<p><strong>What it provides</strong>: Even more aggressive multiplexing than transaction pooling.</p>
+<p><strong>What breaks</strong>: Everything that breaks in transaction mode, plus:</p>
+<ul>
+<li><strong>All transactions</strong>: You cannot use BEGIN/COMMIT/ROLLBACK. Every statement runs in autocommit mode.</li>
+<li><strong>Multi-statement consistency</strong>: No way to ensure two statements see the same snapshot.</li>
+<li><strong>Any form of state</strong>: No state persists between statements at all.</li>
+</ul>
+<p><strong>Trade-offs</strong>:</p>
+<ul>
+<li>Pros: Maximum multiplexing efficiency.</li>
+<li>Cons: Extremely restrictive. Almost no real application can work with this mode.</li>
+<li>Best suited for: Very simple read-only workloads, monitoring queries, health checks. Rarely used in production.</li>
+</ul>
+<h3 id="2-4-choosing-a-pool-mode">2.4 Choosing a Pool Mode</h3>
+<p>The decision tree is straightforward:</p>
+<ol>
+<li>If your application uses LISTEN/NOTIFY, session-level advisory locks, or cannot be modified: <strong>session mode</strong>.</li>
+<li>If your application uses simple request-response patterns (each HTTP request = one transaction): <strong>transaction mode</strong>. This is the right choice for 90%+ of deployments.</li>
+<li>If you only run stateless single-query reads: <strong>statement mode</strong> (rare).</li>
+</ol>
+<hr />
+<h2 id="3-connection-lifecycle-state-machine">3. Connection Lifecycle &amp; State Machine</h2>
+<h3 id="3-1-client-connection-states">3.1 Client Connection States</h3>
+<p>The client connection progresses through these states (defined in PgBouncer source as <code>SocketState</code>):</p>
+<pre><code>CL_FREE        --&gt; socket not in use (in free list)
+CL_JUSTFREE    --&gt; just disconnected, cleanup pending
+CL_LOGIN       --&gt; client connected, authentication in progress
+CL_WAITING     --&gt; authenticated, waiting for a server connection
+CL_WAITING_LOGIN --&gt; waiting for server connection to finish login
+CL_ACTIVE      --&gt; linked to a server connection, forwarding data
+CL_CANCEL      --&gt; processing a cancel request
+</code></pre>
+<p><strong>Detailed flow</strong>:</p>
+<ol>
+<li>
+<p><strong>TCP Accept</strong>: PgBouncer's listening socket becomes readable. <code>accept()</code> is called. A <code>PgSocket</code> is allocated from the slab allocator. State = <code>CL_LOGIN</code>.</p>
+</li>
+<li>
+<p><strong>SSL Negotiation</strong> (optional): If the client sends an <code>SSLRequest</code> message (8 bytes: length=8, code=80877103), PgBouncer either upgrades the connection to TLS (if configured with <code>client_tls_sslmode</code>, <code>client_tls_key_file</code>, <code>client_tls_cert_file</code>) or responds with <code>N</code> (no SSL).</p>
+</li>
+<li>
+<p><strong>Startup Message Parsing</strong>: The client sends a <code>StartupMessage</code> containing protocol version (3.0), and key-value pairs: <code>user</code>, <code>database</code>, <code>application_name</code>, <code>options</code>, etc. PgBouncer extracts the user and database name to determine which pool to use.</p>
+</li>
+<li>
+<p><strong>Authentication</strong>: PgBouncer authenticates the client. This is <strong>independent</strong> of how PgBouncer authenticates to the PostgreSQL server. The client-side auth method is determined by:</p>
+<ul>
+<li><code>auth_type</code> in pgbouncer.ini: <code>any</code>, <code>trust</code>, <code>plain</code>, <code>md5</code>, <code>scram-sha-256</code>, <code>cert</code>, <code>hba</code>, <code>pam</code>.</li>
+<li><code>auth_file</code> (a userlist.txt file with "user" "password" pairs, or "user" "" for auth_query delegation).</li>
+<li><code>auth_hba_file</code> (a pg_hba.conf-format file for <code>auth_type = hba</code>).</li>
+<li><code>auth_query</code> (a SQL query run against PostgreSQL to look up passwords dynamically, e.g., <code>SELECT usename, passwd FROM pg_shadow WHERE usename=$1</code>).</li>
+</ul>
+</li>
+<li>
+<p><strong>Pool Lookup</strong>: PgBouncer looks up or creates a pool keyed by <code>(database, user)</code>. Each pool maintains its own free list of server connections.</p>
+</li>
+<li>
+<p><strong>Server Connection Assignment</strong>:</p>
+<ul>
+<li>If a free server connection exists in the pool: assign it to the client. Client state -&gt; <code>CL_ACTIVE</code>.</li>
+<li>If no free connection exists but pool has room to grow (current count &lt; <code>pool_size</code>): initiate a new server connection (which itself goes through <code>SV_LOGIN</code> state). Client state -&gt; <code>CL_WAITING_LOGIN</code>.</li>
+<li>If pool is full: client enters the wait queue. Client state -&gt; <code>CL_WAITING</code>. The client will block until a server connection is freed or a timeout (<code>client_login_timeout</code>, <code>query_wait_timeout</code>) fires.</li>
+</ul>
+</li>
+<li>
+<p><strong>Data Forwarding (Active State)</strong>: Client and server sbufs are linked. Data flows bidirectionally. PgBouncer monitors <code>ReadyForQuery</code> messages to track transaction state.</p>
+</li>
+<li>
+<p><strong>Connection Release</strong> (transaction/statement mode): When PgBouncer sees <code>ReadyForQuery(I)</code> from the server:</p>
+<ul>
+<li>Run <code>server_reset_query</code> if configured.</li>
+<li>Unlink client from server.</li>
+<li>Return server to free list.</li>
+<li>Client -&gt; <code>CL_WAITING</code> (will be reassigned to a server when it sends the next query).</li>
+</ul>
+</li>
+<li>
+<p><strong>Client Disconnect</strong>: Client socket closes or errors. PgBouncer cleans up. If a server was linked, it is reset and returned to the pool (or closed if tainted).</p>
+</li>
+</ol>
+<h3 id="3-2-server-connection-states">3.2 Server Connection States</h3>
+<pre><code>SV_FREE         --&gt; not in use
+SV_JUSTFREE     --&gt; cleanup pending
+SV_LOGIN        --&gt; connecting to PostgreSQL, authentication in progress
+SV_IDLE         --&gt; in the pool&#39;s free list, ready for assignment
+SV_ACTIVE       --&gt; linked to a client, forwarding data
+SV_USED         --&gt; just unlinked from a client, reset query pending
+SV_TESTED       --&gt; test query in progress (server_check_query)
+</code></pre>
+<h3 id="3-3-authentication-detail">3.3 Authentication Detail</h3>
+<p><strong>Client-side authentication</strong> (PgBouncer authenticates the client):</p>
+<ul>
+<li><strong>trust</strong>: No authentication.</li>
+<li><strong>any</strong>: Accept any password (just check the user exists).</li>
+<li><strong>plain</strong>: Cleartext password match against <code>auth_file</code>.</li>
+<li><strong>md5</strong>: MD5 challenge-response against <code>auth_file</code>.</li>
+<li><strong>scram-sha-256</strong>: Full SCRAM-SHA-256 exchange. PgBouncer acts as the SCRAM server. Requires that <code>auth_file</code> contains SCRAM-verifier-format passwords (the SCRAM-SHA-256$iterations:salt:StoredKey:ServerKey format). Added in PgBouncer 1.14+.</li>
+<li><strong>cert</strong>: TLS client certificate authentication. The CN (Common Name) of the client certificate must match the connecting username.</li>
+<li><strong>hba</strong>: Use pg_hba.conf-format rules from <code>auth_hba_file</code> to determine the auth method per-connection (based on source IP, database, user).</li>
+<li><strong>pam</strong>: PAM authentication (calls out to the system PAM stack).</li>
+<li><strong>auth_query</strong>: Instead of storing passwords in <code>auth_file</code>, PgBouncer connects to PostgreSQL and runs a query to fetch the user's password hash. This allows PgBouncer to always have up-to-date credentials without restarting.</li>
+</ul>
+<p><strong>Server-side authentication</strong> (PgBouncer authenticates to PostgreSQL):</p>
+<ul>
+<li>PgBouncer uses the password from <code>auth_file</code> (or <code>auth_query</code> result) to authenticate to PostgreSQL.</li>
+<li>Supports md5, SCRAM-SHA-256, and cleartext methods on the server side.</li>
+<li>Important subtlety: if the server requires SCRAM and the <code>auth_file</code> only has md5 hashes, authentication fails. You need the actual plaintext password (or the SCRAM verifier, but PgBouncer cannot derive a SCRAM response from an md5 hash). This is a common deployment gotcha when migrating from <code>password_encryption = md5</code> to <code>scram-sha-256</code>.</li>
+</ul>
+<h3 id="3-4-cancel-request-handling">3.4 Cancel Request Handling</h3>
+<p>PostgreSQL's cancel protocol is unusual: the client opens a <strong>new TCP connection</strong>, sends a <code>CancelRequest</code> message (16 bytes: length=16, code=80877102, PID, secret key), and immediately closes the connection. The server matches the PID and secret key to find the target backend and sends SIGINT to it.</p>
+<p>PgBouncer must intercept this because:</p>
+<ol>
+<li>The PID the client knows is PgBouncer's "virtual PID" (assigned when the client connected), not the real PostgreSQL backend PID.</li>
+<li>PgBouncer must map the virtual PID back to the actual backend PID and secret key.</li>
+<li>PgBouncer then opens a new connection to PostgreSQL and forwards a CancelRequest with the real PID and secret key.</li>
+</ol>
+<p>This works but has a known limitation: if the client's transaction has already completed and the server connection has been reassigned to a different client (in transaction mode), the cancel may go to the wrong query on the wrong client. This is an inherent race condition in the cancel protocol combined with connection multiplexing. PgBouncer mitigates this by checking if the original client is still linked to the server connection, but the window exists.</p>
+<hr />
+<h2 id="4-configuration-deep-dive">4. Configuration Deep Dive</h2>
+<h3 id="4-1-pool-sizing-parameters">4.1 Pool Sizing Parameters</h3>
+<p><strong><code>default_pool_size</code></strong> (default: 20)</p>
+<ul>
+<li>Number of server connections per (database, user) pool. This is the target number of connections PgBouncer will maintain to PostgreSQL for each unique database+user combination.</li>
+<li>If you have 5 databases and 3 users, you could have up to 15 pools, each with 20 connections = 300 server connections maximum.</li>
+<li>This is the single most important parameter to tune. Set it to roughly <code>(number of CPU cores on the PG server) * 2-4</code> for OLTP workloads.</li>
+</ul>
+<p><strong><code>min_pool_size</code></strong> (default: 0)</p>
+<ul>
+<li>Minimum number of server connections to keep open even when idle. PgBouncer will proactively open connections up to this number when a pool is created.</li>
+<li>Prevents the latency spike when the first queries arrive and connections must be established.</li>
+<li>Set to a small value (e.g., 5-10) to keep warm connections ready.</li>
+</ul>
+<p><strong><code>reserve_pool_size</code></strong> (default: 0)</p>
+<ul>
+<li>Additional connections allowed beyond <code>default_pool_size</code> when the pool has been exhausted for longer than <code>reserve_pool_timeout</code>.</li>
+<li>Acts as an overflow buffer for traffic spikes.</li>
+</ul>
+<p><strong><code>reserve_pool_timeout</code></strong> (default: 5 seconds)</p>
+<ul>
+<li>How long clients must wait in the queue before PgBouncer opens reserve pool connections.</li>
+<li>Prevents premature scaling of connections for brief spikes.</li>
+</ul>
+<p><strong><code>max_client_conn</code></strong> (default: 100)</p>
+<ul>
+<li>Maximum number of client connections PgBouncer will accept. This is the hard limit on concurrent clients.</li>
+<li>In production, often set to 5,000-50,000 depending on the workload.</li>
+</ul>
+<p><strong><code>max_db_connections</code></strong> (default: 0, unlimited)</p>
+<ul>
+<li>Maximum total server connections per database (across all users). This is a hard cap.</li>
+<li>Useful for preventing a single database from monopolizing all server connections.</li>
+</ul>
+<p><strong><code>max_user_connections</code></strong> (default: 0, unlimited)</p>
+<ul>
+<li>Maximum total server connections per user (across all databases).</li>
+</ul>
+<h3 id="4-2-timeout-parameters">4.2 Timeout Parameters</h3>
+<p><strong><code>server_lifetime</code></strong> (default: 3600 seconds)</p>
+<ul>
+<li>How long a server connection can live before PgBouncer closes and reopens it. This is measured from when the connection was established.</li>
+<li>Purpose: Prevent issues from long-lived connections (connection-level caches growing stale, TCP connections going bad behind a load balancer, graceful rotation for maintenance).</li>
+<li>Setting this too low increases connection churn. Setting it too high means stale connections linger.</li>
+</ul>
+<p><strong><code>server_idle_timeout</code></strong> (default: 600 seconds)</p>
+<ul>
+<li>How long a server connection can sit idle in the pool before PgBouncer closes it.</li>
+<li>Helps reclaim connections during low-traffic periods.</li>
+<li>Works in conjunction with <code>min_pool_size</code> -- PgBouncer will not close connections below <code>min_pool_size</code> even if they exceed <code>server_idle_timeout</code>.</li>
+</ul>
+<p><strong><code>server_connect_timeout</code></strong> (default: 15 seconds)</p>
+<ul>
+<li>How long PgBouncer waits for a TCP connection to PostgreSQL to be established.</li>
+<li>Increase this if PostgreSQL is on a remote host with high latency.</li>
+</ul>
+<p><strong><code>server_login_retry</code></strong> (default: 15 seconds)</p>
+<ul>
+<li>If a server connection attempt fails, PgBouncer waits this long before retrying.</li>
+<li>During this period, client queries queue up (or fail if <code>query_wait_timeout</code> is reached).</li>
+</ul>
+<p><strong><code>query_timeout</code></strong> (default: 0, disabled)</p>
+<ul>
+<li>Maximum time a query can run before PgBouncer terminates the server connection. This is a <strong>blunt instrument</strong> -- it kills the entire connection, not just the query. Use PostgreSQL's <code>statement_timeout</code> instead when possible.</li>
+</ul>
+<p><strong><code>query_wait_timeout</code></strong> (default: 120 seconds)</p>
+<ul>
+<li>How long a client can wait in the queue for a server connection. If this timeout is reached, PgBouncer sends an error to the client: <code>ERROR: query_wait_timeout</code>.</li>
+<li>This is the primary safeguard against pool exhaustion. If clients are waiting longer than this, it means the pool is saturated.</li>
+</ul>
+<p><strong><code>client_idle_timeout</code></strong> (default: 0, disabled)</p>
+<ul>
+<li>Disconnect a client that has been idle for this long. Useful for cleaning up abandoned connections.</li>
+<li>In session mode, this is the only way to reclaim server connections from idle clients.</li>
+</ul>
+<p><strong><code>client_login_timeout</code></strong> (default: 60 seconds)</p>
+<ul>
+<li>Maximum time for a client to complete the authentication handshake.</li>
+</ul>
+<p><strong><code>idle_transaction_timeout</code></strong> (default: 0, disabled)</p>
+<ul>
+<li>Close server connections that have been idle in a transaction (status <code>T</code> or <code>E</code>) for too long. This catches the "idle in transaction" problem where a client starts a transaction and then goes silent, holding a server connection hostage.</li>
+<li>Equivalent to PostgreSQL 14+'s <code>idle_in_transaction_session_timeout</code>, but enforced by PgBouncer.</li>
+</ul>
+<h3 id="4-3-connection-validation">4.3 Connection Validation</h3>
+<p><strong><code>server_check_query</code></strong> (default: <code>SELECT 1</code>)</p>
+<ul>
+<li>A simple query sent to a server connection before it is handed to a client, to verify the connection is still alive.</li>
+<li>Only used when <code>server_check_delay</code> has elapsed since the last activity on that connection.</li>
+</ul>
+<p><strong><code>server_check_delay</code></strong> (default: 30 seconds)</p>
+<ul>
+<li>How recently the server connection must have been used to skip the <code>server_check_query</code>. If the server connection was active within this many seconds, the check is skipped.</li>
+<li>Setting to 0 means check every time (adds latency). Setting very high means rarely check (risk of dead connections).</li>
+</ul>
+<p><strong><code>server_reset_query</code></strong> (default: <code>DISCARD ALL</code>)</p>
+<ul>
+<li>Query run on a server connection when it is returned to the pool (after being unlinked from a client in transaction/statement mode).</li>
+<li><code>DISCARD ALL</code> clears: prepared statements, temporary tables, GUC changes, LISTEN registrations, advisory locks -- essentially all session state.</li>
+<li><strong>Performance impact</strong>: Running <code>DISCARD ALL</code> adds a round-trip to PostgreSQL on every transaction completion. For high-throughput workloads, this can be significant (adding 0.1-0.5 ms per transaction).</li>
+<li>If your application is well-behaved and does not leak session state, you can set this to empty string (<code>server_reset_query =</code>) for better performance. Many production deployments do this.</li>
+<li>For PostgreSQL 9.3+, <code>DISCARD ALL</code> is the recommended default. For older versions, <code>RESET ALL; DEALLOCATE ALL;</code> was common.</li>
+</ul>
+<p><strong><code>server_reset_query_always</code></strong> (default: 0)</p>
+<ul>
+<li>If set to 1, run the reset query even in session mode (normally it is only run in transaction and statement modes).</li>
+</ul>
+<h3 id="4-4-common-pitfalls">4.4 Common Pitfalls</h3>
+<ol>
+<li>
+<p><strong>Pool exhaustion without awareness</strong>: If <code>default_pool_size</code> is 20 and you have 1,000 clients, all 1,000 clients share 20 server connections. If queries are slow (say 100ms each) and arrival rate exceeds 200 queries/second, clients will queue. Monitor <code>cl_waiting</code> in <code>SHOW POOLS</code>.</p>
+</li>
+<li>
+<p><strong>Too many pools</strong>: If you have 10 databases x 10 users, that is 100 pools x <code>default_pool_size</code> connections each. You might exceed PostgreSQL's <code>max_connections</code> without realizing it. Use <code>max_db_connections</code> and <code>max_user_connections</code> as safety caps.</p>
+</li>
+<li>
+<p><strong>server_reset_query overhead</strong>: Leaving <code>DISCARD ALL</code> as the default is safe but costs a round-trip. Profile whether it matters for your workload.</p>
+</li>
+<li>
+<p><strong>query_wait_timeout too long or too short</strong>: Too long means clients hang for minutes during outages (bad user experience). Too short means clients get errors during brief traffic spikes that the pool could handle with a bit of patience.</p>
+</li>
+<li>
+<p><strong>server_lifetime interacting with connection storms</strong>: If many server connections were created at the same time (e.g., during a cold start), they all hit <code>server_lifetime</code> at the same time, causing a "thundering herd" of reconnections. PgBouncer mitigates this with random jitter (up to <code>server_lifetime / 4</code> added as random offset since version 1.11).</p>
+</li>
+<li>
+<p><strong>DNS caching</strong>: If <code>dns_max_ttl</code> is too high and your PostgreSQL endpoint changes IP (e.g., AWS RDS failover), PgBouncer continues connecting to the old IP. Set <code>dns_max_ttl</code> to 30-60 seconds in cloud environments.</p>
+</li>
+</ol>
+<hr />
+<h2 id="5-performance-characteristics">5. Performance Characteristics</h2>
+<h3 id="5-1-overhead-per-connection">5.1 Overhead Per Connection</h3>
+<ul>
+<li><strong>Memory</strong>: ~2 KB per client connection for the <code>PgSocket</code> structure, plus the <code>pkt_buf</code> size (default 4096 bytes). Total: ~6 KB per client connection. For 10,000 clients: ~60 MB.</li>
+<li><strong>CPU</strong>: Negligible per idle connection (just a file descriptor in epoll/kqueue). Per active query, PgBouncer adds approximately 5-20 microseconds of processing time (buffer copy, state machine check, event loop overhead).</li>
+<li><strong>Latency overhead</strong>: In well-configured deployments, PgBouncer adds 50-200 microseconds to query latency (one extra memory-to-memory copy in each direction, plus the event loop wakeup). On localhost (PgBouncer co-located with the application), this is typically 20-50 microseconds.</li>
+</ul>
+<h3 id="5-2-throughput">5.2 Throughput</h3>
+<p>PgBouncer on a single core can handle:</p>
+<ul>
+<li><strong>50,000-100,000 simple queries per second</strong> (forwarding small queries and results between client and server on localhost).</li>
+<li><strong>10,000-30,000 transactions per second</strong> for typical OLTP workloads with small result sets.</li>
+</ul>
+<p>The bottleneck is rarely PgBouncer itself but rather:</p>
+<ul>
+<li>PostgreSQL backend performance</li>
+<li>Network latency between PgBouncer and PostgreSQL</li>
+<li>Serialization overhead for large result sets passing through PgBouncer's buffers</li>
+</ul>
+<h3 id="5-3-comparison-with-alternatives">5.3 Comparison with Alternatives</h3>
+<p><strong>PgBouncer vs pgpool-II</strong>:</p>
+<table><thead><tr><th>Aspect</th><th>PgBouncer</th><th>pgpool-II</th></tr></thead><tbody>
+<tr><td>Architecture</td><td>Single-threaded, event-driven, C</td><td>Multi-process, fork-based</td></tr>
+<tr><td>Memory per connection</td><td>~6 KB</td><td>~32 KB (a full child process for each client)</td></tr>
+<tr><td>Connection pooling</td><td>Excellent (primary purpose)</td><td>Supported but heavier</td></tr>
+<tr><td>Query parsing</td><td>None (packet-level proxy)</td><td>Full SQL parser (for load balancing, replication features)</td></tr>
+<tr><td>Load balancing</td><td>No (not its job)</td><td>Yes (read/write splitting, query-level LB)</td></tr>
+<tr><td>Replication features</td><td>No</td><td>Yes (streaming replication management, watchdog)</td></tr>
+<tr><td>Failover</td><td>No (pair with HAProxy/Patroni)</td><td>Yes (built-in watchdog)</td></tr>
+<tr><td>High availability</td><td>Run multiple instances behind LB</td><td>Built-in watchdog with VIP</td></tr>
+<tr><td>Throughput</td><td>Higher (5-10x) for pure proxying</td><td>Lower due to process model overhead</td></tr>
+<tr><td>Complexity</td><td>Simple, single config file</td><td>Complex, many features</td></tr>
+<tr><td>Maturity for pooling</td><td>Gold standard</td><td>Adequate but not primary focus</td></tr>
+</tbody></table>
+<p><strong>Verdict</strong>: Use PgBouncer for connection pooling. Use pgpool-II if you need its other features (read/write split, built-in failover) and connection pooling is secondary. Many deployments use PgBouncer for pooling + Patroni for failover.</p>
+<p><strong>PgBouncer vs PostgreSQL built-in connection pooling</strong>:</p>
+<p>PostgreSQL does not have true built-in connection pooling as of PG 17. There have been various proposals:</p>
+<ul>
+<li><strong>connection_pool</strong> patch (by Konstantin Knizhnik and others): Proposed for PG core, allows backends to be reused without forking a new process. Has not been committed as of PostgreSQL 17.</li>
+<li><strong>Per-backend connection caching</strong> in PG 17: There was work on making backend startup cheaper (shared catalog caches, etc.), but not a pooler.</li>
+</ul>
+<p>The PostgreSQL community has generally taken the stance that connection pooling belongs in middleware (PgBouncer) rather than in the core server, though this is an active area of discussion.</p>
+<h3 id="5-4-benchmarking-notes">5.4 Benchmarking Notes</h3>
+<p>When benchmarking PgBouncer:</p>
+<ul>
+<li>Use <code>pgbench</code> with <code>-C</code> flag (connect/disconnect per transaction) to see the benefit of connection reuse.</li>
+<li>Without PgBouncer, <code>-C</code> mode adds ~5-15ms per transaction (fork + auth + SSL overhead).</li>
+<li>With PgBouncer, <code>-C</code> mode adds ~0.5-2ms per transaction (just TCP handshake to PgBouncer; the server connection is already established).</li>
+<li>For steady-state benchmarking (persistent connections), measure the latency overhead: typically 50-200 microseconds added per query round-trip.</li>
+</ul>
+<hr />
+<h2 id="6-monitoring-admin-console">6. Monitoring &amp; Admin Console</h2>
+<h3 id="6-1-admin-console">6.1 Admin Console</h3>
+<p>PgBouncer exposes a virtual database called <code>pgbouncer</code> (configurable via <code>admin_users</code> and <code>stats_users</code>). You connect to it like a regular PostgreSQL database:</p>
+<pre><code>psql -p 6432 -U admin pgbouncer
+</code></pre>
+<p>This is not a real database. It is a command interface that responds to SHOW commands and a few control commands.</p>
+<h3 id="6-2-key-show-commands">6.2 Key SHOW Commands</h3>
+<p><strong>SHOW POOLS</strong> -- The most important monitoring view:</p>
+<ul>
+<li><code>database</code>: Database name</li>
+<li><code>user</code>: User name</li>
+<li><code>cl_active</code>: Client connections currently linked to a server (actively running queries or in a transaction)</li>
+<li><code>cl_waiting</code>: Client connections waiting for a server connection (QUEUE DEPTH -- this is the most critical metric)</li>
+<li><code>cl_cancel_req</code>: Client connections with pending cancel requests</li>
+<li><code>sv_active</code>: Server connections currently linked to a client</li>
+<li><code>sv_idle</code>: Server connections idle in the pool (available for assignment)</li>
+<li><code>sv_used</code>: Server connections running <code>server_reset_query</code></li>
+<li><code>sv_tested</code>: Server connections running <code>server_check_query</code></li>
+<li><code>sv_login</code>: Server connections in the process of connecting/authenticating to PostgreSQL</li>
+<li><code>maxwait</code>: How long the oldest waiting client has been waiting (in seconds). <strong>Alert if this exceeds a few seconds.</strong></li>
+<li><code>maxwait_us</code>: Same, in microseconds</li>
+<li><code>pool_mode</code>: The pool mode for this pool</li>
+</ul>
+<p><strong>Critical alert thresholds</strong>:</p>
+<ul>
+<li><code>cl_waiting &gt; 0</code> for sustained periods: pool is saturated</li>
+<li><code>maxwait &gt; 1s</code>: clients are experiencing significant queueing delay</li>
+<li><code>sv_active = pool_size</code> and <code>cl_waiting &gt; 0</code>: pool is fully utilized, need to either increase pool_size or optimize queries</li>
+</ul>
+<p><strong>SHOW STATS</strong> -- Aggregate statistics:</p>
+<ul>
+<li><code>total_xact_count</code>: Total transactions processed</li>
+<li><code>total_query_count</code>: Total queries processed</li>
+<li><code>total_received</code>: Total bytes received from clients</li>
+<li><code>total_sent</code>: Total bytes sent to clients</li>
+<li><code>total_xact_time</code>: Total microseconds spent in transactions</li>
+<li><code>total_query_time</code>: Total microseconds spent on queries</li>
+<li><code>total_wait_time</code>: Total microseconds clients spent waiting for a server connection</li>
+<li><code>avg_xact_count</code>: Average transactions per second (since last SHOW STATS)</li>
+<li><code>avg_query_count</code>: Average queries per second</li>
+<li><code>avg_xact_time</code>: Average transaction duration in microseconds</li>
+<li><code>avg_query_time</code>: Average query duration in microseconds</li>
+<li><code>avg_wait_time</code>: Average wait time in microseconds (should be near zero in a healthy system)</li>
+</ul>
+<p><strong>SHOW STATS_TOTALS</strong> -- Cumulative stats since PgBouncer start.</p>
+<p><strong>SHOW STATS_AVERAGES</strong> -- Running averages.</p>
+<p><strong>SHOW CLIENTS</strong> -- All client connections:</p>
+<ul>
+<li><code>type</code>, <code>user</code>, <code>database</code>, <code>state</code> (active/waiting/used/idle), <code>addr</code>, <code>port</code></li>
+<li><code>local_addr</code>, <code>local_port</code></li>
+<li><code>connect_time</code>, <code>request_time</code></li>
+<li><code>wait</code>, <code>wait_us</code> (how long in current waiting state)</li>
+<li><code>close_needed</code> (flagged for closure)</li>
+<li><code>ptr</code>, <code>link</code> (internal pointers; <code>link</code> shows the paired server connection)</li>
+</ul>
+<p><strong>SHOW SERVERS</strong> -- All server connections:</p>
+<ul>
+<li>Similar fields to SHOW CLIENTS</li>
+<li><code>remote_pid</code>: The actual PostgreSQL backend PID</li>
+<li><code>tls</code>: TLS status</li>
+</ul>
+<p><strong>SHOW DNS_HOSTS</strong> -- DNS cache entries.</p>
+<p><strong>SHOW DNS_ZONES</strong> -- DNS zone information.</p>
+<p><strong>SHOW CONFIG</strong> -- Current configuration.</p>
+<p><strong>SHOW DATABASES</strong> -- Configured databases and their settings (pool_size, pool_mode, etc.).</p>
+<p><strong>SHOW FDS</strong> -- File descriptor information (useful for debugging fd limits).</p>
+<p><strong>SHOW LISTS</strong> -- Internal list lengths (free clients, free servers, used clients, etc.).</p>
+<p><strong>SHOW MEM</strong> -- Memory usage by internal slab allocators.</p>
+<p><strong>SHOW SOCKETS</strong> -- Low-level socket state.</p>
+<p><strong>SHOW ACTIVE_SOCKETS</strong> -- Only active (non-idle) sockets.</p>
+<h3 id="6-3-control-commands">6.3 Control Commands</h3>
+<ul>
+<li><strong>PAUSE [db]</strong>: Stop assigning server connections. Clients that finish their current transaction will wait. All server connections become idle. Used for graceful maintenance (e.g., before restarting PostgreSQL).</li>
+<li><strong>RESUME [db]</strong>: Undo PAUSE.</li>
+<li><strong>DISABLE db</strong>: Reject new client connections to a database.</li>
+<li><strong>ENABLE db</strong>: Undo DISABLE.</li>
+<li><strong>KILL db</strong>: Close all client and server connections to a database immediately.</li>
+<li><strong>SUSPEND</strong>: Flush all data and stop I/O. Used for online restart of PgBouncer itself (combined with <code>RESUME</code> after restart with <code>-R</code> flag).</li>
+<li><strong>SHUTDOWN</strong>: Shut down PgBouncer.</li>
+<li><strong>RELOAD</strong>: Reload config file (pgbouncer.ini). Does not drop connections.</li>
+<li><strong>RECONNECT [db]</strong>: Close and reopen all server connections (gracefully, after current transactions finish). Useful after a failover.</li>
+</ul>
+<h3 id="6-4-prometheus-grafana-integration">6.4 Prometheus/Grafana Integration</h3>
+<p>PgBouncer does not natively export Prometheus metrics. Common approaches:</p>
+<ul>
+<li><strong>pgbouncer_exporter</strong> (standalone Go binary): Connects to the admin console, runs SHOW commands, and exposes metrics in Prometheus format.</li>
+<li><strong>Built-in Prometheus exporter</strong> was proposed but not yet merged as of early 2026.</li>
+</ul>
+<p>Key metrics to graph:</p>
+<ul>
+<li><code>cl_waiting</code> per pool (pool saturation)</li>
+<li><code>maxwait</code> per pool (queue depth)</li>
+<li><code>avg_wait_time</code> (user-facing latency from pooling)</li>
+<li><code>avg_query_time</code> vs <code>avg_xact_time</code> (query performance)</li>
+<li><code>total_xact_count</code> rate (throughput)</li>
+<li><code>sv_active</code> / <code>sv_idle</code> ratio (pool utilization)</li>
+</ul>
+<hr />
+<h2 id="7-deployment-patterns">7. Deployment Patterns</h2>
+<h3 id="7-1-sidecar-pattern-application-local">7.1 Sidecar Pattern (Application-Local)</h3>
+<p>PgBouncer runs on the same host (or in the same pod, in Kubernetes) as each application instance.</p>
+<p><strong>Pros</strong>:</p>
+<ul>
+<li>Minimal latency between application and PgBouncer (localhost / Unix socket).</li>
+<li>Each application instance has its own PgBouncer, so a misbehaving application cannot exhaust the pool for others.</li>
+<li>Simpler TLS setup (no TLS needed between app and PgBouncer on localhost).</li>
+<li>Natural horizontal scaling: as application instances scale, PgBouncer instances scale with them.</li>
+</ul>
+<p><strong>Cons</strong>:</p>
+<ul>
+<li>Many PgBouncer instances, each with their own pool. If <code>default_pool_size = 20</code> and you have 50 application instances, that is 1,000 server connections to PostgreSQL. The pooling benefit is per-instance, not global.</li>
+<li>To address this, reduce <code>default_pool_size</code> per instance (e.g., 2-5 per instance).</li>
+<li>Operational burden: many instances to configure and monitor.</li>
+</ul>
+<p><strong>Kubernetes specifics</strong>: PgBouncer is often deployed as a sidecar container in the application pod. The application connects to <code>localhost:5432</code> (PgBouncer), and PgBouncer connects to the PostgreSQL service. Configuration is typically injected via ConfigMap or secrets.</p>
+<h3 id="7-2-centralized-pattern-dedicated-pooling-tier">7.2 Centralized Pattern (Dedicated Pooling Tier)</h3>
+<p>One or a few PgBouncer instances sit between all applications and PostgreSQL.</p>
+<p><strong>Pros</strong>:</p>
+<ul>
+<li>Global pool: all applications share a single pool of server connections. Maximum efficiency in connection usage.</li>
+<li>Single point of configuration and monitoring.</li>
+<li>Easier to enforce connection limits.</li>
+</ul>
+<p><strong>Cons</strong>:</p>
+<ul>
+<li>Single point of failure (mitigated by running 2+ instances behind a load balancer).</li>
+<li>Network hop between application and PgBouncer adds latency (~0.2-1ms on a local network).</li>
+<li>A single PgBouncer instance only uses one CPU core. Must run multiple instances for high-throughput workloads (see multi-instance section below).</li>
+<li>Noisy neighbor problem: one application's slow queries can exhaust the pool for all applications.</li>
+</ul>
+<h3 id="7-3-multi-tier-pooling">7.3 Multi-Tier Pooling</h3>
+<p>For very large deployments: application-local PgBouncer (sidecar) connecting to a centralized PgBouncer tier.</p>
+<ul>
+<li>Sidecar PgBouncer handles rapid connection churn from the application (especially for frameworks that open/close connections per request).</li>
+<li>Centralized PgBouncer provides global pool management and connection limiting.</li>
+<li>Configuration: sidecar pool_mode = session (connections to centralized PgBouncer are long-lived), centralized pool_mode = transaction.</li>
+</ul>
+<p>This is an advanced pattern. The added complexity is only justified for deployments with hundreds of application instances and strict connection limits on PostgreSQL.</p>
+<h3 id="7-4-haproxy-pgbouncer">7.4 HAProxy + PgBouncer</h3>
+<p>Common pattern for high availability:</p>
+<pre><code>Application --&gt; HAProxy --&gt; PgBouncer instances (2+) --&gt; PostgreSQL
+</code></pre>
+<p>HAProxy provides:</p>
+<ul>
+<li>Health checking of PgBouncer instances (TCP check or HTTP check via a custom health endpoint).</li>
+<li>Load distribution across multiple PgBouncer instances.</li>
+<li>Transparent failover if a PgBouncer instance dies.</li>
+</ul>
+<p>Configuration considerations:</p>
+<ul>
+<li>HAProxy should use <code>balance leastconn</code> for PgBouncer backends.</li>
+<li>Set <code>timeout client</code> and <code>timeout server</code> appropriately (PgBouncer connections may be long-lived in session mode).</li>
+<li>TCP mode (<code>mode tcp</code>), not HTTP mode.</li>
+<li>Consider enabling the HAProxy PROXY protocol if you need PgBouncer to know the client's real IP (PgBouncer supports PROXY protocol since 1.17).</li>
+</ul>
+<h3 id="7-5-tls-termination">7.5 TLS Termination</h3>
+<p>PgBouncer supports TLS on both sides:</p>
+<p><strong>Client-facing TLS</strong> (<code>client_tls_*</code> parameters):</p>
+<ul>
+<li><code>client_tls_sslmode</code>: <code>disable</code>, <code>allow</code>, <code>prefer</code>, <code>require</code>, <code>verify-ca</code>, <code>verify-full</code></li>
+<li><code>client_tls_key_file</code>, <code>client_tls_cert_file</code>, <code>client_tls_ca_file</code></li>
+<li><code>client_tls_protocols</code>: Minimum/maximum TLS protocol version</li>
+<li><code>client_tls_ciphers</code>: Cipher suite specification</li>
+<li><code>client_tls_dheparams</code>: DH parameter size</li>
+</ul>
+<p><strong>Server-facing TLS</strong> (<code>server_tls_*</code> parameters):</p>
+<ul>
+<li>Same parameters, controlling the connection from PgBouncer to PostgreSQL.</li>
+</ul>
+<p><strong>Common patterns</strong>:</p>
+<ul>
+<li>Terminate TLS at PgBouncer (client TLS enabled, server TLS disabled if PgBouncer is on the same host as PostgreSQL or on a trusted network).</li>
+<li>Pass-through TLS (not supported -- PgBouncer must terminate and re-establish TLS because it needs to read the protocol messages).</li>
+<li>Both sides encrypted (client TLS + server TLS) for zero-trust networks.</li>
+</ul>
+<h3 id="7-6-running-multiple-pgbouncer-instances">7.6 Running Multiple PgBouncer Instances</h3>
+<p>Since PgBouncer is single-threaded, scaling beyond one CPU core requires multiple instances:</p>
+<p><strong>Option 1: Multiple instances on different ports</strong>:</p>
+<ul>
+<li>Run PgBouncer on ports 6432, 6433, 6434, etc.</li>
+<li>Use HAProxy or application-level routing to distribute across them.</li>
+</ul>
+<p><strong>Option 2: SO_REUSEPORT</strong> (Linux 3.9+):</p>
+<ul>
+<li>Multiple PgBouncer instances bind to the same port.</li>
+<li>The kernel distributes incoming connections across them.</li>
+<li>Requires <code>so_reuseport = 1</code> in pgbouncer.ini (available since PgBouncer 1.12).</li>
+<li>This is the cleanest approach on Linux.</li>
+</ul>
+<p><strong>Option 3: PgBouncer's built-in multi-threading</strong> (see Section 9).</p>
+<hr />
+<h2 id="8-known-limitations-gotchas">8. Known Limitations &amp; Gotchas</h2>
+<h3 id="8-1-prepared-statement-problem-pre-1-21">8.1 Prepared Statement Problem (Pre-1.21)</h3>
+<p>This is historically the biggest pain point with PgBouncer in transaction mode.</p>
+<p><strong>The problem</strong>: In PostgreSQL, <code>PREPARE</code> creates a named prepared statement on a specific backend. The name is session-scoped. When the connection pool reassigns the client to a different backend, that backend has no knowledge of the prepared statement. The client gets <code>ERROR: prepared statement "xxx" does not exist</code>.</p>
+<p>This also applies to the <strong>extended query protocol</strong> (which is what most client drivers use: libpq's PQprepare/PQexecPrepared, JDBC's PreparedStatement, etc.). In the extended query protocol, the client sends Parse (with a statement name), then Bind, then Execute. If the Parse was done in a previous transaction and the server connection has changed, the named statement is gone.</p>
+<p><strong>The unnamed statement exception</strong>: The extended query protocol allows an <strong>unnamed</strong> prepared statement (empty string as the name). This statement is implicitly re-prepared on each Parse message. Since most ORMs and drivers use the unnamed statement for simple queries, many applications "just work" in transaction mode. But drivers that cache named statements (like PgJDBC with <code>prepareThreshold</code>) will break.</p>
+<p><strong>Workarounds (pre-1.21)</strong>:</p>
+<ol>
+<li>Disable statement caching in the client driver (e.g., PgJDBC: <code>prepareThreshold=0</code>).</li>
+<li>Use the unnamed statement only (libpq: <code>PQexecParams</code> instead of <code>PQprepare</code> + <code>PQexecPrepared</code>).</li>
+<li>Use <code>PREPARE</code> and <code>DEALLOCATE</code> within the same transaction.</li>
+<li>Use session mode (defeats the purpose of pooling).</li>
+</ol>
+<h3 id="8-2-prepared-statement-tracking-pgbouncer-1-21">8.2 Prepared Statement Tracking (PgBouncer 1.21+)</h3>
+<p>PgBouncer 1.21 (released late 2023) introduced <strong>prepared statement tracking</strong> in transaction mode, controlled by <code>max_prepared_statements</code>.</p>
+<p><strong>How it works</strong>:</p>
+<ul>
+<li>PgBouncer intercepts <code>Parse</code> messages from clients that contain named statements.</li>
+<li>It maintains a per-client mapping of statement name -&gt; query text + parameter types.</li>
+<li>When a server connection is assigned to a client, PgBouncer checks if the server has the needed prepared statements. If not, it transparently re-sends the <code>Parse</code> messages to the server before forwarding the client's <code>Bind</code>/<code>Execute</code>.</li>
+<li>When a server connection is released, PgBouncer does NOT <code>DEALLOCATE</code> the statements (this would add latency). Instead, it tracks which statements each server has.</li>
+<li>If the statement cache on a server is full (<code>max_prepared_statements</code> reached), PgBouncer evicts the least recently used statement by sending <code>DEALLOCATE</code> and then <code>PARSE</code> for the new one.</li>
+</ul>
+<p><strong>Limitations of the prepared statement tracking</strong>:</p>
+<ul>
+<li>Adds memory overhead: PgBouncer must store the query text for each prepared statement for each client.</li>
+<li>Adds latency on the first use of a statement with a new server connection (the transparent re-Parse).</li>
+<li>SQL-level <code>PREPARE</code> and <code>DEALLOCATE</code> are still not tracked -- only protocol-level Parse/Close messages. This means <code>PREPARE foo AS SELECT ...</code> in a SQL query is still not handled.</li>
+<li>The <code>max_prepared_statements</code> parameter controls the maximum number of prepared statements tracked per server connection (default: 0, meaning disabled). Set it to a value like 100 or 200 to enable.</li>
+</ul>
+<h3 id="8-3-parameterstatus-tracking">8.3 ParameterStatus Tracking</h3>
+<p>When a server connection is assigned to a client, PgBouncer must ensure the server's GUC settings match what the client expects. PostgreSQL sends <code>ParameterStatus</code> messages during startup and whenever certain GUCs change (e.g., <code>client_encoding</code>, <code>DateStyle</code>, <code>integer_datetimes</code>, <code>server_version</code>, <code>TimeZone</code>, <code>standard_conforming_strings</code>, etc.).</p>
+<p>PgBouncer tracks a set of parameters (controlled by <code>track_extra_parameters</code>) and when reassigning a server to a client, it issues <code>SET</code> commands to synchronize any parameters that differ.</p>
+<p><strong><code>track_extra_parameters</code></strong> (added in PgBouncer 1.17):</p>
+<ul>
+<li>A comma-separated list of additional GUC parameters to track and synchronize.</li>
+<li>By default, PgBouncer tracks the parameters that PostgreSQL automatically sends in <code>ParameterStatus</code> messages.</li>
+<li>If your application issues <code>SET search_path = ...</code> (a very common pattern), you need to add <code>search_path</code> to <code>track_extra_parameters</code> or it will be lost when the connection is reassigned.</li>
+</ul>
+<h3 id="8-4-protocol-level-limitations">8.4 Protocol-Level Limitations</h3>
+<ul>
+<li>
+<p><strong>COPY protocol</strong>: PgBouncer supports COPY (both COPY IN and COPY OUT) by detecting the CopyInResponse / CopyOutResponse messages and switching to pass-through mode until CopyDone / CopyFail is received. However, the connection cannot be multiplexed during a COPY operation.</p>
+</li>
+<li>
+<p><strong>Streaming replication protocol</strong>: Not supported. PgBouncer cannot proxy replication connections (the replication protocol is a different protocol mode initiated by <code>replication=true</code> in the startup message). PgBouncer will reject these connections.</p>
+</li>
+<li>
+<p><strong>Large results</strong>: Results that exceed <code>pkt_buf</code> are handled by streaming (PgBouncer does not buffer the entire result set), but performance is best when packets fit in the buffer.</p>
+</li>
+<li>
+<p><strong>Extended query protocol edge cases</strong>: The extended query protocol allows pipelining (sending multiple Parse/Bind/Execute/Sync messages without waiting for responses). PgBouncer supports this but must be careful about transaction boundary detection. The <code>Sync</code> message triggers <code>ReadyForQuery</code> from the server, which PgBouncer uses to detect transaction boundaries.</p>
+</li>
+</ul>
+<h3 id="8-5-listen-notify-in-transaction-mode">8.5 LISTEN/NOTIFY in Transaction Mode</h3>
+<p>This deserves special emphasis because it is a frequently encountered problem:</p>
+<ul>
+<li><code>LISTEN channel</code> registers the current backend to receive notifications on that channel.</li>
+<li>In transaction mode, after the transaction containing <code>LISTEN</code> completes, the server connection is returned to the pool. The LISTEN registration is still active on that server, but it is no longer linked to the original client.</li>
+<li>If another client is assigned that server connection, notifications intended for the first client may be delivered to the second client (or to no one, if the server is idle).</li>
+<li>PgBouncer's <code>DISCARD ALL</code> reset query will execute <code>UNLISTEN *</code>, cleaning this up. But between the <code>LISTEN</code> and the <code>DISCARD ALL</code>, there is a window of incorrect behavior.</li>
+</ul>
+<p><strong>The only safe approach</strong>: Use a dedicated, non-pooled connection for LISTEN/NOTIFY. Most PostgreSQL drivers support specifying a separate connection string for notification listeners.</p>
+<h3 id="8-6-application-level-connection-pool-interaction">8.6 Application-Level Connection Pool Interaction</h3>
+<p>Many applications use their own connection pool (HikariCP in Java, SQLAlchemy's pool in Python, connection_pool in Rails, etc.). When these are used with PgBouncer, you have two levels of pooling:</p>
+<ul>
+<li>Application pool holds N persistent connections to PgBouncer.</li>
+<li>PgBouncer holds M connections to PostgreSQL.</li>
+</ul>
+<p><strong>The gotcha</strong>: Application-level pools typically hold connections open for the lifetime of the application process. In session mode, this means N application pool connections = N PgBouncer server connections, negating PgBouncer's benefit. In transaction mode, PgBouncer can multiplex, and the benefit is restored.</p>
+<p><strong>Best practice</strong>: When using PgBouncer in transaction mode, set the application-level pool's maximum size higher than you normally would (it is cheap to hold many connections to PgBouncer). The key limit is PgBouncer's <code>default_pool_size</code>, not the application pool size.</p>
+<p>However, be careful not to set the application pool's minimum idle connections too high, as each idle connection still consumes a file descriptor on PgBouncer.</p>
+<h3 id="8-7-authentication-gotchas">8.7 Authentication Gotchas</h3>
+<ul>
+<li>
+<p><strong>SCRAM-SHA-256 dual-auth problem</strong>: PgBouncer must authenticate clients AND authenticate to PostgreSQL. For SCRAM, it needs the actual password (or SCRAM verifier for client-side, and plaintext password for server-side). If you use <code>auth_query</code> and the database returns SCRAM-hashed passwords, PgBouncer can use those hashes to authenticate clients (acting as SCRAM server with the stored verifier), but it CANNOT derive the plaintext password from the SCRAM verifier to authenticate to PostgreSQL. You must store plaintext passwords in <code>auth_file</code> for the server-side auth, or use <code>auth_query</code> in a way that PgBouncer has access to the original password.</p>
+</li>
+<li>
+<p><strong>auth_query bootstrap problem</strong>: <code>auth_query</code> requires a connection to PostgreSQL to look up passwords. But to connect to PostgreSQL, PgBouncer needs a password. This is solved by having at least one user with credentials in <code>auth_file</code> that PgBouncer uses for the <code>auth_query</code> connections.</p>
+</li>
+</ul>
+<h3 id="8-8-other-gotchas">8.8 Other Gotchas</h3>
+<ul>
+<li>
+<p><strong>max_client_conn and file descriptor limits</strong>: Each client connection consumes a file descriptor. Ensure the OS <code>ulimit -n</code> is set high enough. PgBouncer also needs fds for server connections, the admin console, DNS, and internal pipes. Rule of thumb: <code>ulimit -n</code> should be at least <code>max_client_conn * 2 + 100</code>.</p>
+</li>
+<li>
+<p><strong>Connection storms after PgBouncer restart</strong>: When PgBouncer restarts, all client connections are dropped. All clients reconnect simultaneously, and PgBouncer must establish new server connections. This can overwhelm PostgreSQL if <code>max_client_conn</code> is large. Mitigate with:</p>
+<ul>
+<li>Online restart (<code>SUSPEND</code> + restart with <code>-R</code> flag to inherit file descriptors).</li>
+<li><code>min_pool_size</code> to pre-warm the server connection pool.</li>
+<li>Application-side retry with exponential backoff.</li>
+</ul>
+</li>
+<li>
+<p><strong>TCP keepalive tuning</strong>: Long-idle connections may be killed by intermediate network equipment (firewalls, NAT, load balancers) that drop idle TCP connections. Configure <code>tcp_keepalive</code>, <code>tcp_keepidle</code>, <code>tcp_keepintvl</code>, <code>tcp_keepcnt</code> on PgBouncer, and ensure they are shorter than any intermediate timeout.</p>
+</li>
+<li>
+<p><strong>Unix socket vs TCP</strong>: PgBouncer can listen on a Unix domain socket (<code>unix_socket_dir</code>), which reduces overhead for co-located applications (~30% lower latency than TCP loopback due to no TCP/IP stack overhead).</p>
+</li>
+</ul>
+<hr />
+<h2 id="9-recent-developments">9. Recent Developments</h2>
+<h3 id="9-1-multi-threaded-pgbouncer">9.1 Multi-Threaded PgBouncer</h3>
+<p>The single-threaded architecture, while elegant, is a scaling limitation. On modern servers with 64+ cores, a single PgBouncer instance can become a bottleneck for high-throughput workloads (100,000+ queries/second).</p>
+<p><strong>PgBouncer 1.22+ (2024) introduced multi-threading support</strong>:</p>
+<ul>
+<li>Controlled by the <code>thread_count</code> parameter (default: 1, preserving backward compatibility).</li>
+<li>Each thread runs its own event loop.</li>
+<li>New connections are distributed across threads by the accept thread using a round-robin or SO_REUSEPORT approach.</li>
+<li>Each thread has its own pool of server connections. This means server connections are not shared across threads, which simplifies synchronization but means each thread independently manages its own pool. The effective total pool size is <code>default_pool_size * thread_count</code> (roughly, with some nuance around per-thread vs global limits).</li>
+<li>Shared state (configuration, stats aggregation) is protected by lightweight synchronization.</li>
+</ul>
+<p><strong>Implications</strong>:</p>
+<ul>
+<li>For the majority of deployments (&lt; 50,000 queries/second), <code>thread_count = 1</code> is still sufficient and simpler.</li>
+<li>For high-throughput deployments, <code>thread_count = N</code> (where N is a small number like 4-8) can eliminate the single-core bottleneck without needing multiple PgBouncer instances.</li>
+<li>This reduces the operational complexity of the "multiple instances on SO_REUSEPORT" pattern described in Section 7.6.</li>
+</ul>
+<h3 id="9-2-scram-authentication-improvements">9.2 SCRAM Authentication Improvements</h3>
+<p>PgBouncer's SCRAM support has evolved through several versions:</p>
+<ul>
+<li><strong>1.14</strong> (2020): Initial SCRAM-SHA-256 support. PgBouncer could authenticate to PostgreSQL using SCRAM, and could authenticate clients using SCRAM if the <code>auth_file</code> contained SCRAM verifiers.</li>
+<li><strong>1.17</strong> (2022): Improved handling of SCRAM channel binding (tls-server-end-point). This was important for <code>scram-sha-256</code> with <code>sslmode=verify-full</code>.</li>
+<li><strong>1.21+</strong>: Further SCRAM refinements, including proper handling of the SCRAM <code>AuthenticationSASLContinue</code> flow when used with <code>auth_query</code>.</li>
+</ul>
+<p>The direction is toward full SCRAM parity with what PostgreSQL itself supports, including channel binding.</p>
+<h3 id="9-3-track-extra-parameters-expansion">9.3 track_extra_parameters Expansion</h3>
+<p>Starting from PgBouncer 1.17, the <code>track_extra_parameters</code> feature allows tracking arbitrary GUC parameters across connection reassignment. This was further expanded in subsequent versions:</p>
+<ul>
+<li>Initially supported: <code>IntervalStyle</code>, <code>TimeZone</code>, <code>standard_conforming_strings</code>, etc. (the parameters PostgreSQL sends in <code>ParameterStatus</code>).</li>
+<li>1.21+: Users can add any GUC to <code>track_extra_parameters</code>, and PgBouncer will track SET commands for those parameters and replay them when reassigning connections.</li>
+<li>This significantly reduces the cases where <code>server_reset_query = DISCARD ALL</code> is necessary, because the important parameters are explicitly tracked.</li>
+</ul>
+<h3 id="9-4-peering-routing-experimental-proposed">9.4 Peering / Routing (Experimental/Proposed)</h3>
+<p>There have been community discussions and experimental patches for:</p>
+<ul>
+<li><strong>PgBouncer peering</strong>: Multiple PgBouncer instances sharing pool state, allowing a client connected to instance A to use a server connection from instance B's pool. This would solve the multi-instance pool fragmentation problem. Not merged as of early 2026.</li>
+<li><strong>Read/write routing</strong>: Sending read-only queries to replicas and read-write queries to the primary, based on parsing the SQL or inspecting transaction flags. PgBouncer has historically avoided SQL parsing, so this is more likely to be implemented at the session/transaction level (e.g., "connect to database <code>mydb_ro</code> for read replicas") rather than automatic query-level splitting.</li>
+</ul>
+<h3 id="9-5-proxy-protocol-support">9.5 PROXY Protocol Support</h3>
+<p>PgBouncer 1.17+ supports the HAProxy PROXY protocol (v1 and v2) for receiving client IP information from upstream load balancers. This is important for:</p>
+<ul>
+<li>Logging the real client IP in PgBouncer logs and PostgreSQL logs.</li>
+<li>Applying pg_hba.conf rules based on the real client IP.</li>
+</ul>
+<hr />
+<h2 id="10-summary-decision-matrix">10. Summary Decision Matrix</h2>
+<table><thead><tr><th>Scenario</th><th>Recommended Mode</th><th>Key Parameters</th></tr></thead><tbody>
+<tr><td>Web app with ORM, short transactions</td><td>Transaction</td><td><code>default_pool_size</code> = 2-4x cores, <code>server_reset_query</code> = empty if app is well-behaved</td></tr>
+<tr><td>Legacy app using LISTEN/NOTIFY</td><td>Session</td><td>Full session pooling; consider separate non-pooled connection for LISTEN</td></tr>
+<tr><td>Serverless / Lambda functions</td><td>Transaction</td><td>High <code>max_client_conn</code>, low <code>default_pool_size</code>, <code>server_idle_timeout</code> = 60s</td></tr>
+<tr><td>Microservices with HikariCP</td><td>Transaction</td><td>Sidecar pattern, <code>default_pool_size</code> = 2-5 per instance, <code>max_db_connections</code> as global cap</td></tr>
+<tr><td>Read-only analytics queries</td><td>Transaction or Statement</td><td>Statement mode if truly single-query; transaction mode otherwise</td></tr>
+<tr><td>High-throughput OLTP (100k+ qps)</td><td>Transaction</td><td><code>thread_count</code> &gt; 1 (1.22+), or multiple instances with SO_REUSEPORT</td></tr>
+<tr><td>Multi-tenant SaaS</td><td>Transaction</td><td><code>max_db_connections</code> and <code>max_user_connections</code> to enforce per-tenant limits</td></tr>
+</tbody></table>
+<hr />
+<h2 id="11-key-references">11. Key References</h2>
+<h3 id="official-documentation">Official Documentation</h3>
+<ul>
+<li>PgBouncer official docs: https://www.pgbouncer.org/config.html</li>
+<li>PgBouncer GitHub: https://github.com/pgbouncer/pgbouncer</li>
+</ul>
+<h3 id="key-blog-posts-and-talks">Key Blog Posts and Talks</h3>
+<ul>
+<li>"Scaling Connections in Postgres" -- Crunchy Data blog series on PgBouncer tuning</li>
+<li>"PgBouncer and Prepared Statements" -- explains the 1.21+ prepared statement tracking in detail</li>
+<li>"How PgBouncer Works" -- Percona blog post with internal architecture overview</li>
+<li>Peter Eisentraut, "Connection Pooling in PostgreSQL" -- PGConf talk on the state of connection pooling in the ecosystem</li>
+</ul>
+<h3 id="related-projects">Related Projects</h3>
+<ul>
+<li><strong>Odyssey</strong> (Yandex): An alternative PostgreSQL connection pooler with multi-threaded architecture from the start. Written in C with custom coroutine implementation (machinarium). Supports transaction pooling, multi-threaded I/O. Less widely adopted than PgBouncer but architecturally interesting. https://github.com/yandex/odyssey</li>
+<li><strong>pgcat</strong> (formerly pgbouncer-rr, now Supabase's fork): A Rust-based PostgreSQL proxy with connection pooling, sharding, and load balancing. Designed for multi-tenant SaaS. https://github.com/postgresml/pgcat</li>
+<li><strong>pgagroal</strong>: A high-performance PostgreSQL connection pool with a focus on being fast and having low overhead. Written in C, supports multi-process model. https://github.com/agroal/pgagroal</li>
+<li><strong>Supavisor</strong> (Supabase): An Elixir-based multi-tenant connection pooler built for cloud-native PostgreSQL deployments. Designed for very large numbers of tenants. https://github.com/supabase/supavisor</li>
+</ul>
+<h3 id="academic-deep-technical">Academic / Deep Technical</h3>
+<ul>
+<li>"The Impact of Connection Pooling on Database Performance" -- various benchmarks available from PostgreSQL community wiki</li>
+<li>PostgreSQL wire protocol documentation: https://www.postgresql.org/docs/current/protocol.html (essential reading for understanding what PgBouncer is proxying)</li>
+</ul>
+<hr />
+<h2 id="12-future-considerations">12. Future Considerations</h2>
+<ol>
+<li>
+<p><strong>PostgreSQL core pooling</strong>: Watch the mailing list for progress on built-in connection pooling. If PostgreSQL ever ships a native pooler, PgBouncer's role may evolve or diminish.</p>
+</li>
+<li>
+<p><strong>HTTP/3 and QUIC</strong>: As QUIC adoption grows, there may be interest in a QUIC-based protocol for PostgreSQL connections, which would change the proxy landscape.</p>
+</li>
+<li>
+<p><strong>eBPF-based proxying</strong>: There have been experiments with using eBPF to do TCP proxy at the kernel level, which could reduce the userspace overhead of PgBouncer to near zero for the packet-forwarding hot path.</p>
+</li>
+<li>
+<p><strong>PgBouncer peering</strong>: If the peering feature matures, it would solve the pool fragmentation problem in multi-instance deployments.</p>
+</li>
+<li>
+<p><strong>Better observability</strong>: Native Prometheus metrics export, distributed tracing integration (correlating client query with server query through PgBouncer).</p>
+</li>
+</ol>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

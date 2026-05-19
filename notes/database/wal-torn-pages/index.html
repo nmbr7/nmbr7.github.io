@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">WAL Torn Pages</h1>
+  <h1 id="write-ahead-logging-torn-pages-and-disk-reliability">Write-Ahead Logging, Torn Pages, and Disk Reliability</h1>
+<p><strong>Date</strong>: 2026-01-28
+<strong>Context</strong>: Deep dive into how database systems ensure durability and consistency in the face of crashes and disk failures. Essential knowledge for understanding PostgreSQL's Full Page Writes (FPW) and why modern systems may handle this differently.</p>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/#1-theoretical-foundations">Theoretical Foundations</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/#2-the-torn-page-problem">The Torn Page Problem</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/#3-postgresql-s-full-page-writes-fpw">PostgreSQL's Full Page Writes</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/#4-alternative-approaches-by-system">Alternative Approaches by System</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/#5-modern-hardware-and-atomic-writes">Modern Hardware and Atomic Writes</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/#6-checksums-and-detection-vs-prevention">Checksums and Detection vs Prevention</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/#7-why-some-systems-don-t-need-fpw">Why Some Systems Don't Need FPW</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/#8-trade-off-analysis">Trade-off Analysis</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/#9-state-of-the-art-research">State-of-the-Art Research</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/#10-practical-recommendations">Practical Recommendations</a></li>
+</ol>
+<hr />
+<h2 id="1-theoretical-foundations">1. Theoretical Foundations</h2>
+<h3 id="1-1-the-acid-properties-and-durability">1.1 The ACID Properties and Durability</h3>
+<p>The "D" in ACID (Durability) guarantees that once a transaction commits, its effects survive any subsequent failure. This seemingly simple guarantee is remarkably difficult to implement correctly.</p>
+<p><strong>The fundamental tension:</strong></p>
+<ul>
+<li>We want high performance (batch writes, buffering)</li>
+<li>We need correctness (no data loss, no corruption)</li>
+<li>Hardware fails in complex, sometimes partial ways</li>
+</ul>
+<h3 id="1-2-write-ahead-logging-wal-the-core-principle">1.2 Write-Ahead Logging (WAL) - The Core Principle</h3>
+<p><strong>Definition</strong>: Before any modification to the database is written to disk, a log record describing the change must first be written to stable storage.</p>
+<p><strong>The WAL Protocol (Mohan et al., ARIES, 1992):</strong></p>
+<pre><code>WRITE-AHEAD LOGGING RULE:
+  Before a database page is written to disk, all log records
+  pertaining to changes on that page must be flushed to the log.
+
+FORCE-LOG-AT-COMMIT RULE:
+  Before a transaction commits, all its log records must be
+  flushed to stable storage.
+</code></pre>
+<p><strong>Why this works:</strong></p>
+<ol>
+<li>If system crashes before commit, log doesn't contain commit record -&gt; rollback</li>
+<li>If system crashes after commit, log contains all changes -&gt; redo</li>
+<li>Log is append-only, sequential writes -&gt; fast</li>
+<li>Database pages can be written lazily -&gt; performance</li>
+</ol>
+<h3 id="1-3-the-recovery-model">1.3 The Recovery Model</h3>
+<p><strong>Three types of recovery actions:</strong></p>
+<ul>
+<li><strong>REDO</strong>: Re-apply committed changes that may not have reached disk</li>
+<li><strong>UNDO</strong>: Roll back uncommitted changes that may have reached disk</li>
+<li><strong>ANALYSIS</strong>: Determine what needs REDO and UNDO</li>
+</ul>
+<p><strong>Key insight</strong>: WAL separates the "durability" problem (did the change survive?) from the "consistency" problem (is the database in a valid state?).</p>
+<h3 id="1-4-log-sequence-numbers-lsn">1.4 Log Sequence Numbers (LSN)</h3>
+<p>Every modification generates a monotonically increasing LSN:</p>
+<pre><code>LSN:  1    2    3    4    5    6    7    8    ...
+      |    |    |    |    |    |    |    |
+      v    v    v    v    v    v    v    v
+Log: [T1  [T1  [T2  [T1  [T2  [T1  [T2  [T2
+      B]   W]   B]   W]   W]   C]   W]   C]
+
+B = Begin, W = Write, C = Commit
+</code></pre>
+<p>Each database page stores its <code>PageLSN</code> - the LSN of the last log record that modified it. During recovery:</p>
+<ul>
+<li>If <code>PageLSN &gt;= LogRecordLSN</code>, the change is already on the page (skip)</li>
+<li>If <code>PageLSN &lt; LogRecordLSN</code>, the change needs to be redone (apply)</li>
+</ul>
+<hr />
+<h2 id="2-the-torn-page-problem">2. The Torn Page Problem</h2>
+<h3 id="2-1-what-is-a-torn-page">2.1 What is a Torn Page?</h3>
+<p>A <strong>torn page</strong> (also called a <strong>partial write</strong> or <strong>fractured page</strong>) occurs when a system crash happens during a write operation, leaving a page in a partially updated state.</p>
+<p><strong>Scenario:</strong></p>
+<pre><code>Database Page (8KB) being written to disk:
+
+Time T0: Original page on disk
+         [Header | Row1 | Row2 | Row3 | Row4 | Free Space]
+
+Time T1: Application modifies Row2, Row3
+         Buffer: [Header&#39; | Row1 | Row2&#39; | Row3&#39; | Row4 | Free Space]
+
+Time T2: OS starts writing page to disk
+         Disk:   [Header&#39; | Row1 | Row2&#39; | &lt;POWER FAILURE&gt;
+
+Time T3: After recovery
+         Disk:   [Header&#39; | Row1 | Row2&#39; | Row3 | Row4 | Free Space]
+                                          ^^^^^
+                                          OLD DATA!
+</code></pre>
+<p><strong>The problem:</strong> The page header says "I contain modifications from LSN X" but part of the page still has old data from LSN Y.</p>
+<h3 id="2-2-why-does-this-happen">2.2 Why Does This Happen?</h3>
+<p><strong>Physical reality of disk writes:</strong></p>
+<ol>
+<li>
+<p><strong>Magnetic HDDs (512-byte sectors):</strong></p>
+<ul>
+<li>An 8KB page = 16 sectors</li>
+<li>Each sector write is atomic (mostly)</li>
+<li>But 16 sectors are NOT written atomically</li>
+<li>Disk may reorder sector writes within the page</li>
+</ul>
+</li>
+<li>
+<p><strong>SSDs (4KB pages internally):</strong></p>
+<ul>
+<li>An 8KB database page = 2 SSD pages</li>
+<li>Each 4KB SSD page write is atomic</li>
+<li>But 2 pages are NOT written atomically</li>
+<li>Flash Translation Layer (FTL) adds complexity</li>
+</ul>
+</li>
+<li>
+<p><strong>The filesystem lies:</strong></p>
+<ul>
+<li>OS buffers writes</li>
+<li>Filesystem journaling has its own atomicity guarantees</li>
+<li><code>fsync()</code> behavior varies by filesystem</li>
+</ul>
+</li>
+</ol>
+<h3 id="2-3-the-corruption-scenarios">2.3 The Corruption Scenarios</h3>
+<p><strong>Scenario 1: Header updated, data not</strong></p>
+<pre><code>Page after crash:
+  LSN = 100 (new)
+  Data = old (LSN 50)
+
+Recovery thinks: &quot;Page is at LSN 100, no redo needed&quot;
+Reality: Page is corrupt, missing changes from LSN 51-100
+</code></pre>
+<p><strong>Scenario 2: Data updated, header not</strong></p>
+<pre><code>Page after crash:
+  LSN = 50 (old)
+  Data = mixed old/new
+
+Recovery thinks: &quot;Page is at LSN 50, redo from 51&quot;
+Reality: Redo applies changes to partially updated page -&gt; more corruption
+</code></pre>
+<p><strong>Scenario 3: Checksum invalidated</strong></p>
+<pre><code>Page after crash:
+  Checksum = old
+  Data = mixed old/new
+
+At least we can detect this! (if checksums are enabled)
+</code></pre>
+<h3 id="2-4-why-wal-alone-doesn-t-solve-this">2.4 Why WAL Alone Doesn't Solve This</h3>
+<p><strong>Common misconception:</strong> "WAL guarantees recovery, so torn pages aren't a problem."</p>
+<p><strong>Reality:</strong> WAL guarantees you can <strong>redo</strong> changes, but redo assumes pages are in a <strong>valid prior state</strong>. A torn page is neither the old state nor the new state - it's an invalid hybrid.</p>
+<pre><code>Scenario:
+1. Page at LSN 50
+2. Transaction modifies page, logged at LSN 51
+3. Crash during page write
+4. Page on disk is torn (part LSN 50, part LSN 51)
+5. Recovery reads page, sees PageLSN = 51
+6. Recovery skips LSN 51 (thinks it&#39;s already applied)
+7. Page remains corrupt FOREVER
+</code></pre>
+<hr />
+<h2 id="3-postgresql-s-full-page-writes-fpw">3. PostgreSQL's Full Page Writes (FPW)</h2>
+<h3 id="3-1-the-solution-full-page-images">3.1 The Solution: Full Page Images</h3>
+<p>PostgreSQL's approach: After a checkpoint, the <strong>first</strong> time a page is modified, write a <strong>complete copy</strong> of the page to WAL before writing the modification.</p>
+<pre><code>WAL Record with FPW:
++------------------+
+| XLogRecord Header|
++------------------+
+| Full Page Image  | &lt;- Complete 8KB page copy
+| (8KB)            |
++------------------+
+| Modification Data| &lt;- The actual change
++------------------+
+</code></pre>
+<h3 id="3-2-how-fpw-works">3.2 How FPW Works</h3>
+<p><strong>Checkpoint cycle:</strong></p>
+<pre><code>Checkpoint at LSN 1000
+  |
+  v
+Page A first modified at LSN 1001 -&gt; FPW (full image of page A)
+Page A modified at LSN 1002 -&gt; NO FPW (already have image since checkpoint)
+Page A modified at LSN 1003 -&gt; NO FPW
+  |
+  v
+Checkpoint at LSN 2000
+  |
+  v
+Page A first modified at LSN 2001 -&gt; FPW (new full image)
+</code></pre>
+<p><strong>Recovery with FPW:</strong></p>
+<pre><code>1. Crash during page write
+2. Page on disk is torn
+3. Recovery reads WAL from last checkpoint
+4. Finds FPW record for the page
+5. Overwrites entire page with the full image from WAL
+6. Continues recovery from that point
+7. Page is now in a KNOWN GOOD state
+</code></pre>
+<h3 id="3-3-postgresql-implementation-details">3.3 PostgreSQL Implementation Details</h3>
+<p><strong>Key structures (from <code>xlog.h</code>):</strong></p>
+<pre><code data-lang="c">/* Full-page image header */
+typedef struct XLogRecordBlockImageHeader
+{
+    uint16      length;         /* Length of image data */
+    uint16      hole_offset;    /* Offset of hole */
+    uint8       bimg_info;      /* Flags */
+} XLogRecordBlockImageHeader;
+
+/* Flags */
+#define BKPIMAGE_HAS_HOLE       0x01  /* Page has hole (sparse) */
+#define BKPIMAGE_IS_COMPRESSED  0x02  /* Image is compressed */
+#define BKPIMAGE_APPLY          0x04  /* Apply image during recovery */
+</code></pre>
+<p><strong>The FPW decision logic (simplified from <code>XLogInsert</code>):</strong></p>
+<pre><code data-lang="c">static bool
+XLogCheckBufferNeedsBackup(Buffer buffer)
+{
+    /*
+     * If the page has been modified since the last checkpoint,
+     * we don&#39;t need a full-page image.
+     */
+    if (PageGetLSN(page) &gt;= RedoRecPtr)
+        return false;  /* Page already modified since checkpoint */
+
+    return true;  /* Need full-page image */
+}
+</code></pre>
+<h3 id="3-4-configuration-options">3.4 Configuration Options</h3>
+<pre><code data-lang="sql">-- Main switch (on by default, DO NOT DISABLE IN PRODUCTION)
+full_page_writes = on
+
+-- Compression to reduce WAL size (PostgreSQL 9.5+)
+wal_compression = on
+
+-- Checksum validation
+data_checksums = on  -- Set at initdb time
+</code></pre>
+<h3 id="3-5-the-performance-cost">3.5 The Performance Cost</h3>
+<p><strong>WAL amplification:</strong></p>
+<pre><code>Without FPW:
+  UPDATE single row -&gt; ~100 bytes of WAL
+
+With FPW (first modification after checkpoint):
+  UPDATE single row -&gt; ~8KB of WAL (8000% increase!)
+</code></pre>
+<p><strong>Real-world impact:</strong></p>
+<ul>
+<li>WAL volume increases 2-10x with FPW</li>
+<li>More disk I/O for WAL writes</li>
+<li>Longer replication lag</li>
+<li>More archival storage needed</li>
+<li>Recovery takes longer (more data to process)</li>
+</ul>
+<p><strong>Benchmark example:</strong></p>
+<pre><code>Workload: OLTP with random single-row updates
+
+Without FPW: 50,000 TPS, 100 MB/s WAL
+With FPW:    45,000 TPS, 800 MB/s WAL
+
+Cost: 10% TPS reduction, 8x WAL volume
+</code></pre>
+<h3 id="3-6-optimizations">3.6 Optimizations</h3>
+<p><strong>1. Hole punching:</strong>
+If page has contiguous free space, don't write it:</p>
+<pre><code>Page: [Header|Data|Data|    FREE SPACE    ]
+FPW:  [Header|Data|Data] &lt;- Only non-empty part
+</code></pre>
+<p><strong>2. Compression (wal_compression = on):</strong>
+Compress full page images before writing to WAL.
+Typical compression ratio: 2-4x for text-heavy pages.</p>
+<p><strong>3. Checkpoint tuning:</strong>
+More frequent checkpoints = more FPW, but faster recovery.
+Less frequent checkpoints = less FPW, but longer recovery.</p>
+<hr />
+<h2 id="4-alternative-approaches-by-system">4. Alternative Approaches by System</h2>
+<h3 id="4-1-mysql-innodb-doublewrite-buffer">4.1 MySQL/InnoDB: Doublewrite Buffer</h3>
+<p><strong>Concept:</strong> Write pages to a special "doublewrite buffer" area first, then to their final location.</p>
+<pre><code>Modification Flow:
+1. Modify page in buffer pool
+2. Write page to doublewrite buffer (sequential write)
+3. fsync() doublewrite buffer
+4. Write page to actual tablespace location
+5. (No immediate fsync - can batch)
+
+Recovery:
+1. Read doublewrite buffer
+2. For each page in doublewrite:
+   - Read corresponding page from tablespace
+   - If tablespace page is corrupt, copy from doublewrite
+   - If both OK, use tablespace page (more recent)
+</code></pre>
+<p><strong>Implementation:</strong></p>
+<pre><code>Doublewrite buffer: 2MB (128 pages of 16KB)
+Location: ibdata1 (system tablespace) or dedicated file
+
+Two regions:
+- First write: pages 0-63
+- Second write: pages 64-127
+(Alternating to ensure at least one complete copy)
+</code></pre>
+<p><strong>Pros:</strong></p>
+<ul>
+<li>WAL stays small (no full page images in redo log)</li>
+<li>Sequential writes for doublewrite (fast on HDDs)</li>
+</ul>
+<p><strong>Cons:</strong></p>
+<ul>
+<li>Extra write I/O (write amplification = 2x for dirty pages)</li>
+<li>Latency for each page write</li>
+<li>Complexity in the I/O path</li>
+</ul>
+<p><strong>MySQL 8.0 improvements:</strong></p>
+<ul>
+<li>Parallel doublewrite threads</li>
+<li>Dedicated doublewrite files</li>
+<li>Can be disabled for atomic-write-capable storage</li>
+</ul>
+<h3 id="4-2-sql-server-torn-page-detection-shadow-paging">4.2 SQL Server: Torn Page Detection + Shadow Paging</h3>
+<p><strong>Option 1: Torn Page Detection</strong></p>
+<pre><code>Each 512-byte sector gets a 2-bit &quot;torn bit&quot; pattern:
+- Before write: Set pattern A
+- After write: Should be pattern A in all sectors
+- If mixed patterns: Page is torn
+
+Detection only - does not prevent, only detects.
+Requires restore from backup if torn page found.
+</code></pre>
+<p><strong>Option 2: Page Checksums</strong></p>
+<pre><code data-lang="sql">ALTER DATABASE MyDB SET PAGE_VERIFY CHECKSUM
+</code></pre>
+<p><strong>Option 3: Shadow Pages (older method)</strong></p>
+<ul>
+<li>Write new page to new location</li>
+<li>Update pointer atomically</li>
+<li>Old page remains as backup</li>
+</ul>
+<h3 id="4-3-oracle-block-change-tracking-flashback">4.3 Oracle: Block Change Tracking + Flashback</h3>
+<p><strong>Approach:</strong></p>
+<ul>
+<li>Use O_DIRECT + Direct I/O to bypass filesystem</li>
+<li>Rely on storage-level atomic writes</li>
+<li>Redo log compression</li>
+<li>Block change tracking for incremental backups</li>
+</ul>
+<p><strong>Key difference:</strong> Oracle often runs on enterprise storage with battery-backed write caches, where atomic writes are guaranteed at the storage layer.</p>
+<h3 id="4-4-sqlite-rollback-journal-wal-mode">4.4 SQLite: Rollback Journal + WAL Mode</h3>
+<p><strong>Rollback Journal Mode (default):</strong></p>
+<pre><code>1. Before modifying page, copy original to journal
+2. Modify page in place
+3. On commit, delete journal
+
+Recovery:
+- If journal exists, roll back by restoring pages from journal
+- Journal acts as &quot;undo&quot; log
+</code></pre>
+<p><strong>WAL Mode (modern SQLite):</strong></p>
+<pre><code>1. Write changes to WAL file (append-only)
+2. Pages in main database are read-only during transactions
+3. Checkpoint merges WAL back to main database
+
+Recovery:
+- Replay WAL from last checkpoint
+- Main database always has consistent point-in-time state
+</code></pre>
+<p><strong>Torn page handling:</strong></p>
+<ul>
+<li>SQLite uses 4KB pages (matches typical filesystem block)</li>
+<li>Relies on filesystem atomic write guarantees for 4KB</li>
+<li>Checksums detect corruption</li>
+<li>WAL mode naturally avoids in-place updates</li>
+</ul>
+<h3 id="4-5-rocksdb-no-in-place-updates-lsm-tree">4.5 RocksDB: No In-Place Updates (LSM-Tree)</h3>
+<p><strong>Key insight:</strong> LSM-trees never modify data in place.</p>
+<pre><code>Write path:
+1. Write to WAL (append-only)
+2. Insert to MemTable (in-memory)
+3. When MemTable full, flush to SST file (new file, never modified)
+
+SST files are immutable - written once, then only deleted
+No partial writes possible - file is either complete or doesn&#39;t exist
+</code></pre>
+<p><strong>Torn page protection: NOT NEEDED</strong></p>
+<p>Why? Because:</p>
+<ol>
+<li>WAL is append-only (torn page = truncate to valid prefix)</li>
+<li>SST files are immutable (atomic at file creation level)</li>
+<li>Manifest file tracks which SST files are valid</li>
+<li>Recovery: Read manifest, use only complete SST files</li>
+</ol>
+<p><strong>The MANIFEST:</strong></p>
+<pre><code>MANIFEST-000001:
+  Version 1: SST files [001, 002, 003]
+  Version 2: SST files [001, 002, 003, 004]  &lt;- compaction
+  Version 3: SST files [001, 005]            &lt;- cleanup
+
+Recovery reads MANIFEST to know current valid state
+</code></pre>
+<h3 id="4-6-duckdb-copy-on-write-checksums">4.6 DuckDB: Copy-on-Write + Checksums</h3>
+<p><strong>Architecture:</strong></p>
+<ul>
+<li>In-memory first, spill to disk as needed</li>
+<li>Copy-on-write for persistent storage</li>
+<li>No in-place modifications to data pages</li>
+</ul>
+<pre><code>Write path:
+1. Create new version of modified block
+2. Write new block to new location
+3. Update metadata atomically
+4. Old block available for reads until switch
+</code></pre>
+<p><strong>Torn page handling:</strong></p>
+<ul>
+<li>Never overwrite existing data</li>
+<li>Atomic metadata switches</li>
+<li>Checksums detect any corruption</li>
+<li>Simpler model for analytical workloads</li>
+</ul>
+<h3 id="4-7-foundationdb-copy-on-write-b-trees">4.7 FoundationDB: Copy-on-Write B-Trees</h3>
+<p><strong>Approach:</strong> Similar to DuckDB but for distributed OLTP.</p>
+<pre><code>Write path:
+1. Copy path from leaf to root
+2. Write new pages (don&#39;t modify old)
+3. Atomic pointer swing at root
+4. Old pages garbage collected
+
+Result: Always crash-consistent without torn page concerns
+</code></pre>
+<h3 id="4-8-cockroachdb-leverages-rocksdb">4.8 CockroachDB: Leverages RocksDB</h3>
+<p>CockroachDB uses RocksDB (now Pebble) as its storage layer:</p>
+<ul>
+<li>Inherits LSM-tree's immutability</li>
+<li>Adds distributed consensus (Raft) on top</li>
+<li>WAL + SST files, no torn page problem at storage layer</li>
+</ul>
+<h3 id="4-9-tigerbeetle-protocol-aware-recovery-with-dual-wal">4.9 TigerBeetle: Protocol-Aware Recovery with Dual WAL</h3>
+<p>TigerBeetle is a financial accounting database that takes a radically different approach to durability. Rather than treating storage faults and consensus as separate problems, TigerBeetle integrates them into a unified system that can self-heal from disk corruption using cluster-wide redundancy.</p>
+<p><strong>Design Philosophy:</strong></p>
+<p>TigerBeetle treats disks as "near-Byzantine" - expecting not just crashes but:</p>
+<ul>
+<li>Latent sector errors (0.031% of SSDs, 1.4% of enterprise HDDs annually)</li>
+<li>Silent data corruption (bit rot)</li>
+<li>Misdirected I/O (firmware writes to wrong sector: 0.023% SSDs, 0.466% HDDs annually)</li>
+<li>Gray failures (disk becomes extremely slow without error codes)</li>
+</ul>
+<p><strong>The Dual WAL Architecture:</strong></p>
+<p>TigerBeetle maintains TWO write-ahead logs:</p>
+<pre><code>Primary WAL:   [Header1|Data1] [Header2|Data2] [Header3|Data3] ...
+                   |              |              |
+                   v              v              v
+Secondary WAL: [Header1]      [Header2]      [Header3]      ...
+               (headers only, lightweight copy)
+</code></pre>
+<p><strong>Why two WALs?</strong></p>
+<p>This solves a critical problem that most databases get wrong:</p>
+<pre><code>Traditional database with single WAL:
+
+WAL: [Record1] [Record2] [Record3] [CORRUPTED] [Record5] [Record6]
+                              ^
+                         bit rot here
+
+Traditional recovery: &quot;Corruption found, truncate from Record3 forward&quot;
+Result: Records 4, 5, 6 LOST even though they were committed!
+
+TigerBeetle with dual WAL:
+
+Primary WAL:   [H1|D1] [H2|D2] [H3|D3] [CORRUPTED] [H5|D5] [H6|D6]
+Secondary WAL: [H1]    [H2]    [H3]    [H4]        [H5]    [H6]
+                                        ^
+                              Header intact in secondary!
+
+TigerBeetle recovery:
+1. Detect corruption at position 4 in primary
+2. Check secondary WAL - header H4 is intact
+3. Know that Record 4 was committed (header exists)
+4. Request Record 4&#39;s data from replica cluster
+5. ALL records preserved!
+</code></pre>
+<p><strong>Key insight:</strong> The dual WAL lets TigerBeetle distinguish between:</p>
+<ul>
+<li><strong>Corruption at end of log</strong> (torn write from power loss) -&gt; safe to truncate</li>
+<li><strong>Corruption in middle of log</strong> (bit rot) -&gt; DO NOT truncate, repair from cluster</li>
+</ul>
+<p><strong>Hash-Chaining:</strong></p>
+<p>Every prepare message (unit of WAL entry) includes a checksum pointer to the previous entry:</p>
+<pre><code>Prepare N: {
+    sequence: N,
+    checksum: 0xABCD1234,           // My checksum
+    parent_checksum: 0x5678EFGH,    // Previous prepare&#39;s checksum
+    data: [...],
+}
+</code></pre>
+<p>This creates a cryptographic chain from the beginning of history:</p>
+<ul>
+<li>If any single bit is corrupted, the chain breaks</li>
+<li>Recovery can identify exactly which record is corrupted</li>
+<li>Backups can verify their entire history matches the primary</li>
+<li>Protects against misdirected I/O (data written to wrong location)</li>
+</ul>
+<p><strong>Direct I/O by Design:</strong></p>
+<p>TigerBeetle uses <code>O_DIRECT</code> exclusively and NEVER uses buffered I/O.</p>
+<p><strong>Why?</strong> The 2018 paper "Can Applications Recover from fsync Failures?" (Pillai et al.) showed that:</p>
+<pre><code>Buffered I/O fsync failure scenario:
+
+1. Application writes data to page cache
+2. fsync() called
+3. Disk returns EIO error (bad sector)
+4. Kernel marks page as CLEAN (not dirty)
+5. Application retries fsync()
+6. Kernel says &quot;nothing to write, page is clean&quot;
+7. Application thinks data is durable
+8. DATA IS LOST - never actually written!
+
+Both PostgreSQL and MySQL had this bug.
+</code></pre>
+<p>TigerBeetle's solution: bypass the page cache entirely.</p>
+<pre><code>Direct I/O requirements:
+- All buffers aligned to 4KB sector boundaries
+- All I/O sizes multiples of sector size
+- User-space buffer management (no kernel page cache)
+- Explicit control over durability
+</code></pre>
+<p><strong>io_uring Integration:</strong></p>
+<p>TigerBeetle is built around Linux's io_uring for zero-syscall I/O:</p>
+<pre><code>Traditional I/O path:
+  Application -&gt; syscall -&gt; kernel -&gt; driver -&gt; disk
+  (context switch per operation)
+
+io_uring path:
+  Application -&gt; shared ring buffer &lt;- kernel polls
+  (no context switches, kernel processes batches)
+</code></pre>
+<p>Benefits:</p>
+<ul>
+<li>Unified API for storage AND network I/O</li>
+<li>Batch submission of multiple operations</li>
+<li>Completion notification without syscalls</li>
+<li>Natural fit for TigerBeetle's static memory model</li>
+</ul>
+<p>Cross-platform: Uses IOCP on Windows, kqueue on macOS.</p>
+<p><strong>Protocol-Aware Recovery (PAR):</strong></p>
+<p>Based on the FAST'18 Best Paper "Protocol-Aware Recovery for Consensus-Based Storage" (Alagappan et al.):</p>
+<p>Traditional replicated systems treat storage and consensus as separate:</p>
+<pre><code>Node A: [Storage Engine] &lt;-- crashes independently
+Node B: [Storage Engine] &lt;-- crashes independently
+Node C: [Storage Engine] &lt;-- crashes independently
+        [Consensus Layer] &lt;-- assumes perfect storage below
+</code></pre>
+<p>TigerBeetle integrates them:</p>
+<pre><code>Cluster: [Storage + Consensus integrated]
+         - Storage faults communicated to consensus
+         - Consensus redundancy used to repair storage
+         - Single corrupted node healed from cluster
+</code></pre>
+<p><strong>Recovery scenarios:</strong></p>
+<pre><code>Scenario: Node A has corrupted WAL entry at position 100
+
+Traditional Raft/Paxos:
+  - Node A restarts
+  - Finds corruption
+  - ??? (undefined behavior, often data loss or unavailability)
+
+TigerBeetle PAR:
+  1. Node A detects corruption via checksum/hash-chain
+  2. Node A sends repair request to cluster
+  3. Nodes B, C provide the correct data for position 100
+  4. Node A repairs its local storage
+  5. Cluster continues operating
+  6. No data loss, no unavailability
+</code></pre>
+<p><strong>NACK Protocol for View Changes:</strong></p>
+<p>During leader election, a critical question: "What was actually committed?"</p>
+<pre><code>View change scenario:
+  - Old leader had entries [1, 2, 3, 4, 5]
+  - Entry 5 might have been partially replicated
+  - New leader needs to know: &quot;Was 5 committed?&quot;
+
+TigerBeetle&#39;s NACK:
+  - Replicas positively state: &quot;I NEVER accepted entry 5&quot;
+  - If 4/6 replicas NACK entry 5, it was never committed
+  - Safe to discard entry 5 without data loss
+  - Even works if entry 5 is corrupted on some nodes
+</code></pre>
+<p><strong>Immutable Data Model:</strong></p>
+<p>All data in TigerBeetle is immutable:</p>
+<ul>
+<li>Accounts have balances, transfers are recorded</li>
+<li>No UPDATE operations in the traditional sense</li>
+<li>Transfers append to the log, balances computed</li>
+<li>Corruption detection is straightforward (data should never change)</li>
+</ul>
+<p><strong>Superblock Protection:</strong></p>
+<p>The superblock (root of the data structure) is stored 4 times:</p>
+<pre><code>Disk layout:
+[Superblock Copy 0][Superblock Copy 1][Superblock Copy 2][Superblock Copy 3]
+     |                   |                  |                  |
+     +------- Each copy has sequence number + checksums -------+
+
+Write protocol:
+1. Write new superblock to next copy position
+2. Read back and verify
+3. Advance copy pointer
+
+Recovery:
+- Read all 4 copies
+- Use highest valid sequence number
+- Can survive up to 3 corrupted copies
+</code></pre>
+<p><strong>LSM-Tree for Derived State:</strong></p>
+<p>While the WAL is the source of truth, derived state uses an LSM-tree:</p>
+<pre><code>Prepare messages -&gt; WAL (source of truth)
+                 -&gt; LSM tree (derived state, for fast lookups)
+
+LSM blocks:
+- 0.5 MiB each
+- Checksummed and hash-chained
+- Referenced by address + checksum (not just address)
+- Immutable once written
+- Corruption repaired from replicas
+</code></pre>
+<p><strong>Testing: The VOPR Simulator:</strong></p>
+<p>TigerBeetle uses a 1024-core fuzzing simulator called VOPR:</p>
+<pre><code>VOPR fault injection:
+- Corrupt random bits (cosmic rays)
+- Replace file chunks (misdirected writes)
+- Lose writes entirely
+- Inject latency (gray failures)
+- All at double-digit percentages simultaneously!
+
+Test criteria:
+- No committed data lost
+- No availability loss (unless majority corrupted)
+- Cluster self-heals when faults are minority
+</code></pre>
+<p><strong>Jepsen Analysis Results (2025):</strong></p>
+<p>Kyle Kingsbury's Jepsen tested TigerBeetle 0.16.11:</p>
+<pre><code>Findings:
+- &quot;Exceptional resilience to disk corruption&quot;
+- Recovered from bitflips on minority nodes
+- Grid zone tolerated loss of all but one copy
+- Safely halted (rather than corrupting) on majority corruption
+
+Issues found and fixed:
+- Superblock padding corruption caused crash (fixed in 0.16.26)
+- WAL head vulnerability in helical fault patterns (documented limitation)
+- Node recovery procedure was undocumented (fixed in 0.16.43)
+</code></pre>
+<p><strong>Performance Characteristics:</strong></p>
+<pre><code>Batching amortizes costs:
+- 100 transfers in batch: ~50ms latency
+- 10,000 transfers in batch: ~20ms latency (LOWER!)
+
+Why? Little&#39;s Law - larger batches amortize:
+- fsync cost
+- Consensus round-trip
+- Network overhead
+
+TigerBeetle throughput:
+- 175k-245k transfers/second (Linux, tuned)
+- Up to 1M+ transfers/second with large batches
+</code></pre>
+<p><strong>Trade-offs:</strong></p>
+<table><thead><tr><th>Aspect</th><th>TigerBeetle Approach</th><th>Trade-off</th></tr></thead><tbody>
+<tr><td>Flexibility</td><td>Financial accounting only</td><td>Cannot be general-purpose DB</td></tr>
+<tr><td>Transactions</td><td>Non-interactive only</td><td>No multi-round-trip transactions</td></tr>
+<tr><td>Updates</td><td>Append-only model</td><td>No traditional UPDATE</td></tr>
+<tr><td>Language</td><td>Zig</td><td>Smaller ecosystem than C/Rust</td></tr>
+<tr><td>Deployment</td><td>3 or 6 replicas required</td><td>Cannot run single-node</td></tr>
+<tr><td>Page cache</td><td>Bypassed entirely</td><td>Must manage own buffers</td></tr>
+</tbody></table>
+<p><strong>Why This Matters:</strong></p>
+<p>TigerBeetle demonstrates that the traditional separation of concerns (storage vs consensus) can be a liability. By integrating them, TigerBeetle achieves:</p>
+<ol>
+<li><strong>Self-healing storage</strong>: Local disk corruption repaired from cluster</li>
+<li><strong>Stronger durability</strong>: No silent data loss from bit rot</li>
+<li><strong>Clear failure semantics</strong>: Either data is safe, or cluster halts (no corruption)</li>
+<li><strong>Simpler recovery</strong>: No complex WAL truncation heuristics</li>
+</ol>
+<p>This represents a new paradigm for database design, applying 2018 research that most production databases still haven't adopted.</p>
+<h3 id="4-10-summary-table">4.10 Summary Table</h3>
+<table><thead><tr><th>System</th><th>Torn Page Strategy</th><th>In-Place Updates</th><th>WAL Amplification</th><th>Key Innovation</th></tr></thead><tbody>
+<tr><td>PostgreSQL</td><td>Full Page Writes</td><td>Yes</td><td>High</td><td>Simple, well-tested</td></tr>
+<tr><td>MySQL/InnoDB</td><td>Doublewrite Buffer</td><td>Yes</td><td>Low (separate I/O)</td><td>Sequential doublewrite</td></tr>
+<tr><td>SQL Server</td><td>Detection/Checksums</td><td>Yes</td><td>Low</td><td>Torn bit patterns</td></tr>
+<tr><td>Oracle</td><td>Storage-level atomics</td><td>Yes</td><td>Low</td><td>Enterprise storage</td></tr>
+<tr><td>SQLite</td><td>Journal/WAL modes</td><td>Partial</td><td>Medium</td><td>Simplicity</td></tr>
+<tr><td>RocksDB</td><td>Immutable SSTs</td><td>No</td><td>Low</td><td>LSM immutability</td></tr>
+<tr><td>DuckDB</td><td>Copy-on-Write</td><td>No</td><td>Low</td><td>Analytics focus</td></tr>
+<tr><td>FoundationDB</td><td>COW B-Trees</td><td>No</td><td>Low</td><td>Distributed COW</td></tr>
+<tr><td><strong>TigerBeetle</strong></td><td><strong>Dual WAL + PAR</strong></td><td><strong>No (append-only)</strong></td><td><strong>Low</strong></td><td><strong>Cluster-based repair</strong></td></tr>
+</tbody></table>
+<p><strong>TigerBeetle's Unique Position:</strong></p>
+<p>TigerBeetle is the only system in this comparison that:</p>
+<ol>
+<li>Uses <strong>two WALs</strong> to distinguish torn writes from bit rot</li>
+<li>Leverages <strong>Protocol-Aware Recovery</strong> to repair local storage from cluster redundancy</li>
+<li>Treats storage faults as a <strong>first-class concern</strong> in the consensus protocol</li>
+<li>Uses <strong>Direct I/O exclusively</strong> to avoid fsync() failure bugs</li>
+<li><strong>Hash-chains all data</strong> for cryptographic integrity verification</li>
+</ol>
+<hr />
+<h2 id="5-modern-hardware-and-atomic-writes">5. Modern Hardware and Atomic Writes</h2>
+<h3 id="5-1-the-hardware-evolution">5.1 The Hardware Evolution</h3>
+<p><strong>Historical assumptions:</strong></p>
+<ul>
+<li>512-byte sector = atomic write unit</li>
+<li>Database pages &gt;&gt; sector size</li>
+<li>No guarantees above sector level</li>
+</ul>
+<p><strong>Modern reality:</strong></p>
+<ul>
+<li>NVMe SSDs with 4KB atomic writes</li>
+<li>Some SSDs support 16KB atomic writes</li>
+<li>Intel Optane with byte-addressable atomicity</li>
+<li>Cloud storage with API-level atomicity</li>
+</ul>
+<h3 id="5-2-storage-atomic-write-guarantees">5.2 Storage Atomic Write Guarantees</h3>
+<p><strong>Linux O_ATOMIC (proposed, not standard):</strong></p>
+<pre><code data-lang="c">// Hypothetical API for atomic writes
+int fd = open(&quot;datafile&quot;, O_RDWR | O_ATOMIC);
+// All writes up to atomic_max_bytes are atomic
+pwrite(fd, page, PAGE_SIZE, offset);
+</code></pre>
+<p><strong>NVMe Atomic Write Unit:</strong></p>
+<pre><code>AWUN (Atomic Write Unit Normal): Guaranteed atomic write size
+AWUPF (Atomic Write Unit Power Fail): Atomic size during power fail
+
+Modern NVMe typically: AWUN = 4KB, AWUPF = 4KB
+Some enterprise: AWUN = 16KB+
+</code></pre>
+<p><strong>Checking your drive (Linux):</strong></p>
+<pre><code data-lang="bash"># Check NVMe atomic write capabilities
+nvme id-ns /dev/nvme0n1 -H | grep -i atomic
+</code></pre>
+<h3 id="5-3-mysql-s-atomic-write-support">5.3 MySQL's Atomic Write Support</h3>
+<p>MySQL 8.0 can detect and use atomic writes:</p>
+<pre><code data-lang="ini"># my.cnf
+innodb_use_native_aio = ON
+innodb_doublewrite = ON  # Auto-disabled if atomic writes detected
+
+# MySQL auto-detects:
+# - Fusion-io directFS
+# - Atomic write capable SSDs
+# - Some cloud storage
+</code></pre>
+<p><strong>Log message:</strong></p>
+<pre><code>[Note] InnoDB: Atomic write detected, disabling doublewrite buffer
+</code></pre>
+<h3 id="5-4-postgresql-and-atomic-writes">5.4 PostgreSQL and Atomic Writes</h3>
+<p><strong>Current state (as of PG 16):</strong></p>
+<ul>
+<li>No automatic detection of atomic writes</li>
+<li><code>full_page_writes = off</code> is the only option (dangerous!)</li>
+<li>Community discussion ongoing</li>
+</ul>
+<p><strong>Potential future:</strong></p>
+<pre><code data-lang="c">// Hypothetical PostgreSQL addition
+bool
+XLogNeedFPW(Buffer buffer)
+{
+    if (io_supports_atomic_write(PageSize))
+        return false;  // Storage guarantees atomicity
+
+    return PageGetLSN(page) &lt; RedoRecPtr;
+}
+</code></pre>
+<h3 id="5-5-cloud-storage-atomicity">5.5 Cloud Storage Atomicity</h3>
+<p><strong>AWS EBS:</strong></p>
+<ul>
+<li>io2 Block Express: 64KB atomic writes</li>
+<li>gp3: 16KB atomic writes (with some caveats)</li>
+<li>Varies by instance type and configuration</li>
+</ul>
+<p><strong>Google Cloud Persistent Disk:</strong></p>
+<ul>
+<li>SSD: 16KB atomic writes</li>
+<li>Local SSD: 4KB atomic writes</li>
+</ul>
+<p><strong>Azure Premium SSD:</strong></p>
+<ul>
+<li>4KB atomic writes guaranteed</li>
+</ul>
+<p><strong>Implication:</strong> Cloud databases can potentially disable FPW/doublewrite on appropriate storage, but often don't due to complexity and risk.</p>
+<hr />
+<h2 id="6-checksums-and-detection-vs-prevention">6. Checksums and Detection vs Prevention</h2>
+<h3 id="6-1-detection-vs-prevention-strategies">6.1 Detection vs Prevention Strategies</h3>
+<p><strong>Prevention strategies:</strong></p>
+<ul>
+<li>Full Page Writes (prevent by having recovery data)</li>
+<li>Doublewrite Buffer (prevent by having backup copy)</li>
+<li>Copy-on-Write (prevent by never overwriting)</li>
+<li>Atomic writes (prevent at hardware level)</li>
+</ul>
+<p><strong>Detection strategies:</strong></p>
+<ul>
+<li>Checksums (detect corruption, cannot fix)</li>
+<li>Torn bits (detect partial writes)</li>
+<li>Magic numbers (detect gross corruption)</li>
+</ul>
+<h3 id="6-2-postgresql-data-checksums">6.2 PostgreSQL Data Checksums</h3>
+<p><strong>Enable at cluster creation:</strong></p>
+<pre><code data-lang="bash">initdb --data-checksums -D /var/lib/postgresql/data
+# Or
+pg_checksums --enable -D /var/lib/postgresql/data  # PG 12+, requires stop
+</code></pre>
+<p><strong>How it works:</strong></p>
+<pre><code data-lang="c">/* From src/include/storage/checksum.h */
+
+/* CRC-32C of page content (excluding pd_checksum field itself) */
+uint16
+pg_checksum_page(char *page, BlockNumber blkno)
+{
+    uint32 crc = pg_crc32c(0, page + offset, size);
+
+    /* Include block number to detect wrong-page-at-wrong-location */
+    crc = pg_crc32c(crc, &amp;blkno, sizeof(blkno));
+
+    return (uint16) crc;  /* Truncated to 16 bits */
+}
+</code></pre>
+<p><strong>Checksum location:</strong></p>
+<pre><code>Page Header:
++---------------+
+| pd_lsn        | 8 bytes
+| pd_checksum   | 2 bytes &lt;- Checksum stored here
+| pd_flags      | 2 bytes
+| pd_lower      | 2 bytes
+| pd_upper      | 2 bytes
+| pd_special    | 2 bytes
+| pd_pagesize   | 2 bytes
+| pd_version    | 2 bytes
++---------------+
+</code></pre>
+<h3 id="6-3-when-checksums-alone-are-insufficient">6.3 When Checksums Alone Are Insufficient</h3>
+<p><strong>Scenario: Silent corruption without FPW</strong></p>
+<pre><code>1. Checkpoint at LSN 100
+2. Page modified at LSN 101 (no FPW because full_page_writes = off)
+3. Crash during write at LSN 101
+4. Page on disk: torn, checksum invalid
+5. Recovery reads page -&gt; checksum fails
+6. PANIC: Database cannot recover!
+
+PostgreSQL has no way to reconstruct the page without FPW.
+</code></pre>
+<p><strong>Detection without recourse = data loss</strong></p>
+<h3 id="6-4-the-checksum-fpw-synergy">6.4 The Checksum + FPW Synergy</h3>
+<pre><code>With both checksums AND full_page_writes:
+
+1. Checkpoint at LSN 100
+2. Page modified at LSN 101, FPW written
+3. Crash during write at LSN 101
+4. Page on disk: torn, checksum invalid
+5. Recovery reads page -&gt; checksum fails
+6. Recovery finds FPW at LSN 101
+7. Restore page from FPW
+8. Verify checksum now passes
+9. Recovery continues successfully
+</code></pre>
+<h3 id="6-5-mysql-checksums">6.5 MySQL Checksums</h3>
+<pre><code data-lang="sql">-- InnoDB checksum algorithm
+SET GLOBAL innodb_checksum_algorithm = &#39;crc32&#39;;
+
+-- Options: crc32, strict_crc32, innodb, strict_innodb, none
+</code></pre>
+<p><strong>InnoDB stores checksums at:</strong></p>
+<ul>
+<li>Beginning of page: old-style checksum</li>
+<li>End of page: CRC-32C</li>
+</ul>
+<h3 id="6-6-checksum-overhead">6.6 Checksum Overhead</h3>
+<p><strong>PostgreSQL:</strong></p>
+<ul>
+<li>Read overhead: ~1-2% CPU for checksum verification</li>
+<li>Write overhead: ~1-2% CPU for checksum calculation</li>
+<li>Generally recommended: Always enable</li>
+</ul>
+<p><strong>Benchmark:</strong></p>
+<pre><code>pgbench -c 10 -T 60
+
+Without checksums: 15,234 TPS
+With checksums:    14,998 TPS
+
+Overhead: ~1.5%
+</code></pre>
+<hr />
+<h2 id="7-why-some-systems-don-t-need-fpw">7. Why Some Systems Don't Need FPW</h2>
+<h3 id="7-1-lsm-tree-based-systems">7.1 LSM-Tree Based Systems</h3>
+<p><strong>Key property:</strong> Append-only writes, immutable files</p>
+<pre><code>RocksDB/LevelDB write path:
+1. Append to WAL (sequential, atomic at record level)
+2. Insert to MemTable (memory)
+3. Flush MemTable to new SST file (new file = atomic creation)
+4. Update MANIFEST (atomic file operation)
+
+No step involves modifying an existing data file!
+</code></pre>
+<p><strong>Why it works:</strong></p>
+<ul>
+<li>SST files written sequentially, then made read-only</li>
+<li>If crash during SST write, file is incomplete -&gt; discard</li>
+<li>MANIFEST only updated after SST fully written</li>
+<li>Recovery: Read MANIFEST, ignore incomplete SST files</li>
+</ul>
+<h3 id="7-2-copy-on-write-systems">7.2 Copy-on-Write Systems</h3>
+<p><strong>Examples:</strong> ZFS, btrfs, DuckDB, FoundationDB</p>
+<pre><code>COW write path:
+1. Read block at location A
+2. Modify in memory
+3. Write modified block to NEW location B
+4. Update parent pointer atomically
+5. Old block at A is now free
+
+At no point is existing data overwritten!
+</code></pre>
+<p><strong>Why it works:</strong></p>
+<ul>
+<li>Crash before pointer update -&gt; old block still valid</li>
+<li>Crash after pointer update -&gt; new block valid</li>
+<li>No partial states possible</li>
+</ul>
+<h3 id="7-3-append-only-systems">7.3 Append-Only Systems</h3>
+<p><strong>Examples:</strong> Event sourcing, immutable logs, Kafka</p>
+<pre><code>Append-only log:
+Record 1 | Record 2 | Record 3 | Record 4 | &lt;EOF&gt;
+                                          ^
+                              Crash here = truncate to Record 3
+</code></pre>
+<p><strong>Recovery:</strong></p>
+<ul>
+<li>Scan from start or last checkpoint</li>
+<li>Validate each record (checksum/magic)</li>
+<li>Truncate at first invalid record</li>
+<li>All preceding records are valid</li>
+</ul>
+<h3 id="7-4-in-memory-systems-with-checkpointing">7.4 In-Memory Systems with Checkpointing</h3>
+<p><strong>Examples:</strong> Redis, VoltDB, MemSQL/SingleStore</p>
+<pre><code>In-memory operation:
+- All data in memory
+- Periodic snapshots to disk
+- Snapshot is atomic (COW or fork-based)
+
+Write path:
+1. Modify in memory (atomic at operation level)
+2. Append to AOF/WAL
+3. Periodic snapshot
+
+Recovery:
+1. Load last snapshot
+2. Replay WAL since snapshot
+</code></pre>
+<p><strong>Why FPW unnecessary:</strong></p>
+<ul>
+<li>Memory operations are atomic</li>
+<li>Snapshots use COW (no torn pages)</li>
+<li>WAL is append-only</li>
+</ul>
+<h3 id="7-5-systems-with-storage-level-atomicity">7.5 Systems with Storage-Level Atomicity</h3>
+<p><strong>Examples:</strong> Systems on NVMe with large atomic write units</p>
+<p>If hardware guarantees atomic 16KB writes and database uses 8KB pages:</p>
+<ul>
+<li>Every page write is atomic</li>
+<li>No torn pages possible</li>
+<li>FPW is pure overhead</li>
+</ul>
+<p><strong>But:</strong> Few systems actually detect and leverage this today.</p>
+<hr />
+<h2 id="8-trade-off-analysis">8. Trade-off Analysis</h2>
+<h3 id="8-1-write-amplification-comparison">8.1 Write Amplification Comparison</h3>
+<pre><code>WRITE AMPLIFICATION FACTORS:
+
+PostgreSQL (B-tree, FPW on):
+  User write: 100 bytes
+  Page modification: 8KB page touch
+  WAL: 100 bytes + 8KB FPW (first after checkpoint) = 8.1KB
+  Data file: 8KB
+  Total write amplification: 80x-160x first write, ~1.2x subsequent
+
+MySQL/InnoDB (B-tree, doublewrite):
+  User write: 100 bytes
+  Page modification: 16KB page touch
+  WAL: ~100 bytes
+  Doublewrite: 16KB
+  Data file: 16KB
+  Total write amplification: ~320x first write (but sequential!)
+
+RocksDB (LSM-tree):
+  User write: 100 bytes
+  WAL: ~100 bytes
+  MemTable: memory only
+  Flush: amortized across many writes
+  Compaction: additional amplification (10-30x total)
+  Total write amplification: 10-30x (but all sequential)
+
+DuckDB (COW, analytics):
+  User write: typically bulk
+  New blocks: proportional to modified data
+  No in-place modification
+  Total write amplification: ~1-2x for bulk writes
+</code></pre>
+<h3 id="8-2-recovery-time-comparison">8.2 Recovery Time Comparison</h3>
+<pre><code>RECOVERY TIME (for 100GB database, 1GB WAL):
+
+PostgreSQL:
+- Scan 1GB WAL
+- Apply FPW images (potentially many GBs of page images)
+- Redo remaining changes
+- ~5-15 minutes typical
+
+MySQL/InnoDB:
+- Check doublewrite buffer
+- Repair any torn pages
+- Apply redo log
+- ~2-5 minutes typical
+
+RocksDB:
+- Read MANIFEST
+- Verify SST files
+- Replay WAL (small, since SSTs capture most data)
+- ~30 seconds to 2 minutes typical
+
+COW systems (ZFS, btrfs):
+- No recovery needed
+- Just mount last consistent state
+- ~seconds
+</code></pre>
+<h3 id="8-3-space-overhead-comparison">8.3 Space Overhead Comparison</h3>
+<pre><code>SPACE OVERHEAD:
+
+PostgreSQL FPW:
+- WAL size increase: 2-10x
+- Additional archive storage
+- Longer replication lag
+
+MySQL doublewrite:
+- Fixed 2MB buffer
+- No WAL size increase
+- Minimal space overhead
+
+LSM-tree systems:
+- Space amplification from levels: 10-20x
+- No torn page overhead per se
+
+COW systems:
+- Space for old versions until garbage collected
+- Typically 10-30% overhead
+</code></pre>
+<h3 id="8-4-complexity-comparison">8.4 Complexity Comparison</h3>
+<pre><code>IMPLEMENTATION COMPLEXITY:
+
+PostgreSQL FPW:
+  + Simple concept
+  + Well-tested
+  - Performance overhead
+  - WAL management complexity
+
+MySQL doublewrite:
+  + Separate from redo log
+  + Small fixed overhead
+  - Extra I/O path
+  - Sequential write dependency
+
+LSM-tree (no torn page handling):
+  + Naturally atomic
+  - Compaction complexity
+  - Read amplification
+
+COW:
+  + Elegant
+  + Snapshot capability
+  - Garbage collection
+  - Space management
+</code></pre>
+<h3 id="8-5-decision-matrix">8.5 Decision Matrix</h3>
+<table><thead><tr><th>Workload</th><th>Recommended Approach</th><th>Why</th></tr></thead><tbody>
+<tr><td>OLTP, random writes</td><td>FPW or Doublewrite</td><td>Must handle torn pages</td></tr>
+<tr><td>Analytics, bulk writes</td><td>COW or LSM</td><td>Less critical, bulk atomic</td></tr>
+<tr><td>Write-heavy, logs</td><td>LSM-tree</td><td>Append-only natural fit</td></tr>
+<tr><td>Read-heavy</td><td>B-tree + FPW</td><td>Read performance priority</td></tr>
+<tr><td>Mixed</td><td>Depends on ratio</td><td>Profile and decide</td></tr>
+<tr><td>NVMe with atomics</td><td>Consider disabling FPW</td><td>Hardware handles it</td></tr>
+</tbody></table>
+<hr />
+<h2 id="9-state-of-the-art-research">9. State-of-the-Art Research</h2>
+<h3 id="9-1-key-academic-papers">9.1 Key Academic Papers</h3>
+<p><strong>Foundational:</strong></p>
+<ol>
+<li>
+<p><strong>"ARIES: A Transaction Recovery Method Supporting Fine-Granularity Locking"</strong></p>
+<ul>
+<li>Authors: C. Mohan, D. Haderle, B. Lindsay, H. Pirahesh, P. Schwarz</li>
+<li>Venue: ACM TODS, 1992</li>
+<li>Contribution: Definitive WAL-based recovery algorithm</li>
+<li>Key insight: LSN-based redo/undo with physiological logging</li>
+</ul>
+</li>
+<li>
+<p><strong>"The Log-Structured Merge-Tree (LSM-Tree)"</strong></p>
+<ul>
+<li>Authors: Patrick O'Neil, Edward Cheng, Dieter Gawlick, Elizabeth O'Neil</li>
+<li>Venue: Acta Informatica, 1996</li>
+<li>Contribution: Alternative to B-trees that avoids in-place updates</li>
+<li>Relevance: No torn page problem by design</li>
+</ul>
+</li>
+<li>
+<p><strong>"The Five-Minute Rule for Trading Memory for Disc Accesses"</strong></p>
+<ul>
+<li>Authors: Jim Gray, Gianfranco Putzolu</li>
+<li>Venue: SIGMOD, 1987</li>
+<li>Contribution: Economic analysis of buffer management</li>
+<li>Relevance: Foundation for checkpoint interval decisions</li>
+</ul>
+</li>
+</ol>
+<p><strong>Modern Research:</strong></p>
+<ol start="4">
+<li>
+<p><strong>"Understanding the Reliability of Solid State Drives"</strong></p>
+<ul>
+<li>Authors: Bianca Schroeder, Arif Merchant, et al.</li>
+<li>Venue: FAST, 2016 (Google study)</li>
+<li>Key finding: SSD failure modes differ from HDDs</li>
+<li>Relevance: Modern assumptions about atomic writes</li>
+</ul>
+</li>
+<li>
+<p><strong>"Designing Access Methods: The RUM Conjecture"</strong></p>
+<ul>
+<li>Authors: Manos Athanassoulis, Michael Kester, et al.</li>
+<li>Venue: EDBT, 2016</li>
+<li>Key insight: Read/Update/Memory tradeoffs are fundamental</li>
+<li>Relevance: FPW is an update overhead</li>
+</ul>
+</li>
+<li>
+<p><strong>"SILK: Preventing Latency Spikes in Log-Structured Merge Key-Value Stores"</strong></p>
+<ul>
+<li>Authors: Oana Balmau, Diego Didona, et al.</li>
+<li>Venue: USENIX ATC, 2019</li>
+<li>Contribution: LSM optimizations for tail latency</li>
+<li>Relevance: Making LSM more practical for OLTP</li>
+</ul>
+</li>
+<li>
+<p><strong>"WiscKey: Separating Keys from Values in SSD-Conscious Storage"</strong></p>
+<ul>
+<li>Authors: Lanyue Lu, Thanumalayan S. Pillai, et al.</li>
+<li>Venue: FAST, 2016</li>
+<li>Contribution: Value separation for LSM trees</li>
+<li>Relevance: Reduces write amplification dramatically</li>
+</ul>
+</li>
+<li>
+<p><strong>"The Unwritten Contract of Solid State Drives"</strong></p>
+<ul>
+<li>Authors: Jun He, Sudarsun Kannan, et al.</li>
+<li>Venue: EuroSys, 2017</li>
+<li>Key finding: SSD atomic write guarantees are complex</li>
+<li>Relevance: Don't blindly trust hardware atomicity claims</li>
+</ul>
+</li>
+<li>
+<p><strong>"Protocol-Aware Recovery for Consensus-Based Storage"</strong> (Best Paper)</p>
+<ul>
+<li>Authors: Ramnatthan Alagappan, Aishwarya Ganesan, Eric Lee, Aws Albarghouthi, Vijay Chidambaram, Andrea C. Arpaci-Dusseau, Remzi H. Arpaci-Dusseau</li>
+<li>Venue: FAST, 2018</li>
+<li>Contribution: Integrating storage fault handling into consensus protocols</li>
+<li>Key insight: Traditional databases conflate bit rot with crashes, losing committed data</li>
+<li>Impact: Foundation for TigerBeetle's storage design</li>
+<li>URL: https://www.usenix.org/conference/fast18/presentation/alagappan</li>
+</ul>
+</li>
+<li>
+<p><strong>"Can Applications Recover from fsync Failures?"</strong></p>
+<ul>
+<li>Authors: Anthony Rebello, Yuvraj Patel, Ramnatthan Alagappan, Andrea C. Arpaci-Dusseau, Remzi H. Arpaci-Dusseau</li>
+<li>Venue: USENIX ATC, 2020</li>
+<li>Key finding: After fsync() EIO error, kernel marks pages clean; retry doesn't work</li>
+<li>Impact: Explains why TigerBeetle uses Direct I/O exclusively</li>
+<li>Relevance: PostgreSQL and MySQL both had (and may still have) related bugs</li>
+</ul>
+</li>
+</ol>
+<h3 id="9-2-emerging-techniques">9.2 Emerging Techniques</h3>
+<p><strong>1. Persistent Memory (PMem):</strong></p>
+<pre><code>Intel Optane / CXL Memory:
+- Byte-addressable persistent storage
+- Sub-microsecond latency
+- Atomic 8-byte writes guaranteed
+
+Implications:
+- Fine-grained logging possible
+- No torn page problem at 8-byte level
+- New recovery algorithms needed
+</code></pre>
+<p><strong>Research:</strong></p>
+<ul>
+<li>"RECIPE: Converting Concurrent DRAM Indexes to Persistent-Memory Indexes" (SOSP 2019)</li>
+<li>"Zen: A High-Throughput Log-Free OLTP Engine" (VLDB 2021)</li>
+</ul>
+<p><strong>2. Asynchronous I/O + io_uring:</strong></p>
+<pre><code>Linux io_uring:
+- Kernel-bypass I/O submission
+- Batching and polling modes
+- IORING_OP_WRITE_FIXED for atomic writes
+</code></pre>
+<p><strong>Implication:</strong> Efficient batched fsync enables more frequent durability points.</p>
+<p><strong>3. Learned Checkpointing:</strong></p>
+<pre><code>Use ML to predict:
+- When to checkpoint (minimize recovery time vs performance)
+- Which pages to prioritize
+- Optimal FPW compression settings
+</code></pre>
+<p><strong>Research:</strong> Emerging area, no definitive papers yet.</p>
+<p><strong>4. Hardware Acceleration:</strong></p>
+<pre><code>Computational storage:
+- Offload checksum calculation to SSD controller
+- Transparent compression at storage layer
+- Hardware-assisted atomic writes
+</code></pre>
+<p><strong>Products:</strong> Samsung SmartSSD, ScaleFlux, Pliops</p>
+<h3 id="9-3-industry-innovations">9.3 Industry Innovations</h3>
+<p><strong>MySQL 8.0 Doublewrite Buffer v2:</strong></p>
+<ul>
+<li>Parallel doublewrite threads</li>
+<li>Dedicated files instead of ibdata1</li>
+<li>Better scalability</li>
+</ul>
+<p><strong>PostgreSQL 15+ WAL Improvements:</strong></p>
+<ul>
+<li>Improved FPW compression</li>
+<li>WAL record packing</li>
+<li>Parallel recovery</li>
+</ul>
+<p><strong>Amazon Aurora:</strong></p>
+<ul>
+<li>Storage-level replication</li>
+<li>Log-only replication to replicas</li>
+<li>6-way quorum for durability</li>
+<li>Avoids traditional torn page handling</li>
+</ul>
+<p><strong>Google Spanner:</strong></p>
+<ul>
+<li>Truetime for global consistency</li>
+<li>Paxos-based replication</li>
+<li>Storage layer handles atomicity</li>
+</ul>
+<p><strong>TigerBeetle:</strong></p>
+<ul>
+<li>Dual WAL architecture distinguishes torn writes from bit rot</li>
+<li>Protocol-Aware Recovery heals local storage from cluster</li>
+<li>Direct I/O + io_uring for correct durability semantics</li>
+<li>Hash-chained, immutable data model</li>
+<li>Written in Zig with static memory allocation</li>
+<li>Represents a new paradigm: consensus-integrated storage recovery</li>
+<li>Open source: https://github.com/tigerbeetle/tigerbeetle</li>
+</ul>
+<h3 id="9-4-future-directions">9.4 Future Directions</h3>
+<p><strong>1. Hardware atomicity becoming standard:</strong></p>
+<ul>
+<li>NVMe 2.0 specification includes atomic write semantics</li>
+<li>Cloud providers offering larger atomic write guarantees</li>
+<li>May eventually make FPW/doublewrite obsolete</li>
+</ul>
+<p><strong>2. Unified storage engines:</strong></p>
+<ul>
+<li>Bridging B-tree and LSM approaches</li>
+<li>Bw-tree (Microsoft), Silt, etc.</li>
+<li>Trying to get benefits of both</li>
+</ul>
+<p><strong>3. Serverless databases:</strong></p>
+<ul>
+<li>Disaggregated storage and compute</li>
+<li>Storage layer handles durability</li>
+<li>Compute nodes are stateless</li>
+</ul>
+<hr />
+<h2 id="10-practical-recommendations">10. Practical Recommendations</h2>
+<h3 id="10-1-for-pg-arrow-project">10.1 For pg_arrow Project</h3>
+<p>Since pg_arrow reads PostgreSQL data files directly, understanding FPW is crucial:</p>
+<p><strong>Reading a stopped PostgreSQL database:</strong></p>
+<ul>
+<li>Pages on disk are consistent (checkpoint completed before stop)</li>
+<li>No torn page concerns for readers</li>
+<li>Check <code>data_checksums</code> to validate pages</li>
+</ul>
+<p><strong>Reading from a crashed database:</strong></p>
+<ul>
+<li>Some pages may be torn</li>
+<li>WAL replay necessary for consistency</li>
+<li>Either run PostgreSQL recovery first, or implement WAL replay</li>
+</ul>
+<p><strong>Code implications:</strong></p>
+<pre><code data-lang="rust">fn validate_page(page: &amp;[u8], block_num: u32) -&gt; Result&lt;(), Error&gt; {
+    // 1. Check page header magic
+    let header = PageHeaderData::parse(page)?;
+
+    // 2. Verify checksum if enabled
+    if data_checksums_enabled {
+        let expected = header.pd_checksum;
+        let actual = pg_checksum_page(page, block_num);
+        if expected != actual {
+            return Err(Error::ChecksumMismatch {
+                block: block_num,
+                expected,
+                actual,
+            });
+        }
+    }
+
+    // 3. Validate LSN is reasonable
+    if header.pd_lsn &gt; current_redo_ptr {
+        // Page may be from future (clock skew) or corrupted
+        warn!(&quot;Page LSN ahead of redo pointer&quot;);
+    }
+
+    Ok(())
+}
+</code></pre>
+<h3 id="10-2-for-postgresql-users-dbas">10.2 For PostgreSQL Users/DBAs</h3>
+<p><strong>Always enable:</strong></p>
+<pre><code data-lang="sql">-- postgresql.conf
+full_page_writes = on     -- DO NOT DISABLE
+data_checksums = on       -- Enable at initdb
+
+-- For performance with FPW:
+wal_compression = on      -- Reduces WAL size
+checkpoint_timeout = 15min -- Longer = fewer FPW
+max_wal_size = 4GB        -- Allow more between checkpoints
+</code></pre>
+<p><strong>Monitoring:</strong></p>
+<pre><code data-lang="sql">-- Check FPW frequency
+SELECT pg_stat_wal.* FROM pg_stat_wal;
+
+-- Estimate FPW overhead
+SELECT
+    wal_bytes,
+    wal_fpi  -- Full page images written
+FROM pg_stat_wal;
+
+-- Check checksum status
+SHOW data_checksums;
+SELECT pg_control_checkpoint();
+</code></pre>
+<h3 id="10-3-for-database-system-designers">10.3 For Database System Designers</h3>
+<p><strong>Questions to answer:</strong></p>
+<ol>
+<li>
+<p><strong>Does your system do in-place updates?</strong></p>
+<ul>
+<li>Yes -&gt; Need torn page protection</li>
+<li>No (LSM/COW) -&gt; Probably don't need it</li>
+</ul>
+</li>
+<li>
+<p><strong>What is your page size vs hardware atomic unit?</strong></p>
+<ul>
+<li>Page size &lt;= atomic unit -&gt; No protection needed</li>
+<li>Page size &gt; atomic unit -&gt; Need protection</li>
+</ul>
+</li>
+<li>
+<p><strong>Can you guarantee storage atomicity?</strong></p>
+<ul>
+<li>Enterprise storage with BBU -&gt; Maybe skip</li>
+<li>Consumer SSDs -&gt; Don't trust blindly</li>
+<li>Cloud storage -&gt; Check provider docs</li>
+</ul>
+</li>
+<li>
+<p><strong>What is your recovery time target?</strong></p>
+<ul>
+<li>Seconds -&gt; COW or LSM preferred</li>
+<li>Minutes acceptable -&gt; FPW is fine</li>
+<li>Long recovery OK -&gt; Can be more aggressive</li>
+</ul>
+</li>
+<li>
+<p><strong>What is your write amplification budget?</strong></p>
+<ul>
+<li>Minimal -&gt; LSM or COW</li>
+<li>Some overhead OK -&gt; B-tree + FPW</li>
+<li>Sequential is fine -&gt; Doublewrite buffer</li>
+</ul>
+</li>
+</ol>
+<h3 id="10-4-testing-your-understanding">10.4 Testing Your Understanding</h3>
+<p><strong>Thought experiments:</strong></p>
+<ol>
+<li>
+<p><em>"If I disable FPW and my system crashes during a page write, what happens on recovery?"</em></p>
+<ul>
+<li>Answer: PostgreSQL tries to redo changes to a torn page, potentially propagating corruption or failing with checksum errors.</li>
+</ul>
+</li>
+<li>
+<p><em>"Why can RocksDB skip torn page protection?"</em></p>
+<ul>
+<li>Answer: It never modifies data in place. WAL is append-only (truncate on corruption), SST files are immutable (discard incomplete files).</li>
+</ul>
+</li>
+<li>
+<p><em>"If my NVMe supports 16KB atomic writes and PostgreSQL uses 8KB pages, can I safely disable FPW?"</em></p>
+<ul>
+<li>Answer: Theoretically yes, but PostgreSQL has no mechanism to verify or leverage this. Dangerous without kernel/storage stack verification.</li>
+</ul>
+</li>
+<li>
+<p><em>"Why does the doublewrite buffer use sequential writes?"</em></p>
+<ul>
+<li>Answer: Sequential writes are faster, especially on HDDs. The doublewrite buffer is flushed before random data file writes.</li>
+</ul>
+</li>
+</ol>
+<hr />
+<h2 id="11-glossary">11. Glossary</h2>
+<table><thead><tr><th>Term</th><th>Definition</th></tr></thead><tbody>
+<tr><td><strong>Torn Page</strong></td><td>A page partially written due to crash, containing mix of old and new data</td></tr>
+<tr><td><strong>FPW</strong></td><td>Full Page Write - PostgreSQL's torn page protection mechanism</td></tr>
+<tr><td><strong>WAL</strong></td><td>Write-Ahead Log - sequential log of all changes for durability</td></tr>
+<tr><td><strong>LSN</strong></td><td>Log Sequence Number - monotonically increasing identifier for log position</td></tr>
+<tr><td><strong>Checkpoint</strong></td><td>Point at which all dirty buffers are flushed to disk</td></tr>
+<tr><td><strong>REDO</strong></td><td>Process of re-applying committed changes during recovery</td></tr>
+<tr><td><strong>UNDO</strong></td><td>Process of rolling back uncommitted changes during recovery</td></tr>
+<tr><td><strong>COW</strong></td><td>Copy-on-Write - never modify in place, always write to new location</td></tr>
+<tr><td><strong>LSM</strong></td><td>Log-Structured Merge-tree - write-optimized structure with immutable files</td></tr>
+<tr><td><strong>Doublewrite</strong></td><td>InnoDB's torn page protection via redundant writes</td></tr>
+<tr><td><strong>AWUN</strong></td><td>Atomic Write Unit Normal - NVMe guaranteed atomic write size</td></tr>
+<tr><td><strong>BBU</strong></td><td>Battery-Backed Unit - hardware ensuring cache durability</td></tr>
+<tr><td><strong>PAR</strong></td><td>Protocol-Aware Recovery - integrating storage faults into consensus</td></tr>
+<tr><td><strong>Dual WAL</strong></td><td>TigerBeetle's approach using two logs to distinguish torn writes from bit rot</td></tr>
+<tr><td><strong>Hash-chain</strong></td><td>Cryptographic linking where each record includes checksum of previous</td></tr>
+<tr><td><strong>Direct I/O</strong></td><td>Bypassing OS page cache with O_DIRECT flag</td></tr>
+<tr><td><strong>io_uring</strong></td><td>Linux kernel interface for efficient async I/O without syscalls</td></tr>
+<tr><td><strong>Bit rot</strong></td><td>Gradual corruption of data on storage media over time</td></tr>
+<tr><td><strong>Gray failure</strong></td><td>Partial failure where component is slow but doesn't report errors</td></tr>
+<tr><td><strong>NACK</strong></td><td>Negative acknowledgment - explicitly stating "I never received this"</td></tr>
+</tbody></table>
+<hr />
+<h2 id="12-bibliography">12. Bibliography</h2>
+<h3 id="core-papers">Core Papers</h3>
+<ol>
+<li>
+<p>Mohan, C. et al. "ARIES: A Transaction Recovery Method Supporting Fine-Granularity Locking and Partial Rollbacks Using Write-Ahead Logging." ACM TODS 17(1), 1992.</p>
+</li>
+<li>
+<p>O'Neil, P. et al. "The Log-Structured Merge-Tree (LSM-Tree)." Acta Informatica 33(4), 1996.</p>
+</li>
+<li>
+<p>Gray, J. and Reuter, A. "Transaction Processing: Concepts and Techniques." Morgan Kaufmann, 1993.</p>
+</li>
+<li>
+<p>Hellerstein, J., Stonebraker, M., Hamilton, J. "Architecture of a Database System." Foundations and Trends in Databases 1(2), 2007.</p>
+</li>
+</ol>
+<h3 id="system-specific">System-Specific</h3>
+<ol start="5">
+<li>
+<p>PostgreSQL Global Development Group. "PostgreSQL Documentation: Write-Ahead Logging." https://www.postgresql.org/docs/current/wal.html</p>
+</li>
+<li>
+<p>Schwartz, B. et al. "High Performance MySQL." O'Reilly, 4th edition, 2021. (Chapters on InnoDB)</p>
+</li>
+<li>
+<p>RocksDB Team. "RocksDB Wiki: Write-Ahead-Log." https://github.com/facebook/rocksdb/wiki</p>
+</li>
+</ol>
+<h3 id="storage-research">Storage Research</h3>
+<ol start="8">
+<li>
+<p>Schroeder, B. et al. "Flash Reliability in Production: The Expected and the Unexpected." FAST 2016.</p>
+</li>
+<li>
+<p>He, J. et al. "The Unwritten Contract of Solid State Drives." EuroSys 2017.</p>
+</li>
+<li>
+<p>Lu, L. et al. "WiscKey: Separating Keys from Values in SSD-conscious Storage." FAST 2016.</p>
+</li>
+</ol>
+<h3 id="modern-systems">Modern Systems</h3>
+<ol start="11">
+<li>
+<p>Verbitski, A. et al. "Amazon Aurora: Design Considerations for High Throughput Cloud-Native Relational Databases." SIGMOD 2017.</p>
+</li>
+<li>
+<p>Corbett, J. et al. "Spanner: Google's Globally Distributed Database." OSDI 2012.</p>
+</li>
+<li>
+<p>Diaconu, C. et al. "Hekaton: SQL Server's Memory-Optimized OLTP Engine." SIGMOD 2013.</p>
+</li>
+</ol>
+<h3 id="protocol-aware-recovery-and-storage-faults">Protocol-Aware Recovery and Storage Faults</h3>
+<ol start="14">
+<li>
+<p>Alagappan, R. et al. "Protocol-Aware Recovery for Consensus-Based Storage." FAST 2018. (Best Paper)</p>
+</li>
+<li>
+<p>Rebello, A. et al. "Can Applications Recover from fsync Failures?" USENIX ATC 2020.</p>
+</li>
+<li>
+<p>Pillai, T. et al. "All File Systems Are Not Created Equal: On the Complexity of Crafting Crash-Consistent Applications." OSDI 2014.</p>
+</li>
+</ol>
+<h3 id="tigerbeetle-specific">TigerBeetle-Specific</h3>
+<ol start="17">
+<li>
+<p>TigerBeetle Team. "TigerBeetle Architecture Documentation." https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/ARCHITECTURE.md</p>
+</li>
+<li>
+<p>TigerBeetle Team. "TigerBeetle Safety Documentation." https://docs.tigerbeetle.com/concepts/safety/</p>
+</li>
+<li>
+<p>Kingsbury, K. "Jepsen: TigerBeetle 0.16.11." https://jepsen.io/analyses/tigerbeetle-0.16.11 (2025)</p>
+</li>
+</ol>
+<hr />
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://nmbr7.github.io/notes/database/wal-incremental-conversion/">WAL-Based Incremental Conversion</a> — Builds on WAL fundamentals for CDC and incremental Arrow conversion</li>
+<li><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a> — Write-optimized storage that uses WAL for durability before memtable flush</li>
+<li><a href="https://nmbr7.github.io/notes/os/filesystem-design/">Filesystem Design</a> — Journaling, crash consistency, and the storage layer WAL writes depend on</li>
+<li><a href="https://nmbr7.github.io/notes/distributed/deterministic-simulation-testing/">Deterministic Simulation Testing</a> — Testing methodologies for verifying crash recovery correctness (TigerBeetle, FoundationDB)</li>
+<li><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a> — Aurora, Neon, and others that redesign WAL propagation for distributed storage</li>
+</ul>
+<hr />
+<p><em>Last updated: 2026-01-28</em></p>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

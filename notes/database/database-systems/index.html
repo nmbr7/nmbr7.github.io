@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Database Systems</h1>
+  <h1 id="database-data-systems-research">Database &amp; Data Systems Research</h1>
+<p>A comprehensive technical reference covering architecture, key techniques, and differentiators for modern database systems across OLTP, OLAP, streaming, vector, geospatial, and edge categories.</p>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#1-umbra">Umbra</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#2-postgresql">PostgreSQL</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#3-mysql">MySQL</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#cockroachdb">CockroachDB</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#5-duckdb">DuckDB</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#6-feldera">Feldera</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#7-clickhouse">ClickHouse</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#8-risingwave">RisingWave</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#9-apache-comet">Apache Comet</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#10-apache-spark">Apache Spark</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#11-paradedb">ParadeDB</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#12-neon">Neon</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#13-turso">Turso</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#14-apache-iceberg-vendors">Apache Iceberg &amp; Vendors</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#15-neo4j">Neo4j</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#16-apache-sedona-sedonadb">Apache Sedona (SedonaDB)</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#17-distributed-postgresql">Distributed PostgreSQL</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#18-qdrant">Qdrant</a></li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/#19-tigerbeetle">TigerBeetle</a></li>
+</ol>
+<hr />
+<h2 id="1-umbra">1. Umbra</h2>
+<p><strong>Category:</strong> Research RDBMS (OLAP-focused with HTAP capabilities)
+<strong>Origin:</strong> TU Munich, Chair of Database Systems (Prof. Thomas Neumann)
+<strong>Predecessor:</strong> HyPer (in-memory HTAP system, acquired by Tableau/Salesforce)</p>
+<h3 id="overview">Overview</h3>
+<p>Umbra is a disk-based relational database that achieves in-memory-class performance. It is the spiritual successor to HyPer, designed to remove HyPer's limitation of requiring all data to fit in RAM while retaining its breakthrough query processing speed.</p>
+<h3 id="architecture">Architecture</h3>
+<ul>
+<li><strong>Disk-based but memory-speed:</strong> Uses a buffer manager engineered so overhead is near-zero when data fits in memory; degrades gracefully when data exceeds RAM.</li>
+<li><strong>Compiled query execution:</strong> Queries compiled to native code, not interpreted via Volcano-style iterators.</li>
+<li><strong>Morsel-driven parallelism:</strong> Work divided into small cache-friendly chunks processed by worker threads.</li>
+<li><strong>Pointer-free on-disk structures:</strong> All persistent data uses offsets (not raw pointers) so pages can be freely relocated.</li>
+</ul>
+<h3 id="key-techniques">Key Techniques</h3>
+<h4 id="variable-size-buffer-management-leanstore-heritage">Variable-Size Buffer Management (LeanStore heritage)</h4>
+<ul>
+<li><strong>Variable-size pages</strong> (64 KB to several MB) instead of traditional fixed 8/16 KB pages; reduces per-tuple overhead and suits analytical scans.</li>
+<li><strong>Pointer swizzling:</strong> On-disk page IDs replaced with in-memory pointers when resident. Page access becomes a direct pointer dereference (no hash-table lookup in buffer pool).</li>
+<li><strong>Optimistic latching:</strong> Version-counter-based reads instead of heavy read-write locks. Readers check a version counter before/after; if changed, retry. Dramatically reduces synchronization overhead.</li>
+<li><strong>Hot/Cooling/Frozen eviction:</strong> Pages transition through states for eviction decisions, avoiding overhead of a global LRU list.</li>
+</ul>
+<h4 id="adaptive-multi-tier-query-compilation-flying-start">Adaptive Multi-Tier Query Compilation ("Flying Start")</h4>
+<p>Unlike HyPer (which used LLVM directly, causing compilation latency), Umbra uses a custom lightweight IR:</p>
+<ul>
+<li><strong>Tier 0 - Interpretation/Bytecode:</strong> Near-zero compilation overhead for very short queries.</li>
+<li><strong>Tier 1 - Fast compilation (Umbra backend):</strong> Custom lightweight compiler generates machine code in microseconds to low milliseconds. Basic register allocation and instruction selection, skips expensive optimizations.</li>
+<li><strong>Tier 2 - Optimized compilation (LLVM):</strong> Background LLVM compilation for long-running queries; hot-swaps running query to optimized code mid-execution.</li>
+</ul>
+<h4 id="data-centric-code-generation-push-based">Data-Centric Code Generation (Push-Based)</h4>
+<ul>
+<li>Tight loops where data is pushed from producers to consumers.</li>
+<li>Tuple data kept in CPU registers as long as possible, minimizing materialization.</li>
+<li>Pipeline breakers (hash joins, sorts) define boundaries of compiled code fragments.</li>
+</ul>
+<h4 id="morsel-driven-parallelism">Morsel-Driven Parallelism</h4>
+<ul>
+<li><strong>Morsels:</strong> Input divided into ~10,000-tuple chunks. Workers process one morsel at a time.</li>
+<li><strong>Work-stealing scheduler:</strong> Central dispatcher assigns morsels; threads grab next available when done.</li>
+<li><strong>NUMA-awareness:</strong> Scheduler assigns morsels to threads local to the data's NUMA node.</li>
+<li><strong>Elasticity:</strong> Dynamic parallelism adjustment; threads can be reassigned mid-query for responsive multi-query execution.</li>
+</ul>
+<h3 id="storage-engine">Storage Engine</h3>
+<ul>
+<li><strong>Columnar/PAX layout</strong> within pages for compression and scan performance.</li>
+<li><strong>Lightweight compression:</strong> Dictionary encoding, RLE, frame-of-reference encoding at memory bandwidth speeds.</li>
+<li><strong>Adaptive Radix Tree (ART)</strong> as primary index structure (developed at TUM). Cache-friendly, adapts node sizes to key distribution, excellent for both point lookups and range scans.</li>
+</ul>
+<h3 id="transaction-support">Transaction Support</h3>
+<ul>
+<li>MVCC with snapshot isolation for readers.</li>
+<li>Write-ahead logging (WAL) for durability and crash recovery.</li>
+</ul>
+<h3 id="performance">Performance</h3>
+<ul>
+<li>TPC-H SF=100 (100 GB): single-digit seconds total for all 22 queries on modern hardware.</li>
+<li>Sub-millisecond compilation for simple queries.</li>
+<li>Buffer manager overhead when data fits in memory: &lt; 5%.</li>
+<li>Near-linear scaling across many cores.</li>
+</ul>
+<h3 id="key-papers">Key Papers</h3>
+<ul>
+<li>Neumann (VLDB 2011): "Efficiently Compiling Efficient Query Plans for Modern Hardware"</li>
+<li>Leis et al. (SIGMOD 2014): "Morsel-Driven Parallelism"</li>
+<li>Kersten, Leis, Neumann (VLDB 2021): "Tidy Tuples and Flying Start"</li>
+<li>Neumann, Freitag (CIDR 2020): "Umbra: A Disk-Based System with In-Memory Performance"</li>
+<li>Leis et al. (ICDE 2013): "The Adaptive Radix Tree: ARTful Indexing for Main-Memory Databases"</li>
+</ul>
+<hr />
+<h2 id="2-postgresql">2. PostgreSQL</h2>
+<p><strong>Category:</strong> General-purpose ORDBMS (OLTP + analytical capabilities)
+<strong>License:</strong> PostgreSQL License (permissive, similar to MIT/BSD)
+<strong>Written in:</strong> C</p>
+<h3 id="overview-1">Overview</h3>
+<p>PostgreSQL is the world's most advanced open-source relational database. It combines SQL compliance, extensibility, and robustness, serving as the foundation for dozens of derivative systems (Neon, Citus, Aurora PostgreSQL, AlloyDB, etc.).</p>
+<h3 id="architecture-1">Architecture</h3>
+<ul>
+<li><strong>Process-per-connection model:</strong> Each client connection gets a dedicated backend process (forked from the postmaster). Shared memory (shared buffers) provides inter-process communication.</li>
+<li><strong>Shared buffer pool:</strong> Configurable shared memory area for caching disk pages; uses a clock-sweep eviction algorithm.</li>
+<li><strong>WAL (Write-Ahead Logging):</strong> All modifications written to WAL before data files. Supports crash recovery, point-in-time recovery (PITR), and streaming replication.</li>
+<li><strong>MVCC (Multi-Version Concurrency Control):</strong> Each transaction sees a snapshot; old row versions (dead tuples) accumulate until VACUUM reclaims them.</li>
+</ul>
+<h3 id="key-techniques-1">Key Techniques</h3>
+<h4 id="storage-engine-heap-based">Storage Engine (Heap-based)</h4>
+<ul>
+<li><strong>Heap tables:</strong> Rows stored in pages (8 KB default), no inherent ordering. Updates create new row versions in-place or on a different page.</li>
+<li><strong>TOAST (The Oversized-Attribute Storage Technique):</strong> Large field values compressed and/or stored out-of-line in a separate TOAST table.</li>
+<li><strong>Visibility maps and free space maps:</strong> Track which pages are all-visible (for index-only scans) and which have free space (for inserts).</li>
+<li><strong>Tablespaces:</strong> Map logical storage to physical directories.</li>
+</ul>
+<h4 id="mvcc-implementation">MVCC Implementation</h4>
+<ul>
+<li><strong>Tuple headers contain xmin/xmax:</strong> Transaction IDs marking when a tuple was created/deleted.</li>
+<li><strong>Snapshot isolation:</strong> Read transactions see a consistent snapshot; no read locks needed.</li>
+<li><strong>Serializable Snapshot Isolation (SSI):</strong> PostgreSQL implements true serializable isolation via predicate locking and conflict detection (Cahill et al., 2008).</li>
+<li><strong>VACUUM:</strong> Background process reclaims dead tuples. Autovacuum handles this automatically. Can be a source of contention on write-heavy workloads ("VACUUM bloat" problem).</li>
+</ul>
+<h4 id="indexing">Indexing</h4>
+<ul>
+<li><strong>B-tree:</strong> Default index type, highly optimized with Lehman-Yao concurrent B-tree algorithm. Supports deduplication (PG 13+).</li>
+<li><strong>GiST (Generalized Search Tree):</strong> Extensible indexing framework for complex data types (geometric, full-text, range types).</li>
+<li><strong>GIN (Generalized Inverted Index):</strong> For composite values (arrays, JSONB, full-text search tsvector).</li>
+<li><strong>BRIN (Block Range Index):</strong> Lightweight index storing min/max per range of physical blocks; excellent for naturally ordered data (timestamps, sequential IDs).</li>
+<li><strong>SP-GiST:</strong> Space-partitioned GiST for data with non-balanced decomposition (phone numbers, IP addresses).</li>
+<li><strong>Hash indexes:</strong> Made crash-safe in PG 10+.</li>
+</ul>
+<h4 id="query-processing">Query Processing</h4>
+<ul>
+<li><strong>Cost-based optimizer:</strong> Uses statistics (histograms, MCV lists, correlation) collected by ANALYZE. Considers sequential vs. random I/O costs, CPU costs, and parallelism.</li>
+<li><strong>Parallel query execution (PG 9.6+):</strong> Parallel sequential scans, hash joins, merge joins, aggregations. Gather/Gather Merge nodes collect results from parallel workers.</li>
+<li><strong>JIT compilation (PG 11+):</strong> Uses LLVM to JIT-compile expressions, tuple deforming, and qualifying conditions for complex queries.</li>
+<li><strong>Partitioning:</strong> Declarative partitioning (range, list, hash) with partition pruning at both plan time and execution time.</li>
+</ul>
+<h4 id="extensibility">Extensibility</h4>
+<ul>
+<li><strong>Custom types, operators, functions, index methods, and procedural languages</strong> (PL/pgSQL, PL/Python, PL/Rust, etc.).</li>
+<li><strong>Foreign Data Wrappers (FDW):</strong> Query external data sources (other databases, files, APIs) as if they were local tables.</li>
+<li><strong>Extensions:</strong> Rich ecosystem (PostGIS, pg_stat_statements, pgvector, Citus, TimescaleDB, etc.).</li>
+<li><strong>Logical replication:</strong> Publish/subscribe model for selective table replication.</li>
+</ul>
+<h4 id="replication-ha">Replication &amp; HA</h4>
+<ul>
+<li><strong>Streaming replication:</strong> WAL records streamed to standby servers for physical replication. Synchronous or asynchronous.</li>
+<li><strong>Logical replication (PG 10+):</strong> Row-level changes published/subscribed at table granularity.</li>
+<li><strong>Patroni, pg_auto_failover, Stolon:</strong> External HA management tools.</li>
+</ul>
+<h3 id="strengths">Strengths</h3>
+<ul>
+<li>Extreme extensibility and standards compliance.</li>
+<li>Rich type system (JSONB, arrays, ranges, geometric types, custom types).</li>
+<li>Strong correctness guarantees (serializable isolation, robust MVCC).</li>
+<li>Massive ecosystem of extensions and derivative products.</li>
+</ul>
+<h3 id="weaknesses">Weaknesses</h3>
+<ul>
+<li>Process-per-connection model limits connection scalability (mitigated by pgBouncer/PgCat).</li>
+<li>VACUUM overhead for write-heavy workloads.</li>
+<li>No built-in columnar storage (requires extensions like Citus columnar or pg_analytics).</li>
+<li>Single-node by default; horizontal scaling requires external solutions.</li>
+</ul>
+<hr />
+<h2 id="3-mysql">3. MySQL</h2>
+<p><strong>Category:</strong> General-purpose RDBMS (OLTP-focused)
+<strong>License:</strong> GPL v2 (with commercial license from Oracle)
+<strong>Written in:</strong> C, C++</p>
+<h3 id="overview-2">Overview</h3>
+<p>MySQL is the world's most popular open-source relational database, powering much of the web. With the InnoDB storage engine (default since MySQL 5.5), it provides ACID-compliant transactional storage.</p>
+<h3 id="architecture-2">Architecture</h3>
+<ul>
+<li><strong>Thread-per-connection model:</strong> Unlike PostgreSQL's process model, MySQL uses threads within a single process.</li>
+<li><strong>Pluggable storage engines:</strong> InnoDB (default, transactional), MyISAM (legacy, non-transactional), Memory, NDB (Cluster), etc. The query optimizer sits above the storage engine layer.</li>
+<li><strong>SQL layer:</strong> Parser, optimizer, and executor are decoupled from storage.</li>
+</ul>
+<h3 id="key-techniques-2">Key Techniques</h3>
+<h4 id="innodb-storage-engine">InnoDB Storage Engine</h4>
+<ul>
+<li><strong>Clustered index (B+ tree):</strong> Data is physically stored in primary key order. Secondary indexes store the primary key as a pointer (not a page/row locator), enabling consistent lookups after page splits.</li>
+<li><strong>Buffer pool:</strong> Large shared memory area caching data and index pages. Uses a modified LRU with a young/old sublist to prevent full-table scans from flushing hot pages.</li>
+<li><strong>Redo log (WAL):</strong> Circular redo log files for crash recovery. Write-ahead logging ensures durability.</li>
+<li><strong>Undo log:</strong> Stored in a separate undo tablespace; used for MVCC rollback segments and consistent reads.</li>
+<li><strong>MVCC:</strong> Read views use undo log to reconstruct old row versions. Does not suffer from PostgreSQL's VACUUM problem since undo is purged separately.</li>
+<li><strong>Change buffer:</strong> Buffers secondary index changes for non-unique indexes, merging them later during reads or background operations. Reduces random I/O.</li>
+<li><strong>Adaptive hash index:</strong> InnoDB automatically builds an in-memory hash index on top of B-tree pages that are frequently accessed, providing O(1) lookups.</li>
+<li><strong>Doublewrite buffer:</strong> Writes pages to a doublewrite area before their actual locations, protecting against partial page writes during crashes.</li>
+</ul>
+<h4 id="replication">Replication</h4>
+<ul>
+<li><strong>Binlog-based replication:</strong> Statement-based (SBR), row-based (RBR), or mixed. The binary log records all data changes.</li>
+<li><strong>GTID (Global Transaction Identifiers):</strong> Simplifies replication topology management and failover.</li>
+<li><strong>Group Replication:</strong> Multi-primary or single-primary mode using Paxos-based consensus for automatic failover and conflict detection.</li>
+<li><strong>InnoDB Cluster:</strong> Integrated HA solution combining Group Replication, MySQL Shell, and MySQL Router.</li>
+<li><strong>Semi-synchronous replication:</strong> Primary waits for at least one replica to acknowledge WAL receipt before committing.</li>
+</ul>
+<h4 id="query-processing-1">Query Processing</h4>
+<ul>
+<li><strong>Cost-based optimizer</strong> with histograms (MySQL 8.0+), index statistics, and join optimizations.</li>
+<li><strong>Hash joins (MySQL 8.0.18+):</strong> Previously only nested-loop joins were supported.</li>
+<li><strong>Window functions, CTEs, lateral derived tables (MySQL 8.0+).</strong></li>
+<li><strong>Parallel query</strong> is limited compared to PostgreSQL; read-ahead and adaptive scanning provide some parallelism.</li>
+</ul>
+<h3 id="mysql-variants">MySQL Variants</h3>
+<ul>
+<li><strong>Percona Server:</strong> Drop-in replacement with performance improvements (thread pool, compression, enhanced InnoDB).</li>
+<li><strong>MariaDB:</strong> Fork with additional storage engines (Aria, ColumnStore for analytics, Spider for sharding), and divergent feature development.</li>
+</ul>
+<h3 id="strengths-1">Strengths</h3>
+<ul>
+<li>Excellent read-heavy OLTP performance.</li>
+<li>Mature replication ecosystem.</li>
+<li>Clustered index design avoids secondary lookups for PK queries.</li>
+<li>Change buffer and adaptive hash index reduce I/O.</li>
+</ul>
+<h3 id="weaknesses-1">Weaknesses</h3>
+<ul>
+<li>Historically weaker SQL compliance than PostgreSQL (improving in MySQL 8.0+).</li>
+<li>Limited extensibility compared to PostgreSQL.</li>
+<li>Single storage engine boundary (query layer cannot optimize across engines).</li>
+<li>DDL operations historically blocking (Online DDL improved in 8.0 but still has limitations).</li>
+</ul>
+<hr />
+<h2 id="4-cockroachdb">4. CockroachDB</h2>
+<p><strong>Category:</strong> Distributed SQL (NewSQL), strongly consistent
+<strong>License:</strong> BSL 1.1 (transitions to Apache 2.0 after 3 years)
+<strong>Written in:</strong> Go</p>
+<h3 id="overview-3">Overview</h3>
+<p>CockroachDB is a distributed SQL database inspired by Google Spanner. It provides serializable transactions, horizontal scalability, and automatic geo-replication while maintaining PostgreSQL wire protocol compatibility.</p>
+<h3 id="architecture-3">Architecture</h3>
+<ul>
+<li><strong>Shared-nothing, distributed:</strong> Data distributed across nodes using range-based sharding. Each range (default ~512 MB) is a unit of replication.</li>
+<li><strong>Layered architecture:</strong>
+<ul>
+<li><strong>SQL layer:</strong> PostgreSQL-compatible parser, cost-based optimizer, distributed execution engine.</li>
+<li><strong>Transaction layer:</strong> Distributed transaction coordination using a hybrid logical clock (HLC) for ordering.</li>
+<li><strong>Distribution layer:</strong> Range-based partitioning, lease-based routing, automatic rebalancing.</li>
+<li><strong>Replication layer:</strong> Raft consensus protocol for each range's replicas.</li>
+<li><strong>Storage layer:</strong> Pebble (custom LSM-tree key-value store, successor to RocksDB).</li>
+</ul>
+</li>
+</ul>
+<h3 id="key-techniques-3">Key Techniques</h3>
+<h4 id="distributed-transactions">Distributed Transactions</h4>
+<ul>
+<li><strong>Serializable isolation by default:</strong> Uses a combination of MVCC timestamps and a transaction write pipeline.</li>
+<li><strong>Transaction record:</strong> A transaction is committed by writing a transaction record to a range; parallel writes can proceed before the commit point.</li>
+<li><strong>Parallel commits:</strong> Optimization that allows the client to be notified of commit while the transaction record is still being written, reducing latency.</li>
+<li><strong>Hybrid Logical Clocks (HLC):</strong> Combines physical wall-clock time with a logical counter to provide causal ordering without requiring GPS/atomic clocks (unlike Spanner's TrueTime). Trade-off: read restart mechanism needed when clock skew is detected.</li>
+<li><strong>Read refreshes:</strong> If a transaction's read timestamp becomes stale, CockroachDB attempts to refresh (re-validate) reads at a newer timestamp instead of aborting.</li>
+<li><strong>Closed timestamps:</strong> Each range publishes a closed timestamp guaranteeing no future writes below it; enables consistent follower reads.</li>
+</ul>
+<h4 id="raft-consensus">Raft Consensus</h4>
+<ul>
+<li><strong>Per-range Raft groups:</strong> Each range (typically 3 or 5 replicas) runs an independent Raft consensus group.</li>
+<li><strong>Leaseholder:</strong> One replica per range holds the lease and serves all reads/writes. Leases are Raft-based.</li>
+<li><strong>Range splits and merges:</strong> Automatic, based on data size and load. Metadata ranges track the mapping.</li>
+</ul>
+<h4 id="storage-pebble">Storage: Pebble</h4>
+<ul>
+<li><strong>LSM-tree (Log-Structured Merge-tree):</strong> Write-optimized with compaction. Replaced RocksDB with Pebble (written in Go) for tighter integration and better performance control.</li>
+<li><strong>MVCC encoding:</strong> Keys are encoded with timestamps for multi-version storage. Garbage collection of old versions is range-based.</li>
+</ul>
+<h4 id="geo-distribution">Geo-Distribution</h4>
+<ul>
+<li><strong>Geo-partitioning:</strong> Pin data to specific regions (e.g., EU user data stays in EU).</li>
+<li><strong>Global tables:</strong> Replicate reference data everywhere for low-latency reads.</li>
+<li><strong>Follower reads:</strong> Allow stale (but bounded-staleness) reads from the nearest replica.</li>
+<li><strong>Multi-region abstractions:</strong> SURVIVE ZONE FAILURE vs. SURVIVE REGION FAILURE configurations.</li>
+</ul>
+<h3 id="performance-characteristics">Performance Characteristics</h3>
+<ul>
+<li>Optimized for geo-distributed OLTP workloads.</li>
+<li>Higher latency per-transaction than single-node databases due to consensus overhead.</li>
+<li>Horizontal write scalability through range-based sharding.</li>
+<li>Not optimized for heavy analytical workloads (no columnar storage).</li>
+</ul>
+<hr />
+<h2 id="5-duckdb">5. DuckDB</h2>
+<p><strong>Category:</strong> In-process OLAP database (embedded analytical)
+<strong>License:</strong> MIT
+<strong>Written in:</strong> C++</p>
+<h3 id="overview-4">Overview</h3>
+<p>DuckDB is an in-process analytical database, often described as "SQLite for analytics." It runs embedded within applications (no separate server), providing fast columnar analytical query processing.</p>
+<h3 id="architecture-4">Architecture</h3>
+<ul>
+<li><strong>In-process / embedded:</strong> Runs within the host process (Python, R, Java, Node.js, etc.). No client-server protocol overhead.</li>
+<li><strong>Single-file database:</strong> Stores the entire database in a single file (or operates in-memory).</li>
+<li><strong>Vectorized execution engine:</strong> Processes data in vectors/batches (typically 2048 values) rather than tuple-at-a-time.</li>
+</ul>
+<h3 id="key-techniques-4">Key Techniques</h3>
+<h4 id="vectorized-execution-push-based">Vectorized Execution (Push-Based)</h4>
+<ul>
+<li><strong>Column-oriented batch processing:</strong> Operators work on vectors of column values. Tight loops over arrays exploit CPU caches, SIMD, and branch prediction.</li>
+<li><strong>Pipeline-based execution:</strong> Push-based model where source operators push data through pipelines. Pipelines break at materialization points (hash tables, sorts).</li>
+<li><strong>Morsel-driven parallelism:</strong> Similar to HyPer/Umbra; work divided into morsels for multi-core scaling.</li>
+</ul>
+<h4 id="storage">Storage</h4>
+<ul>
+<li><strong>Columnar storage format:</strong> Data stored in row groups, with each column stored contiguously. Supports lightweight compression (dictionary, RLE, bitpacking, frame-of-reference, Chimp/Patas for floating point).</li>
+<li><strong>Buffer manager with spilling:</strong> Can operate on datasets larger than memory by spilling to disk.</li>
+<li><strong>Persistent storage:</strong> Single-file format with ACID transactions and WAL.</li>
+<li><strong>Efficient Parquet/CSV/JSON reader:</strong> Direct querying of external files without explicit loading. Parquet reader uses predicate pushdown, column projection, and row group skipping.</li>
+</ul>
+<h4 id="query-optimizer">Query Optimizer</h4>
+<ul>
+<li><strong>Cost-based optimizer</strong> with cardinality estimation, join ordering (dynamic programming for small queries, greedy for large).</li>
+<li><strong>Filter pushdown, projection pushdown, common subexpression elimination.</strong></li>
+<li><strong>Adaptive/dynamic filter generation:</strong> Bloom filters pushed between operators.</li>
+<li><strong>Parallel execution:</strong> Automatic parallelization of scans, joins, aggregations across cores.</li>
+</ul>
+<h4 id="zero-copy-integration">Zero-Copy Integration</h4>
+<ul>
+<li><strong>Apache Arrow integration:</strong> Zero-copy data transfer with Arrow-compatible systems.</li>
+<li><strong>Direct Pandas/Polars integration:</strong> Can query Pandas DataFrames and Polars LazyFrames without copying data.</li>
+<li><strong>Extensions:</strong> httpfs (query files over HTTP/S3), spatial, json, postgres_scanner, sqlite_scanner, iceberg, delta, etc.</li>
+</ul>
+<h3 id="strengths-2">Strengths</h3>
+<ul>
+<li>No server overhead; ideal for data science, local analytics, ETL.</li>
+<li>Excellent single-node analytical performance (competitive with dedicated OLAP systems).</li>
+<li>Rich format support (Parquet, CSV, JSON, Arrow, Iceberg, Delta Lake).</li>
+<li>Minimal dependencies, easy deployment.</li>
+<li>Full SQL support including window functions, CTEs, GROUPING SETS, PIVOT.</li>
+</ul>
+<h3 id="use-cases">Use Cases</h3>
+<ul>
+<li>Interactive data analysis in notebooks (Python, R, Julia).</li>
+<li>Embedded analytics in applications.</li>
+<li>ETL/data transformation pipelines.</li>
+<li>Local-first analytical processing before loading to a warehouse.</li>
+</ul>
+<hr />
+<h2 id="6-feldera">6. Feldera</h2>
+<p><strong>Category:</strong> Incremental Compute Engine / Streaming SQL
+<strong>License:</strong> Open-source
+<strong>Written in:</strong> Rust</p>
+<h3 id="overview-5">Overview</h3>
+<p>Feldera is an incremental compute engine based on the <strong>DBSP (Database Stream Processor)</strong> theory, developed by the same researchers who created the formal mathematical framework for incremental view maintenance. It processes data changes incrementally rather than re-computing results from scratch.</p>
+<h3 id="core-theory-dbsp">Core Theory: DBSP</h3>
+<ul>
+<li><strong>DBSP (Database Stream Processor)</strong> is a formal mathematical framework (Budiu et al., VLDB 2023) that provides a unified theory for incremental computation over both streaming and batch data.</li>
+<li><strong>Z-sets:</strong> The core data model. A Z-set is a generalized multiset where elements have integer weights (positive = insertion, negative = deletion). This elegantly captures both additions and removals in a single algebraic structure.</li>
+<li><strong>Lifting:</strong> Any computation over Z-sets can be "lifted" to operate incrementally over streams of Z-sets (changes). This is the key insight: any query that works on complete datasets can be automatically transformed into an incremental version that processes only changes.</li>
+<li><strong>Bilinearity of joins:</strong> Joins are decomposed into components that process changes from each side independently, enabling efficient incremental join maintenance.</li>
+</ul>
+<h3 id="architecture-5">Architecture</h3>
+<ul>
+<li><strong>SQL-first interface:</strong> Write standard SQL queries (including complex joins, aggregations, window functions, and nested subqueries). Feldera compiles them into incremental dataflow circuits.</li>
+<li><strong>Incremental dataflow runtime:</strong> The Rust-based runtime executes the compiled circuits, processing only the delta (change) at each step.</li>
+<li><strong>Input connectors:</strong> Kafka, Debezium (CDC), HTTP, database connectors for ingesting change streams.</li>
+<li><strong>Output connectors:</strong> Push incremental results to downstream systems.</li>
+</ul>
+<h3 id="key-techniques-5">Key Techniques</h3>
+<ul>
+<li><strong>Automatic incrementalization:</strong> Converts any SQL query into an incremental pipeline without manual optimization. The DBSP theory guarantees correctness.</li>
+<li><strong>Nested incremental computation:</strong> Handles complex SQL features (GROUP BY, HAVING, nested subqueries, DISTINCT, window functions) incrementally through recursive application of the Z-set algebra.</li>
+<li><strong>Consistent snapshots:</strong> Maintains consistency across the entire pipeline even with multiple input sources changing simultaneously.</li>
+<li><strong>Backpressure and flow control:</strong> Runtime handles varying input rates gracefully.</li>
+</ul>
+<h3 id="differentiators">Differentiators</h3>
+<ul>
+<li>Unlike traditional streaming systems (Flink, Spark Streaming) that require manual state management and watermarking, Feldera handles this automatically via DBSP theory.</li>
+<li>Unlike materialized view systems that do limited incremental maintenance, Feldera incrementalizes arbitrary SQL.</li>
+<li>Strong correctness guarantees grounded in formal theory.</li>
+</ul>
+<hr />
+<h2 id="7-clickhouse">7. ClickHouse</h2>
+<p><strong>Category:</strong> Column-oriented OLAP database
+<strong>License:</strong> Apache 2.0
+<strong>Origin:</strong> Yandex (now independent company ClickHouse Inc.)
+<strong>Written in:</strong> C++</p>
+<h3 id="overview-6">Overview</h3>
+<p>ClickHouse is a high-performance column-oriented database for online analytical processing (OLAP). Known for extreme query speed on large datasets, particularly for aggregation-heavy workloads.</p>
+<h3 id="architecture-6">Architecture</h3>
+<ul>
+<li><strong>Column-oriented storage:</strong> Data stored by column, enabling efficient compression and vectorized processing.</li>
+<li><strong>Shared-nothing distributed:</strong> Cluster of shards, each containing one or more replicas. Data distributed via sharding keys.</li>
+<li><strong>MergeTree engine family:</strong> The core storage engine; data is organized into parts that are periodically merged (similar to LSM-tree concepts).</li>
+</ul>
+<h3 id="key-techniques-6">Key Techniques</h3>
+<h4 id="mergetree-storage-engine">MergeTree Storage Engine</h4>
+<ul>
+<li><strong>Parts and merges:</strong> Inserts create new data parts (sorted by primary key). Background merges combine parts, applying deduplication (ReplacingMergeTree), aggregation (AggregatingMergeTree), or TTL expiration (TTL rules).</li>
+<li><strong>Sparse primary index:</strong> Rather than indexing every row, stores primary key values at configurable granularity (default 8192 rows). Enables fast range lookups with minimal memory overhead.</li>
+<li><strong>Data skipping indexes:</strong> Additional lightweight indexes on columns (minmax, set, bloom_filter, ngrambf_v1, tokenbf_v1) that skip granules not matching the query predicate.</li>
+<li><strong>Partitioning:</strong> Data partitioned by a configurable expression (typically time-based). Partition pruning eliminates irrelevant partitions at query time.</li>
+</ul>
+<h4 id="compression">Compression</h4>
+<ul>
+<li><strong>Per-column compression:</strong> LZ4 (default, fast), ZSTD (higher ratio), DoubleDelta (timestamps/sequences), Gorilla (floating point), T64 (integer encoding).</li>
+<li><strong>Codecs can be chained:</strong> e.g., Delta + ZSTD for timestamps achieves very high compression ratios.</li>
+<li><strong>Specialized encodings:</strong> Automatic detection and use of dictionary encoding, run-length encoding within the column storage.</li>
+</ul>
+<h4 id="vectorized-execution">Vectorized Execution</h4>
+<ul>
+<li><strong>Column-at-a-time processing:</strong> Operations process entire column vectors, exploiting SIMD instructions and CPU cache efficiency.</li>
+<li><strong>Code generation (limited):</strong> Some dynamic specialization for expression evaluation.</li>
+</ul>
+<h4 id="distributed-query-processing">Distributed Query Processing</h4>
+<ul>
+<li><strong>Distributed tables:</strong> Virtual tables that fan out queries to shards and merge results.</li>
+<li><strong>Replicated tables (ReplicatedMergeTree):</strong> Use ZooKeeper/ClickHouse Keeper (Raft-based) for coordination. Replicas are eventually consistent; each replica independently downloads and merges parts.</li>
+<li><strong>Parallel replicas:</strong> For a single query, spread work across replicas of the same shard for faster processing.</li>
+</ul>
+<h4 id="materialized-views">Materialized Views</h4>
+<ul>
+<li><strong>Incremental materialized views:</strong> Trigger on INSERT; transform and aggregate incoming data in real-time. Chain multiple views for multi-stage ETL.</li>
+<li><strong>Projections:</strong> Pre-sorted/pre-aggregated copies of data within the same table; optimizer automatically selects the best projection.</li>
+</ul>
+<h3 id="specialized-table-engines">Specialized Table Engines</h3>
+<ul>
+<li><strong>AggregatingMergeTree:</strong> Pre-aggregates data during merges using partial aggregate states (e.g., quantile digests, HLL for uniqCombined).</li>
+<li><strong>CollapsingMergeTree / VersionedCollapsingMergeTree:</strong> Handles mutable data via sign columns.</li>
+<li><strong>MaterializedMySQL / MaterializedPostgreSQL:</strong> Real-time CDC replication from MySQL/PostgreSQL.</li>
+</ul>
+<h3 id="performance-characteristics-1">Performance Characteristics</h3>
+<ul>
+<li>Can process billions of rows per second for simple aggregations on a single node.</li>
+<li>Excellent compression ratios (often 10-20x on real-world data).</li>
+<li>High ingest throughput for append-heavy workloads.</li>
+<li>Not designed for point-lookup OLTP; best for analytical/aggregation queries.</li>
+</ul>
+<hr />
+<h2 id="8-risingwave">8. RisingWave</h2>
+<p><strong>Category:</strong> Streaming Database (stream processing + SQL)
+<strong>License:</strong> Apache 2.0
+<strong>Written in:</strong> Rust</p>
+<h3 id="overview-7">Overview</h3>
+<p>RisingWave is a cloud-native streaming database that processes event streams using SQL, maintaining <strong>materialized views</strong> that are incrementally updated as new data arrives. It is PostgreSQL wire-compatible.</p>
+<h3 id="architecture-7">Architecture</h3>
+<ul>
+<li>
+<p><strong>Separation of storage and compute:</strong></p>
+<ul>
+<li><strong>Compute nodes:</strong> Stateless stream processing workers that execute streaming operators (joins, aggregations, filters).</li>
+<li><strong>Compactor nodes:</strong> Handle LSM-tree compaction for the shared storage layer.</li>
+<li><strong>Meta node:</strong> Manages cluster metadata, scheduling, and DDL operations.</li>
+<li><strong>Object storage backend:</strong> Shared state stored in S3-compatible object storage (or local disk for development). This is the "Hummock" storage engine.</li>
+</ul>
+</li>
+<li>
+<p><strong>Hummock (LSM-tree on shared storage):</strong></p>
+<ul>
+<li>An LSM-tree-based key-value store designed for cloud object storage.</li>
+<li>SSTables stored in S3; uses local SSD as a tiered cache.</li>
+<li>Enables elastic scaling since compute nodes are stateless (all state is in shared storage).</li>
+<li>Supports MVCC for consistent snapshots across streaming operators.</li>
+</ul>
+</li>
+</ul>
+<h3 id="key-techniques-7">Key Techniques</h3>
+<h4 id="streaming-materialized-views">Streaming Materialized Views</h4>
+<ul>
+<li><strong>Incrementally maintained materialized views:</strong> SQL queries defined as <code>CREATE MATERIALIZED VIEW</code> are compiled into streaming dataflow plans. As source data changes, the views are updated incrementally.</li>
+<li><strong>Consistency:</strong> Provides <strong>snapshot consistency</strong> across materialized views via barrier-based checkpointing (similar to Flink's Chandy-Lamport checkpoints).</li>
+<li><strong>Complex SQL support:</strong> Joins (including temporal joins), aggregations, window functions, subqueries, UNION, INTERSECT, EXCEPT -- all maintained incrementally.</li>
+</ul>
+<h4 id="source-sink-connectors">Source &amp; Sink Connectors</h4>
+<ul>
+<li><strong>Sources:</strong> Kafka, Pulsar, Kinesis, CDC (Debezium format, direct MySQL/PostgreSQL CDC), S3 file sources.</li>
+<li><strong>Sinks:</strong> Kafka, JDBC databases, Iceberg, Delta Lake, Elasticsearch, Redis, etc.</li>
+<li><strong>Direct PostgreSQL CDC:</strong> Built-in connector to replicate PostgreSQL tables as streaming sources.</li>
+</ul>
+<h4 id="postgresql-compatibility">PostgreSQL Compatibility</h4>
+<ul>
+<li><strong>Wire-compatible:</strong> Connect with any PostgreSQL client (psql, JDBC, etc.).</li>
+<li><strong>SQL syntax:</strong> Supports most PostgreSQL SQL syntax.</li>
+<li><strong>Serving queries:</strong> Materialized views can be queried directly with point lookups and range scans, providing a serving layer.</li>
+</ul>
+<h3 id="how-it-differs-from-flink-ksqldb">How It Differs from Flink / ksqlDB</h3>
+<ul>
+<li><strong>vs. Flink:</strong> RisingWave is a full database (stores state, serves queries); Flink is a stream processing framework (requires external state stores for serving). RisingWave uses SQL natively; Flink uses Flink SQL on top of a Java/Scala API.</li>
+<li><strong>vs. ksqlDB:</strong> RisingWave supports complex multi-way joins and subqueries; ksqlDB has limited SQL capabilities. RisingWave scales compute and storage independently; ksqlDB is tightly coupled to Kafka.</li>
+</ul>
+<hr />
+<h2 id="9-apache-comet">9. Apache Comet</h2>
+<p><strong>Category:</strong> Native query acceleration for Apache Spark
+<strong>License:</strong> Apache 2.0
+<strong>Written in:</strong> Rust (native engine), Scala/Java (Spark integration)</p>
+<h3 id="overview-8">Overview</h3>
+<p>Apache Comet (incubating) is a <strong>native vectorized query execution engine</strong> that accelerates Apache Spark workloads. It is a plugin for Spark that replaces Spark's JVM-based physical operators with native (Rust-based) operators built on <strong>Apache DataFusion</strong> and <strong>Apache Arrow</strong>.</p>
+<h3 id="architecture-8">Architecture</h3>
+<ul>
+<li><strong>Spark plugin model:</strong> Comet integrates as a Spark plugin that intercepts the physical plan and replaces eligible operators with native equivalents.</li>
+<li><strong>Two execution modes:</strong>
+<ul>
+<li><strong>Columnar Shuffle:</strong> Replaces Spark's row-based shuffle with an Arrow-based columnar shuffle, reducing serialization/deserialization overhead.</li>
+<li><strong>Native Execution:</strong> Replaces entire physical operators (scans, filters, projections, aggregations, joins, sorts) with DataFusion-based native operators.</li>
+</ul>
+</li>
+<li><strong>Apache Arrow as the in-memory format:</strong> All data exchanged between native operators uses Arrow columnar format, enabling zero-copy processing.</li>
+</ul>
+<h3 id="key-techniques-8">Key Techniques</h3>
+<ul>
+<li><strong>DataFusion execution engine:</strong> Leverages the Rust-based DataFusion query engine for native operator execution. DataFusion provides vectorized processing, SIMD-optimized kernels, and memory-efficient execution.</li>
+<li><strong>Transparent fallback:</strong> If an operator cannot be executed natively (unsupported expression, data type, etc.), Comet transparently falls back to Spark's JVM execution.</li>
+<li><strong>Parquet-native reads:</strong> Native Parquet reader that bypasses Spark's Java-based reader, providing faster column decoding, predicate pushdown, and lazy materialization.</li>
+<li><strong>Memory management:</strong> Uses Arrow's memory allocator with configurable limits; integrates with Spark's memory management framework.</li>
+</ul>
+<h3 id="performance-1">Performance</h3>
+<ul>
+<li>2-8x speedup on common Spark workloads (TPC-H, TPC-DS benchmarks).</li>
+<li>Largest gains on CPU-bound operations (expression evaluation, hashing, sorting) where native code vastly outperforms JVM.</li>
+<li>Reduced memory pressure from efficient Arrow-based columnar representation.</li>
+</ul>
+<h3 id="differentiators-1">Differentiators</h3>
+<ul>
+<li><strong>Drop-in acceleration:</strong> Requires minimal configuration changes to existing Spark jobs.</li>
+<li><strong>Preserves Spark semantics:</strong> Results are bit-for-bit identical to Spark's JVM execution (aim is full compatibility).</li>
+<li><strong>Part of the Arrow ecosystem:</strong> Benefits from the broader Arrow/DataFusion community's optimizations.</li>
+</ul>
+<hr />
+<h2 id="10-apache-spark">10. Apache Spark</h2>
+<p><strong>Category:</strong> Unified analytics engine (batch + stream processing)
+<strong>License:</strong> Apache 2.0
+<strong>Written in:</strong> Scala, Java, Python</p>
+<h3 id="overview-9">Overview</h3>
+<p>Apache Spark is the dominant open-source engine for large-scale data processing, supporting batch processing, stream processing (Structured Streaming), machine learning (MLlib), and graph computation (GraphX).</p>
+<h3 id="architecture-9">Architecture</h3>
+<ul>
+<li><strong>Driver-executor model:</strong> The driver program orchestrates the computation; executors run on cluster worker nodes.</li>
+<li><strong>Cluster managers:</strong> Standalone, YARN, Mesos, Kubernetes.</li>
+<li><strong>RDD (Resilient Distributed Datasets):</strong> The foundational abstraction -- immutable, partitioned collections with lineage for fault tolerance. Rarely used directly now; DataFrame/Dataset APIs are preferred.</li>
+<li><strong>Catalyst optimizer:</strong> Rule-based and cost-based optimizer for Spark SQL/DataFrames.</li>
+<li><strong>Tungsten execution engine:</strong> Off-heap memory management and whole-stage code generation.</li>
+</ul>
+<h3 id="key-techniques-9">Key Techniques</h3>
+<h4 id="catalyst-optimizer">Catalyst Optimizer</h4>
+<ul>
+<li><strong>Rule-based optimization:</strong> Predicate pushdown, constant folding, column pruning, boolean simplification.</li>
+<li><strong>Cost-based optimization (CBO):</strong> Join reordering based on table/column statistics.</li>
+<li><strong>Adaptive Query Execution (AQE, Spark 3.0+):</strong> Re-optimizes query plans at runtime based on actual data statistics:
+<ul>
+<li>Coalesces post-shuffle partitions to avoid small partitions.</li>
+<li>Converts sort-merge joins to broadcast hash joins if one side is small.</li>
+<li>Handles skewed joins by splitting large partitions.</li>
+</ul>
+</li>
+</ul>
+<h4 id="tungsten-execution-engine">Tungsten Execution Engine</h4>
+<ul>
+<li><strong>Whole-stage code generation:</strong> Compiles entire pipeline stages into a single Java method, avoiding virtual function call overhead of the Volcano iterator model.</li>
+<li><strong>Off-heap memory management:</strong> Uses <code>sun.misc.Unsafe</code> for direct memory access, avoiding JVM garbage collection overhead.</li>
+<li><strong>Cache-aware computation:</strong> Custom data structures optimized for CPU cache locality.</li>
+</ul>
+<h4 id="structured-streaming">Structured Streaming</h4>
+<ul>
+<li><strong>Micro-batch processing (default):</strong> Processes incoming data in small batches with exactly-once semantics.</li>
+<li><strong>Continuous processing (experimental):</strong> Sub-millisecond latency mode with at-least-once semantics.</li>
+<li><strong>Watermarking:</strong> Handles late data by tracking event-time progress and expiring old state.</li>
+<li><strong>Stateful operations:</strong> Arbitrary stateful processing via <code>mapGroupsWithState</code> and <code>flatMapGroupsWithState</code>.</li>
+</ul>
+<h4 id="storage-format-integration">Storage &amp; Format Integration</h4>
+<ul>
+<li><strong>Native support for Parquet, ORC, JSON, CSV, Avro, Delta Lake.</strong></li>
+<li><strong>Data source V2 API:</strong> Extensible connector framework for reading/writing external data sources.</li>
+<li><strong>Delta Lake, Iceberg, Hudi:</strong> Open table formats for ACID transactions on data lakes.</li>
+</ul>
+<h4 id="spark-connect-3-4">Spark Connect (3.4+)</h4>
+<ul>
+<li><strong>Thin client architecture:</strong> Decouples Spark client from the server. Clients communicate via gRPC, enabling language-agnostic access and better resource isolation.</li>
+</ul>
+<h3 id="performance-characteristics-2">Performance Characteristics</h3>
+<ul>
+<li>Designed for distributed, large-scale workloads (TB to PB).</li>
+<li>In-memory computation significantly faster than MapReduce.</li>
+<li>AQE dramatically improves performance on skewed data and dynamic workloads.</li>
+<li>JVM overhead compared to native engines (hence projects like Comet, Photon, Gluten).</li>
+</ul>
+<hr />
+<h2 id="11-paradedb">11. ParadeDB</h2>
+<p><strong>Category:</strong> Postgres for Search and Analytics
+<strong>License:</strong> AGPL v3 (extensions), PostgreSQL License (some components)
+<strong>Written in:</strong> Rust (extensions), C (PostgreSQL core)</p>
+<h3 id="overview-10">Overview</h3>
+<p>ParadeDB extends PostgreSQL with high-performance full-text search and analytical capabilities through custom extensions, aiming to replace the need for Elasticsearch and dedicated analytical databases alongside Postgres.</p>
+<h3 id="key-extensions">Key Extensions</h3>
+<h4 id="pg-search-full-text-search">pg_search (Full-Text Search)</h4>
+<ul>
+<li><strong>Built on Tantivy:</strong> A Rust-based full-text search engine library (analogous to Apache Lucene but in Rust).</li>
+<li><strong>BM25 index type:</strong> Creates a Tantivy-based inverted index within PostgreSQL. Supports BM25 scoring, fuzzy matching, phrase queries, regex, term boosting, and faceted search.</li>
+<li><strong>Real-time indexing:</strong> Index is updated transactionally with PostgreSQL's MVCC. Inserts/updates/deletes are immediately reflected in search results.</li>
+<li><strong>Hybrid search:</strong> Combine full-text search with PostgreSQL's native filtering (WHERE clauses, joins) in a single query.</li>
+<li><strong>Significantly faster than PostgreSQL's built-in <code>tsvector</code>/GIN full-text search</strong> for complex search queries.</li>
+</ul>
+<h4 id="pg-analytics-columnar-storage-analytics">pg_analytics (Columnar Storage &amp; Analytics)</h4>
+<ul>
+<li><strong>Columnar table access method:</strong> Stores PostgreSQL tables in a columnar format (based on Apache Arrow/Parquet internally).</li>
+<li><strong>DuckDB integration:</strong> Uses DuckDB's execution engine for analytical queries on columnar tables. When a query hits columnar tables, ParadeDB routes execution through DuckDB for vectorized columnar processing.</li>
+<li><strong>Transparent to SQL:</strong> Standard PostgreSQL SQL works on columnar tables; the optimizer automatically uses the columnar/DuckDB path when beneficial.</li>
+<li><strong>Compression:</strong> Columnar storage provides significant compression (dictionary, RLE, etc.).</li>
+</ul>
+<h4 id="pg-lakehouse-data-lake-integration">pg_lakehouse (Data Lake Integration)</h4>
+<ul>
+<li><strong>Query external data:</strong> Read Parquet, CSV, and Iceberg/Delta Lake tables stored in S3/GCS/Azure Blob directly from PostgreSQL.</li>
+<li><strong>Federated queries:</strong> Join external lakehouse data with local PostgreSQL tables.</li>
+</ul>
+<h3 id="architecture-10">Architecture</h3>
+<ul>
+<li><strong>PostgreSQL extension model:</strong> All capabilities are implemented as PostgreSQL extensions using the extension APIs (custom index types, custom table access methods, hooks).</li>
+<li><strong>No fork required:</strong> Works with standard PostgreSQL (though ParadeDB also ships a pre-configured Docker image).</li>
+</ul>
+<h3 id="differentiators-2">Differentiators</h3>
+<ul>
+<li><strong>Single system for OLTP + search + analytics:</strong> Eliminates the need for a separate Elasticsearch cluster and ETL pipeline.</li>
+<li><strong>Transactional consistency:</strong> Search indexes and columnar tables are transactionally consistent with OLTP data.</li>
+<li><strong>PostgreSQL ecosystem compatibility:</strong> All existing PostgreSQL tools, drivers, and extensions work.</li>
+</ul>
+<hr />
+<h2 id="12-neon">12. Neon</h2>
+<p><strong>Category:</strong> Serverless PostgreSQL
+<strong>License:</strong> Apache 2.0
+<strong>Written in:</strong> Rust (storage layer), C (PostgreSQL compute)</p>
+<h3 id="overview-11">Overview</h3>
+<p>Neon is a serverless PostgreSQL platform that separates storage and compute, enabling features like autoscaling, instant branching, and scale-to-zero. It runs unmodified PostgreSQL as the compute layer.</p>
+<h3 id="architecture-11">Architecture</h3>
+<p>The architecture separates the traditional PostgreSQL monolith into three components:</p>
+<h4 id="compute-nodes">Compute Nodes</h4>
+<ul>
+<li><strong>Unmodified PostgreSQL:</strong> Standard PostgreSQL instances that handle SQL processing. Modified only at the storage interface level (custom <code>smgr</code> storage manager that fetches pages from the pageserver instead of local disk).</li>
+<li><strong>Stateless:</strong> Compute nodes have no local persistent storage. They can be started, stopped, or scaled independently.</li>
+<li><strong>Autoscaling:</strong> Compute scales from 0 to N vCPUs based on load. Scale-to-zero means you pay nothing when idle.</li>
+</ul>
+<h4 id="pageserver">Pageserver</h4>
+<ul>
+<li><strong>Stores the database pages:</strong> The pageserver holds the actual data, organized as a <strong>log-structured storage</strong> of page versions.</li>
+<li><strong>Page reconstruction:</strong> When compute requests a page at a specific LSN (Log Sequence Number), the pageserver reconstructs it by replaying WAL records on top of a base page image.</li>
+<li><strong>Layer files:</strong> Data organized into delta layers (WAL records) and image layers (full page snapshots). Layers are periodically compacted.</li>
+<li><strong>LSM-like compaction:</strong> Delta layers are merged and compacted into image layers over time, similar to LSM-tree compaction.</li>
+<li><strong>Multi-tenant:</strong> A single pageserver can serve multiple tenants/databases.</li>
+</ul>
+<h4 id="safekeepers">Safekeepers</h4>
+<ul>
+<li><strong>WAL durability:</strong> Safekeepers form a small Paxos-based consensus group (typically 3 nodes) that durably stores the WAL stream before it's processed by the pageserver.</li>
+<li><strong>Decouples compute from storage:</strong> Compute writes WAL to safekeepers (fast, durable), which then asynchronously feed the pageserver.</li>
+<li><strong>Acts as a write-ahead log service:</strong> Guarantees no data loss even if the pageserver lags.</li>
+</ul>
+<h3 id="key-techniques-10">Key Techniques</h3>
+<h4 id="copy-on-write-branching">Copy-on-Write Branching</h4>
+<ul>
+<li><strong>Instant database branching:</strong> Create a branch (copy) of the entire database in milliseconds. The branch shares storage with the parent via copy-on-write semantics.</li>
+<li><strong>Use cases:</strong> Development/test environments, point-in-time recovery, preview deployments, schema migration testing.</li>
+<li><strong>Storage efficient:</strong> Branches only consume space for the pages that differ from the parent.</li>
+</ul>
+<h4 id="time-travel">Time Travel</h4>
+<ul>
+<li><strong>Point-in-time queries:</strong> Access the database state at any past LSN (within retention period).</li>
+<li><strong>Implemented via the page version history</strong> maintained by the pageserver.</li>
+</ul>
+<h4 id="bottomless-storage">Bottomless Storage</h4>
+<ul>
+<li><strong>S3/object storage tier:</strong> Cold data is offloaded to S3, with the pageserver acting as a cache for hot data.</li>
+<li><strong>Effectively unlimited storage:</strong> Database size is not limited by local disk.</li>
+</ul>
+<h3 id="how-it-differs-from-standard-postgres">How It Differs from Standard Postgres</h3>
+<ul>
+<li>Standard Postgres: monolithic, storage and compute tightly coupled, no branching, manual scaling.</li>
+<li>Neon: disaggregated storage, stateless compute, instant branching, autoscaling, scale-to-zero.</li>
+</ul>
+<hr />
+<h2 id="13-turso">13. Turso</h2>
+<p><strong>Category:</strong> Edge Database
+<strong>License:</strong> MIT (libSQL)
+<strong>Built on:</strong> libSQL (open-source fork of SQLite)</p>
+<h3 id="overview-12">Overview</h3>
+<p>Turso is an edge-native database built on <strong>libSQL</strong>, an open-contribution fork of SQLite. It brings SQLite's simplicity and performance to multi-tenant, globally distributed applications.</p>
+<h3 id="architecture-12">Architecture</h3>
+<h4 id="libsql-sqlite-fork">libSQL: SQLite Fork</h4>
+<ul>
+<li><strong>Open contribution model:</strong> Unlike SQLite (which accepts no external contributions), libSQL accepts community contributions while maintaining compatibility.</li>
+<li><strong>Key extensions over SQLite:</strong>
+<ul>
+<li><strong>Server mode (sqld):</strong> HTTP/WebSocket server for remote access. SQLite is traditionally embedded-only; libSQL adds a server daemon.</li>
+<li><strong>Replication protocol:</strong> Built-in WAL-based replication for distributing data.</li>
+<li><strong>ALTER TABLE enhancements:</strong> Improved ALTER TABLE support beyond SQLite's limitations.</li>
+<li><strong>Native vector search:</strong> Built-in vector similarity search (ANN) using DiskANN-inspired algorithms, without external extensions.</li>
+<li><strong>Virtual WAL (vWAL):</strong> Pluggable WAL backends enabling custom storage (e.g., object storage).</li>
+<li><strong>WASM-based user-defined functions:</strong> Extend libSQL with WebAssembly functions.</li>
+</ul>
+</li>
+</ul>
+<h4 id="turso-platform-architecture">Turso Platform Architecture</h4>
+<ul>
+<li><strong>Primary database:</strong> Single writer in a chosen region.</li>
+<li><strong>Edge replicas:</strong> Read replicas distributed globally at edge locations (leveraging Fly.io's infrastructure or other platforms).</li>
+<li><strong>Embedded replicas:</strong> A libSQL database embedded directly in the application process that syncs with the remote primary. Provides local-speed reads with eventual consistency.
+<ul>
+<li>Application reads from the local embedded replica (microsecond latency).</li>
+<li>Writes go to the primary (network latency) and are replicated back.</li>
+<li>Sync can be manual or automatic.</li>
+</ul>
+</li>
+</ul>
+<h3 id="key-techniques-11">Key Techniques</h3>
+<ul>
+<li><strong>Multi-tenancy with database-per-tenant:</strong> Designed for SaaS applications where each tenant gets their own database (SQLite scales down perfectly to tiny databases).</li>
+<li><strong>Branching:</strong> Similar to Neon, create database branches for development/testing.</li>
+<li><strong>Point-in-time recovery:</strong> WAL-based recovery to any point within retention.</li>
+<li><strong>Groups:</strong> Databases in a group share a physical placement and replicate together.</li>
+</ul>
+<h3 id="differentiators-3">Differentiators</h3>
+<ul>
+<li><strong>SQLite compatibility:</strong> Drop-in replacement for SQLite in many use cases. Existing SQLite tools and libraries work.</li>
+<li><strong>Edge-native:</strong> Sub-millisecond reads from embedded replicas or nearby edge nodes.</li>
+<li><strong>Lightweight:</strong> Individual databases can be kilobytes to gigabytes; ideal for per-user or per-tenant databases.</li>
+<li><strong>Cost-efficient at scale:</strong> The SQLite foundation means minimal overhead per database.</li>
+</ul>
+<h3 id="use-cases-1">Use Cases</h3>
+<ul>
+<li>Multi-tenant SaaS (database per customer).</li>
+<li>Mobile/edge applications with offline-first capabilities.</li>
+<li>Local-first applications with cloud sync.</li>
+<li>Serverless functions needing fast database access.</li>
+</ul>
+<hr />
+<h2 id="14-apache-iceberg-vendors">14. Apache Iceberg &amp; Vendors</h2>
+<p><strong>Category:</strong> Open Table Format for Data Lakehouses
+<strong>License:</strong> Apache 2.0</p>
+<h3 id="overview-13">Overview</h3>
+<p>Apache Iceberg is an <strong>open table format</strong> for huge analytic datasets. It sits between the query engine and the storage layer (files on S3, HDFS, etc.), providing a metadata layer that enables ACID transactions, schema evolution, time travel, and efficient query planning on data lakes.</p>
+<h3 id="architecture-metadata-layers">Architecture: Metadata Layers</h3>
+<p>Iceberg's architecture is a hierarchy of metadata files:</p>
+<pre><code>Catalog (pointer to current metadata)
+  -&gt; Metadata File (JSON)
+    -&gt; Snapshot (represents table state at a point in time)
+      -&gt; Manifest List (Avro file listing all manifests in a snapshot)
+        -&gt; Manifest Files (Avro files listing data files with per-file statistics)
+          -&gt; Data Files (Parquet, ORC, or Avro)
+</code></pre>
+<h4 id="catalog">Catalog</h4>
+<ul>
+<li>Points to the current metadata file location. Implementations: Hive Metastore, AWS Glue, Nessie (Git-like catalog), REST Catalog, JDBC Catalog.</li>
+</ul>
+<h4 id="metadata-file">Metadata File</h4>
+<ul>
+<li>JSON file containing: table schema, partition spec, sort order, current snapshot ID, snapshot history, properties.</li>
+</ul>
+<h4 id="snapshots">Snapshots</h4>
+<ul>
+<li>Each write operation (INSERT, DELETE, UPDATE, MERGE) creates a new snapshot. Snapshots are immutable and form a linked list (history).</li>
+<li><strong>Snapshot isolation:</strong> Readers see a consistent snapshot; writers create new snapshots atomically.</li>
+</ul>
+<h4 id="manifest-list">Manifest List</h4>
+<ul>
+<li>An Avro file listing all manifest files in a snapshot, with summary statistics (partition value ranges, file counts).</li>
+</ul>
+<h4 id="manifest-files">Manifest Files</h4>
+<ul>
+<li>Avro files listing individual data files with:
+<ul>
+<li>File path, format, record count.</li>
+<li>Column-level statistics (min, max, null count, distinct count, per-column bounds).</li>
+<li>Partition tuple values.</li>
+<li>Used for <strong>partition pruning</strong> and <strong>min/max filtering</strong> at the planning stage.</li>
+</ul>
+</li>
+</ul>
+<h3 id="key-techniques-12">Key Techniques</h3>
+<h4 id="hidden-partitioning">Hidden Partitioning</h4>
+<ul>
+<li>Partition transforms (year, month, day, hour, bucket, truncate) are applied automatically. Users write queries using the source column; Iceberg maps to the correct partition.</li>
+<li>No need to maintain partition columns in the schema or reference them in queries.</li>
+</ul>
+<h4 id="partition-evolution">Partition Evolution</h4>
+<ul>
+<li>Partition layout can be changed (e.g., daily -&gt; hourly) without rewriting existing data. Old data retains its old partitioning; new data uses the new layout. Queries transparently handle both.</li>
+</ul>
+<h4 id="schema-evolution">Schema Evolution</h4>
+<ul>
+<li>Add, drop, rename, reorder columns, widen types -- all without rewriting data files. Iceberg uses unique column IDs (not names or positions) for reliable evolution.</li>
+</ul>
+<h4 id="time-travel-1">Time Travel</h4>
+<ul>
+<li>Query the table as of any historical snapshot: <code>SELECT * FROM table FOR SYSTEM_TIME AS OF '2024-01-01'</code>.</li>
+<li><strong>Rollback:</strong> Revert the table to a previous snapshot.</li>
+</ul>
+<h4 id="row-level-deletes">Row-Level Deletes</h4>
+<ul>
+<li><strong>Copy-on-write:</strong> Rewrite data files excluding deleted rows (better for bulk deletes).</li>
+<li><strong>Merge-on-read:</strong> Write delete files (positional or equality) that are applied at read time (better for frequent small deletes). Background compaction later merges them.</li>
+</ul>
+<h3 id="vendor-ecosystem">Vendor Ecosystem</h3>
+<table><thead><tr><th>Vendor</th><th>Integration</th></tr></thead><tbody>
+<tr><td><strong>Databricks</strong></td><td>Acquired Tabular (Iceberg creators' company). UniForm enables Delta Lake tables to be read as Iceberg.</td></tr>
+<tr><td><strong>Snowflake</strong></td><td>Iceberg Tables: Snowflake-managed tables stored in Iceberg format on customer's object storage. External Iceberg catalogs supported.</td></tr>
+<tr><td><strong>AWS</strong></td><td>Athena, EMR, Glue natively support Iceberg. Glue Data Catalog serves as an Iceberg catalog.</td></tr>
+<tr><td><strong>Dremio</strong></td><td>Deep Iceberg integration; Arctic catalog (Nessie-based) provides Git-like table management.</td></tr>
+<tr><td><strong>StarRocks</strong></td><td>Native Iceberg reader for fast analytics on lakehouse data.</td></tr>
+<tr><td><strong>Trino/Presto</strong></td><td>First-class Iceberg connector for query federation.</td></tr>
+<tr><td><strong>Spark</strong></td><td>The primary development platform; Iceberg's Spark integration is the most mature.</td></tr>
+<tr><td><strong>Flink</strong></td><td>Streaming writes to Iceberg tables (append, upsert).</td></tr>
+</tbody></table>
+<h3 id="project-nessie-git-like-catalog">Project Nessie (Git-like Catalog)</h3>
+<ul>
+<li>Provides Git-like branching and tagging for Iceberg tables.</li>
+<li>Create branches for experimentation, merge table changes, audit history.</li>
+<li>Used by Dremio Arctic and standalone deployments.</li>
+</ul>
+<hr />
+<h2 id="15-neo4j">15. Neo4j</h2>
+<p><strong>Category:</strong> Graph Database (Property Graph)
+<strong>License:</strong> GPL v3 (Community), Commercial (Enterprise)
+<strong>Written in:</strong> Java, Scala, Kotlin</p>
+<h3 id="overview-14">Overview</h3>
+<p>Neo4j is the leading property graph database, designed for storing and querying highly connected data. It uses the <strong>Cypher</strong> query language and a native graph storage engine optimized for traversals.</p>
+<h3 id="architecture-13">Architecture</h3>
+<ul>
+<li><strong>Native graph storage:</strong> Data is stored as nodes, relationships, and properties using a <strong>pointer-chasing</strong> storage model. Each node directly points to its first relationship; each relationship points to the next relationship for both its start and end nodes (a doubly-linked adjacency list). This provides <strong>index-free adjacency</strong> -- traversals follow physical pointers rather than performing index lookups.</li>
+<li><strong>Record-based storage:</strong> Fixed-size records for nodes (15 bytes), relationships (34 bytes), properties (stored as linked lists of property records). The fixed size enables direct ID-to-offset calculations.</li>
+</ul>
+<h3 id="key-techniques-13">Key Techniques</h3>
+<h4 id="index-free-adjacency">Index-Free Adjacency</h4>
+<ul>
+<li>The defining characteristic of Neo4j's storage. Each node physically stores a pointer to its relationship chain. Traversing a relationship is a constant-time operation (O(1) per hop) regardless of total graph size.</li>
+<li>This contrasts with <strong>relational graph queries</strong> that require index lookups or joins per hop, making multi-hop traversals exponentially expensive.</li>
+</ul>
+<h4 id="cypher-query-language">Cypher Query Language</h4>
+<ul>
+<li><strong>Declarative pattern matching:</strong> <code>MATCH (a:Person)-[:KNOWS]-&gt;(b:Person) WHERE a.name = 'Alice' RETURN b</code>.</li>
+<li>Supports variable-length path patterns, shortest path algorithms, graph projections, subqueries, and aggregations.</li>
+<li><strong>GQL (Graph Query Language):</strong> ISO standard based heavily on Cypher; Neo4j is adopting GQL.</li>
+</ul>
+<h4 id="transaction-processing">Transaction Processing</h4>
+<ul>
+<li>Full ACID transactions with read-committed isolation.</li>
+<li>Write-ahead logging for durability.</li>
+<li>Cluster deployment uses Raft consensus for leader election and data replication.</li>
+</ul>
+<h4 id="indexing-1">Indexing</h4>
+<ul>
+<li><strong>B-tree and range indexes</strong> on node/relationship properties.</li>
+<li><strong>Full-text indexes</strong> (Lucene-based) for text search.</li>
+<li><strong>Point indexes</strong> for spatial data (2D/3D).</li>
+<li><strong>Token lookup indexes</strong> for label/type scanning.</li>
+<li><strong>Vector indexes</strong> for similarity search (Neo4j 5.x+).</li>
+</ul>
+<h4 id="graph-data-science-gds-library">Graph Data Science (GDS) Library</h4>
+<ul>
+<li>In-database graph algorithms: PageRank, community detection (Louvain, Label Propagation), pathfinding (Dijkstra, A*), centrality measures, node similarity, graph embeddings (Node2Vec, GraphSAGE).</li>
+<li><strong>Graph projections:</strong> Create in-memory analytical graph projections from the database for algorithm execution.</li>
+<li><strong>Machine learning integration:</strong> Export embeddings and features for ML pipelines; native link prediction and node classification.</li>
+</ul>
+<h4 id="clustering-scalability">Clustering &amp; Scalability</h4>
+<ul>
+<li><strong>Causal clustering (Enterprise):</strong> Multi-node clusters with a primary (leader) and secondaries. Raft-based consensus for writes; read replicas for scaling reads.</li>
+<li><strong>Fabric (multi-database):</strong> Federate queries across multiple Neo4j databases.</li>
+<li><strong>Sharding:</strong> Neo4j 5 introduced capabilities for distributing graph data across servers, though native sharding of graphs remains challenging.</li>
+</ul>
+<h3 id="use-cases-2">Use Cases</h3>
+<ul>
+<li>Knowledge graphs, fraud detection, recommendation engines, network/IT operations, identity and access management, supply chain.</li>
+</ul>
+<hr />
+<h2 id="16-apache-sedona-sedonadb">16. Apache Sedona (SedonaDB)</h2>
+<p><strong>Category:</strong> Geospatial Analytics Engine
+<strong>License:</strong> Apache 2.0
+<strong>Written in:</strong> Scala, Java, Python</p>
+<h3 id="overview-15">Overview</h3>
+<p>Apache Sedona is a cluster computing system for processing large-scale spatial/geospatial data. It extends Apache Spark, Apache Flink, and Snowflake with spatial capabilities, providing spatial SQL, spatial indexing, and spatial analytics.</p>
+<h3 id="architecture-14">Architecture</h3>
+<ul>
+<li><strong>Runs on existing compute engines:</strong> Sedona is a library/extension for Spark, Flink, and Snowflake -- not a standalone database. It adds spatial types, functions, and indexes to these platforms.</li>
+<li><strong>Spatial RDD (Spark):</strong> Distributes spatial objects (points, polygons, lines) across Spark partitions with spatial awareness.</li>
+<li><strong>Spatial SQL:</strong> Registers spatial functions and types in the Spark/Flink SQL catalog, enabling standard SQL queries with spatial operations.</li>
+</ul>
+<h3 id="key-techniques-14">Key Techniques</h3>
+<h4 id="spatial-data-types">Spatial Data Types</h4>
+<ul>
+<li><strong>Geometry types:</strong> Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon, GeometryCollection (OGC Simple Features compliant).</li>
+<li><strong>Raster types:</strong> GeoTiff, ArcGrid, and other raster formats for satellite/aerial imagery processing.</li>
+</ul>
+<h4 id="spatial-indexing">Spatial Indexing</h4>
+<ul>
+<li><strong>R-tree index:</strong> Hierarchical spatial index for efficient spatial range queries and spatial joins. Built locally on each partition.</li>
+<li><strong>Quad-tree index:</strong> Alternative spatial index dividing space into quadrants recursively.</li>
+<li><strong>KDB-tree index:</strong> A variant optimized for high-dimensional data and balanced partitioning.</li>
+<li><strong>Spatial partitioning:</strong> Data is partitioned using spatial-aware strategies (Hilbert curve, KDB-tree, Voronoi, R-tree) to co-locate nearby spatial objects on the same partition.</li>
+</ul>
+<h4 id="spatial-operations">Spatial Operations</h4>
+<ul>
+<li><strong>Spatial joins:</strong> Efficient distributed spatial joins using partition-level indexes. Supports: intersects, contains, within, touches, crosses, overlaps, nearest neighbor.</li>
+<li><strong>Spatial range queries:</strong> Find all geometries within a given bounding box or distance.</li>
+<li><strong>Spatial aggregations:</strong> Convex hull, union, envelope.</li>
+<li><strong>Distance functions:</strong> ST_Distance, ST_HausdorffDistance, kNN queries.</li>
+<li><strong>Spatial predicates:</strong> Full set of DE-9IM (Dimensionally Extended 9-Intersection Model) predicates.</li>
+</ul>
+<h4 id="raster-processing">Raster Processing</h4>
+<ul>
+<li><strong>Out-of-DB raster:</strong> Handles large raster datasets stored externally.</li>
+<li><strong>Map algebra:</strong> Raster calculations, band math, zonal statistics.</li>
+<li><strong>Raster-vector operations:</strong> Extract vector features from rasters, rasterize vectors.</li>
+</ul>
+<h3 id="integration">Integration</h3>
+<ul>
+<li><strong>Spark SQL / DataFrames:</strong> All spatial operations available through SQL or the DataFrame API.</li>
+<li><strong>Flink:</strong> Streaming spatial analytics on Flink.</li>
+<li><strong>Snowflake:</strong> Sedona functions available as Snowflake UDFs.</li>
+<li><strong>Visualization:</strong> Integration with Apache Zeppelin, Jupyter, Kepler.gl, deck.gl.</li>
+<li><strong>Format support:</strong> Shapefile, GeoJSON, WKT/WKB, GeoParquet, GeoTiff.</li>
+</ul>
+<h3 id="use-cases-3">Use Cases</h3>
+<ul>
+<li>Large-scale spatial joins (e.g., matching GPS traces to road networks).</li>
+<li>Satellite/aerial imagery processing.</li>
+<li>Urban planning and transportation analytics.</li>
+<li>Environmental monitoring and climate analysis.</li>
+<li>Location intelligence and POI analytics.</li>
+</ul>
+<hr />
+<h2 id="17-distributed-postgresql">17. Distributed PostgreSQL</h2>
+<p><strong>Category:</strong> Approaches to horizontally scaling PostgreSQL</p>
+<h3 id="overview-16">Overview</h3>
+<p>PostgreSQL is single-node by default. The distributed PostgreSQL landscape offers multiple approaches to scale horizontally, each with distinct trade-offs. This section surveys the major solutions.</p>
+<h3 id="approach-1-extension-based-sharding">Approach 1: Extension-Based Sharding</h3>
+<h4 id="citus-microsoft">Citus (Microsoft)</h4>
+<ul>
+<li><strong>Architecture:</strong> PostgreSQL extension that adds distributed query processing. A coordinator node distributes queries to worker nodes.</li>
+<li><strong>Sharding:</strong> Hash-based or range-based distribution of tables across workers. Reference tables are replicated to all workers.</li>
+<li><strong>Distributed SQL:</strong> Supports distributed transactions (2PC), distributed JOINs, distributed subqueries. Co-located joins (joining tables sharded on the same key) are most efficient.</li>
+<li><strong>Real-time analytics:</strong> Rollup aggregation, columnar storage engine (Citus Columnar).</li>
+<li><strong>Multi-tenant optimization:</strong> Row-based tenant isolation using a distribution column (e.g., tenant_id).</li>
+<li><strong>Trade-offs:</strong> Requires choosing a distribution key. Cross-shard queries and non-distributed-key JOINs are slower. Still built on PostgreSQL internals.</li>
+</ul>
+<h3 id="approach-2-postgres-compatible-newsql">Approach 2: Postgres-Compatible NewSQL</h3>
+<h4 id="yugabytedb">YugabyteDB</h4>
+<ul>
+<li><strong>Architecture:</strong> Google Spanner-inspired. Distributed document store (DocDB) based on RocksDB with Raft consensus, with a PostgreSQL-compatible SQL layer on top.</li>
+<li><strong>Storage:</strong> LSM-tree (RocksDB) per tablet. Data sharded into tablets with automatic splitting.</li>
+<li><strong>Consensus:</strong> Raft per tablet for replication and leader election.</li>
+<li><strong>SQL compatibility:</strong> Reuses PostgreSQL's query layer (parser, analyzer, parts of planner/executor) via a forked PostgreSQL process. High compatibility but not 100%.</li>
+<li><strong>Distributed transactions:</strong> Hybrid clock-based MVCC with distributed deadlock detection.</li>
+<li><strong>Geo-distribution:</strong> Tablespace-based geo-partitioning, follower reads, read replicas.</li>
+<li><strong>Trade-offs:</strong> Latency overhead from distributed transactions. LSM-tree compaction overhead. Complex operational model.</li>
+</ul>
+<h4 id="cockroachdb">CockroachDB</h4>
+<ul>
+<li>See <a href="https://nmbr7.github.io/notes/database/database-systems/#4-cockroachdb">Section 4</a> for full details.</li>
+<li>Uses PostgreSQL wire protocol but not PostgreSQL code. Custom Go-based SQL layer.</li>
+</ul>
+<h3 id="approach-3-ha-read-scaling-not-true-distribution">Approach 3: HA &amp; Read Scaling (Not True Distribution)</h3>
+<h4 id="patroni">Patroni</h4>
+<ul>
+<li><strong>Architecture:</strong> HA template using etcd/ZooKeeper/Consul for leader election. Manages streaming replication with automatic failover.</li>
+<li><strong>Not distributed:</strong> Single primary for writes, standbys for reads. No distributed transactions or sharding.</li>
+<li><strong>Use case:</strong> When you need HA and read scaling but don't need horizontal write scaling.</li>
+</ul>
+<h4 id="pgpool-ii">pgpool-II</h4>
+<ul>
+<li><strong>Connection pooling + load balancing:</strong> Distributes read queries across replicas. Optional query-level write/read splitting.</li>
+<li><strong>Watchdog:</strong> Provides HA for pgpool itself.</li>
+<li><strong>Parallel query (limited):</strong> Can split large queries across nodes, but limited and rarely used.</li>
+</ul>
+<h4 id="pgbouncer-pgcat">PgBouncer / PgCat</h4>
+<ul>
+<li><strong>Connection poolers:</strong> Lightweight proxies that multiplex application connections to PostgreSQL, solving the process-per-connection scalability problem.</li>
+<li><strong>PgCat</strong> adds sharding-aware routing on top of connection pooling.</li>
+</ul>
+<h3 id="approach-4-foreign-data-wrappers-fdw">Approach 4: Foreign Data Wrappers (FDW)</h3>
+<ul>
+<li><strong>postgres_fdw:</strong> Query remote PostgreSQL servers as if they were local tables.</li>
+<li><strong>Manual sharding:</strong> Application or middleware manually routes queries to specific shards. FDW enables cross-shard queries.</li>
+<li><strong>Trade-offs:</strong> No distributed transactions. Query planning is limited (predicate pushdown only for simple cases). Manual setup and management.</li>
+</ul>
+<h3 id="approach-5-middleware-proxy-based-sharding">Approach 5: Middleware/Proxy-Based Sharding</h3>
+<h4 id="vitess-originally-for-mysql-postgresql-support-emerging">Vitess (originally for MySQL, PostgreSQL support emerging)</h4>
+<ul>
+<li>Sharding proxy that sits between application and database.</li>
+<li>Handles routing, sharding logic, and schema migrations.</li>
+</ul>
+<h3 id="comparison-matrix">Comparison Matrix</h3>
+<table><thead><tr><th>Solution</th><th>Sharding</th><th>Distributed Txns</th><th>PG Compatibility</th><th>Complexity</th></tr></thead><tbody>
+<tr><td><strong>Citus</strong></td><td>Hash/Range (extension)</td><td>Yes (2PC)</td><td>High (native PG)</td><td>Medium</td></tr>
+<tr><td><strong>YugabyteDB</strong></td><td>Automatic (tablets)</td><td>Yes (Raft + HLC)</td><td>High (forked PG)</td><td>High</td></tr>
+<tr><td><strong>CockroachDB</strong></td><td>Automatic (ranges)</td><td>Yes (Raft + HLC)</td><td>Medium (wire-compat)</td><td>High</td></tr>
+<tr><td><strong>Patroni</strong></td><td>None (HA only)</td><td>N/A (single primary)</td><td>100% (native PG)</td><td>Low</td></tr>
+<tr><td><strong>FDW</strong></td><td>Manual</td><td>No</td><td>High</td><td>Low-Medium</td></tr>
+</tbody></table>
+<h3 id="trade-offs-summary">Trade-offs Summary</h3>
+<ul>
+<li><strong>Citus:</strong> Best when you have a natural distribution key (multi-tenant, time-series). Least invasive since it's a PG extension.</li>
+<li><strong>YugabyteDB/CockroachDB:</strong> Best for geo-distribution and automatic sharding. Higher latency per transaction. Operational complexity.</li>
+<li><strong>Patroni + Read Replicas:</strong> Simplest. Works when write volume fits on a single node and you only need to scale reads.</li>
+<li><strong>FDW:</strong> Useful for federated queries across databases but not a true scaling solution.</li>
+</ul>
+<hr />
+<h2 id="18-qdrant">18. Qdrant</h2>
+<p><strong>Category:</strong> Vector Similarity Search Engine
+<strong>License:</strong> Apache 2.0
+<strong>Written in:</strong> Rust</p>
+<h3 id="overview-17">Overview</h3>
+<p>Qdrant is a vector database and similarity search engine designed for AI/ML applications. It stores high-dimensional vectors with associated payloads and provides fast approximate nearest neighbor (ANN) search with advanced filtering capabilities.</p>
+<h3 id="architecture-15">Architecture</h3>
+<ul>
+<li><strong>Collections:</strong> Top-level organizational unit (analogous to a table). Each collection has a configured vector size, distance metric, and indexing parameters.</li>
+<li><strong>Points:</strong> Individual records containing a vector (or multiple named vectors), a unique ID, and an optional JSON payload.</li>
+<li><strong>Segments:</strong> Internal storage units within a collection. Points are distributed across segments. Background optimization merges and rebalances segments.</li>
+<li><strong>Sharding:</strong> Collections can be sharded across nodes for horizontal scaling.</li>
+<li><strong>Replication:</strong> Configurable replication factor per collection for fault tolerance.</li>
+</ul>
+<h3 id="key-techniques-15">Key Techniques</h3>
+<h4 id="hnsw-hierarchical-navigable-small-world-index">HNSW (Hierarchical Navigable Small World) Index</h4>
+<ul>
+<li><strong>Primary vector index:</strong> HNSW builds a multi-layer graph where higher layers contain fewer nodes (long-range connections) and lower layers have more nodes (local connections).</li>
+<li><strong>Search:</strong> Start at the top layer, greedily navigate to the nearest neighbor, then drop to the next layer and repeat. Provides O(log n) search complexity with high recall.</li>
+<li><strong>Parameters:</strong> <code>m</code> (max connections per node), <code>ef_construct</code> (search width during construction), <code>ef</code> (search width during query). Trade-off between recall, speed, and memory.</li>
+<li><strong>On-disk HNSW:</strong> Graph structure can be memory-mapped for datasets larger than RAM.</li>
+</ul>
+<h4 id="filtering">Filtering</h4>
+<ul>
+<li><strong>Payload filtering with ANN search:</strong> Qdrant's distinguishing feature. Apply arbitrary filters on payload fields (equality, range, geo, keyword, nested) simultaneously with vector search.</li>
+<li><strong>Filterable HNSW:</strong> Instead of post-filtering (which can miss results), Qdrant uses a custom HNSW traversal that respects filters during graph navigation. This avoids the "filter-then-search" or "search-then-filter" problems.</li>
+<li><strong>Payload indexes:</strong> Keyword, integer, float, geo, datetime, text, boolean, UUID indexes on payload fields for fast filtering.</li>
+</ul>
+<h4 id="quantization">Quantization</h4>
+<ul>
+<li><strong>Scalar quantization:</strong> Compress 32-bit floats to 8-bit integers. 4x memory reduction with small recall loss.</li>
+<li><strong>Product quantization (PQ):</strong> Divide vectors into sub-vectors, quantize each independently. Higher compression ratios.</li>
+<li><strong>Binary quantization:</strong> Extreme compression for certain embedding types (e.g., Cohere, OpenAI embeddings). 32x memory reduction.</li>
+<li><strong>Rescoring:</strong> Quantized search finds candidates; original vectors used for rescoring to maintain recall.</li>
+</ul>
+<h4 id="multi-vector-and-sparse-vectors">Multi-Vector and Sparse Vectors</h4>
+<ul>
+<li><strong>Named vectors:</strong> A single point can have multiple vector representations (e.g., text embedding + image embedding).</li>
+<li><strong>Sparse vectors:</strong> Support for sparse vector representations (BM25-style term weights, SPLADE embeddings) enabling hybrid search.</li>
+<li><strong>Multivector:</strong> Store multiple vectors per point (e.g., ColBERT-style late interaction).</li>
+</ul>
+<h3 id="api-features">API &amp; Features</h3>
+<ul>
+<li><strong>REST and gRPC APIs.</strong> Client libraries for Python, JavaScript, Rust, Go, Java, C#.</li>
+<li><strong>Batch operations:</strong> Bulk upload, batch search (search multiple queries in one request).</li>
+<li><strong>Recommendation API:</strong> Find points similar to positive examples and dissimilar to negative examples.</li>
+<li><strong>Discovery API:</strong> Explore the vector space with constraints.</li>
+<li><strong>Snapshot &amp; backup:</strong> Point-in-time snapshots for backup/restore.</li>
+</ul>
+<h3 id="deployment">Deployment</h3>
+<ul>
+<li><strong>Single node:</strong> Embedded or standalone.</li>
+<li><strong>Distributed mode:</strong> Automatic sharding and replication with Raft-based consensus for cluster coordination.</li>
+<li><strong>Qdrant Cloud:</strong> Managed offering.</li>
+</ul>
+<h3 id="use-cases-4">Use Cases</h3>
+<ul>
+<li>Semantic search, RAG (Retrieval-Augmented Generation) for LLMs, recommendation systems, image similarity search, anomaly detection, deduplication.</li>
+</ul>
+<hr />
+<h2 id="19-tigerbeetle">19. TigerBeetle</h2>
+<p><strong>Category:</strong> Financial Transactions Database
+<strong>License:</strong> Apache 2.0
+<strong>Written in:</strong> Zig</p>
+<h3 id="overview-18">Overview</h3>
+<p>TigerBeetle is a purpose-built database for financial accounting and transactions. It is designed for extreme correctness, safety, and performance in processing double-entry bookkeeping operations. Rather than being a general-purpose database, it is a domain-specific system for financial ledgers.</p>
+<h3 id="architecture-16">Architecture</h3>
+<ul>
+<li><strong>Fixed schema:</strong> TigerBeetle has a hardcoded schema: <strong>accounts</strong> and <strong>transfers</strong> (debits/credits). No user-defined tables or schemas. This radical constraint enables extreme optimization.</li>
+<li><strong>Cluster of replicas:</strong> Typically 3 or 6 replicas forming a consensus group.</li>
+<li><strong>Deterministic state machine:</strong> The entire database is a deterministic state machine replicated via consensus. Given the same inputs, all replicas produce identical outputs.</li>
+</ul>
+<h3 id="key-techniques-16">Key Techniques</h3>
+<h4 id="consensus-viewstamped-replication-vr">Consensus: Viewstamped Replication (VR)</h4>
+<ul>
+<li>Uses <strong>Viewstamped Replication</strong> (VR) protocol, a predecessor to Raft with similar guarantees but different implementation details.</li>
+<li><strong>Strict serializability:</strong> All operations are strictly ordered across the cluster.</li>
+<li><strong>No leader ambiguity:</strong> Clear view-change protocol ensures exactly one primary at a time.</li>
+</ul>
+<h4 id="storage-lsm-inspired-with-direct-i-o">Storage: LSM-Inspired with Direct I/O</h4>
+<ul>
+<li><strong>Fixed-size records:</strong> Accounts (128 bytes) and transfers (128 bytes) stored in fixed-size slots. No variable-length fields.</li>
+<li><strong>LSM-tree inspired:</strong> Write-ahead log + compacted storage. But highly optimized for the fixed schema.</li>
+<li><strong>Direct I/O:</strong> Bypasses the operating system's page cache entirely. TigerBeetle manages its own memory and I/O, eliminating double-buffering and ensuring predictable performance.</li>
+<li><strong>No filesystem dependency:</strong> Uses raw block devices or files opened with O_DIRECT. No reliance on filesystem consistency semantics.</li>
+</ul>
+<h4 id="io-uring">io_uring</h4>
+<ul>
+<li><strong>Linux io_uring for asynchronous I/O:</strong> All disk I/O uses io_uring for batched, asynchronous submission and completion. This provides very high I/O throughput with minimal syscall overhead.</li>
+<li><strong>On macOS:</strong> Falls back to kqueue-based async I/O.</li>
+</ul>
+<h4 id="deterministic-simulation-testing-dst">Deterministic Simulation Testing (DST)</h4>
+<ul>
+<li><strong>The VOPR (Viewstamped Operation Replication Protocol simulator):</strong> A comprehensive simulation testing framework that deterministically replays all possible failure scenarios.</li>
+<li><strong>Simulates:</strong> Disk failures, network partitions, message reordering, message duplication, message loss, clock skew, process crashes at any point.</li>
+<li><strong>Deterministic:</strong> Given a seed, the entire simulation is reproducible. This makes bugs reproducible and enables systematic exploration of the failure space.</li>
+<li><strong>Runs millions of test cases</strong> covering rare edge cases that would be nearly impossible to hit in traditional testing.</li>
+</ul>
+<h4 id="why-zig">Why Zig?</h4>
+<ul>
+<li><strong>No hidden control flow:</strong> Zig has no hidden allocations, no hidden function calls, no exceptions. Every operation is explicit and visible in the code.</li>
+<li><strong>Comptime (compile-time execution):</strong> Zig's comptime enables powerful metaprogramming without runtime overhead. Used for generating optimized data structures and state machine code.</li>
+<li><strong>No garbage collector:</strong> Predictable latency with no GC pauses.</li>
+<li><strong>C interop:</strong> Seamless integration with OS APIs (io_uring, direct I/O).</li>
+<li><strong>Safety without overhead:</strong> Runtime safety checks (bounds checking, overflow detection) in debug mode; can be disabled in release for maximum performance.</li>
+</ul>
+<h3 id="safety-correctness-guarantees">Safety &amp; Correctness Guarantees</h3>
+<ul>
+<li><strong>Strict serializability</strong> across the cluster.</li>
+<li><strong>Double-entry accounting invariants</strong> enforced at the database level: every transfer debits one account and credits another. Balances cannot go negative (configurable). No partial transfers.</li>
+<li><strong>Idempotency:</strong> All operations are idempotent (safe to retry).</li>
+<li><strong>No data loss:</strong> Designed to never lose acknowledged writes, even under byzantine storage conditions (bit rot detection via checksums).</li>
+</ul>
+<h3 id="performance-characteristics-3">Performance Characteristics</h3>
+<ul>
+<li><strong>1 million+ transfers per second</strong> on a single cluster.</li>
+<li><strong>Sub-millisecond latency</strong> for individual transfers.</li>
+<li><strong>Batched operations:</strong> Client submits batches of up to 8190 transfers per request. The database processes the entire batch atomically.</li>
+<li><strong>Fixed memory footprint:</strong> Memory usage is deterministic and bounded at startup.</li>
+</ul>
+<h3 id="data-model">Data Model</h3>
+<pre><code>Account:
+  - id (128-bit)
+  - debits_pending, debits_posted
+  - credits_pending, credits_posted
+  - user_data (128-bit, 64-bit, 32-bit fields for application use)
+  - ledger (uint32), code (uint16)
+  - flags (linked transfers, balance checks)
+
+Transfer:
+  - id (128-bit)
+  - debit_account_id, credit_account_id
+  - amount (uint128)
+  - pending_id (for two-phase transfers)
+  - user_data fields
+  - ledger, code
+  - flags (linked, pending, void, post, balancing)
+</code></pre>
+<h3 id="two-phase-transfers">Two-Phase Transfers</h3>
+<ul>
+<li><strong>Pending transfers:</strong> Reserve (hold) funds without completing the transfer.</li>
+<li><strong>Post/void:</strong> Later post (complete) or void (cancel) the pending transfer.</li>
+<li><strong>Timeout:</strong> Pending transfers can have a timeout; automatically voided if not posted.</li>
+<li><strong>Use case:</strong> Payment authorization/capture, escrow, reservations.</li>
+</ul>
+<h3 id="use-cases-5">Use Cases</h3>
+<ul>
+<li>Financial ledgers, payment processing, digital wallets, marketplace payments, trading systems, prepaid/postpaid billing, loyalty points, in-game currencies.</li>
+</ul>
+<hr />
+<h2 id="summary-comparison-matrix">Summary Comparison Matrix</h2>
+<table><thead><tr><th>System</th><th>Category</th><th>Storage Model</th><th>Distribution</th><th>Language</th><th>Key Differentiator</th></tr></thead><tbody>
+<tr><td><strong>Umbra</strong></td><td>Research OLAP</td><td>Columnar/PAX + Buffer Mgr</td><td>Single-node</td><td>C++</td><td>Adaptive compilation + memory-speed disk-based</td></tr>
+<tr><td><strong>PostgreSQL</strong></td><td>General ORDBMS</td><td>Heap (row) + MVCC</td><td>Single-node + replicas</td><td>C</td><td>Extensibility + correctness</td></tr>
+<tr><td><strong>MySQL</strong></td><td>General RDBMS</td><td>Clustered B-tree (InnoDB)</td><td>Replication + Group Rep</td><td>C/C++</td><td>Read-heavy OLTP + mature replication</td></tr>
+<tr><td><strong>CockroachDB</strong></td><td>Distributed SQL</td><td>LSM-tree (Pebble) + Raft</td><td>Range-sharded</td><td>Go</td><td>Geo-distributed serializable transactions</td></tr>
+<tr><td><strong>DuckDB</strong></td><td>Embedded OLAP</td><td>Columnar</td><td>Single-node (embedded)</td><td>C++</td><td>SQLite for analytics</td></tr>
+<tr><td><strong>Feldera</strong></td><td>Incremental Compute</td><td>In-memory (Z-sets)</td><td>Single-node (scalable)</td><td>Rust</td><td>DBSP theory: automatic incrementalization</td></tr>
+<tr><td><strong>ClickHouse</strong></td><td>Column OLAP</td><td>MergeTree family</td><td>Sharded + replicated</td><td>C++</td><td>Extreme aggregation speed</td></tr>
+<tr><td><strong>RisingWave</strong></td><td>Streaming DB</td><td>LSM on object storage</td><td>Distributed</td><td>Rust</td><td>Streaming MVs with PG compatibility</td></tr>
+<tr><td><strong>Apache Comet</strong></td><td>Spark Accelerator</td><td>Arrow columnar</td><td>Distributed (Spark)</td><td>Rust/Scala</td><td>Native Spark acceleration via DataFusion</td></tr>
+<tr><td><strong>Apache Spark</strong></td><td>Unified Analytics</td><td>Various (pluggable)</td><td>Distributed</td><td>Scala/Java</td><td>Unified batch + stream + ML</td></tr>
+<tr><td><strong>ParadeDB</strong></td><td>PG Search+Analytics</td><td>Tantivy + Columnar</td><td>Single-node (PG)</td><td>Rust</td><td>Search + analytics in Postgres</td></tr>
+<tr><td><strong>Neon</strong></td><td>Serverless Postgres</td><td>Log-structured pages</td><td>Separated compute/storage</td><td>Rust/C</td><td>Instant branching + autoscaling</td></tr>
+<tr><td><strong>Turso</strong></td><td>Edge Database</td><td>SQLite (libSQL)</td><td>Edge-replicated</td><td>C/Rust</td><td>Embedded replicas at the edge</td></tr>
+<tr><td><strong>Apache Iceberg</strong></td><td>Table Format</td><td>Parquet/ORC files</td><td>N/A (format)</td><td>Java</td><td>Schema evolution + hidden partitioning</td></tr>
+<tr><td><strong>Neo4j</strong></td><td>Graph Database</td><td>Native graph (pointers)</td><td>Causal clustering</td><td>Java</td><td>Index-free adjacency</td></tr>
+<tr><td><strong>Apache Sedona</strong></td><td>Geospatial Engine</td><td>Depends on engine</td><td>Distributed (Spark/Flink)</td><td>Scala/Java</td><td>Spatial indexing + spatial SQL</td></tr>
+<tr><td><strong>Distributed PG</strong></td><td>Scaling Postgres</td><td>Various</td><td>Various</td><td>Various</td><td>Multiple approaches to scale PG</td></tr>
+<tr><td><strong>Qdrant</strong></td><td>Vector Database</td><td>HNSW + segments</td><td>Sharded + replicated</td><td>Rust</td><td>Filtered ANN search</td></tr>
+<tr><td><strong>TigerBeetle</strong></td><td>Financial Txn DB</td><td>LSM + Direct I/O</td><td>VR consensus</td><td>Zig</td><td>Deterministic simulation + financial safety</td></tr>
+</tbody></table>
+<hr />
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/">HyPer/Umbra/CedarDB</a> — Deep dive into the Umbra lineage surveyed briefly here</li>
+<li><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a> — Expands on Aurora, Neon, Snowflake, and other cloud-native architectures listed above</li>
+<li><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a> — Consensus protocols (Raft, Paxos, VR) underpinning CockroachDB, TiDB, and TigerBeetle</li>
+<li><a href="https://nmbr7.github.io/notes/distributed/deterministic-simulation-testing/">Deterministic Simulation Testing</a> — Testing approach used by FoundationDB and TigerBeetle surveyed here</li>
+<li><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a> — Storage engine architecture used by CockroachDB, RocksDB, ClickHouse, and TigerBeetle</li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

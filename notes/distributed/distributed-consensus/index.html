@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Distributed Consensus</h1>
+  <h1 id="distributed-consensus-algorithms">Distributed Consensus Algorithms</h1>
+<p>Comprehensive technical reference covering classical and modern consensus protocols, Byzantine fault tolerance, leaderless approaches, and production system implementations.</p>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/#foundations">Foundations</a></li>
+<li><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/#2-classical-algorithms">Classical Algorithms</a></li>
+<li><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/#raft">Raft</a></li>
+<li><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/#byzantine-fault-tolerance">Byzantine Fault Tolerance</a></li>
+<li><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/#5-leaderless-and-flexible-approaches">Leaderless and Flexible Approaches</a></li>
+<li><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/#production-systems">Production Systems</a></li>
+<li><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/#7-performance-considerations">Performance Considerations</a></li>
+<li><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/#8-key-papers">Key Papers</a></li>
+</ol>
+<hr />
+<h2 id="1-foundations">1. Foundations</h2>
+<h3 id="1-1-the-consensus-problem">1.1 The Consensus Problem</h3>
+<p>The consensus problem requires a set of <code>n</code> processes, some of which may fail, to agree on a single value. Formally, a consensus protocol must satisfy:</p>
+<ul>
+<li><strong>Agreement</strong>: No two correct processes decide differently.</li>
+<li><strong>Validity</strong>: If a process decides value <code>v</code>, then <code>v</code> was proposed by some process.</li>
+<li><strong>Termination</strong>: Every correct process eventually decides some value.</li>
+</ul>
+<p>Agreement and validity together form <strong>safety</strong>. Termination is the <strong>liveness</strong> property. The central tension of distributed consensus is that you cannot always have both simultaneously.</p>
+<h3 id="1-2-flp-impossibility">1.2 FLP Impossibility</h3>
+<p>The most important impossibility result in distributed computing was established by Fischer, Lynch, and Paterson in 1985 (JACM):</p>
+<blockquote>
+<p><strong>Theorem (FLP)</strong>: No deterministic protocol can solve consensus in an asynchronous system if even one process may crash.</p>
+</blockquote>
+<p>The proof uses a <em>bivalence argument</em>: starting from an initial configuration where the decision is not yet determined (bivalent), any execution step can be shown to lead to another bivalent configuration, meaning the protocol can always be driven away from a decision.</p>
+<p><strong>Practical implications</strong>:</p>
+<ul>
+<li>Pure asynchronous consensus is impossible; all practical protocols must make timing assumptions.</li>
+<li>Solutions circumvent FLP by using one or more of:
+<ul>
+<li><strong>Partial synchrony</strong>: Assume bounds on message delay hold <em>eventually</em> (Dwork, Lynch, Stockmeyer, JACM 1988).</li>
+<li><strong>Randomization</strong>: Probabilistic algorithms that terminate with probability 1 (Ben-Or, PODC 1983).</li>
+<li><strong>Failure detectors</strong>: Oracles that provide (possibly unreliable) information about failures (Chandra &amp; Toueg, JACM 1996). The weakest failure detector sufficient for consensus is Omega (eventual leader).</li>
+</ul>
+</li>
+</ul>
+<h3 id="1-3-cap-theorem">1.3 CAP Theorem</h3>
+<p>Gilbert and Lynch (SIGACT News, 2002) formalized Brewer's conjecture:</p>
+<blockquote>
+<p>In a network subject to partitions, a distributed system can provide at most two of: <strong>Consistency</strong> (linearizability), <strong>Availability</strong> (every non-faulty node returns a response), <strong>Partition tolerance</strong>.</p>
+</blockquote>
+<p>Since network partitions are inevitable in real systems, the practical trade-off is between <strong>CP</strong> (sacrifice availability during partitions) and <strong>AP</strong> (sacrifice consistency during partitions).</p>
+<pre><code>                  C (Consistency)
+                 / \
+                /   \
+               /     \
+              / CP    \
+             /  systems\
+            /___________\
+           A ----------- P
+        (Availability)   (Partition Tolerance)
+
+        CP systems: ZooKeeper, etcd, Spanner, CockroachDB
+        AP systems: Cassandra, DynamoDB, Riak
+</code></pre>
+<p><strong>Important nuance</strong>: CAP is a spectrum, not a binary choice. The PACELC extension (Abadi, Computer, 2012) notes that even when the system is running <strong>N</strong>ormally (no <strong>P</strong>artition), there is a trade-off between <strong>L</strong>atency and <strong>C</strong>onsistency.</p>
+<h3 id="1-4-safety-vs-liveness">1.4 Safety vs. Liveness</h3>
+<p>Every correctness property of a distributed system can be decomposed into a safety property ("nothing bad happens") and a liveness property ("something good eventually happens") -- Alpern &amp; Schneider, 1985.</p>
+<p>For consensus:</p>
+<ul>
+<li><strong>Safety</strong>: No two correct nodes commit different values for the same slot.</li>
+<li><strong>Liveness</strong>: A value is eventually committed.</li>
+</ul>
+<p>Most practical consensus protocols (Paxos, Raft, PBFT) guarantee <strong>safety unconditionally</strong> but guarantee <strong>liveness only under partial synchrony</strong> (when the network stabilizes and a correct leader exists). This is an explicit design choice: it is better to halt than to produce an incorrect result.</p>
+<h3 id="1-5-system-models">1.5 System Models</h3>
+<table><thead><tr><th>Model</th><th>Timing Assumption</th><th>Failures Tolerated</th><th>Examples</th></tr></thead><tbody>
+<tr><td>Synchronous</td><td>Known upper bound on message delay</td><td>Crash (f &lt; n/2)</td><td>Academic models</td></tr>
+<tr><td>Asynchronous</td><td>No timing assumptions at all</td><td>Impossible (FLP)</td><td>Theoretical baseline</td></tr>
+<tr><td>Partially Synchronous</td><td>Bounds hold after unknown GST</td><td>Crash (f &lt; n/2)</td><td>Paxos, Raft, VR</td></tr>
+<tr><td>Byzantine Partially Synchronous</td><td>Bounds hold after unknown GST</td><td>Byzantine (f &lt; n/3)</td><td>PBFT, HotStuff</td></tr>
+</tbody></table>
+<hr />
+<h2 id="2-classical-algorithms">2. Classical Algorithms</h2>
+<h3 id="2-1-paxos">2.1 Paxos</h3>
+<h4 id="2-1-1-single-decree-paxos">2.1.1 Single-Decree Paxos</h4>
+<p>Published by Lamport in "The Part-Time Parliament" (TOCS, 1998; originally submitted 1990) and later clarified in "Paxos Made Simple" (SIGACT News, 2001).</p>
+<p>Single-Decree Paxos decides on a single value. It has three roles (a single node can play multiple roles):</p>
+<ul>
+<li><strong>Proposer</strong>: Proposes values.</li>
+<li><strong>Acceptor</strong>: Votes on proposals, stores accepted values.</li>
+<li><strong>Learner</strong>: Learns the decided value.</li>
+</ul>
+<p><strong>Two-Phase Protocol</strong>:</p>
+<pre><code>Phase 1: Prepare / Promise
+==========================
+
+Proposer                 Acceptors (majority quorum)
+   |                         |
+   |---Prepare(n)-----------&gt;|   Proposer picks ballot number n
+   |                         |
+   |&lt;--Promise(n, v_max)-----|   Acceptor promises not to accept
+   |                         |   ballots &lt; n. Returns highest
+   |                         |   accepted value (if any).
+
+Phase 2: Accept / Accepted
+==========================
+
+Proposer                 Acceptors (majority quorum)
+   |                         |
+   |---Accept(n, v)---------&gt;|   v = highest v_max from Phase 1,
+   |                         |   or proposer&#39;s own value if none.
+   |                         |
+   |&lt;--Accepted(n, v)--------|   Acceptor accepts if it hasn&#39;t
+   |                         |   promised a higher ballot.
+
+   Once a majority accepts: value v is CHOSEN.
+</code></pre>
+<p><strong>Key invariant</strong>: If a value <code>v</code> has been chosen with ballot <code>n</code>, then every higher-numbered ballot that is accepted must also have value <code>v</code>. This is enforced by Phase 1: any proposer using a higher ballot will discover <code>v</code> from a majority of acceptors.</p>
+<p><strong>Safety</strong>: Guaranteed unconditionally, regardless of message delays, duplicates, or reordering.</p>
+<p><strong>Liveness</strong>: Not guaranteed if two proposers "duel" with alternating ballots (livelock). This motivates the use of a distinguished proposer (leader).</p>
+<h4 id="2-1-2-multi-paxos">2.1.2 Multi-Paxos</h4>
+<p>Lamport's original paper describes choosing a sequence of values (a log) by running separate instances of Paxos for each log slot. Multi-Paxos optimizes this:</p>
+<ol>
+<li>A <strong>stable leader</strong> runs Phase 1 once for a range of slots.</li>
+<li>Subsequent slots only require Phase 2 (Accept/Accepted), saving one round trip per entry.</li>
+<li>The leader acts as the sole proposer, eliminating dueling.</li>
+</ol>
+<pre><code>Multi-Paxos Steady State (leader established):
+
+Client       Leader        Followers
+  |            |              |
+  |--Request--&gt;|              |
+  |            |--Accept(n,v)---&gt;|
+  |            |&lt;--Accepted------|
+  |            |              |
+  |&lt;--Reply----|              |
+
+  Single round-trip in steady state.
+</code></pre>
+<p><strong>Leader election</strong>: Multi-Paxos does not prescribe a specific leader election mechanism. Implementations vary widely. Common approaches:</p>
+<ul>
+<li>Highest-ID node after Phase 1 succeeds becomes leader.</li>
+<li>Separate failure detector / timeout-based election.</li>
+<li>Piggybacking leader information on Prepare messages.</li>
+</ul>
+<p><strong>Log gaps and holes</strong>: Multi-Paxos allows concurrent proposers to claim different slots, which can leave gaps. These must be filled (typically with no-ops) before applying entries.</p>
+<h4 id="2-1-3-paxos-variants">2.1.3 Paxos Variants</h4>
+<table><thead><tr><th>Variant</th><th>Key Idea</th><th>Reference</th></tr></thead><tbody>
+<tr><td><strong>Cheap Paxos</strong></td><td>Uses f+1 main replicas + f cheap witnesses that only activate during recovery</td><td>Lamport &amp; Massa, DSN 2004</td></tr>
+<tr><td><strong>Fast Paxos</strong></td><td>Clients send directly to acceptors; 1 RTT in fast path but requires larger quorum (2f+1 out of 3f+1)</td><td>Lamport, Distributed Computing, 2006</td></tr>
+<tr><td><strong>Generalized Paxos</strong></td><td>Exploits commutativity of operations to avoid conflict resolution</td><td>Lamport, MSR-TR, 2005</td></tr>
+<tr><td><strong>Disk Paxos</strong></td><td>Uses shared disks as acceptors</td><td>Gafni &amp; Lamport, Distributed Computing, 2003</td></tr>
+</tbody></table>
+<h3 id="2-2-viewstamped-replication-vr">2.2 Viewstamped Replication (VR)</h3>
+<p>Independently developed by Oki and Liskov (PODC, 1988), revisited by Liskov and Cowling (MIT-CSAIL-TR, 2012). VR is conceptually similar to Multi-Paxos but was developed earlier and uses different terminology.</p>
+<p><strong>Core concepts</strong>:</p>
+<ul>
+<li>A <strong>view</strong> identifies a configuration with a designated <strong>primary</strong> and a set of <strong>backups</strong>.</li>
+<li>Each event is stamped with a <strong>viewstamp</strong> = (view-number, op-number).</li>
+<li>The primary assigns order; backups replicate.</li>
+</ul>
+<p><strong>Normal operation</strong>:</p>
+<pre><code>Client       Primary         Backups (f of 2f+1)
+  |            |                |
+  |--Request--&gt;|                |
+  |            |--Prepare(v,n)-&gt;|   v=view, n=op-number
+  |            |&lt;--PrepareOK----|
+  |            |  (wait for f)  |
+  |            |--Commit(n)----&gt;|
+  |&lt;--Reply----|                |
+</code></pre>
+<p><strong>View Change Protocol</strong> (triggered when primary is suspected faulty):</p>
+<ol>
+<li>Backup sends <code>StartViewChange(v+1)</code> to all replicas.</li>
+<li>Upon receiving <code>f</code> StartViewChange messages, backup sends <code>DoViewChange(v+1, log, ...)</code> to the new primary.</li>
+<li>New primary waits for <code>f+1</code> DoViewChange messages, selects the most up-to-date log, installs it, and sends <code>StartView(v+1, log)</code> to all backups.</li>
+<li>Backups update their state and resume normal operation.</li>
+</ol>
+<p><strong>Key property</strong>: The new primary always has the most complete log because it gathers logs from a quorum during view change. This is equivalent to Paxos Phase 1.</p>
+<p><strong>Comparison with Multi-Paxos</strong>:</p>
+<ul>
+<li>VR prescribes a specific view change protocol; Multi-Paxos leaves leader election open.</li>
+<li>VR explicitly handles state transfer; Paxos focuses on abstract consensus instances.</li>
+<li>VR uses a fixed primary-backup model; Paxos is more flexible about roles.</li>
+<li>Both are equivalent in terms of the fundamental safety guarantees.</li>
+</ul>
+<hr />
+<h2 id="3-raft">3. Raft</h2>
+<h3 id="3-1-overview">3.1 Overview</h3>
+<p>Designed by Ongaro and Ousterhout, published "In Search of an Understandable Consensus Algorithm" (USENIX ATC, 2014). Raft was explicitly designed for understandability while providing the same guarantees as Multi-Paxos.</p>
+<p><strong>Key design decisions</strong>:</p>
+<ol>
+<li><strong>Strong leader</strong>: All log entries flow from leader to followers. Simplifies reasoning.</li>
+<li><strong>Leader election</strong>: Randomized timeouts prevent split votes.</li>
+<li><strong>Log matching</strong>: If two logs contain an entry with the same index and term, all preceding entries are identical.</li>
+<li><strong>Leader completeness</strong>: If a log entry is committed in a given term, it will be present in the logs of all leaders for higher terms.</li>
+</ol>
+<h3 id="3-2-server-states">3.2 Server States</h3>
+<pre><code>                  +-----------+
+         timeout, |           | receives votes from
+         start    |           | majority of servers
+         election | Candidate |-------------------+
+     +-----------&gt;|           |                   |
+     |            +-----------+                   |
+     |               |    ^                       v
+     |   discovers   |    | timeout,          +---------+
+     |   current     |    | new election      |         |
+     |   leader or   +----+                   | Leader  |----+
+     |   new term                             |         |    |
+     |            +-----------+               +---------+    |
+     +------------|           |&lt;----- discovers server       |
+                  | Follower  |        with higher term      |
+     +-----------&gt;|           |&lt;-----------------------------+
+     |            +-----------+   steps down
+     |                 |
+     +-- on startup ---+
+</code></pre>
+<h3 id="3-3-leader-election">3.3 Leader Election</h3>
+<p>Each server maintains a monotonically increasing <strong>term</strong> number. When a follower's election timeout fires:</p>
+<ol>
+<li>Increments term to <code>T+1</code>, transitions to Candidate.</li>
+<li>Votes for itself.</li>
+<li>Sends <code>RequestVote(term=T+1, lastLogIndex, lastLogTerm)</code> to all peers.</li>
+<li>Wins if it receives votes from a majority.</li>
+</ol>
+<p><strong>Election restriction</strong>: A server grants its vote only if the candidate's log is at least as up-to-date as its own. "Up-to-date" means: higher last log term, or same last log term with equal or higher last log index.</p>
+<p>This restriction ensures the <strong>Leader Completeness Property</strong>: a newly elected leader's log contains all committed entries. Unlike Paxos, the leader does not need to "catch up" after election.</p>
+<p><strong>Randomized timeouts</strong> (typically 150-300ms) break symmetry and prevent repeated split votes. The election timeout must be much larger than the broadcast time:</p>
+<pre><code>broadcastTime &lt;&lt; electionTimeout &lt;&lt; MTBF
+
+broadcastTime: ~0.5-20ms (within datacenter)
+electionTimeout: 150-300ms (configurable)
+MTBF: months to years
+</code></pre>
+<h3 id="3-4-log-replication">3.4 Log Replication</h3>
+<pre><code>Leader Log:    [1:x&lt;-3] [1:y&lt;-1] [2:x&lt;-5] [3:z&lt;-2] [3:w&lt;-7]
+                                            ^committed
+
+Follower A:   [1:x&lt;-3] [1:y&lt;-1] [2:x&lt;-5] [3:z&lt;-2]
+Follower B:   [1:x&lt;-3] [1:y&lt;-1] [2:x&lt;-5]
+Follower C:   [1:x&lt;-3] [1:y&lt;-1]           (lagging)
+
+AppendEntries RPC carries:
+  - term: leader&#39;s current term
+  - prevLogIndex, prevLogTerm: consistency check
+  - entries[]: new log entries
+  - leaderCommit: leader&#39;s commit index
+</code></pre>
+<p>The <strong>consistency check</strong> in AppendEntries ensures the Log Matching Property: if <code>prevLogIndex</code> and <code>prevLogTerm</code> do not match the follower's log, the follower rejects the request and the leader decrements <code>nextIndex</code> and retries (or uses an optimization where the follower returns its conflicting term and earliest index for that term).</p>
+<p><strong>Commit rule</strong>: An entry from the current term is committed once a majority of servers have replicated it. Entries from previous terms are committed indirectly by committing a current-term entry at a higher index (this prevents the subtle "figure 8" problem described in the Raft paper).</p>
+<h3 id="3-5-joint-consensus-for-membership-changes">3.5 Joint Consensus for Membership Changes</h3>
+<p>Changing cluster membership (adding/removing nodes) is dangerous because different servers may transition at different times, allowing two disjoint majorities.</p>
+<p>Raft solves this with <strong>joint consensus</strong> (two-phase approach):</p>
+<pre><code>Phase 1: C_old -&gt; C_{old,new}
+===========================
+Leader creates a configuration entry C_{old,new}
+Decisions require majorities from BOTH C_old AND C_new
+
+Phase 2: C_{old,new} -&gt; C_new
+===========================
+Once C_{old,new} is committed, leader creates C_new entry
+Decisions now require majority of C_new only
+
+Timeline:
+  C_old    |---C_{old,new}---|---C_new---|
+           ^                 ^           ^
+         proposed         committed   committed
+</code></pre>
+<p><strong>Single-server changes</strong> (Ongaro's dissertation): If membership changes are restricted to adding or removing one server at a time, joint consensus is not needed because any majority of the old configuration overlaps with any majority of the new configuration.</p>
+<h3 id="3-6-linearizable-reads">3.6 Linearizable Reads</h3>
+<p>By default, a Raft leader could serve stale reads if it has been deposed without knowing. Two solutions:</p>
+<p><strong>ReadIndex</strong>:</p>
+<ol>
+<li>Leader records current commit index as <code>readIndex</code>.</li>
+<li>Leader confirms it is still leader by exchanging heartbeats with a majority.</li>
+<li>Leader waits until its state machine advances past <code>readIndex</code>.</li>
+<li>Leader executes the read and responds.</li>
+</ol>
+<p><strong>LeaseRead</strong> (optimization):</p>
+<ol>
+<li>Leader maintains a lease based on heartbeat responses.</li>
+<li>If the lease has not expired, the leader can serve reads without an extra round of heartbeats.</li>
+<li>Requires bounded clock drift assumption (typically safe within a datacenter).</li>
+</ol>
+<pre><code>LeaseRead Timeline:
+
+Leader heartbeat to majority at time T
+Lease valid until: T + electionTimeout - clockDrift
+
+   T                    T+lease
+   |----lease valid-----|
+   ^                    ^
+   heartbeat ACK        must re-confirm or
+   from majority        step down
+</code></pre>
+<p><strong>Follower reads</strong> (etcd implementation): A follower asks the leader for the current commit index via ReadIndex, waits for its own state machine to catch up, then serves the read locally.</p>
+<h3 id="3-7-raft-vs-multi-paxos">3.7 Raft vs. Multi-Paxos</h3>
+<table><thead><tr><th>Aspect</th><th>Raft</th><th>Multi-Paxos</th></tr></thead><tbody>
+<tr><td><strong>Leader election</strong></td><td>Randomized timeout, up-to-date log required</td><td>Not specified; any node can attempt</td></tr>
+<tr><td><strong>Log completeness</strong></td><td>Leader always has all committed entries</td><td>Leader may have gaps; must fill via Phase 1</td></tr>
+<tr><td><strong>Log gaps</strong></td><td>Never occur; entries are contiguous</td><td>Gaps possible with concurrent proposers</td></tr>
+<tr><td><strong>Commit rule</strong></td><td>Only current-term entries advance commit</td><td>Can commit entries from any term</td></tr>
+<tr><td><strong>Understandability</strong></td><td>Explicit goal of the design</td><td>Notoriously difficult to implement correctly</td></tr>
+<tr><td><strong>Flexibility</strong></td><td>More rigid (by design)</td><td>More flexible; many valid implementations</td></tr>
+<tr><td><strong>Performance</strong></td><td>Comparable to Multi-Paxos in practice</td><td>Slightly more optimization headroom</td></tr>
+<tr><td><strong>Formal verification</strong></td><td>TLA+ spec by Ongaro</td><td>TLA+ spec by Lamport</td></tr>
+</tbody></table>
+<p>Howard and Mortier ("Paxos vs Raft: Have We Reached Consensus on Distributed Consensus?", HotCloud, 2020) argue that Raft's restrictions (no log gaps, leader completeness) make it less flexible but not fundamentally different from Multi-Paxos. The core consensus mechanism is equivalent.</p>
+<hr />
+<h2 id="4-byzantine-fault-tolerance">4. Byzantine Fault Tolerance</h2>
+<h3 id="4-1-pbft-practical-byzantine-fault-tolerance">4.1 PBFT (Practical Byzantine Fault Tolerance)</h3>
+<p>Published by Castro and Liskov (OSDI, 1999). First BFT protocol practical enough for real systems. Tolerates up to <code>f</code> Byzantine faults with <code>n = 3f + 1</code> replicas.</p>
+<p><strong>Why 3f+1?</strong>: With <code>f</code> Byzantine nodes that can lie:</p>
+<ul>
+<li>Need <code>2f+1</code> honest responses to outvote <code>f</code> liars.</li>
+<li>But <code>f</code> honest nodes might be slow/unreachable.</li>
+<li>Total: <code>(2f+1) + f = 3f+1</code>.</li>
+</ul>
+<p><strong>Three-Phase Protocol</strong>:</p>
+<pre><code>Client    Primary(0)   Replica 1   Replica 2   Replica 3
+  |          |            |            |            |
+  |--Request-&gt;            |            |            |
+  |          |            |            |            |
+  |     PRE-PREPARE       |            |            |
+  |          |---PP(v,n,d)------------&gt;|            |
+  |          |---PP(v,n,d)------------------------&gt;|
+  |          |---PP(v,n,d)-&gt;           |            |
+  |          |            |            |            |
+  |     PREPARE           |            |            |
+  |          |&lt;--P(v,n,d)-|            |            |
+  |          |&lt;--P(v,n,d)-------------|            |
+  |          |&lt;--P(v,n,d)-------------------------|
+  |          |---P(v,n,d)------------&gt;|            |
+  |          |            |--P(v,n,d)-&gt;|            |
+  |          |            |--P(v,n,d)-------------&gt;|
+  |          |            |            |--P(v,n,d)-&gt;|
+  |          |            |            |            |
+  |     COMMIT (once prepared = 2f+1 matching prepares)
+  |          |&lt;--C(v,n)---|            |            |
+  |          |&lt;--C(v,n)---------------|            |
+  |          |&lt;--C(v,n)----------------------------|
+  |          |---C(v,n)--&gt;|            |            |
+  |          |---C(v,n)--------------&gt;|            |
+  |          |---C(v,n)----------------------------|
+  |          |            |            |            |
+  |&lt;---Reply-|            |            |            |
+  |&lt;---Reply--------------|            |            |
+  |&lt;---Reply--------------------------|            |
+  |&lt;---Reply--------------------------------------|
+  |  (client waits for f+1 matching replies)       |
+
+  v = view number
+  n = sequence number
+  d = digest of request
+</code></pre>
+<p><strong>Phase guarantees</strong>:</p>
+<ul>
+<li><strong>Pre-Prepare</strong>: Leader assigns sequence number. Non-binding.</li>
+<li><strong>Prepare</strong>: Replica broadcasts agreement. Once a replica collects <code>2f</code> matching Prepare messages (plus its own), the request is <strong>prepared</strong>.</li>
+<li><strong>Commit</strong>: Replica broadcasts readiness to execute. Once <code>2f+1</code> matching Commit messages are collected, the request is <strong>committed</strong> and can be executed.</li>
+</ul>
+<p><strong>View Change</strong>: When the primary is suspected (timeout on request progress):</p>
+<ol>
+<li>Replica sends <code>ViewChange(v+1, ...)</code> with proof of all prepared requests.</li>
+<li>New primary collects <code>2f</code> ViewChange messages.</li>
+<li>New primary sends <code>NewView(v+1, ...)</code> with the set of operations that must be re-proposed.</li>
+</ol>
+<p><strong>Complexity</strong>: O(n^2) messages per consensus decision (all-to-all in Prepare and Commit phases). This limits scalability to ~20 nodes in practice.</p>
+<h3 id="4-2-hotstuff">4.2 HotStuff</h3>
+<p>Published by Yin, Malkhi, Reiter, Gueta, and Abraham (PODC, 2019). Key innovation: <strong>linear message complexity</strong> per view and <strong>O(n) view changes</strong>.</p>
+<p><strong>Design goals</strong>:</p>
+<ol>
+<li>Linear communication complexity (O(n) messages per decision, vs O(n^2) for PBFT).</li>
+<li>Responsive: commits at actual network speed, not worst-case timeouts.</li>
+<li>Optimistic responsiveness: leader-driven progress after GST.</li>
+</ol>
+<p><strong>Three-phase commit with threshold signatures</strong>:</p>
+<pre><code>HotStuff Phases (Basic HotStuff):
+
+Round 1: PREPARE
+  Leader -&gt; ALL: Propose(block, QC_high)
+  ALL -&gt; Leader: Vote_prepare (if extends from locked QC)
+  Leader: Collect n-f votes -&gt; form prepareQC
+
+Round 2: PRE-COMMIT
+  Leader -&gt; ALL: prepareQC
+  ALL -&gt; Leader: Vote_precommit
+  Leader: Collect n-f votes -&gt; form precommitQC
+
+Round 3: COMMIT
+  Leader -&gt; ALL: precommitQC
+  ALL -&gt; Leader: Vote_commit
+  Leader: Collect n-f votes -&gt; form commitQC
+
+Round 4: DECIDE
+  Leader -&gt; ALL: commitQC
+  ALL: Execute and reply to client
+
+Message pattern (star topology through leader):
+
+           Replica 1
+           ^     |
+          /       \
+  Leader &lt;-------&gt; Replica 2
+          \       /
+           v     |
+           Replica 3
+
+  All communication goes through the leader.
+  Threshold signatures aggregate n-f votes into one QC.
+</code></pre>
+<p><strong>Pipelined HotStuff</strong>: Overlaps phases of consecutive blocks. Each block's QC serves double duty as a vote for the current block and a phase advancement for the previous block:</p>
+<pre><code>Pipelined HotStuff:
+
+Block B1 proposed in view 1
+Block B2 proposed in view 2 (B2.QC certifies B1 -&gt; B1 is prepared)
+Block B3 proposed in view 3 (B3.QC certifies B2 -&gt; B1 is pre-committed)
+Block B4 proposed in view 4 (B4.QC certifies B3 -&gt; B1 is COMMITTED)
+
+&quot;Three-chain commit rule&quot;:
+  B1 &lt;- B2 &lt;- B3 &lt;- B4
+  ^                  ^
+  committed       latest
+
+  B1 commits when a three-chain B2-&gt;B3-&gt;B4 extends from it
+  with consecutive view numbers.
+</code></pre>
+<p><strong>View change in HotStuff</strong> is trivially handled: replicas simply send their highest QC to the new leader. No complex state reconciliation. This is the major advantage over PBFT.</p>
+<p><strong>LibraBFT / DiemBFT</strong>: Facebook's (Meta's) Libra/Diem blockchain used a variant of pipelined HotStuff. DiemBFT v4 added further optimizations including two-chain commit rules and improved liveness mechanisms.</p>
+<h3 id="4-3-tendermint-cometbft">4.3 Tendermint / CometBFT</h3>
+<p>Published by Buchman, Kwon, and Milosevic ("The latest gossip on BFT consensus", arXiv, 2018). CometBFT is the actively maintained successor to Tendermint Core.</p>
+<p><strong>Core mechanism</strong>: Round-based BFT consensus with propose/prevote/precommit phases.</p>
+<pre><code>Tendermint Round Structure:
+
+  Propose -&gt; Prevote -&gt; Precommit -&gt; [Commit or next round]
+
+  Proposer selection: deterministic round-robin (weighted by stake)
+
+  If &gt;2/3 precommit for a block: COMMIT (deterministic finality)
+  If timeout expires: move to next round with new proposer
+</code></pre>
+<p><strong>Key properties</strong>:</p>
+<ul>
+<li><strong>Deterministic finality</strong>: Once committed, a block is final. No forks.</li>
+<li><strong>Accountability</strong>: If a fork occurs, at least 1/3 of validators must have signed conflicting blocks, which is cryptographically provable.</li>
+<li><strong>Lock mechanism</strong>: Once a validator prevotes for a block and sees &gt;2/3 prevotes, it "locks" on that block and will not prevote for a different block in subsequent rounds (unless it sees a valid unlock proof).</li>
+</ul>
+<p><strong>Comparison with HotStuff</strong>:</p>
+<table><thead><tr><th>Aspect</th><th>Tendermint/CometBFT</th><th>HotStuff</th></tr></thead><tbody>
+<tr><td>Communication</td><td>O(n^2) gossip</td><td>O(n) star through leader</td></tr>
+<tr><td>Commit latency</td><td>2 rounds</td><td>3 rounds (basic), pipelined</td></tr>
+<tr><td>View change</td><td>Integrated (round transition)</td><td>Trivial (send highest QC)</td></tr>
+<tr><td>Leader rotation</td><td>Every round</td><td>Configurable</td></tr>
+<tr><td>Finality</td><td>Immediate</td><td>Immediate</td></tr>
+<tr><td>Primary use</td><td>Cosmos ecosystem</td><td>Blockchain protocols</td></tr>
+</tbody></table>
+<hr />
+<h2 id="5-leaderless-and-flexible-approaches">5. Leaderless and Flexible Approaches</h2>
+<h3 id="5-1-epaxos-egalitarian-paxos">5.1 EPaxos (Egalitarian Paxos)</h3>
+<p>Published by Moraru, Andersen, and Kaminsky (SOSP, 2013). A leaderless protocol where any replica can propose, achieving:</p>
+<ul>
+<li><strong>Optimal commit latency</strong>: 1 RTT in the common case (when there are no conflicts).</li>
+<li><strong>Uniform load distribution</strong>: No single leader bottleneck.</li>
+<li><strong>Availability</strong>: Tolerates <code>f</code> failures with <code>2f+1</code> replicas.</li>
+</ul>
+<p><strong>Fast path</strong> (no conflicts):</p>
+<pre><code>Any Replica (as command leader)     Other Replicas
+      |                                  |
+      |---PreAccept(cmd, seq, deps)-----&gt;|
+      |&lt;--PreAcceptOK(cmd, seq, deps)----|
+      |                                  |
+      (if all replies agree on seq, deps)
+      |---Commit(cmd, seq, deps)--------&gt;|
+
+      1 round trip. Requires fast quorum:
+      floor(N/2) + floor((floor(N/2)+1)/2)
+      For N=5: fast quorum = 4 (of 5)
+</code></pre>
+<p><strong>Slow path</strong> (conflicts detected -- dependencies or sequence numbers disagree):</p>
+<pre><code>Command Leader              Other Replicas
+      |                          |
+      |---PreAccept(cmd)--------&gt;|
+      |&lt;--PreAcceptOK (disagree)-|
+      |                          |
+      (conflict detected)        |
+      |---Accept(cmd, merged)---&gt;|  Classic Paxos Phase 2
+      |&lt;--AcceptOK---------------|
+      |---Commit(cmd)-----------&gt;|
+
+      2 round trips.
+</code></pre>
+<p><strong>Dependency tracking</strong>: Each command carries:</p>
+<ul>
+<li>A <strong>sequence number</strong> (for ordering).</li>
+<li>A <strong>dependency set</strong> (commands that must execute before this one).</li>
+</ul>
+<p>At execution time, replicas build a dependency graph and execute commands in a topologically sorted order. Strongly connected components (cycles) are broken by sequence number.</p>
+<pre><code>Dependency Graph Example:
+
+  cmd_A (seq=1, deps={})
+    |
+    v
+  cmd_B (seq=2, deps={A})     cmd_C (seq=2, deps={A})
+    |                            |
+    +----------+-----------------+
+               |
+               v
+             cmd_D (seq=3, deps={B, C})
+
+Execution order: A -&gt; {B, C} (either order) -&gt; D
+</code></pre>
+<p><strong>Limitations</strong>:</p>
+<ul>
+<li>Recovery is complex: must reconstruct dependency graphs.</li>
+<li>High conflict workloads degrade to slow path frequently.</li>
+<li>Dependency graph execution is more complex than a simple log.</li>
+<li>Implementation complexity is substantially higher than Raft.</li>
+</ul>
+<p>Moraru et al. showed EPaxos outperforms Multi-Paxos significantly in WAN deployments with low-conflict workloads because any replica can act as leader for its local clients.</p>
+<h3 id="5-2-flexible-paxos">5.2 Flexible Paxos</h3>
+<p>Published by Howard, Malkhi, and Spiegelman (OPODIS, 2016). Key insight: Paxos only requires that Phase 1 quorums (Prepare) and Phase 2 quorums (Accept) <strong>intersect</strong>. They do not each need to be a majority.</p>
+<p><strong>Classic Paxos requirement</strong>:</p>
+<ul>
+<li>Phase 1 quorum: majority (&gt; n/2)</li>
+<li>Phase 2 quorum: majority (&gt; n/2)</li>
+<li>Intersection guaranteed because two majorities always overlap.</li>
+</ul>
+<p><strong>Flexible Paxos relaxation</strong>:</p>
+<ul>
+<li>Phase 1 quorum size: Q1</li>
+<li>Phase 2 quorum size: Q2</li>
+<li>Requirement: Q1 + Q2 &gt; n (they must intersect)</li>
+</ul>
+<p><strong>Practical implications</strong>:</p>
+<pre><code>Example with n=5 replicas:
+
+Classic:  Q1=3, Q2=3  (standard majority)
+Option A: Q1=4, Q2=2  (fast writes, slower recovery)
+Option B: Q1=5, Q2=1  (write to single node! recovery reads all)
+
+Option A is useful when:
+- Writes are frequent (Q2=2 means write to 2 of 5)
+- Leader failures are rare (Q1=4 is only used during election)
+</code></pre>
+<p>This insight has been adopted in several systems. WPaxos (Ailijiang et al., 2017) uses flexible quorums for wide-area deployments, stealing objects to the nearest leader's zone.</p>
+<h3 id="5-3-crdts-as-an-alternative-to-consensus">5.3 CRDTs as an Alternative to Consensus</h3>
+<p>Conflict-free Replicated Data Types (Shapiro et al., SSS, 2011) provide <strong>strong eventual consistency</strong> without consensus:</p>
+<table><thead><tr><th>Aspect</th><th>Consensus (Paxos/Raft)</th><th>CRDTs</th></tr></thead><tbody>
+<tr><td>Consistency</td><td>Linearizable (strong)</td><td>Strong eventual (weaker)</td></tr>
+<tr><td>Availability</td><td>Sacrificed during partitions</td><td>Always available</td></tr>
+<tr><td>Latency</td><td>At least 1 RTT to quorum</td><td>Local operation, async merge</td></tr>
+<tr><td>Operations</td><td>Arbitrary (total order)</td><td>Must be commutative/monotonic</td></tr>
+<tr><td>Conflict resolution</td><td>Prevention (total ordering)</td><td>Automatic (mathematical)</td></tr>
+<tr><td>Use cases</td><td>State machine replication</td><td>Collaborative editing, counters, sets</td></tr>
+</tbody></table>
+<p>CRDTs are not a replacement for consensus but rather complement it. Many production systems use both: consensus for metadata and coordination, CRDTs for data that can tolerate eventual consistency (e.g., Redis CRDT for cross-datacenter counters, Riak for distributed sets).</p>
+<hr />
+<h2 id="6-production-systems">6. Production Systems</h2>
+<h3 id="6-1-etcd-raft">6.1 etcd (Raft)</h3>
+<p>etcd is the key-value store backing Kubernetes. Uses a straightforward Raft implementation in Go.</p>
+<p><strong>Key implementation details</strong>:</p>
+<ul>
+<li>Single Raft group for the entire keyspace.</li>
+<li>WAL for durable log storage, boltdb (now bbolt) for state machine snapshots.</li>
+<li>Supports learner nodes (non-voting replicas for catching up).</li>
+<li>Implements PreVote extension to prevent disruptive re-elections from partitioned nodes.</li>
+<li>ReadIndex and LeaseRead for linearizable/serializable reads.</li>
+<li>Typical cluster size: 3 or 5 nodes.</li>
+</ul>
+<p><strong>Limitations</strong>: Single Raft group means etcd does not scale horizontally for write throughput. Recommended for metadata/coordination, not high-throughput data storage.</p>
+<h3 id="6-2-zookeeper-zab">6.2 ZooKeeper (ZAB)</h3>
+<p>ZooKeeper Atomic Broadcast (Junqueira, Reed, and Serafini, DSN, 2011) is a crash-recovery atomic broadcast protocol purpose-built for ZooKeeper.</p>
+<p><strong>ZAB phases</strong>:</p>
+<ol>
+<li><strong>Discovery</strong>: Find the most up-to-date replica (highest zxid -- (epoch, counter)).</li>
+<li><strong>Synchronization</strong>: New leader syncs followers to its state.</li>
+<li><strong>Broadcast</strong>: Leader proposes, followers ACK, leader commits once a majority ACKs.</li>
+</ol>
+<pre><code>ZAB Broadcast Phase:
+
+Client -&gt; Leader: write(path, data)
+Leader -&gt; Followers: PROPOSAL(zxid, txn)
+Followers -&gt; Leader: ACK(zxid)
+Leader (on majority ACKs): COMMIT(zxid)
+Leader -&gt; Followers: COMMIT(zxid)
+
+zxid = (epoch &lt;&lt; 32) | counter
+  epoch increments on each new leader election
+  counter increments per transaction within an epoch
+</code></pre>
+<p><strong>Differences from Paxos</strong>:</p>
+<ul>
+<li>ZAB guarantees <strong>FIFO ordering</strong> of all proposals from a leader; Paxos slots can be filled out of order.</li>
+<li>ZAB recovery ensures the new leader has all committed AND all proposed-but-uncommitted transactions from the previous leader (prefix property).</li>
+<li>Epoch-based sequencing simplifies reasoning about leader transitions.</li>
+</ul>
+<p><strong>Production characteristics</strong>:</p>
+<ul>
+<li>Typical ensemble: 3 or 5 nodes.</li>
+<li>All writes go through the leader.</li>
+<li>Reads can be served by any node (session consistency) or by the leader (linearizable).</li>
+<li>Watches provide event notifications without polling.</li>
+</ul>
+<h3 id="6-3-cockroachdb-multi-raft">6.3 CockroachDB (Multi-Raft)</h3>
+<p>CockroachDB uses a Multi-Raft architecture where each Range (~512MB of contiguous key-value data) is a separate Raft group.</p>
+<p><strong>Architecture</strong>:</p>
+<pre><code>CockroachDB Node 1         CockroachDB Node 2
++---------------------+    +---------------------+
+| Range 1 (Leader)    |    | Range 1 (Follower)  |
+| Range 2 (Follower)  |    | Range 2 (Leader)    |
+| Range 3 (Follower)  |    | Range 3 (Follower)  |
+| ...                 |    | ...                 |
+| Raft Transport      |&lt;--&gt;| Raft Transport      |
+| (coalesced per-node)|    | (coalesced per-node)|
++---------------------+    +---------------------+
+</code></pre>
+<p><strong>Key optimizations</strong>:</p>
+<ul>
+<li><strong>Coalesced heartbeats</strong>: Instead of per-Range heartbeats, a single heartbeat per node pair carries heartbeat information for all Ranges on that connection.</li>
+<li><strong>Batched Raft processing</strong>: Multiple Ranges' Raft state machines are driven in a single event loop tick, with disk writes batched via Pebble WriteBatch.</li>
+<li><strong>Joint consensus</strong>: CockroachDB implements joint consensus for Range rebalancing (adding/removing replicas) to maintain availability during region failures.</li>
+<li><strong>Non-voting replicas</strong>: Used in multi-region deployments for serving follower reads without participating in quorum.</li>
+<li><strong>Parallel commits</strong>: Pipelining transaction intents with consensus writes so that the 2PC commit and Raft replication overlap.</li>
+<li><strong>Delegated snapshots</strong>: A Raft follower can send snapshots on behalf of the leader, reducing leader bandwidth consumption.</li>
+</ul>
+<h3 id="6-4-tikv-multi-raft">6.4 TiKV (Multi-Raft)</h3>
+<p>TiKV is the distributed key-value storage layer for TiDB. Written in Rust. Uses the <code>raft-rs</code> library (a port of etcd's Raft implementation to Rust).</p>
+<p><strong>Architecture</strong>:</p>
+<ul>
+<li>Data is split into <strong>Regions</strong> (~96MB by default), each a Raft group.</li>
+<li>PD (Placement Driver) manages metadata, schedules Region split/merge/rebalance.</li>
+<li>Each TiKV node runs many Raft groups concurrently.</li>
+</ul>
+<pre><code data-lang="rust">// Simplified TiKV Raft processing loop (conceptual)
+fn on_raft_tick(&amp;mut self) {
+    for region in &amp;mut self.regions {
+        // Drive the Raft state machine forward
+        region.raft_group.tick();
+
+        // Process any ready state
+        if region.raft_group.has_ready() {
+            let ready = region.raft_group.ready();
+
+            // Persist entries and hard state to RocksDB (raft engine)
+            self.raft_engine.append(&amp;ready.entries);
+            self.raft_engine.put_hard_state(&amp;ready.hs);
+
+            // Send messages to other nodes
+            for msg in ready.messages {
+                self.transport.send(msg);
+            }
+
+            // Apply committed entries to state machine (kv engine)
+            for entry in ready.committed_entries {
+                self.apply_to_kv_engine(entry);
+            }
+
+            region.raft_group.advance(ready);
+        }
+    }
+}
+</code></pre>
+<p><strong>Key features</strong>:</p>
+<ul>
+<li><strong>Region split/merge</strong>: Regions auto-split when exceeding size threshold and merge when too small.</li>
+<li><strong>Leader transfer</strong>: PD can transfer Raft leadership for load balancing.</li>
+<li><strong>Learner replicas</strong>: Used during Region rebalancing to avoid reducing quorum size before the new replica catches up.</li>
+<li><strong>Prevote</strong>: Prevents disruptive elections from partitioned nodes.</li>
+<li><strong>Joint consensus</strong>: For safe membership changes.</li>
+<li><strong>Raft Engine</strong>: Dedicated storage engine for Raft logs (migrated from RocksDB to a custom engine for better write performance).</li>
+</ul>
+<h3 id="6-5-google-spanner-paxos-truetime">6.5 Google Spanner (Paxos + TrueTime)</h3>
+<p>Described in Corbett et al. (OSDI, 2012). Uses Paxos for replication and TrueTime for globally consistent timestamps.</p>
+<p><strong>Architecture</strong>:</p>
+<pre><code>Universe
+  |
+  +-- Zone 1 (datacenter)
+  |    +-- Spanserver 1
+  |    |    +-- Tablet 1 -&gt; Paxos Group -&gt; {Leader, Follower, Follower}
+  |    |    +-- Tablet 2 -&gt; Paxos Group -&gt; {Follower, Leader, Follower}
+  |    +-- Spanserver 2
+  |         +-- ...
+  +-- Zone 2 (datacenter)
+  |    +-- ...
+  +-- Zone 3 (datacenter)
+       +-- ...
+
+Each tablet is replicated across zones via Paxos.
+Leader handles writes; any replica can serve stale reads.
+</code></pre>
+<p><strong>TrueTime integration</strong>:</p>
+<ul>
+<li>TrueTime API: <code>TT.now()</code> returns interval <code>[earliest, latest]</code> with bounded uncertainty (typically &lt;1ms in 99th percentile).</li>
+<li>Uses GPS receivers and atomic clocks in every datacenter with distinct failure modes.</li>
+<li><strong>Commit wait</strong>: After assigning timestamp <code>s</code> to a transaction, the leader waits until <code>TT.after(s)</code> is true before releasing the commit. This ensures external consistency (linearizability of transactions).</li>
+</ul>
+<p><strong>Transaction protocol</strong>: Two-phase commit (2PC) across Paxos groups, with Paxos replication within each participant group. The 2PC coordinator is itself Paxos-replicated for fault tolerance.</p>
+<pre><code>Cross-shard Transaction:
+
+  Coordinator (Paxos Group A leader)
+       |
+       |--- Prepare --&gt; Participant (Paxos Group B leader)
+       |                      |
+       |                      |--&gt; Paxos replicate prepare
+       |                      |&lt;-- majority ACK
+       |                      |
+       |&lt;-- Prepared ---------|
+       |
+       |--&gt; Assign commit timestamp s
+       |--&gt; Wait until TT.after(s) (commit wait)
+       |
+       |--- Commit(s) --&gt; Participant B leader
+       |                      |
+       |                      |--&gt; Paxos replicate commit
+       |                      |&lt;-- majority ACK
+       |                      |
+       |&lt;-- Committed --------|
+       |
+       |--&gt; Paxos replicate commit locally
+       |--&gt; Respond to client
+</code></pre>
+<h3 id="6-6-kafka-kraft">6.6 Kafka KRaft</h3>
+<p>KIP-500 introduced KRaft (Kafka Raft), replacing ZooKeeper for Kafka metadata management.</p>
+<p><strong>Key design decisions</strong>:</p>
+<ul>
+<li><strong>Event-sourced metadata</strong>: All metadata (topics, partitions, brokers, ACLs) is stored as an event log managed by a Raft quorum of controller nodes.</li>
+<li><strong>Variant of Raft</strong>: Not a textbook Raft implementation. Uses an event-based variant optimized for Kafka's specific needs.</li>
+<li><strong>Controller quorum</strong>: Typically 3 or 5 dedicated controller nodes. One is the active controller (Raft leader); others are hot standbys.</li>
+<li><strong>Metadata propagation</strong>: Brokers fetch metadata from the controller quorum, similar to Raft log replication but one-directional.</li>
+</ul>
+<p><strong>Benefits over ZooKeeper</strong>:</p>
+<ul>
+<li>Eliminates the operational complexity of running a separate ZooKeeper ensemble.</li>
+<li>Dramatically increases partition scalability (millions of partitions vs. hundreds of thousands with ZooKeeper).</li>
+<li>Faster controller failover (in-process Raft vs. external ZooKeeper session timeout).</li>
+<li>Single security model (Kafka-native authentication and authorization).</li>
+</ul>
+<h3 id="6-7-foundationdb-active-disk-paxos-variant">6.7 FoundationDB (Active Disk Paxos Variant)</h3>
+<p>Described in Zhou et al. (SIGMOD, 2021). FoundationDB uses a unique architecture with clear separation between control plane and data plane.</p>
+<p><strong>Control plane (Paxos)</strong>:</p>
+<ul>
+<li><strong>Coordinators</strong> form a Paxos group that stores critical cluster metadata (the current configuration).</li>
+<li>Uses Active Disk Paxos, an extension of Disk Paxos (Gafni &amp; Lamport, 2003).</li>
+<li>Coordinators elect a <strong>ClusterController</strong>, which in turn recruits processes for various roles.</li>
+</ul>
+<p><strong>Data plane (not consensus-based)</strong>:</p>
+<ul>
+<li>Does NOT use quorum-based replication for data. Instead, uses <code>f+1</code> replicas with <strong>eager failure detection and reconfiguration</strong>.</li>
+<li>Transaction processing uses OCC (Optimistic Concurrency Control) with MVCC.</li>
+<li>If any replica fails, the entire transaction system is reconfigured rather than relying on quorum masking.</li>
+</ul>
+<pre><code>Control Plane:
+  Coordinators (Paxos) -&gt; ClusterController -&gt; recruits:
+    - Sequencer (timestamp oracle)
+    - Proxies (transaction processing)
+    - Resolvers (conflict detection)
+    - LogServers (WAL)
+    - StorageServers (data)
+
+Data Plane:
+  Client -&gt; Proxy -&gt; Resolver -&gt; LogServers (f+1 replicas)
+                                     |
+                                     v
+                              StorageServers (async)
+</code></pre>
+<p><strong>Key insight</strong>: By eschewing quorum replication for data and instead detecting failures quickly and reconfiguring, FoundationDB needs only <code>f+1</code> replicas (not <code>2f+1</code>) to tolerate <code>f</code> failures. The trade-off is brief unavailability during reconfiguration (typically &lt;5 seconds).</p>
+<hr />
+<h2 id="7-performance-considerations">7. Performance Considerations</h2>
+<h3 id="7-1-batching">7.1 Batching</h3>
+<p>Batching amortizes the cost of consensus over multiple client requests.</p>
+<pre><code>Without batching:
+  Request 1 -&gt; Propose -&gt; Accept -&gt; Commit (1 RTT per request)
+  Request 2 -&gt; Propose -&gt; Accept -&gt; Commit
+  Request 3 -&gt; Propose -&gt; Accept -&gt; Commit
+
+With batching:
+  {Request 1, 2, 3} -&gt; Propose -&gt; Accept -&gt; Commit (1 RTT for 3 requests)
+</code></pre>
+<p>Santos and Schiper ("Optimizing Paxos with Batching and Pipelining", 2012) showed batching can improve throughput by 10x+ under high load. The trade-off is increased latency at low load (must wait for batch to fill or timeout).</p>
+<p><strong>Implementation strategy</strong>: Use an adaptive batch size -- batch aggressively under high load, immediately dispatch under low load:</p>
+<pre><code data-lang="rust">// Adaptive batching pseudocode
+struct BatchAccumulator {
+    entries: Vec&lt;LogEntry&gt;,
+    max_batch_size: usize,
+    max_wait: Duration,
+    last_flush: Instant,
+}
+
+impl BatchAccumulator {
+    fn maybe_flush(&amp;mut self) -&gt; Option&lt;Vec&lt;LogEntry&gt;&gt; {
+        let should_flush = self.entries.len() &gt;= self.max_batch_size
+            || self.last_flush.elapsed() &gt;= self.max_wait
+            || (self.entries.len() &gt; 0 &amp;&amp; self.no_pending_requests());
+
+        if should_flush &amp;&amp; !self.entries.is_empty() {
+            self.last_flush = Instant::now();
+            Some(std::mem::take(&amp;mut self.entries))
+        } else {
+            None
+        }
+    }
+}
+</code></pre>
+<h3 id="7-2-pipelining">7.2 Pipelining</h3>
+<p>Pipelining allows the leader to send multiple AppendEntries (or Accept) messages without waiting for the previous one to be acknowledged.</p>
+<pre><code>Without pipelining (sequential):
+  Leader: Send(entry 1) -&gt; Wait ACK -&gt; Send(entry 2) -&gt; Wait ACK -&gt; ...
+  Throughput limited by: 1 / RTT
+
+With pipelining (window = 3):
+  Leader: Send(entry 1) -&gt; Send(entry 2) -&gt; Send(entry 3) -&gt; Wait ACK(1)...
+  Throughput limited by: window / RTT
+</code></pre>
+<p>CockroachDB uses transaction pipelining to overlap Raft consensus with transaction processing: write intents are replicated via Raft in parallel, and the transaction only waits for all replications to complete at commit time.</p>
+<h3 id="7-3-parallel-commits">7.3 Parallel Commits</h3>
+<p>CockroachDB's parallel commit protocol eliminates a round trip from the transaction commit path:</p>
+<pre><code>Traditional 2PC + Raft:
+  Write intents (Raft replicated) -&gt; Commit record (Raft replicated) -&gt; Resolve intents
+  3 synchronous Raft rounds
+
+Parallel Commits:
+  Write intents + Commit record (all Raft-replicated in parallel)
+  -&gt; Resolve intents (async)
+  1 synchronous Raft round (all in parallel)
+</code></pre>
+<p>The commit record is written as a STAGING record that references all in-flight writes. The transaction is implicitly committed once all referenced writes are durably replicated.</p>
+<h3 id="7-4-prevote">7.4 PreVote</h3>
+<p>The PreVote extension (Ongaro's PhD thesis) prevents a partitioned node from disrupting the cluster upon reconnection.</p>
+<p><strong>Problem</strong>: A partitioned follower repeatedly increments its term. When it rejoins, its high term forces the current leader to step down, causing an unnecessary election.</p>
+<p><strong>Solution</strong>: Before starting a real election, a candidate sends a PreVote request. Other nodes respond based on whether they would vote for the candidate, but do NOT update their own term. Only if the PreVote succeeds does the candidate increment its term and run a real election.</p>
+<pre><code>Without PreVote:
+  Partitioned node term: 5 -&gt; 6 -&gt; 7 -&gt; 8 -&gt; 9 ...
+  Rejoins cluster (leader at term 5):
+  -&gt; Leader sees term 9, steps down
+  -&gt; Unnecessary election disruption
+
+With PreVote:
+  Partitioned node term stays at 5 (PreVote fails, term not incremented)
+  Rejoins cluster:
+  -&gt; PreVote fails (leader is healthy, nodes reject)
+  -&gt; No disruption
+</code></pre>
+<h3 id="7-5-witness-replicas">7.5 Witness Replicas</h3>
+<p>A witness is a lightweight replica that participates in quorum voting but does not store the full state machine. It only stores the Raft log (or just metadata about committed entries).</p>
+<p><strong>Benefits</strong>:</p>
+<ul>
+<li>Reduces storage costs for the third (or fifth) replica.</li>
+<li>Can be placed in a third availability zone cheaply.</li>
+<li>Maintains fault tolerance without full data replication.</li>
+</ul>
+<p><strong>Limitations</strong>:</p>
+<ul>
+<li>Cannot serve reads.</li>
+<li>Cannot become leader (in most implementations).</li>
+<li>If a full replica fails, a witness cannot replace it; a new full replica must be provisioned.</li>
+</ul>
+<h3 id="7-6-tail-latency">7.6 Tail Latency</h3>
+<p>Consensus protocols are sensitive to tail latency because they must wait for the slowest node in a quorum.</p>
+<table><thead><tr><th>Technique</th><th>Description</th><th>Trade-off</th></tr></thead><tbody>
+<tr><td><strong>Hedged requests</strong></td><td>Send to all replicas, use first response</td><td>Increased network load</td></tr>
+<tr><td><strong>Quorum leases</strong></td><td>Cache quorum decisions for reads</td><td>Stale reads during lease</td></tr>
+<tr><td><strong>Flexible quorums</strong></td><td>Smaller write quorum (e.g., 2 of 5)</td><td>Larger read/recovery quorum</td></tr>
+<tr><td><strong>Speculative execution</strong></td><td>Execute before commit, roll back if needed</td><td>Wasted work on rollback</td></tr>
+<tr><td><strong>Adaptive timeouts</strong></td><td>Dynamically tune election/heartbeat timeouts</td><td>Complexity</td></tr>
+</tbody></table>
+<h3 id="7-7-multi-raft-optimizations-summary">7.7 Multi-Raft Optimizations Summary</h3>
+<p>For systems running thousands of Raft groups per node (CockroachDB, TiKV):</p>
+<pre><code>Optimization             Impact
+-------------------------------------------------------------------
+Coalesced heartbeats     Reduce heartbeat traffic from O(groups)
+                         to O(nodes) per node pair
+
+Batched disk writes      Single fsync for multiple Raft groups&#39;
+                         log entries via WriteBatch
+
+Shared transport         Multiplex Raft messages for all groups
+                         over a single TCP connection per node pair
+
+Leader balancing         Distribute Raft leadership across nodes
+                         to spread write load
+
+Raft log engine          Dedicated storage engine for Raft logs
+                         (TiKV moved from RocksDB to custom engine)
+
+Region merge             Combine small Raft groups to reduce per-
+                         group overhead
+
+Async apply              Decouple Raft commit from state machine
+                         apply for higher throughput
+</code></pre>
+<hr />
+<h2 id="8-key-papers">8. Key Papers</h2>
+<h3 id="foundations">Foundations</h3>
+<ol>
+<li><strong>Fischer, Lynch, Paterson</strong> - "Impossibility of Distributed Consensus with One Faulty Process", JACM, 1985.</li>
+<li><strong>Dwork, Lynch, Stockmeyer</strong> - "Consensus in the Presence of Partial Synchrony", JACM, 1988.</li>
+<li><strong>Chandra, Toueg</strong> - "Unreliable Failure Detectors for Reliable Distributed Systems", JACM, 1996.</li>
+<li><strong>Gilbert, Lynch</strong> - "Brewer's Conjecture and the Feasibility of Consistent, Available, Partition-Tolerant Web Services", SIGACT News, 2002.</li>
+<li><strong>Abadi</strong> - "Consistency Tradeoffs in Modern Distributed Database System Design", Computer (IEEE), 2012.</li>
+<li><strong>Alpern, Schneider</strong> - "Defining Liveness", Information Processing Letters, 1985.</li>
+</ol>
+<h3 id="paxos-family">Paxos Family</h3>
+<ol start="7">
+<li><strong>Lamport</strong> - "The Part-Time Parliament", TOCS, 1998.</li>
+<li><strong>Lamport</strong> - "Paxos Made Simple", SIGACT News, 2001.</li>
+<li><strong>Lamport</strong> - "Fast Paxos", Distributed Computing, 2006.</li>
+<li><strong>Lamport</strong> - "Generalized Consensus and Paxos", MSR Technical Report, 2005.</li>
+<li><strong>Lamport, Massa</strong> - "Cheap Paxos", DSN, 2004.</li>
+<li><strong>Gafni, Lamport</strong> - "Disk Paxos", Distributed Computing, 2003.</li>
+<li><strong>Van Renesse, Altinbuken</strong> - "Paxos Made Moderately Complex", ACM Computing Surveys, 2015.</li>
+<li><strong>Chandra, Griesemer, Redstone</strong> - "Paxos Made Live: An Engineering Perspective", PODC, 2007.</li>
+</ol>
+<h3 id="viewstamped-replication">Viewstamped Replication</h3>
+<ol start="15">
+<li><strong>Oki, Liskov</strong> - "Viewstamped Replication: A New Primary Copy Method to Support Highly-Available Distributed Systems", PODC, 1988.</li>
+<li><strong>Liskov, Cowling</strong> - "Viewstamped Replication Revisited", MIT-CSAIL-TR-2012-021, 2012.</li>
+</ol>
+<h3 id="raft">Raft</h3>
+<ol start="17">
+<li><strong>Ongaro, Ousterhout</strong> - "In Search of an Understandable Consensus Algorithm", USENIX ATC, 2014.</li>
+<li><strong>Ongaro</strong> - "Consensus: Bridging Theory and Practice", PhD Thesis, Stanford, 2014.</li>
+<li><strong>Howard, Mortier</strong> - "Paxos vs Raft: Have We Reached Consensus on Distributed Consensus?", HotCloud, 2020.</li>
+</ol>
+<h3 id="byzantine-fault-tolerance">Byzantine Fault Tolerance</h3>
+<ol start="20">
+<li><strong>Castro, Liskov</strong> - "Practical Byzantine Fault Tolerance", OSDI, 1999.</li>
+<li><strong>Castro, Liskov</strong> - "Practical Byzantine Fault Tolerance and Proactive Recovery", TOCS, 2002.</li>
+<li><strong>Yin, Malkhi, Reiter, Gueta, Abraham</strong> - "HotStuff: BFT Consensus with Linearity and Responsiveness", PODC, 2019.</li>
+<li><strong>Buchman, Kwon, Milosevic</strong> - "The Latest Gossip on BFT Consensus", arXiv, 2018.</li>
+<li><strong>Baudet et al.</strong> - "State Machine Replication in the Libra Blockchain", The Libra Association, 2019.</li>
+</ol>
+<h3 id="leaderless-and-flexible">Leaderless and Flexible</h3>
+<ol start="25">
+<li><strong>Moraru, Andersen, Kaminsky</strong> - "There Is More Consensus in Egalitarian Parliaments", SOSP, 2013.</li>
+<li><strong>Howard, Malkhi, Spiegelman</strong> - "Flexible Paxos: Quorum Intersection Revisited", OPODIS, 2016.</li>
+<li><strong>Ailijiang, Charapko, Demirbas, Mitra</strong> - "WPaxos: Wide Area Network Flexible Consensus", IEEE TPDS, 2020.</li>
+<li><strong>Shapiro, Preguica, Baquero, Zawirski</strong> - "Conflict-free Replicated Data Types", SSS, 2011.</li>
+</ol>
+<h3 id="production-systems">Production Systems</h3>
+<ol start="29">
+<li><strong>Corbett et al.</strong> - "Spanner: Google's Globally-Distributed Database", OSDI, 2012.</li>
+<li><strong>Bacon et al.</strong> - "Spanner: Becoming a SQL System", SIGMOD, 2017.</li>
+<li><strong>Hunt, Konar, Junqueira, Reed</strong> - "ZooKeeper: Wait-free Coordination for Internet-scale Systems", USENIX ATC, 2010.</li>
+<li><strong>Junqueira, Reed, Serafini</strong> - "Zab: High-performance Broadcast for Primary-backup Systems", DSN, 2011.</li>
+<li><strong>Taft et al.</strong> - "CockroachDB: The Resilient Geo-Distributed SQL Database", SIGMOD, 2020.</li>
+<li><strong>Huang et al.</strong> - "TiDB: A Raft-based HTAP Database", VLDB, 2020.</li>
+<li><strong>Zhou et al.</strong> - "FoundationDB: A Distributed Unbundled Transactional Key Value Store", SIGMOD, 2021.</li>
+<li><strong>Kreps, Narkhede, Rao</strong> - "Kafka: A Distributed Messaging System for Log Processing", NetDB Workshop, 2011.</li>
+</ol>
+<h3 id="performance-and-optimizations">Performance and Optimizations</h3>
+<ol start="37">
+<li><strong>Santos, Schiper</strong> - "Optimizing Paxos with Batching and Pipelining", Theoretical Computer Science, 2012.</li>
+<li><strong>Mao, Junqueira, Marzullo</strong> - "Mencius: Building Efficient Replicated State Machines for WANs", OSDI, 2008.</li>
+<li><strong>Danezis, Kokoris-Kogias, Sonnino, Spiegelman</strong> - "Narwhal and Tusk: A DAG-based Mempool and Efficient BFT Consensus", EuroSys, 2022.</li>
+</ol>
+<hr />
+<h2 id="appendix-a-fault-tolerance-requirements">Appendix A: Fault Tolerance Requirements</h2>
+<pre><code>Protocol         Model                Replicas   Tolerated   Commit
+                                      Needed     Failures    Latency
+---------------------------------------------------------------------------
+Paxos            Crash, Partial Sync  2f+1       f crash     2 RTT (1 RTT steady)
+Multi-Paxos      Crash, Partial Sync  2f+1       f crash     1 RTT (steady state)
+Raft             Crash, Partial Sync  2f+1       f crash     1 RTT (steady state)
+VR               Crash, Partial Sync  2f+1       f crash     1 RTT (steady state)
+ZAB              Crash, Partial Sync  2f+1       f crash     1 RTT (steady state)
+EPaxos           Crash, Partial Sync  2f+1       f crash     1 RTT (fast path)
+Flexible Paxos   Crash, Partial Sync  varies     depends     1 RTT (steady state)
+PBFT             Byzantine, P.Sync    3f+1       f Byzantine 2 RTT
+HotStuff         Byzantine, P.Sync    3f+1       f Byzantine 3 RTT (basic)
+Tendermint       Byzantine, P.Sync    3f+1       f Byzantine 2 RTT
+FoundationDB     Crash (eager detect) f+1        f crash     1 RTT + reconfig risk
+</code></pre>
+<h2 id="appendix-b-decision-tree">Appendix B: Decision Tree</h2>
+<pre><code>Start
+  |
+  |-- Need Byzantine fault tolerance?
+  |     |
+  |     +-- Yes: How many nodes?
+  |     |     |
+  |     |     +-- &lt; 20: PBFT or Tendermint
+  |     |     +-- &gt; 20: HotStuff (linear complexity)
+  |     |
+  |     +-- No: Continue below
+  |
+  |-- Single datacenter or geo-distributed?
+  |     |
+  |     +-- Single DC:
+  |     |     |
+  |     |     +-- Need simplicity? -&gt; Raft
+  |     |     +-- Need max throughput? -&gt; Multi-Paxos with batching
+  |     |     +-- Metadata only? -&gt; etcd (Raft) or ZooKeeper (ZAB)
+  |     |
+  |     +-- Geo-distributed:
+  |           |
+  |           +-- Low conflict workload? -&gt; EPaxos (any-replica leader)
+  |           +-- High conflict? -&gt; Multi-Paxos/Raft with leader in hot region
+  |           +-- Need global consistency? -&gt; Spanner-style (Paxos + TrueTime)
+  |           +-- Flexible quorum needs? -&gt; WPaxos / Flexible Paxos
+  |
+  |-- Scale (data volume)?
+        |
+        +-- Small (metadata): Single Raft/Paxos group
+        +-- Large (data): Multi-Raft (CockroachDB/TiKV pattern)
+        +-- Very large (unbounded): FoundationDB (f+1 + reconfiguration)
+</code></pre>
+<hr />
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://nmbr7.github.io/notes/distributed/deterministic-simulation-testing/">Deterministic Simulation Testing</a> — How FoundationDB and TigerBeetle verify consensus correctness via simulation</li>
+<li><a href="https://nmbr7.github.io/notes/distributed/kafka-internals/">Kafka Internals</a> — KRaft implements Raft for Kafka's metadata quorum</li>
+<li><a href="https://nmbr7.github.io/notes/database/disaggregated-storage/">Disaggregated Storage</a> — Aurora, Spanner, PolarDB, and TiKV all use consensus protocols covered here</li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems Survey</a> — CockroachDB, TiDB, and TigerBeetle rely on consensus protocols for replication</li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

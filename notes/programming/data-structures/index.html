@@ -1,0 +1,2087 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Data Structures</h1>
+  <h1 id="data-structures-for-high-performance-systems">Data Structures for High-Performance Systems</h1>
+<p>These are specialized data structures critical in production systems where nanoseconds and reliability matter — from databases and kernels to HFT and networking.</p>
+<hr />
+<h2 id="1-lock-free-ring-buffer-spsc-mpmc">1. <strong>Lock-Free Ring Buffer (SPSC/MPMC)</strong></h2>
+<p><strong>Used in:</strong> HFT systems, Linux kernel, LMAX Disruptor</p>
+<p>A circular buffer that enables wait-free communication between threads without locks.</p>
+<pre><code>┌───┬───┬───┬───┬───┬───┬───┬───┐
+│ 0 │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │
+└───┴───┴───┴───┴───┴───┴───┴───┘
+      ↑               ↑
+    read            write
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Cache-line padding to prevent false sharing</li>
+<li>Memory barriers for ordering guarantees</li>
+<li>Power-of-2 sizing for fast modulo (bitwise AND)</li>
+</ul>
+<pre><code data-lang="cpp">// Simplified SPSC queue
+template&lt;typename T, size_t N&gt;
+class SPSCQueue {
+    alignas(64) std::atomic&lt;size_t&gt; head_{0};
+    alignas(64) std::atomic&lt;size_t&gt; tail_{0};
+    T buffer_[N];  // N must be power of 2
+
+    bool push(const T&amp; item) {
+        size_t tail = tail_.load(std::memory_order_relaxed);
+        if (tail - head_.load(std::memory_order_acquire) &gt;= N)
+            return false;
+        buffer_[tail &amp; (N-1)] = item;
+        tail_.store(tail + 1, std::memory_order_release);
+        return true;
+    }
+};
+</code></pre>
+<hr />
+<h2 id="2-b-tree-with-fractal-tree-indexing-be-tree">2. <strong>B+ Tree with Fractal Tree Indexing (Bε-tree)</strong></h2>
+<p><strong>Used in:</strong> TokuDB, BetrFS, FoundationDB</p>
+<p>Buffers updates at internal nodes, converting random I/O to sequential I/O.</p>
+<pre><code>         ┌─────────────────────┐
+         │  [50]  buffer:[]    │
+         └──────────┬──────────┘
+                    │
+    ┌───────────────┴───────────────┐
+    │                               │
+┌───┴────────────┐    ┌─────────────┴────┐
+│[20,30]         │    │[70,90]           │
+│buffer:[ins:25] │    │buffer:[del:85]   │
+└────────────────┘    └──────────────────┘
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>O(log N / B) amortized I/O for insertions (vs O(log N) for B-tree)</li>
+<li>Cascading pushdown of buffered operations</li>
+<li>Write-optimized while maintaining read efficiency</li>
+</ul>
+<hr />
+<h2 id="3-skip-list-with-tower-optimization">3. <strong>Skip List with Tower Optimization</strong></h2>
+<p><strong>Used in:</strong> Redis sorted sets, LevelDB/RocksDB memtables, HFT order books</p>
+<p>Probabilistic alternative to balanced trees with better cache behavior.</p>
+<pre><code>Level 3: HEAD ────────────────────────────────────&gt; 50 ────────────&gt; NIL
+Level 2: HEAD ──────────&gt; 20 ─────────────────────&gt; 50 ────────────&gt; NIL
+Level 1: HEAD ──────────&gt; 20 ──────────&gt; 35 ──────&gt; 50 ──&gt; 60 ─────&gt; NIL
+Level 0: HEAD ─&gt; 10 ─&gt; 20 ─&gt; 25 ─&gt; 35 ─&gt; 50 ─&gt; 60 ─&gt; 75 ─&gt; 80 ─&gt; NIL
+</code></pre>
+<p><strong>HFT optimization - Order book with price-time priority:</strong></p>
+<pre><code data-lang="cpp">struct OrderBookLevel {
+    Price price;
+    // Orders stored in arrival order for FIFO matching
+    intrusive_list&lt;Order&gt; orders;
+    // Skip list links
+    OrderBookLevel* forward[MAX_LEVEL];
+};
+</code></pre>
+<hr />
+<h2 id="4-hamt-hash-array-mapped-trie">4. <strong>HAMT (Hash Array Mapped Trie)</strong></h2>
+<p><strong>Used in:</strong> Clojure persistent collections, Scala immutable maps, IPFS</p>
+<p>Provides near-O(1) operations with structural sharing for immutability.</p>
+<pre><code>Root (bitmap: 10100100)
+ │
+ ├─[bit 2]─→ Leaf: {key1: val1}
+ │
+ ├─[bit 5]─→ SubNode (bitmap: 00100010)
+ │              ├─[bit 1]─→ Leaf: {key2: val2}
+ │              └─[bit 5]─→ Collision: [{key3: val3}, {key4: val4}]
+ │
+ └─[bit 7]─→ Leaf: {key5: val5}
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>32 or 64-way branching at each level</li>
+<li>Population count (<code>POPCNT</code>) for index calculation</li>
+<li>Copy-on-write with path copying (only log₃₂(N) nodes)</li>
+</ul>
+<pre><code data-lang="cpp">// Index calculation using popcount
+int sparseIndex(uint32_t bitmap, int bitPosition) {
+    return __builtin_popcount(bitmap &amp; ((1 &lt;&lt; bitPosition) - 1));
+}
+</code></pre>
+<hr />
+<h2 id="5-lsm-tree-log-structured-merge-tree">5. <strong>LSM Tree (Log-Structured Merge Tree)</strong></h2>
+<p><strong>Used in:</strong> LevelDB, RocksDB, Cassandra, InfluxDB</p>
+<p>Write-optimized structure that batches writes in memory and flushes to sorted disk levels.</p>
+<pre><code>Memory:    ┌──────────────┐
+           │  MemTable    │  (Red-black tree / Skip list)
+           │  (Mutable)   │
+           └──────┬───────┘
+                  │ Flush
+Disk:      ┌──────▼───────┐
+Level 0:   │ SST │ SST    │  (Overlapping ranges)
+           └──────┬───────┘
+                  │ Compaction
+           ┌──────▼───────┐
+Level 1:   │   SSTable    │  (Sorted, non-overlapping)
+           └──────┬───────┘
+                  │
+Level N:   │ Larger SSTables │ (10x size ratio per level)
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Write amplification: O(level_count × size_ratio)</li>
+<li>Bloom filters per SSTable to avoid unnecessary reads</li>
+<li>Leveled vs. tiered compaction strategies</li>
+</ul>
+<h3 id="lsm-alternatives">LSM Alternatives</h3>
+<p>LSM trees are excellent for <strong>write-heavy workloads</strong>, but they're not universally optimal. The "best" structure depends entirely on your workload characteristics.</p>
+<table><thead><tr><th>Structure</th><th>Best For</th><th>Write</th><th>Read</th><th>Space</th></tr></thead><tbody>
+<tr><td><strong>LSM Tree</strong></td><td>Write-heavy, sequential</td><td>⭐⭐⭐</td><td>⭐⭐</td><td>⭐⭐</td></tr>
+<tr><td><strong>B+ Tree</strong></td><td>Read-heavy, range queries</td><td>⭐⭐</td><td>⭐⭐⭐</td><td>⭐⭐⭐</td></tr>
+<tr><td><strong>Bw-Tree</strong></td><td>High concurrency</td><td>⭐⭐⭐</td><td>⭐⭐⭐</td><td>⭐⭐</td></tr>
+<tr><td><strong>FASTER</strong></td><td>Point lookups, hybrid</td><td>⭐⭐⭐</td><td>⭐⭐⭐</td><td>⭐⭐</td></tr>
+</tbody></table>
+<p><strong>Bw-Tree</strong> (Lock-Free B+ Tree) — Used by: Microsoft SQL Server Hekaton, Azure Cosmos DB</p>
+<ul>
+<li>Lock-free operations, better for multi-core CPUs</li>
+<li>Combines benefits of LSM and B+ tree</li>
+<li>Complex implementation</li>
+</ul>
+<p><strong>FASTER</strong> (Microsoft Research) — Hybrid log + hash index approach</p>
+<pre><code>┌─────────────────┐
+│   Hash Index    │  ← In-memory, point lookups
+├─────────────────┤
+│  Hybrid Log     │  ← Spans memory + storage
+└─────────────────┘
+</code></pre>
+<ul>
+<li>Extremely fast point operations, handles larger-than-memory data</li>
+<li>Limited range query support</li>
+</ul>
+<p><strong>WiscKey</strong> (Key-Value Separation) — Optimization on top of LSM</p>
+<pre><code>LSM Tree:     [key, pointer] → small, fast compaction
+Value Log:    [actual values] → sequential writes
+</code></pre>
+<ul>
+<li>Reduces write amplification significantly, faster compaction</li>
+<li>Range scans become random reads</li>
+</ul>
+<p><strong>PebblesDB</strong> (Fragmented LSM) — Guards to reduce write amplification</p>
+<p><strong>Learned Indexes</strong> (Research) — Uses ML to predict key positions; potentially massive space savings, still experimental for writes</p>
+<p><strong>Decision Framework:</strong></p>
+<pre><code>                    ┌─────────────────┐
+                    │  Workload Type? │
+                    └────────┬────────┘
+           ┌─────────────────┼─────────────────┐
+           ▼                 ▼                 ▼
+      Write-Heavy       Balanced         Read-Heavy
+           │                │                 │
+           ▼                ▼                 ▼
+       LSM Tree         Bw-Tree           B+ Tree
+       (RocksDB)     (SQL Server)      (PostgreSQL)
+</code></pre>
+<hr />
+<h2 id="6-judy-array">6. <strong>Judy Array</strong></h2>
+<p><strong>Used in:</strong> Linux kernel routing tables, high-performance dictionaries</p>
+<p>A 256-ary digital tree with aggressive compression techniques.</p>
+<pre><code>┌─────────────────────────────────────┐
+│           Judy Population Types     │
+├─────────────────────────────────────┤
+│ Null        : Empty subtree         │
+│ Linear      : ≤2 keys inline        │
+│ Bitmap      : Dense range, 256 bits │
+│ Uncompressed: Sparse 256-way branch │
+└─────────────────────────────────────┘
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Adapts structure based on data density</li>
+<li>No pointer overhead for dense regions</li>
+<li>Cache-optimized 64-byte nodes</li>
+</ul>
+<hr />
+<h2 id="7-cuckoo-hash-table">7. <strong>Cuckoo Hash Table</strong></h2>
+<p><strong>Used in:</strong> DPDK, network packet processing, HFT symbol lookup</p>
+<p>Guaranteed O(1) worst-case lookups with multiple hash functions.</p>
+<pre><code>Table 1 (h1):        Table 2 (h2):
+┌───┬───────┐        ┌───┬───────┐
+│ 0 │       │        │ 0 │       │
+│ 1 │ key_A │◄───┐   │ 1 │ key_C │
+│ 2 │       │    │   │ 2 │ key_A │──── kicked here
+│ 3 │ key_B │    │   │ 3 │       │
+└───┴───────┘    │   └───┴───────┘
+                 │
+Insert key_A: h1(A)=1, occupied by B
+              kick B to h2(B), etc.
+</code></pre>
+<p><strong>Modern variant - Bucket Cuckoo Hashing:</strong></p>
+<pre><code data-lang="cpp">struct Bucket {
+    uint8_t fingerprints[4];  // 1-byte hash summaries
+    Key keys[4];
+    Value values[4];
+};
+// Check 4 entries per cache line!
+</code></pre>
+<hr />
+<h2 id="8-van-emde-boas-tree-x-fast-y-fast-trie">8. <strong>Van Emde Boas Tree / X-Fast/Y-Fast Trie</strong></h2>
+<p><strong>Used in:</strong> Kernel schedulers, IP routing, real-time priority queues</p>
+<p>Achieves O(log log U) operations where U is the universe size.</p>
+<pre><code>Universe U = 16 (keys 0-15)
+
+         [0-15] summary
+          /    \
+     [0-7]     [8-15]
+      / \        / \
+   [0-3] [4-7] [8-11] [12-15]
+    /\    /\    /\     /\
+  0  2  4  6  8 10   12 14
+</code></pre>
+<p><strong>Y-Fast Trie (practical variant):</strong></p>
+<ul>
+<li>Top structure: X-Fast trie on representative elements</li>
+<li>Bottom structure: Balanced BSTs with O(log log U) elements each</li>
+<li>O(log log U) time, O(N) space</li>
+</ul>
+<hr />
+<h2 id="9-rope-for-strings-buffers">9. <strong>Rope (for Strings/Buffers)</strong></h2>
+<p><strong>Used in:</strong> Xi Editor, Visual Studio Code, Zed editor, large text processing</p>
+<p>Binary tree of string chunks for efficient editing of massive texts.</p>
+<pre><code>           ┌──────────────┐
+           │ weight=22    │
+           │  (left len)  │
+           └──────┬───────┘
+                  │
+      ┌───────────┴───────────┐
+      │                       │
+┌─────┴─────┐           ┌─────┴─────┐
+│ weight=11 │           │  &quot;world&quot;  │
+└─────┬─────┘           └───────────┘
+      │
+┌─────┴─────┐     ┌───────────┐
+│  &quot;Hello &quot; │     │ &quot;amazing &quot; │
+└───────────┘     └───────────┘
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>O(log N) insert/delete at any position (vs O(N) for arrays)</li>
+<li>O(log N) concatenation</li>
+<li>Immutable variants enable infinite undo</li>
+</ul>
+<pre><code data-lang="cpp">class Rope {
+    struct Node {
+        size_t weight;  // Left subtree length
+        unique_ptr&lt;Node&gt; left, right;
+        string leaf;    // Only for leaf nodes
+    };
+
+    char index(size_t i, Node* n) {
+        if (n-&gt;leaf) return n-&gt;leaf[i];
+        if (i &lt; n-&gt;weight) return index(i, n-&gt;left.get());
+        return index(i - n-&gt;weight, n-&gt;right.get());
+    }
+};
+</code></pre>
+<hr />
+<h2 id="10-radix-tree-adaptive-radix-tree-art">10. <strong>Radix Tree / Adaptive Radix Tree (ART)</strong></h2>
+<p><strong>Used in:</strong> Linux kernel (page cache, routing), TiDB, DuckDB, HyPer</p>
+<p>Compressed trie with node sizes that adapt to key density.</p>
+<pre><code>Adaptive Node Types:
+┌────────────────────────────────────────────────────┐
+│ Node4   : 4 keys,   4 children (16 bytes)          │
+│ Node16  : 16 keys,  16 children (SIMD searchable)  │
+│ Node48  : 256→48 index, 48 children                │
+│ Node256 : Direct 256-way lookup                    │
+└────────────────────────────────────────────────────┘
+
+                    Node16 [&quot;ab&quot;]
+                    /      |      \
+              Node4[&quot;c&quot;]  &quot;xyz&quot;   Node48[&quot;de&quot;]
+                /                    \
+             &quot;def&quot;                  &quot;fgh&quot;
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Height determined by key length, not data volume</li>
+<li>Path compression eliminates single-child chains</li>
+<li>SIMD-optimized key matching in Node16</li>
+</ul>
+<pre><code data-lang="cpp">// SIMD search in Node16
+int Node16::findChild(uint8_t key) {
+    __m128i cmp = _mm_cmpeq_epi8(
+        _mm_set1_epi8(key),
+        _mm_loadu_si128((__m128i*)keys)
+    );
+    int mask = _mm_movemask_epi8(cmp);
+    return mask ? __builtin_ctz(mask) : -1;
+}
+</code></pre>
+<hr />
+<h2 id="11-b-tree">11. <strong>B+ Tree</strong></h2>
+<p><strong>Used in:</strong> MySQL InnoDB, PostgreSQL, all major databases</p>
+<p>Disk-optimized tree with high fanout for database indexes.</p>
+<pre><code data-lang="cpp">template&lt;typename K, typename V, int ORDER = 128&gt;
+class BPlusTree {
+    struct Node {
+        bool is_leaf;
+        int num_keys;
+        K keys[ORDER - 1];
+
+        virtual ~Node() = default;
+    };
+
+    struct InternalNode : Node {
+        Node* children[ORDER];
+    };
+
+    struct LeafNode : Node {
+        V values[ORDER - 1];
+        LeafNode* next;  // For range scans
+    };
+
+    Node* root_ = nullptr;
+
+    LeafNode* findLeaf(const K&amp; key) {
+        Node* current = root_;
+
+        while (!current-&gt;is_leaf) {
+            InternalNode* internal = static_cast&lt;InternalNode*&gt;(current);
+            int i = 0;
+            while (i &lt; internal-&gt;num_keys &amp;&amp; key &gt;= internal-&gt;keys[i])
+                i++;
+            current = internal-&gt;children[i];
+        }
+
+        return static_cast&lt;LeafNode*&gt;(current);
+    }
+
+public:
+    V* search(const K&amp; key) {
+        if (!root_) return nullptr;
+
+        LeafNode* leaf = findLeaf(key);
+        for (int i = 0; i &lt; leaf-&gt;num_keys; i++) {
+            if (leaf-&gt;keys[i] == key)
+                return &amp;leaf-&gt;values[i];
+        }
+        return nullptr;
+    }
+
+    // Range scan - O(log n + k) where k is result size
+    std::vector&lt;V&gt; range(const K&amp; start, const K&amp; end) {
+        std::vector&lt;V&gt; results;
+        LeafNode* leaf = findLeaf(start);
+
+        while (leaf) {
+            for (int i = 0; i &lt; leaf-&gt;num_keys; i++) {
+                if (leaf-&gt;keys[i] &gt;= start &amp;&amp; leaf-&gt;keys[i] &lt;= end)
+                    results.push_back(leaf-&gt;values[i]);
+                else if (leaf-&gt;keys[i] &gt; end)
+                    return results;
+            }
+            leaf = leaf-&gt;next;
+        }
+        return results;
+    }
+};
+</code></pre>
+<table><thead><tr><th>Pros</th><th>Cons</th></tr></thead><tbody>
+<tr><td>Optimal for disk I/O (high fanout)</td><td>Complex implementation</td></tr>
+<tr><td>Excellent range query performance</td><td>Higher memory for small datasets</td></tr>
+<tr><td>Leaf-level linking</td><td>Rebalancing overhead</td></tr>
+<tr><td>Predictable I/O patterns</td><td>Not cache-optimal for in-memory</td></tr>
+</tbody></table>
+<hr />
+<h2 id="12-red-black-tree">12. <strong>Red-Black Tree</strong></h2>
+<p><strong>Used in:</strong> C++ std::map/set, Java TreeMap, Linux CFS scheduler</p>
+<p>Self-balancing BST with guaranteed O(log n) operations.</p>
+<pre><code data-lang="cpp">enum Color { RED, BLACK };
+
+template&lt;typename K, typename V&gt;
+class RedBlackTree {
+    struct Node {
+        K key;
+        V value;
+        Color color;
+        Node *left, *right, *parent;
+
+        Node(K k, V v) : key(k), value(v), color(RED),
+                         left(nullptr), right(nullptr), parent(nullptr) {}
+    };
+
+    Node* root_ = nullptr;
+
+    void rotateLeft(Node* x) {
+        Node* y = x-&gt;right;
+        x-&gt;right = y-&gt;left;
+        if (y-&gt;left) y-&gt;left-&gt;parent = x;
+        y-&gt;parent = x-&gt;parent;
+
+        if (!x-&gt;parent) root_ = y;
+        else if (x == x-&gt;parent-&gt;left) x-&gt;parent-&gt;left = y;
+        else x-&gt;parent-&gt;right = y;
+
+        y-&gt;left = x;
+        x-&gt;parent = y;
+    }
+
+    void fixInsert(Node* z) {
+        while (z-&gt;parent &amp;&amp; z-&gt;parent-&gt;color == RED) {
+            if (z-&gt;parent == z-&gt;parent-&gt;parent-&gt;left) {
+                Node* y = z-&gt;parent-&gt;parent-&gt;right;  // Uncle
+
+                if (y &amp;&amp; y-&gt;color == RED) {
+                    // Case 1: Uncle is red
+                    z-&gt;parent-&gt;color = BLACK;
+                    y-&gt;color = BLACK;
+                    z-&gt;parent-&gt;parent-&gt;color = RED;
+                    z = z-&gt;parent-&gt;parent;
+                } else {
+                    if (z == z-&gt;parent-&gt;right) {
+                        // Case 2: Uncle black, z is right child
+                        z = z-&gt;parent;
+                        rotateLeft(z);
+                    }
+                    // Case 3: Uncle black, z is left child
+                    z-&gt;parent-&gt;color = BLACK;
+                    z-&gt;parent-&gt;parent-&gt;color = RED;
+                    rotateRight(z-&gt;parent-&gt;parent);
+                }
+            } else {
+                // Mirror cases...
+            }
+        }
+        root_-&gt;color = BLACK;
+    }
+};
+</code></pre>
+<table><thead><tr><th>Pros</th><th>Cons</th></tr></thead><tbody>
+<tr><td>Guaranteed O(log n)</td><td>More rotations than AVL on insert</td></tr>
+<tr><td>Good for insert-heavy workloads</td><td>More complex than AVL</td></tr>
+<tr><td>Less strict balancing</td><td>Pointer overhead</td></tr>
+<tr><td>Standard library choice</td><td>Poor cache locality</td></tr>
+</tbody></table>
+<hr />
+<h2 id="13-memory-pool-slab-allocator">13. <strong>Memory Pool / Slab Allocator</strong></h2>
+<p><strong>Used in:</strong> Linux kernel SLAB/SLUB, nginx, game engines</p>
+<p>Eliminates allocation overhead and fragmentation for fixed-size objects.</p>
+<pre><code data-lang="cpp">template&lt;typename T, size_t BlockSize = 4096&gt;
+class MemoryPool {
+    struct Block {
+        alignas(T) char data[sizeof(T)];
+        Block* next;
+    };
+
+    struct Slab {
+        std::array&lt;Block, BlockSize / sizeof(Block)&gt; blocks;
+        Slab* next_slab;
+    };
+
+    Slab* slabs_ = nullptr;
+    Block* free_list_ = nullptr;
+    std::mutex mutex_;
+
+public:
+    T* allocate() {
+        std::lock_guard&lt;std::mutex&gt; lock(mutex_);
+
+        if (!free_list_) {
+            Slab* slab = new Slab();
+            slab-&gt;next_slab = slabs_;
+            slabs_ = slab;
+
+            for (size_t i = 0; i &lt; slab-&gt;blocks.size() - 1; i++) {
+                slab-&gt;blocks[i].next = &amp;slab-&gt;blocks[i + 1];
+            }
+            slab-&gt;blocks.back().next = nullptr;
+            free_list_ = &amp;slab-&gt;blocks[0];
+        }
+
+        Block* block = free_list_;
+        free_list_ = block-&gt;next;
+        return reinterpret_cast&lt;T*&gt;(block-&gt;data);
+    }
+
+    void deallocate(T* ptr) {
+        std::lock_guard&lt;std::mutex&gt; lock(mutex_);
+        Block* block = reinterpret_cast&lt;Block*&gt;(ptr);
+        block-&gt;next = free_list_;
+        free_list_ = block;
+    }
+};
+</code></pre>
+<table><thead><tr><th>Pros</th><th>Cons</th></tr></thead><tbody>
+<tr><td>O(1) allocation/deallocation</td><td>Only for fixed-size objects</td></tr>
+<tr><td>Zero fragmentation</td><td>Memory not returned to OS</td></tr>
+<tr><td>Cache-friendly locality</td><td>Per-type pool needed</td></tr>
+<tr><td>Predictable performance</td><td>Memory overhead for small objects</td></tr>
+</tbody></table>
+<hr />
+<h2 id="14-bloom-filter-variants-cuckoo-xor-ribbon">14. <strong>Bloom Filter Variants (Cuckoo, Xor, Ribbon)</strong></h2>
+<p><strong>Used in:</strong> RocksDB, PostgreSQL, network routers, distributed caches</p>
+<p>Probabilistic set membership structures with false positives but no false negatives.</p>
+<p><strong>Classic Bloom Filter:</strong></p>
+<pre><code>Insert &quot;cat&quot;: hash1(&quot;cat&quot;)=2, hash2(&quot;cat&quot;)=5, hash3(&quot;cat&quot;)=7
+Bit array: [0 0 1 0 0 1 0 1 0 0 0 0]
+                ↑       ↑   ↑
+Query &quot;dog&quot;: if ALL hash positions are 1 → &quot;maybe&quot;; if ANY is 0 → &quot;definitely not&quot;
+</code></pre>
+<p><strong>Cuckoo Filter</strong> (Fan et al., 2014) — supports deletion, better space for ε &lt; 3%:</p>
+<pre><code>Buckets with fingerprints:
+┌──────┬──────┬──────┬──────┐
+│ fp_a │      │ fp_b │ fp_c │   Bucket 0
+│      │ fp_d │      │      │   Bucket 1
+│ fp_e │ fp_f │      │      │   Bucket 2
+└──────┴──────┴──────┴──────┘
+Lookup: check bucket[h1(x)] and bucket[h1(x) ⊕ h(fingerprint)]
+</code></pre>
+<p><strong>Xor Filter</strong> (Graf &amp; Lemire, 2020) — static, ~23% smaller than Bloom, faster queries:</p>
+<ul>
+<li>3 hash functions map to 3 positions; XOR of stored values = fingerprint</li>
+<li>Build via "peeling" algorithm on random hypergraph</li>
+<li>1.23 bits/key × log(1/ε), near information-theoretic optimum</li>
+</ul>
+<p><strong>Ribbon Filter</strong> (Dillinger &amp; Walzer, 2021, used in RocksDB) — balanced construction/query:</p>
+<ul>
+<li>Based on solving linear systems over GF(2) via banded matrices</li>
+<li>Configurable space vs. build time tradeoff</li>
+<li>~20% space improvement over Bloom at same FPR</li>
+</ul>
+<p><strong>Binary Fuse Filter</strong> (2022) — successor to Xor, even faster construction:</p>
+<ul>
+<li>1.13 bits/key × log(1/ε), essentially optimal</li>
+</ul>
+<hr />
+<h2 id="15-count-min-sketch">15. <strong>Count-Min Sketch</strong></h2>
+<p><strong>Used in:</strong> Network traffic monitoring, database query optimizers (PostgreSQL), stream processing (Flink, Spark)</p>
+<p>Probabilistic frequency estimator for streaming data. Never underestimates counts.</p>
+<pre><code>d hash functions, w counters each:
+
+           w counters
+    ┌───┬───┬───┬───┬───┬───┬───┬───┐
+h1: │ 0 │ 3 │ 0 │ 1 │ 0 │ 2 │ 0 │ 0 │
+    ├───┼───┼───┼───┼───┼───┼───┼───┤
+h2: │ 1 │ 0 │ 0 │ 3 │ 0 │ 0 │ 1 │ 0 │
+    ├───┼───┼───┼───┼───┼───┼───┼───┤
+h3: │ 0 │ 0 │ 2 │ 0 │ 0 │ 3 │ 0 │ 0 │
+    └───┴───┴───┴───┴───┴───┴───┴───┘
+
+Update(x): increment CM[i][hi(x)] for each row i
+Query(x):  min over all rows of CM[i][hi(x)]
+</code></pre>
+<p><strong>Properties:</strong></p>
+<ul>
+<li>Space: O(1/ε × log(1/δ)) for ε-approximate counts with probability 1-δ</li>
+<li>No deletion in basic form; Count-Min-Log variant for heavy hitters</li>
+<li>Conservative update: only increment if it's the minimum → reduces overcount</li>
+</ul>
+<p><strong>Variant — Count Sketch</strong> (Charikar et al., 2002): unbiased estimator using ±1 signs, better for skewed distributions.</p>
+<hr />
+<h2 id="16-hyperloglog">16. <strong>HyperLogLog</strong></h2>
+<p><strong>Used in:</strong> Redis <code>PFCOUNT</code>, BigQuery <code>APPROX_COUNT_DISTINCT</code>, Presto, Druid</p>
+<p>Cardinality estimation using O(log log N) space per register.</p>
+<pre><code>Hash each element to 64-bit value:
+  h(x) = 0010000...  (first 1-bit at position 4)
+
+Split into: [register index (first p bits)] [remaining bits → count leading zeros]
+
+Registers (m = 2^p):
+┌────┬────┬────┬────┬────┬────┐
+│ R0 │ R1 │ R2 │ R3 │ ...│ Rm │  each stores max(leading_zeros + 1)
+│  3 │  7 │  1 │  5 │    │  4 │
+└────┴────┴────┴────┴────┴────┘
+
+Estimate = α_m × m² / Σ(2^(-R[j]))   (harmonic mean based)
+</code></pre>
+<p><strong>Properties:</strong></p>
+<ul>
+<li>1.6KB for ~2% standard error (p=14, 16384 registers × 6 bits)</li>
+<li>Mergeable: max of each register → enables distributed counting</li>
+<li>HyperLogLog++ (Google, 2013): bias correction + sparse representation for small cardinalities</li>
+</ul>
+<hr />
+<h2 id="17-hnsw-hierarchical-navigable-small-world-graph">17. <strong>HNSW (Hierarchical Navigable Small World Graph)</strong></h2>
+<p><strong>Used in:</strong> Qdrant, Pinecone, pgvector, FAISS, Weaviate — the dominant ANN index</p>
+<p>Multi-layer proximity graph for approximate nearest neighbor search in high-dimensional spaces.</p>
+<pre><code>Layer 2:  A ─────────────────── D         (sparse, long-range links)
+          │                     │
+Layer 1:  A ──── B ──── C ──── D ──── E   (medium connectivity)
+          │      │      │      │      │
+Layer 0:  A ─ B ─ C ─ D ─ E ─ F ─ G ─ H  (dense, all elements)
+
+Search: enter at top layer → greedy walk → descend → refine
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Build: insert each element with probability p(layer) = e^(-layer / m_L)</li>
+<li>Search: O(log N) expected time with polylogarithmic graph degree</li>
+<li>Tunable recall/speed via <code>ef_construction</code> (build quality) and <code>ef_search</code> (query beam width)</li>
+<li>Memory: ~1KB per vector for typical configs (M=16, d=128)</li>
+</ul>
+<p><strong>SOTA variants:</strong></p>
+<ul>
+<li><strong>DiskANN</strong> (Microsoft, NeurIPS 2019): billion-scale on SSD, Vamana graph</li>
+<li><strong>ScaNN</strong> (Google, ICML 2020): anisotropic quantization + reordering</li>
+<li><strong>Glass</strong> (2023): graph-based ANN optimized for GPU</li>
+<li><strong>RaBitQ</strong> (2024): random-bit quantization, 32× compression with high recall</li>
+</ul>
+<hr />
+<h2 id="18-learned-indexes">18. <strong>Learned Indexes</strong></h2>
+<p><strong>Research frontier:</strong> Replacing traditional index structures with ML models.</p>
+<p><strong>The Case for Learned Indexes</strong> (Kraska et al., Google, 2018):</p>
+<pre><code>Traditional B-tree:          Learned Index:
+┌─────────┐                  ┌──────────────────────┐
+│  Root   │                  │  Linear/NN Model     │
+├────┬────┤                  │  f(key) → position   │
+│ L  │ R  │     →            │  + error bounds      │
+├──┬─┤──┬─┤                  │  + local search      │
+│..│..│..│..│                 └──────────────────────┘
+</code></pre>
+<p><strong>Key insight:</strong> A B-tree is a model that maps keys to positions. A CDF model can do the same with less space.</p>
+<p><strong>PGM-Index</strong> (Ferragina &amp; Vinciguerra, VLDB 2020):</p>
+<ul>
+<li>Piecewise linear approximation of the CDF</li>
+<li>Provably optimal space for a given error bound ε</li>
+<li>Recursive: index of index of index → O(log log N) lookup</li>
+<li>Fully dynamic variant (2022)</li>
+</ul>
+<p><strong>ALEX</strong> (Ding et al., SIGMOD 2020):</p>
+<ul>
+<li>Adaptive learned index with gapped arrays at leaves</li>
+<li>Handles inserts/updates/deletes natively</li>
+<li>Splits/merges nodes based on cost model</li>
+<li>Outperforms B-trees on read-heavy YCSB workloads by 2-4×</li>
+</ul>
+<p><strong>LIPP</strong> (Wu et al., VLDB 2021): Updatable learned index with worst-case O(log N) guarantees.</p>
+<p><strong>NFL</strong> (Wu et al., 2022): Near-optimal learned filters replacing Bloom filters.</p>
+<hr />
+<h2 id="19-crdts-conflict-free-replicated-data-types">19. <strong>CRDTs (Conflict-Free Replicated Data Types)</strong></h2>
+<p><strong>Used in:</strong> Redis CRDT, Riak, Automerge, Yjs (collaborative editing), Apple Notes, Figma</p>
+<p>Data structures that guarantee eventual consistency without coordination.</p>
+<pre><code>Two types:
+  CvRDT (state-based): merge(state_A, state_B) → converged state
+  CmRDT (op-based):    apply(op) at all replicas → same result regardless of order
+
+G-Counter (grow-only counter):
+  Node A: [A:3, B:0, C:0]   value = max per node, sum for total
+  Node B: [A:0, B:5, C:0]
+  merge → [A:3, B:5, C:0]   total = 8
+
+LWW-Register (last-writer-wins):
+  {value: &quot;hello&quot;, timestamp: 1706000001}
+  {value: &quot;world&quot;, timestamp: 1706000002}
+  merge → {value: &quot;world&quot;, timestamp: 1706000002}
+</code></pre>
+<p><strong>Key types:</strong></p>
+<table><thead><tr><th>CRDT</th><th>Description</th><th>Merge</th></tr></thead><tbody>
+<tr><td>G-Counter</td><td>Grow-only counter</td><td>max per node</td></tr>
+<tr><td>PN-Counter</td><td>Positive-negative counter</td><td>two G-Counters</td></tr>
+<tr><td>G-Set</td><td>Grow-only set</td><td>union</td></tr>
+<tr><td>OR-Set</td><td>Observed-remove set</td><td>add wins over concurrent remove</td></tr>
+<tr><td>LWW-Register</td><td>Last-writer-wins</td><td>highest timestamp</td></tr>
+<tr><td>RGA</td><td>Replicated growable array</td><td>causal ordering</td></tr>
+<tr><td>Merkle-CRDT</td><td>CRDT over Merkle-DAG</td><td>DAG merge (used in IPFS)</td></tr>
+</tbody></table>
+<p><strong>SOTA research:</strong></p>
+<ul>
+<li><strong>Diamond Types</strong> (2023): optimized list CRDT, 10-100× faster than Automerge/Yjs</li>
+<li><strong>Fugue</strong> (2023): list CRDT with maximal non-interleaving guarantee</li>
+<li><strong>Eg-walker</strong> (Kleppmann, 2024): replay-based CRDT with near-optimal performance</li>
+</ul>
+<hr />
+<h2 id="20-succinct-data-structures">20. <strong>Succinct Data Structures</strong></h2>
+<p><strong>Used in:</strong> Bioinformatics (FM-index), compressed search indexes, language models</p>
+<p>Represent data in space close to information-theoretic minimum while supporting constant-time operations.</p>
+<pre><code>Bit vector B = 10110010 (n=8, m=4 ones)
+
+Operations:
+  rank₁(B, 5) = 3    (count 1s in B[0..5])
+  select₁(B, 2) = 2  (position of 2nd 1-bit)
+  access(B, 3) = 1    (value at position 3)
+
+Space: n + o(n) bits (sublinear overhead!)
+</code></pre>
+<p><strong>Key structures:</strong></p>
+<p><strong>Wavelet Tree</strong> — answers rank/select/access on arbitrary alphabets:</p>
+<pre><code>String: &quot;abracadabra&quot;  Σ = {a,b,c,d,r}
+         Root: bitvector over &quot;left half&quot; vs &quot;right half&quot; of alphabet
+         /          \
+    &quot;aaaaaa&quot;      &quot;brcdbr&quot;
+      / \           / \
+    ...  ...      ...  ...
+</code></pre>
+<ul>
+<li>O(log|Σ|) rank/select/access on strings</li>
+<li>Enables compressed representations of permutations, grids, graphs</li>
+</ul>
+<p><strong>FM-Index</strong> (Ferragina &amp; Manzini, 2000):</p>
+<ul>
+<li>Compressed full-text index based on Burrows-Wheeler Transform (BWT)</li>
+<li>Search any pattern of length m in O(m) time, regardless of text size</li>
+<li>Space: nH_k + o(n log|Σ|) bits (k-th order empirical entropy)</li>
+<li>Used in BWA/Bowtie for DNA alignment</li>
+</ul>
+<p><strong>Elias-Fano Encoding</strong> — quasi-succinct representation of sorted integers:</p>
+<ul>
+<li>Space: 2n + n⌈log(U/n)⌉ bits for n integers from universe [0, U)</li>
+<li>O(1) access, predecessor, successor</li>
+<li>Used in search engine posting lists (Lucene, Tantivy)</li>
+</ul>
+<hr />
+<h2 id="21-masstree">21. <strong>Masstree</strong></h2>
+<p><strong>Used in:</strong> Silo (in-memory OLTP), MICA, research KV stores</p>
+<p>High-performance concurrent B+-tree trie hybrid for variable-length keys. From Mao et al. (EuroSys 2012).</p>
+<pre><code>Key: &quot;Hello World!&quot;
+
+8-byte slices used as B+-tree keys:
+
+B+-tree Layer 0: key = &quot;Hello Wo&quot;
+        │
+        ▼ (border node links to next layer)
+B+-tree Layer 1: key = &quot;rld!\0\0\0\0&quot;
+        │
+        ▼ value
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Trie over 8-byte key slices, B+-tree at each trie layer</li>
+<li>Version-based optimistic concurrency (no read locks)</li>
+<li>Cache-line-sized nodes (15 keys per internal node)</li>
+<li>Prefetch-friendly: next node address known before comparison completes</li>
+<li>Handles variable-length keys without hashing</li>
+</ul>
+<hr />
+<h2 id="22-ctrie-concurrent-hash-trie">22. <strong>CTrie (Concurrent Hash Trie)</strong></h2>
+<p><strong>Used in:</strong> Scala standard library, concurrent caches, actor systems</p>
+<p>Lock-free concurrent hash trie supporting linearizable snapshots.</p>
+<pre><code>CAS-based mutation with indirection nodes:
+
+    Root (INode)
+        │
+    ┌───┴───┐
+    │ CNode │ (immutable, array of branches)
+    ├───┬───┤
+    │   │   │
+  SNode INode INode
+  (leaf)  │     │
+        CNode  CNode
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Insert/delete/lookup all lock-free via single CAS on INode</li>
+<li>O(1) atomic snapshots via GCAS (generational CAS)</li>
+<li>Automatic contraction (removes empty nodes)</li>
+<li>Linearizable iteration from snapshot</li>
+</ul>
+<p><strong>Paper:</strong> Prokopec et al., "Concurrent Tries with Efficient Non-Blocking Snapshots" (PPoPP 2012)</p>
+<hr />
+<h2 id="23-pairing-heap">23. <strong>Pairing Heap</strong></h2>
+<p><strong>Used in:</strong> Network routing (Dijkstra), GCC <code>__gnu_pbds</code>, event simulators</p>
+<p>Simplest heap with amortized efficiency rivaling Fibonacci heaps.</p>
+<pre><code>        3
+       /|\
+      5  8  9
+     /|    |
+    12 7   14
+       |
+       11
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>O(1) insert, merge, find-min</li>
+<li>O(log N) amortized delete-min</li>
+<li>O(log N) amortized decrease-key (conjectured O(1))</li>
+<li>Much simpler than Fibonacci heaps; often faster in practice</li>
+<li>Two-pass pairing: left-to-right pairing, then right-to-left merging</li>
+</ul>
+<p><strong>Comparison:</strong></p>
+<table><thead><tr><th>Heap</th><th>find-min</th><th>insert</th><th>decrease-key</th><th>delete-min</th><th>merge</th></tr></thead><tbody>
+<tr><td>Binary</td><td>O(1)</td><td>O(log N)</td><td>O(log N)</td><td>O(log N)</td><td>O(N)</td></tr>
+<tr><td>Fibonacci</td><td>O(1)</td><td>O(1)*</td><td>O(1)*</td><td>O(log N)*</td><td>O(1)</td></tr>
+<tr><td>Pairing</td><td>O(1)</td><td>O(1)</td><td>O(log N)*</td><td>O(log N)*</td><td>O(1)</td></tr>
+<tr><td>Strict Fibonacci</td><td>O(1)</td><td>O(1)</td><td>O(1)</td><td>O(log N)</td><td>O(1)</td></tr>
+</tbody></table>
+<p>*amortized</p>
+<hr />
+<h2 id="24-r-tree-r-tree">24. <em><em>R-Tree / R</em>-Tree</em>*</h2>
+<p><strong>Used in:</strong> PostGIS, SQLite R*-Tree, MongoDB 2dsphere, game engines</p>
+<p>Spatial index for rectangles, polygons, and multi-dimensional data.</p>
+<pre><code>         ┌───────────────────────────────────┐
+         │ R1                                │
+         │  ┌────────┐    ┌──────────────┐   │
+         │  │ R3     │    │ R4           │   │
+         │  │ ■  ■   │    │  ■    ■      │   │
+         │  │   ■    │    │     ■        │   │
+         │  └────────┘    └──────────────┘   │
+         └───────────────────────────────────┘
+         ┌───────────────────────────────────┐
+         │ R2                                │
+         │  ┌──────┐  ┌──────────┐          │
+         │  │ R5   │  │ R6       │          │
+         │  │ ■  ■ │  │  ■  ■ ■  │          │
+         │  └──────┘  └──────────┘          │
+         └───────────────────────────────────┘
+</code></pre>
+<p><em><em>R</em>-Tree improvements</em>* (Beckmann et al., 1990):</p>
+<ul>
+<li>Forced reinsert on overflow → better node utilization</li>
+<li>Combined optimization of overlap, margin, and area</li>
+<li>Consistently 10-30% better query performance than R-tree</li>
+</ul>
+<p><strong>SOTA variants:</strong></p>
+<ul>
+<li><strong>STR-packed R-tree</strong> (bulk-loading): Sort-Tile-Recursive for static datasets</li>
+<li><strong>Priority R-tree</strong>: optimal worst-case I/O for window queries</li>
+<li><strong>Hilbert R-tree</strong>: uses Hilbert curve for spatial locality</li>
+</ul>
+<hr />
+<h2 id="25-fenwick-tree-binary-indexed-tree">25. <strong>Fenwick Tree (Binary Indexed Tree)</strong></h2>
+<p><strong>Used in:</strong> Competitive programming, count inversions, range-frequency queries, BIT-based database statistics</p>
+<p>Supports prefix sum queries and point updates in O(log N) with minimal space.</p>
+<pre><code>Array:   [1, 3, 2, 5, 1, 7, 3, 2]
+BIT:     [1, 4, 2, 10, 1, 8, 3, 24]
+
+Tree structure (parent via i + LSB(i)):
+Index:    1    2    3    4    5    6    7    8
+          │    │    │    │    │    │    │    │
+          └──→ 2    │    │    │    │    │    │
+               └────┴──→ 4    │    │    │    │
+                         │    └──→ 6    │    │
+                         │         └────┴──→ 8
+                         └──────────────────→ 8
+
+prefix_sum(7) = BIT[7] + BIT[6] + BIT[4]  (strip lowest set bit each step)
+update(3, +5): BIT[3] += 5, BIT[4] += 5, BIT[8] += 5  (add lowest set bit)
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Space: exactly N integers (no overhead)</li>
+<li>Implementation: ~10 lines of code</li>
+<li>2D Fenwick tree for rectangle sum queries</li>
+<li>Supports order-statistic queries (find k-th smallest)</li>
+</ul>
+<hr />
+<h2 id="26-persistent-retroactive-data-structures">26. <strong>Persistent / Retroactive Data Structures</strong></h2>
+<p><strong>Used in:</strong> Git (Merkle trees), Datomic, functional languages (Haskell, Clojure), undo systems</p>
+<p>Structures that preserve all previous versions after modification.</p>
+<pre><code>Path Copying (persistent balanced BST):
+
+Version 1:       5              Version 2:       5&#39;
+                / \                             / \
+               3   7                           3   7&#39;
+              / \                              / \   \
+             1   4                            1   4   8  (new)
+
+Only nodes on root-to-change path are copied: O(log N) per update.
+Shared structure: nodes 1, 3, 4 are shared across versions.
+</code></pre>
+<p><strong>Types:</strong></p>
+<table><thead><tr><th>Type</th><th>Query old</th><th>Update old</th><th>Space per op</th></tr></thead><tbody>
+<tr><td>Partial</td><td>O(1)</td><td>No</td><td>O(log N)</td></tr>
+<tr><td>Full</td><td>O(1)</td><td>O(1) → new version</td><td>O(log N)</td></tr>
+<tr><td>Confluent</td><td>O(1)</td><td>Merge versions</td><td>O(log² N)</td></tr>
+<tr><td>Retroactive</td><td>O(1)</td><td>Modify past ops</td><td>O(√N) to O(polylog N)</td></tr>
+</tbody></table>
+<p><strong>Fat Node method</strong>: store all versions at each node, O(1) amortized space per change, O(log V) query for version V.</p>
+<p><strong>Retroactive</strong> (Demaine et al., 2007): modify operations in the <em>past</em> and propagate effects forward. Partially retroactive priority queues in O(√N log N).</p>
+<hr />
+<h2 id="27-quotient-filter">27. <strong>Quotient Filter</strong></h2>
+<p><strong>Used in:</strong> RocksDB (experimental), SSD FTL layers, deduplication systems</p>
+<p>Like Bloom filters but supports merging, resizing, and counting — on cache-friendly contiguous memory.</p>
+<pre><code>Fingerprint f = quotient (fq) : remainder (fr)
+
+Slot addressed by fq, stores fr in a linear-probing cluster:
+
+Slots:  [fr_0 | fr_1 | fr_2 | fr_3 | fr_4 | ...]
+Meta:    occ   occ    cont   run    occ    ...
+         is_occupied  is_continuation  is_shifted
+
+Cluster: consecutive remainders belonging to same or adjacent quotients
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Cache-friendly: single contiguous array (vs. Bloom's random access)</li>
+<li>Supports deletes and counting (Counting Quotient Filter)</li>
+<li>Mergeable: two QFs can be combined in linear time</li>
+<li>Resizable: double size by splitting fingerprints</li>
+<li>Space: ~10-25% more than Bloom, but with far more functionality</li>
+</ul>
+<p><strong>Rank-Select Quotient Filter (RSQF)</strong> (Pandey et al., SIGMOD 2017): uses rank-select on metadata bits for O(1) operations.</p>
+<hr />
+<h2 id="28-log-structured-append-only-b-trees">28. <strong>Log-Structured / Append-Only B-Trees</strong></h2>
+<p><strong>Used in:</strong> LMDB, FoundationDB Record Layer, Btrfs, ZFS, CockroachDB (Pebble)</p>
+<p>Copy-on-write B-trees that never modify pages in place. Enables snapshots and crash safety for free.</p>
+<pre><code>Write &quot;X&quot; to leaf:
+
+Before:
+  Root(v1) → [A, B] → ... → Leaf_B(v1): [old data]
+
+After (copy path to root):
+  Root(v2) → [A, B&#39;] → ... → Leaf_B(v2): [X, old data]
+  Root(v1) → [A, B]  → ... → Leaf_B(v1): [old data]   ← still valid snapshot!
+
+Old pages reclaimed by garbage collection after no readers reference them.
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Crash recovery: just point to last valid root (no WAL needed for structural consistency)</li>
+<li>Free snapshots: any old root is a consistent read view</li>
+<li>Write amplification: full path copy (~4-5 pages per write at typical heights)</li>
+<li>LMDB: single-writer, dual-root COW B+ tree with memory-mapped I/O</li>
+</ul>
+<p><strong>LLAMA</strong> (Levandoski et al., VLDB 2013): Log-structured access method for Bw-tree, separates logical/physical pages.</p>
+<hr />
+<h2 id="29-xor-linked-list-compressed-pointer-structures">29. <strong>XOR-Linked List / Compressed Pointer Structures</strong></h2>
+<p><strong>Used in:</strong> Memory-constrained embedded systems, Linux kernel <code>hlist</code></p>
+<p>Doubly-linked list using XOR of prev/next pointers to halve pointer overhead.</p>
+<pre><code>Standard doubly-linked: each node stores prev AND next (16 bytes on 64-bit)
+
+XOR list: each node stores prev ⊕ next (8 bytes)
+  A         B         C         D
+  [0⊕B]    [A⊕C]    [B⊕D]    [C⊕0]
+
+Traversal from A→B:  npx(B) ⊕ addr(A) = (A⊕C) ⊕ A = C  ✓
+</code></pre>
+<p><strong>Related compressed structures:</strong></p>
+<ul>
+<li><strong>Unrolled linked list</strong>: multiple elements per node for cache efficiency</li>
+<li><strong>Hashed array tree</strong>: O(√N) wasted space, O(1) indexed access</li>
+<li><strong>Cache-oblivious B-tree</strong> (Bender et al., 2000): optimal I/O for any cache/block size without knowing hardware parameters</li>
+</ul>
+<hr />
+<h2 id="30-dancing-links-dlx">30. <strong>Dancing Links (DLX)</strong></h2>
+<p><strong>Used in:</strong> Sudoku solvers, pentomino tiling, exact cover problems, SAT preprocessing</p>
+<p>Knuth's technique for efficient backtracking on sparse binary matrices via circular doubly-linked lists.</p>
+<pre><code>Exact cover matrix (columns = constraints, rows = choices):
+
+     1  2  3  4  5  6  7
+A: [ 1  0  0  1  0  0  1 ]
+B: [ 1  0  0  1  0  0  0 ]
+C: [ 0  0  0  1  1  0  1 ]
+D: [ 0  0  1  0  1  1  0 ]
+E: [ 0  1  1  0  0  1  1 ]
+F: [ 0  1  0  0  0  0  1 ]
+
+Cover column: unlink it and all rows intersecting it
+Uncover: relink in reverse order — O(1) per link!
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Cover/uncover are O(1) per link via pointer relinking</li>
+<li>No memory allocation during search</li>
+<li>Explores ~10⁶ nodes/second on modern hardware</li>
+<li>Generalization: Algorithm C for colored/multiplicity constraints</li>
+</ul>
+<hr />
+<h1 id="distributed-memory-efficient-compute-efficient-structures">Distributed, Memory-Efficient &amp; Compute-Efficient Structures</h1>
+<hr />
+<h2 id="31-roaring-bitmaps">31. <strong>Roaring Bitmaps</strong></h2>
+<p><strong>Used in:</strong> Apache Lucene/Solr, Spark, ClickHouse, Druid, Pilosa, Git</p>
+<p>Hybrid compressed bitmap that adapts container type per 16-bit chunk. Dominates every other compressed bitmap format in practice.</p>
+<pre><code>Universe of 32-bit integers: split each value into [high 16 bits : low 16 bits]
+
+high 16 bits → selects container
+low 16 bits  → stored inside container
+
+Container types per chunk (chosen automatically):
+┌──────────────────────────────────────────────────────────────────┐
+│ Array Container   │ cardinality &lt; 4096  │ sorted u16 array      │
+│ Bitmap Container  │ cardinality ≥ 4096  │ 8KB fixed bitset      │
+│ Run Container     │ many runs           │ [start, length] pairs │
+└──────────────────────────────────────────────────────────────────┘
+
+Example: {1, 3, 5, 100, 65536, 65537, 65538}
+
+Chunk 0 (high=0): Array [1, 3, 5, 100]          ← sparse, use sorted array
+Chunk 1 (high=1): Run [(0, 3)]                   ← 3 consecutive, use RLE
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>AND/OR/XOR across containers via type-specific fast paths</li>
+<li>SIMD-accelerated: AVX2/AVX-512 intersection on bitmap containers</li>
+<li>~2-100× smaller than uncompressed bitsets on real data</li>
+<li>~10× faster than WAH, Concise, EWAH compressed bitmaps</li>
+<li><code>roaring_bitmap_and_cardinality()</code> — counts intersection without materializing</li>
+</ul>
+<p><strong>Roaring+Run (2016):</strong> Added run containers; further 2-4× compression on sequential IDs.</p>
+<p><strong>Roaring 64-bit:</strong> Extends to 64-bit universe via top-level ART or B-tree keyed by high 32 bits.</p>
+<hr />
+<h2 id="32-swiss-table-abseil-flat-hash-map">32. <strong>Swiss Table (Abseil <code>flat_hash_map</code>)</strong></h2>
+<p><strong>Used in:</strong> Google production (Abseil), Rust <code>hashbrown</code>, Go runtime (1.24+), CockroachDB</p>
+<p>SIMD-probed, open-addressing hash table. The modern standard for in-memory hash maps.</p>
+<pre><code>Layout: groups of 16 slots, each with 1-byte metadata
+
+Group (16 bytes, fits SSE register):
+┌────────────────────────────────────────────────────────────────┐
+│ ctrl[0] ctrl[1] ctrl[2] ... ctrl[15]                           │
+│  0x4A    EMPTY   0x4A   ...  DEL                               │
+└────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│ slot[0] slot[1] slot[2] ... slot[15]  (key-value pairs)        │
+└────────────────────────────────────────────────────────────────┘
+
+Lookup &quot;key&quot;:
+  h = hash(key)
+  group_idx = h1(h) % num_groups
+  h2_match  = h2(h)  ← 7-bit fingerprint stored in ctrl byte
+
+  __m128i ctrl  = _mm_loadu_si128(ctrl_group);
+  __m128i match = _mm_cmpeq_epi8(ctrl, _mm_set1_epi8(h2_match));
+  uint16_t mask = _mm_movemask_epi8(match);
+  // Each set bit → candidate slot; check full key equality
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>1 byte metadata overhead per slot (7-bit hash + EMPTY/DELETED sentinel)</li>
+<li>Probe entire group (16 candidates) in single SIMD instruction</li>
+<li>~1.0-1.5 cache misses per lookup on average (vs. 2-3 for chaining)</li>
+<li>Flat layout: all keys inline, no pointer chasing, no linked lists</li>
+<li>Tombstone cleanup via "rehash in place" on high deletion workloads</li>
+</ul>
+<p><strong>Comparison (ns/op, 64-byte keys, 1M entries):</strong></p>
+<table><thead><tr><th>Operation</th><th><code>std::unordered_map</code></th><th>Swiss Table</th><th>Improvement</th></tr></thead><tbody>
+<tr><td>Lookup (hit)</td><td>~90 ns</td><td>~25 ns</td><td>3.6×</td></tr>
+<tr><td>Lookup (miss)</td><td>~80 ns</td><td>~18 ns</td><td>4.4×</td></tr>
+<tr><td>Insert</td><td>~120 ns</td><td>~35 ns</td><td>3.4×</td></tr>
+</tbody></table>
+<p><strong>F14 (Facebook):</strong> Similar concept, 16-byte SIMD chunks, slightly different collision strategy. Used in Folly.</p>
+<hr />
+<h2 id="33-merkle-trees-merkle-patricia-trie">33. <strong>Merkle Trees / Merkle-Patricia Trie</strong></h2>
+<p><strong>Used in:</strong> Git, Bitcoin/Ethereum, S3 (anti-entropy), Cassandra (repair), Certificate Transparency, IPFS</p>
+<p>Hash tree enabling O(log N) proof of inclusion and efficient diff/sync between replicas.</p>
+<pre><code>                    H(H01 + H23)          ← root hash: summary of all data
+                   /            \
+            H(H0 + H1)        H(H2 + H3)
+             /      \           /      \
+          H(D0)   H(D1)     H(D2)   H(D3)    ← leaf hashes
+           |        |         |        |
+          D0       D1        D2       D3       ← data blocks
+
+Proof that D2 is in the tree: provide H(D3) and H(H0+H1)
+Verifier computes: H(H(D2) + H(D3)) → H23, then H(H01 + H23) → compare to root ✓
+</code></pre>
+<p><strong>Merkle-Patricia Trie (Ethereum):</strong></p>
+<pre><code>Extension: shared prefix &quot;abc&quot;
+    │
+ Branch: 16-way (hex nibbles) + value slot
+    ├─0→ ...
+    ├─7→ Leaf: remaining=&quot;de&quot;, value=100
+    └─f→ Leaf: remaining=&quot;00&quot;, value=200
+
+Each node hashed → content-addressed → tamper-evident state trie
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Proof size: O(log N) hashes, ~1KB for billion-entry tree</li>
+<li>Diff between two roots: only walk where hashes diverge → O(changes) sync</li>
+<li>Anti-entropy: Cassandra uses Merkle trees to detect replica divergence per range</li>
+<li>Certificate Transparency: append-only Merkle tree with O(log N) consistency proofs</li>
+</ul>
+<p><strong>SOTA variants:</strong></p>
+<ul>
+<li><strong>Verkle Tree</strong> (Ethereum roadmap): vector commitments replace hashes, ~3× smaller proofs</li>
+<li><strong>Prolly Tree</strong> (Dolt, Noms): content-defined chunking + Merkle, enables structural diff of databases</li>
+<li><strong>Authenticated Data Structures</strong> (Miller et al.): generic framework, extends to skip lists, B-trees</li>
+</ul>
+<hr />
+<h2 id="34-consistent-hashing-ring-jump-maglev">34. <strong>Consistent Hashing (Ring, Jump, Maglev)</strong></h2>
+<p><strong>Used in:</strong> DynamoDB, Cassandra, Memcached, Nginx, Envoy, Kafka partition assignment</p>
+<p>Distributes keys across nodes such that adding/removing a node only remaps O(K/N) keys.</p>
+<pre><code>Classic Ring (Karger et al., 1997):
+
+         Node A (3 vnodes)
+          ↙  ↑  ↖
+   A₁ ●────────● A₃       Hash ring [0, 2³²)
+      │          │
+      │   keys   │         key hashed → walk clockwise → first node
+      │          │
+   B₂ ●────────● B₁
+          ↗  ↓  ↘
+         Node B (3 vnodes)
+
+Add Node C: only keys between C&#39;s predecessors remapped
+</code></pre>
+<p><strong>Jump Consistent Hash</strong> (Lamping &amp; Veach, Google 2014):</p>
+<pre><code data-lang="cpp">// Entire implementation: 7 lines, zero memory, perfect balance
+int32_t JumpConsistentHash(uint64_t key, int32_t num_buckets) {
+    int64_t b = -1, j = 0;
+    while (j &lt; num_buckets) {
+        b = j;
+        key = key * 2862933555777941757ULL + 1;
+        j = (b + 1) * (double(1LL &lt;&lt; 31) / double((key &gt;&gt; 33) + 1));
+    }
+    return b;
+}
+</code></pre>
+<ul>
+<li>O(ln N) time, O(1) space, perfectly uniform</li>
+<li>Limitation: only supports appending/removing the last bucket</li>
+</ul>
+<p><strong>Maglev Hashing</strong> (Google, 2016):</p>
+<ul>
+<li>Builds a lookup table via permutation-based populate</li>
+<li>O(1) lookup after O(M × N) build (M = table size, N = nodes)</li>
+<li>Minimal disruption: changing one backend affects ~1/M of entries</li>
+<li>Used in Google's Maglev network load balancer (10Gbps+ per machine)</li>
+</ul>
+<p><strong>Rendezvous (Highest Random Weight) Hashing:</strong></p>
+<ul>
+<li>For each key, score = hash(key, node_id), pick highest</li>
+<li>O(N) per lookup but trivially handles weights and heterogeneous nodes</li>
+<li>Used in: Microsoft Azure, Akamai CDN</li>
+</ul>
+<hr />
+<h2 id="35-t-digest-ddsketch-streaming-quantiles">35. <strong>T-Digest / DDSketch (Streaming Quantiles)</strong></h2>
+<p><strong>Used in:</strong> Elasticsearch, Prometheus, Datadog, Apache Flink, New Relic</p>
+<p>Compact data structures for accurate quantile estimation (p50, p99, p99.9) over streaming data.</p>
+<pre><code>T-Digest: variable-width centroids, precise at tails
+
+Centroids: (mean, count) sorted by mean
+┌─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┐
+│ c=1 │ c=3 │ c=15│ c=40│ c=38│ c=12│ c=4 │ c=1 │
+│ 0.1 │ 1.2 │ 5.0 │ 50  │ 90  │ 98  │ 99.5│99.99│
+└─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┘
+  ← small clusters near extremes: high accuracy at p0, p100 →
+  ← large clusters in middle: less precision needed there →
+
+Scale function controls centroid size: k(q) ~ δ/2π × arcsin(2q - 1)
+→ centroids near q=0 and q=1 stay tiny → tail accuracy
+</code></pre>
+<p><strong>Key properties (T-Digest):</strong></p>
+<ul>
+<li>~1-5KB regardless of data volume (compression param δ ≈ 100-200)</li>
+<li>Mergeable: combine T-Digests from different shards/time windows</li>
+<li>Relative error &lt; 1% at extreme quantiles (p99.9, p99.99)</li>
+<li>~100ns per add, ~200ns per quantile query</li>
+</ul>
+<p><strong>DDSketch</strong> (Masson et al., 2019, used in Datadog):</p>
+<pre><code>Logarithmic bins with guaranteed relative error:
+
+bin_index = ⌊log_γ(value)⌋   where γ = (1+α)/(1-α)
+
+Bins:  [...| count | count | count | count |...]
+          0.9-1.0  1.0-1.1  1.1-1.21  ...
+
+Relative accuracy α guaranteed for ALL quantiles (not just tails)
+</code></pre>
+<ul>
+<li>Fully mergeable with no accuracy loss</li>
+<li>Fixed memory: ~2KB for α=1% across any data range</li>
+<li>CollapsingLowestDense variant: bounded memory even for extreme ranges</li>
+</ul>
+<hr />
+<h2 id="36-eytzinger-layout-cache-oblivious-search">36. <strong>Eytzinger Layout / Cache-Oblivious Search</strong></h2>
+<p><strong>Used in:</strong> Database index nodes, SIMD binary search, high-frequency trading</p>
+<p>Reorganizes sorted arrays into implicit tree layouts for branch-free, prefetch-friendly search.</p>
+<pre><code>Sorted array:     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+Eytzinger layout: [_, 8, 4, 12, 2, 6, 10, 14, 1, 3, 5, 7, 9, 11, 13, 15]
+                   ↑  └── root at index 1
+                   unused
+Children of node i: left = 2i, right = 2i+1  (implicit, no pointers)
+
+Prefetch: at depth d, we know all possible nodes at depth d+2
+          → prefetch both children before comparison resolves
+</code></pre>
+<pre><code data-lang="cpp">// Branchless Eytzinger search with prefetch
+int eytzinger_search(int* a, int n, int key) {
+    int i = 1;
+    while (i &lt;= n) {
+        __builtin_prefetch(&amp;a[2 * i]);      // prefetch children
+        __builtin_prefetch(&amp;a[2 * i + 1]);
+        i = 2 * i + (a[i] &lt; key);           // branchless: no misprediction
+    }
+    // i now encodes the result via bit manipulation
+    return (i &gt;&gt; __builtin_ffs(~i)) - 1;
+}
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>~2× faster than <code>std::lower_bound</code> for N &gt; 1K (Khuong &amp; Morin, 2017)</li>
+<li>Zero branch mispredictions (converted to conditional moves)</li>
+<li>Prefetch two levels ahead → cache misses fully overlapped</li>
+<li>Works because implicit tree has perfect locality at each level</li>
+</ul>
+<p><strong>Van Emde Boas layout</strong> (cache-oblivious):</p>
+<ul>
+<li>Recursively split tree into top and bottom √N subtrees</li>
+<li>Optimal for any unknown cache line / page size</li>
+<li>Asymptotically best I/O: O(logₐ N) where B = block size</li>
+</ul>
+<p><strong>FAST</strong> (Schlegel et al., 2009): SIMD-friendly tree with k-ary nodes matching SIMD width. Compare 4-16 keys per cycle.</p>
+<hr />
+<h2 id="37-flat-combining">37. <strong>Flat Combining</strong></h2>
+<p><strong>Used in:</strong> Concurrent stacks, queues, priority queues, counters, skip lists</p>
+<p>Technique that batches concurrent operations through a single combiner thread, eliminating contention.</p>
+<pre><code>Thread 1 ──→ ┌─────────────────────┐
+Thread 2 ──→ │  Publication List    │──→ Combiner thread
+Thread 3 ──→ │  (per-thread slots)  │    (winner of lock)
+Thread 4 ──→ └─────────────────────┘    applies ALL pending ops
+
+Timeline:
+  T1: publish(push, 5)  ─┐
+  T2: publish(push, 3)   ├─→ T2 wins lock, becomes combiner
+  T3: publish(pop)       ─┤   T2 executes: push(5), push(3), pop → result for T3
+  T4: publish(push, 7)  ─┘   All threads get results without touching shared state
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Eliminates CAS contention: only one thread modifies the data structure</li>
+<li>Sequential data structure underneath — no concurrent complexity</li>
+<li>Throughput scales with core count despite single combiner</li>
+<li>Cache benefit: combiner has hot cache lines, batch amortizes misses</li>
+<li>~2-10× throughput vs. lock-free alternatives at high contention</li>
+</ul>
+<p><strong>Paper:</strong> Hendler et al., "Flat Combining and the Synchronization-Parallelism Tradeoff" (SPAA 2010)</p>
+<p><strong>Related — RCU (Read-Copy-Update):</strong></p>
+<ul>
+<li>Linux kernel's dominant read-side synchronization</li>
+<li>Readers: zero overhead (no locks, no atomics, no barriers on x86)</li>
+<li>Writers: copy structure, update, wait for grace period (all readers done), free old</li>
+<li>Used for: routing tables, module lists, <code>/proc</code> filesystem — anything read-mostly</li>
+</ul>
+<hr />
+<h2 id="38-minimal-perfect-hash-functions-mphf">38. <strong>Minimal Perfect Hash Functions (MPHF)</strong></h2>
+<p><strong>Used in:</strong> Compiler symbol tables, static databases, search engine indexes, bioinformatics (k-mer lookup)</p>
+<p>Maps N keys to [0, N) with zero collisions and zero wasted slots. Build once, query O(1).</p>
+<pre><code>Keys: {&quot;cat&quot;, &quot;dog&quot;, &quot;fish&quot;, &quot;bird&quot;}  →  MPHF  →  {0, 1, 2, 3}
+
+No collisions, no empty slots, no probing — just one function evaluation.
+
+Construction (CHD / RecSplit):
+  1. Find hash functions that map keys to graph/hypergraph
+  2. Solve assignment via peeling/splitting
+  3. Store compact representation (~2-3 bits/key)
+</code></pre>
+<p><strong>RecSplit</strong> (Esposito et al., 2020): near-optimal at 1.56 bits/key:</p>
+<ul>
+<li>Recursively split keys into buckets until solvable</li>
+<li>At each level, try random bijections; store the seed that works</li>
+<li>Theoretically optimal: information-theoretic lower bound is ~1.44 bits/key</li>
+</ul>
+<p><strong>PTHash</strong> (Pibiri &amp; Trani, 2021): ~3-4 bits/key, extremely fast queries:</p>
+<ul>
+<li>Pilot-based construction: find pilot values that avoid collisions per bucket</li>
+<li>~40ns queries (single cache miss), builds in ~100ns/key</li>
+<li>Used in genomics for k-mer dictionaries with billions of keys</li>
+</ul>
+<p><strong>BBHash</strong> (Limasset et al., 2017): embarrassingly parallel construction:</p>
+<ul>
+<li>Iterative: hash all keys, keep those with unique positions, repeat on remainder</li>
+<li>~3 bits/key, parallelizes trivially across cores/machines</li>
+<li>Scales to billions of keys in minutes</li>
+</ul>
+<p><strong>Use case — Static function (not just bijection):</strong></p>
+<ul>
+<li>Store f: keys → values by building MPHF, then array[mphf(key)] = value</li>
+<li>Lookup: array[mphf(key)] — O(1), zero wasted space</li>
+<li>Not suitable if keys change; rebuild required</li>
+</ul>
+<hr />
+<h2 id="39-compressed-sparse-row-csr-graph-compression">39. <strong>Compressed Sparse Row (CSR) / Graph Compression</strong></h2>
+<p><strong>Used in:</strong> GraphBLAS, Neo4j, Scipy sparse matrices, PageRank, ML adjacency tensors</p>
+<p>The standard in-memory format for large sparse graphs. Eliminates per-edge pointer overhead.</p>
+<pre><code>Adjacency list (naive): each vertex has a Vec&lt;Edge&gt; → pointer per vertex, overhead per vec
+
+CSR: two flat arrays
+
+Vertex:    0     1     2     3     4
+          │     │     │     │     │
+offsets:  [0,    2,    5,    5,    7,   8]   ← cumulative edge count
+edges:    [1, 3, 0, 2, 4, _, 1, 3, 2]       ← destination vertices (packed)
+
+Neighbors of vertex 1: edges[offsets[1]..offsets[2]] = edges[2..5] = [0, 2, 4]
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Space: exactly |V|+1 + |E| integers (no pointers, no overhead)</li>
+<li>Sequential scan of neighbors: perfect cache locality</li>
+<li>~4-8× less memory than adjacency list with <code>Vec&lt;Vec&lt;u32&gt;&gt;</code></li>
+<li>Immutable; for dynamic graphs use CSR + delta log or adjacency list</li>
+</ul>
+<p><strong>WebGraph Framework</strong> (Boldi &amp; Vigna, 2004):</p>
+<ul>
+<li>Compresses web graphs to ~1-3 bits/edge (vs. 32 bits uncompressed)</li>
+<li>Techniques: reference chains, gap coding, ζ codes, interval encoding</li>
+<li>BV compression of a 1B edge web graph: ~400MB (vs. ~4GB CSR)</li>
+</ul>
+<p><strong>Graph compression SOTA:</strong></p>
+<ul>
+<li><strong>Ligra+</strong> (Shun et al., 2015): compressed in-memory graphs with parallel processing</li>
+<li><strong>Log(Graph)</strong> (Besta et al., 2019): logarithmic-space succinct graph representations</li>
+<li><strong>Terrace</strong> (Pandey et al., 2021): B-tree-based dynamic graph with CSR-like scan performance</li>
+</ul>
+<hr />
+<h2 id="40-simd-vectorized-structures">40. <strong>SIMD-Vectorized Structures</strong></h2>
+<p><strong>Used in:</strong> DuckDB, ClickHouse, Velox, Polars, simdjson, hyperscan</p>
+<p>Structures and algorithms redesigned from scratch to exploit 128/256/512-bit SIMD.</p>
+<pre><code>Traditional: process 1 element per cycle
+SIMD:        process 4/8/16/32/64 elements per cycle
+
+Example — Vectorized hash probe (DuckDB style):
+
+Input keys:  [k0, k1, k2, k3, k4, k5, k6, k7]  (8 × 32-bit in AVX2)
+
+Step 1: Hash all 8 keys in parallel
+  hashes = _mm256_mullo_epi32(keys, golden_ratio_vec);
+
+Step 2: Gather 8 hash table entries simultaneously
+  entries = _mm256_i32gather_epi32(table, hashes, 4);
+
+Step 3: Compare all 8 entries with keys
+  matches = _mm256_cmpeq_epi32(entries, keys);
+
+Step 4: Extract match mask
+  mask = _mm256_movemask_epi8(matches);
+  // Process hits with PDEP/PEXT bit manipulation
+</code></pre>
+<p><strong>Key SIMD primitives and their uses:</strong></p>
+<table><thead><tr><th>Instruction</th><th>Use</th></tr></thead><tbody>
+<tr><td><code>cmpeq</code></td><td>Parallel comparison (hash probes, string search)</td></tr>
+<tr><td><code>movemask</code></td><td>Convert SIMD comparison to scalar bitmask</td></tr>
+<tr><td><code>shuffle/permute</code></td><td>Partition, filter, gather results</td></tr>
+<tr><td><code>gather/scatter</code></td><td>Indirect load/store (hash table probing)</td></tr>
+<tr><td><code>popcnt</code></td><td>Count matches, cardinality</td></tr>
+<tr><td><code>lzcnt/tzcnt</code></td><td>Find first match, skip empty slots</td></tr>
+<tr><td><code>pext/pdep</code></td><td>Compress/expand based on bitmask (BMI2)</td></tr>
+</tbody></table>
+<p><strong>SIMD-friendly filter (Vectorized selection scan):</strong></p>
+<pre><code>Predicate: column &gt; 42
+
+col_values: [10, 55, 3, 99, 42, 67, 8, 51]  (load 8 at once)
+threshold:  [42, 42, 42, 42, 42, 42, 42, 42]
+cmp_result: [ 0,  1, 0,  1,  0,  1, 0,  1]  → bitmask = 0b10101010
+selected_indices = [1, 3, 5, 7]               → via PEXT or lookup table
+</code></pre>
+<p><strong>Structures redesigned for SIMD:</strong></p>
+<ul>
+<li><strong>SIMD-Scan</strong> (Polychroniou et al., 2015): vectorized hash join, 4-8× over scalar</li>
+<li><strong>SIMDified Bloom filter</strong>: check all k hash positions with one SIMD compare</li>
+<li><strong>Vectorized sorting networks</strong>: bitonic/merge networks for small arrays</li>
+<li><strong>SIMD-friendly B-tree nodes</strong>: pack keys for SIMD comparison instead of binary search</li>
+<li><strong>simdjson</strong>: parses JSON at &gt;2GB/s via structural character classification with SIMD</li>
+</ul>
+<hr />
+<h2 id="41-distributed-hash-tables-chord-kademlia">41. <strong>Distributed Hash Tables (Chord / Kademlia)</strong></h2>
+<p><strong>Used in:</strong> BitTorrent (Kademlia), IPFS, Ethereum devp2p, Cassandra (modified), Amazon Dynamo (inspired)</p>
+<p>Decentralized key-value lookup across N nodes with O(log N) hops and no central directory.</p>
+<pre><code>Chord Ring (Stoica et al., 2001):
+
+Node IDs and keys mapped to same m-bit identifier space (e.g., SHA-1)
+
+      ┌──── N1 ◄── responsible for keys in (N56, N1]
+      │
+ N56 ─┤         N8
+      │        ╱
+ N51 ─┤    N14
+      │    ╱
+ N42 ─┼─ N21
+      │    ╲
+ N38 ─┤    N32
+      │
+      └── N35
+
+Finger table at node N8 (shortcuts across the ring):
+  finger[1] = successor(8 + 2⁰) = N14     ← 1 hop forward
+  finger[2] = successor(8 + 2¹) = N14     ← 2 hops forward
+  finger[3] = successor(8 + 2²) = N14     ← 4 hops forward
+  finger[4] = successor(8 + 2³) = N21     ← 8 hops forward
+  finger[5] = successor(8 + 2⁴) = N32     ← 16 hops forward
+  finger[6] = successor(8 + 2⁵) = N42     ← 32 hops forward
+
+Lookup(key=30): N8 → finger[5]=N32 too far → finger[4]=N21 → N21.successor=N32
+  → 2 hops (O(log N))
+</code></pre>
+<p><strong>Kademlia (Maymounkov &amp; Mazieres, 2002):</strong></p>
+<ul>
+<li>Distance = XOR of node IDs (symmetric, forms ultrametric space)</li>
+<li>k-buckets: each node keeps k contacts per distance range</li>
+<li>Iterative lookup: α parallel queries per step → faster convergence</li>
+<li>No stabilization protocol needed (XOR topology self-heals)</li>
+<li>Used by BitTorrent DHT: ~25M concurrent nodes</li>
+</ul>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>O(log N) routing hops, O(log N) state per node</li>
+<li>Churn handling: Chord needs stabilization; Kademlia uses lazy eviction</li>
+<li>Security: Eclipse attacks mitigated via routing table constraints, diverse lookups</li>
+</ul>
+<hr />
+<h2 id="42-epoch-based-reclamation-hazard-pointers">42. <strong>Epoch-Based Reclamation / Hazard Pointers</strong></h2>
+<p><strong>Used in:</strong> Crossbeam (Rust), ConcurrentHashMap (Java), Folly (C++), Linux kernel RCU</p>
+<p>Safe memory reclamation for lock-free structures — the "garbage collection" problem for concurrent systems.</p>
+<pre><code>Problem: Thread A reads node X while Thread B unlinks and frees X → use-after-free
+
+Epoch-Based Reclamation (Fraser, 2004):
+
+Global epoch: 2
+Thread states:
+  T1: active, epoch=2    ← entered critical section at epoch 2
+  T2: active, epoch=2
+  T3: inactive
+
+Retire(node): add to garbage[current_epoch]
+Advance epoch: only when ALL active threads have observed current epoch
+
+  garbage[0]: [X, Y]   ← safe to free (epoch 2, all threads past epoch 0)
+  garbage[1]: [Z]       ← safe to free
+  garbage[2]: [W, V]    ← NOT safe yet (threads still in epoch 2)
+</code></pre>
+<p><strong>Hazard Pointers</strong> (Michael, 2004):</p>
+<pre><code>Each thread publishes pointers it&#39;s currently accessing:
+
+T1 hazard list: [ptr_A, ptr_C, null, null]
+T2 hazard list: [ptr_B, null, null, null]
+
+Retire(ptr_X):
+  scan all hazard lists
+  if ptr_X not in any list → free immediately
+  else → defer to later scan
+
+Bounded garbage: at most O(T × K) unfreed objects (T threads, K hazards/thread)
+</code></pre>
+<p><strong>Comparison:</strong></p>
+<table><thead><tr><th>Scheme</th><th>Amortized overhead</th><th>Max garbage</th><th>Read-side cost</th><th>Reclaim latency</th></tr></thead><tbody>
+<tr><td>Epoch-based</td><td>O(1)</td><td>Unbounded*</td><td>Near-zero</td><td>Delayed (epoch)</td></tr>
+<tr><td>Hazard pointers</td><td>O(T) per retire</td><td>O(T × K)</td><td>1 store + fence</td><td>Scan-based</td></tr>
+<tr><td>RCU</td><td>O(1)</td><td>O(T × grace)</td><td>Zero (x86)</td><td>Grace period</td></tr>
+<tr><td>Reference counting</td><td>O(1)</td><td>Zero</td><td>Atomic inc/dec</td><td>Immediate</td></tr>
+</tbody></table>
+<p>*Quiescent-state-based reclamation (QSBR) bounds this by requiring periodic quiescent points.</p>
+<p><strong>Hyaline</strong> (Nikolaev et al., 2020): combines benefits of epoch and hazard pointers, bounded reclamation with low overhead.</p>
+<hr />
+<h2 id="43-vector-clocks-hybrid-logical-clocks">43. <strong>Vector Clocks / Hybrid Logical Clocks</strong></h2>
+<p><strong>Used in:</strong> Dynamo/DynamoDB, Riak, CockroachDB (HLC), Spanner (TrueTime), causal consistency protocols</p>
+<p>Logical timestamps for ordering events in distributed systems without synchronized physical clocks.</p>
+<pre><code>Vector Clocks (Fidge/Mattern, 1988):
+
+Each node maintains a vector of counters, one per node:
+
+  Event at Node A:  A increments VC[A]
+  Send message:     attach current VC
+  Receive message:  VC[i] = max(local[i], received[i]) for all i; increment VC[self]
+
+Node A: [1,0,0] → [2,0,0] ──msg──→ Node B: max([0,1,0],[2,0,0]) = [2,1,0] → [2,2,0]
+                                                                        │
+Node C: [0,0,1] ──msg──→ Node B: max([2,2,0],[0,0,1]) = [2,3,1]      │
+                                                                        │
+Causality: VC_a &lt; VC_b iff ∀i: VC_a[i] ≤ VC_b[i] and ∃j: VC_a[j] &lt; VC_b[j]
+Concurrent: neither VC_a &lt; VC_b nor VC_b &lt; VC_a  → conflict!
+</code></pre>
+<p><strong>Problem:</strong> Vector clocks grow with number of nodes (O(N) per timestamp).</p>
+<p><strong>Hybrid Logical Clocks</strong> (Kulkarni et al., 2014):</p>
+<pre><code>HLC = (physical_time, logical_counter)
+
+  physical component: max(local_wall_clock, received_physical)
+  logical component:  tiebreaker when physical times collide
+
+Size: constant (just 2 integers), regardless of cluster size
+Guarantees:
+  - If e → f (causally), then HLC(e) &lt; HLC(f)
+  - HLC is always within ε of physical time (bounded drift)
+  - Compatible with NTP-synchronized clocks
+</code></pre>
+<p><strong>Used in CockroachDB:</strong> HLC provides causal ordering for MVCC timestamps with ~150ms max clock skew tolerance.</p>
+<p><strong>Spanner TrueTime:</strong> GPS + atomic clocks → bounded uncertainty interval [earliest, latest]. Wait out uncertainty before committing → external consistency (linearizability).</p>
+<p><strong>Interval Tree Clocks</strong> (Almeida et al., 2008): fork/join model, supports dynamic number of participants without ID allocation.</p>
+<hr />
+<h2 id="44-tournament-loser-trees">44. <strong>Tournament / Loser Trees</strong></h2>
+<p><strong>Used in:</strong> External merge sort (every database's sort operator), K-way merge in LSM compaction, priority-queue replacement</p>
+<p>Binary tree of comparisons for efficient K-way merging. Loser tree variant avoids redundant comparisons.</p>
+<pre><code>4-way merge of sorted runs: [2,5,8], [1,4,9], [3,6,7], [0,10,11]
+
+Loser tree (stores loser at each internal node, winner propagates up):
+
+            ┌───────┐
+            │ W: 0  │  ← overall winner (output next)
+            │ L: 1  │  ← loser stored here
+            └───┬───┘
+          ┌─────┴─────┐
+       ┌──┴──┐     ┌──┴──┐
+       │ L:2 │     │ L:3 │
+       └──┬──┘     └──┬──┘
+        ┌─┴─┐       ┌─┴─┐
+       [0] [2]     [1] [3]   ← leaf: current head of each run
+        0   2       1   3    ← values
+
+Output 0, advance run[0] to next value (10):
+  Only replay path from leaf[0] to root: 3 comparisons for 4-way merge
+  (vs. 3 comparisons per element for naive tournament)
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>K-way merge: O(log K) comparisons per output element</li>
+<li>Loser tree: winner just needs to replay against stored losers on its path</li>
+<li>Replacement selection: output element, replace with next from same run, replay</li>
+<li>Used in external sort: merge ~256-1024 runs simultaneously</li>
+<li>SIMD variant: compare K elements per node where K = SIMD width</li>
+</ul>
+<p><strong>Cache-optimized multi-way merge:</strong></p>
+<ul>
+<li>Each run buffered in memory → sequential reads</li>
+<li>Loser tree fits in L1 cache for K ≤ ~256</li>
+<li>Doubles I/O bandwidth utilization vs. 2-way merge</li>
+</ul>
+<hr />
+<h2 id="45-compact-trie-double-array-trie">45. <strong>Compact Trie / Double-Array Trie</strong></h2>
+<p><strong>Used in:</strong> ICU (Unicode), MeCab (Japanese NLP), IP routing (DPDK), Linux kernel <code>fib_trie</code></p>
+<p>Extremely memory-efficient trie encoding using two parallel arrays. O(1) per trie transition.</p>
+<pre><code>Standard trie: each node has up to |Σ| child pointers → wasteful for sparse tries
+
+Double-array trie (Aoe, 1989):
+  BASE[s] + c = t        ← transition from state s via char c lands at state t
+  CHECK[t] = s           ← verify that t&#39;s parent is indeed s
+
+Arrays:
+Index: [ 0   1   2   3   4   5   6   7   8   9  ...]
+BASE:  [ 1   3   _   5   _   7   _   _   _   _  ...]
+CHECK: [-1   0   _   0   _   1   _   _   _   _  ...]
+
+Lookup &quot;ab&quot; (a=0, b=1):
+  state=0: BASE[0]+0=1, CHECK[1]=0 ✓ → state=1
+  state=1: BASE[1]+1=4, but CHECK[4]≠1 → not found
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Two integers per state (vs. |Σ| pointers in naive trie)</li>
+<li>O(1) per character lookup (array indexing, no pointer chasing)</li>
+<li>Cache-friendly: sequential array access patterns</li>
+<li>Dynamic variant (CEDAR, Yoshinaga &amp; Kitsuregawa, 2014): supports insert/delete</li>
+<li>HAT-trie (Askitis &amp; Sinha, 2007): hybrid hash + trie, faster than std::unordered_map for strings</li>
+</ul>
+<hr />
+<h2 id="46-sketch-structures-theta-sketch-kll-sketch">46. <strong>Sketch Structures (Theta Sketch / KLL Sketch)</strong></h2>
+<p><strong>Used in:</strong> Apache Datasketches, Druid, Snowflake, BigQuery, Presto</p>
+<p>Sub-linear space summaries enabling set operations and quantile estimation at scale.</p>
+<pre><code>Theta Sketch (set operations):
+
+Concept: keep all hash values below threshold θ
+
+Stream A:  h(a1)=0.1, h(a2)=0.7, h(a3)=0.3, h(a4)=0.9  (θ=0.5 → keep {0.1, 0.3})
+Stream B:  h(b1)=0.2, h(b2)=0.4, h(b3)=0.8              (θ=0.5 → keep {0.2, 0.4})
+
+Union:     {0.1, 0.2, 0.3, 0.4}, θ=0.5 → |estimate| = 4/0.5 = 8
+Intersect: {}, θ=0.5 → |estimate| = 0
+Difference: sketch(A) - sketch(B) via inclusion-exclusion
+</code></pre>
+<p><strong>KLL Sketch</strong> (Karnin, Lang, Liberty, 2016) — mergeable quantile sketch:</p>
+<ul>
+<li>Space: O(1/ε × log log(1/δ)) — nearly optimal</li>
+<li>Supports merge across distributed nodes with no accuracy loss</li>
+<li>Replaced GK-sketch (2001) as the standard; used in Apache Datasketches</li>
+<li>Relative-error variant (ReqSketch, 2021): constant relative error at all quantiles</li>
+</ul>
+<p><strong>Frequent Directions</strong> (Liberty, 2013) — streaming matrix sketch:</p>
+<ul>
+<li>Maintains low-rank approximation of a matrix in O(d × ℓ) space</li>
+<li>Covariance matrix estimation for streaming PCA</li>
+<li>Generalization of Misra-Gries heavy hitters to matrix setting</li>
+</ul>
+<hr />
+<h2 id="47-segment-tree-with-lazy-propagation">47. <strong>Segment Tree (with Lazy Propagation)</strong></h2>
+<p><strong>Used in:</strong> Database range aggregates, computational geometry, HFT interval queries, game physics (AABB)</p>
+<p>Supports arbitrary range queries and range updates in O(log N) per operation.</p>
+<pre><code>Array: [1, 3, 5, 7, 2, 4, 6, 8]
+
+Segment tree (sum):
+                    [36]               range [0,7]
+                   /    \
+              [16]        [20]         [0,3] [4,7]
+             /    \      /    \
+          [4]    [12]  [6]    [14]     [0,1] [2,3] [4,5] [6,7]
+         / \    / \   / \    / \
+        1   3  5   7 2   4  6   8     individual elements
+
+Query sum([2,5]): decompose into [2,3] + [4,5] = 12 + 6 = 18  (2 nodes)
+</code></pre>
+<p><strong>Lazy propagation</strong> — batch range updates:</p>
+<pre><code>&quot;Add 10 to all elements in [0, 5]&quot;
+
+Instead of updating 6 leaves: mark internal nodes with pending updates
+Node [0,3]: lazy_add = 10  ← propagate only when children queried
+Node [4,5]: lazy_add = 10
+
+Query/update pushes lazy values down on demand → O(log N) amortized
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Any associative operation: sum, min, max, gcd, matrix multiply</li>
+<li>Persistent segment tree: O(log N) per version, shares structure</li>
+<li>2D segment tree: O(log² N) per query for rectangle operations</li>
+<li>Merge sort tree: segment tree of sorted arrays → O(log² N) count-in-range</li>
+</ul>
+<p><strong>Fractional Cascading</strong> (Chazelle &amp; Guibas, 1986): accelerates successive binary searches across sorted lists from O(k log N) to O(k + log N). Used with layered range trees.</p>
+<hr />
+<h2 id="48-treap-tree-heap">48. <strong>Treap (Tree + Heap)</strong></h2>
+<p><strong>Used in:</strong> Randomized BSTs, implicit treaps for arrays, persistent balanced trees, competitive programming</p>
+<p>Balanced BST using random priorities. Simpler than red-black trees, elegant for split/merge operations.</p>
+<pre><code>         (K=5, P=93)          Keys form BST (left &lt; root &lt; right)
+          /        \          Priorities form max-heap (parent &gt; children)
+   (K=2, P=82)  (K=8, P=77)
+    /     \        /     \
+(K=1,P=5) (K=3,P=43) (K=7,P=61) (K=9,P=19)
+
+Split(tree, key=6):
+  → Left tree: all keys ≤ 6    Right tree: all keys &gt; 6
+  O(log N) expected, directly follows search path
+
+Merge(left, right):
+  → Combine by priority: higher priority becomes root
+  O(log N) expected
+</code></pre>
+<p><strong>Implicit Treap</strong> — array with O(log N) insert/delete at any position:</p>
+<ul>
+<li>No explicit keys; position determined by subtree sizes</li>
+<li>Split at position k: left gets first k elements, right gets rest</li>
+<li>Supports reverse, cyclic shift, range assignment — all O(log N)</li>
+<li>Alternative to rope for sequence operations</li>
+</ul>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Expected O(log N) height with random priorities</li>
+<li>Split + Merge = all balanced BST operations</li>
+<li>Persistent variant: path copy during split/merge → O(log N) per version</li>
+<li>Much simpler to implement than red-black or AVL trees</li>
+</ul>
+<hr />
+<h2 id="49-clock-clock-pro-arc-adaptive-replacement-cache">49. <strong>Clock / CLOCK-Pro / ARC (Adaptive Replacement Cache)</strong></h2>
+<p><strong>Used in:</strong> Operating system page caches, PostgreSQL buffer manager, ZFS ARC, database buffer pools</p>
+<p>Eviction policies that adapt to workload patterns, beating LRU on mixed access patterns.</p>
+<pre><code>LRU problem: a single full table scan evicts the entire working set
+
+CLOCK (approximation of LRU):
+  Circular buffer of pages, each with a &quot;referenced&quot; bit
+  ┌───┬───┬───┬───┬───┬───┬───┬───┐
+  │ 1 │ 0 │ 1 │ 1 │ 0 │ 0 │ 1 │ 0 │  ← reference bits
+  └───┴───┴───┴───┴───┴───┴───┴───┘
+                      ↑ hand
+  Evict: advance hand; if ref=1, clear to 0 and skip; if ref=0, evict.
+
+ARC (Megiddo &amp; Modha, 2003):
+  ┌─────────┬─────────┬──────────┬──────────┐
+  │ Ghost B1│ Cache T1│ Cache T2 │ Ghost B2 │
+  │(recently│(recency)│(frequency│(recently │
+  │ evicted │         │ ≥2 hits) │ evicted  │
+  │ from T1)│         │          │ from T2) │
+  └─────────┴─────────┴──────────┴──────────┘
+            ↑─── p ───↑ (adaptive partition point)
+
+  Hit in B1 ghost → increase p (favor recency, grow T1)
+  Hit in B2 ghost → decrease p (favor frequency, grow T2)
+  Adapts online to workload: scan-resistant AND frequency-aware
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>ARC: self-tuning, no parameters, scan-resistant, O(1) per operation</li>
+<li>Outperforms LRU by 2-20% hit rate on real workloads</li>
+<li>Patent-encumbered (IBM) → many systems use CLOCK-Pro or LIRS instead</li>
+</ul>
+<p><strong>CLOCK-Pro</strong> (Jiang et al., 2005): approximation of LIRS, three "hands":</p>
+<ul>
+<li>Separates cold and hot pages</li>
+<li>Scan-resistant without ghost lists (lower memory than ARC)</li>
+<li>Used in Linux kernel as an alternative page replacement candidate</li>
+</ul>
+<p><strong>2Q</strong> (Johnson &amp; Shasha, 1994): two queues (FIFO for new, LRU for promoted) — simpler than ARC, used in PostgreSQL buffer manager.</p>
+<hr />
+<h2 id="50-conflict-free-replicated-registers-maps-d-crdts">50. <strong>Conflict-Free Replicated Registers / Maps (δ-CRDTs)</strong></h2>
+<p><strong>Used in:</strong> Redis Enterprise (Active-Active), Automerge 2.0, Electric SQL, Loro</p>
+<p>Optimized CRDTs that transmit only deltas rather than full state, reducing network cost by orders of magnitude.</p>
+<pre><code>Classic state-based CRDT: ship entire state on every sync
+  Node A sends: {counter: [A:50, B:30, C:10]}  ← 90 bytes for 3 nodes
+
+δ-CRDT: ship only the delta since last sync
+  Node A sends: {counter: [A:+3]}               ← 8 bytes
+
+δ-group: collect deltas over interval, merge, ship batch:
+  Δ = δ₁ ⊔ δ₂ ⊔ δ₃  (merge deltas, then send)
+  Receiver: state&#39; = state ⊔ Δ
+</code></pre>
+<p><strong>δ-CRDT Maps</strong> (Almeida et al., 2018):</p>
+<pre><code>Nested map with per-field CRDTs:
+{
+  &quot;user&quot;: LWW-Register(&quot;alice&quot;),          ← last-writer-wins
+  &quot;items&quot;: OR-Set({item1, item2, item3}), ← add-wins set
+  &quot;count&quot;: PN-Counter(7),                 ← increment/decrement
+  &quot;doc&quot;:   RGA(&quot;hello world&quot;)             ← replicated list/text
+}
+
+Delta for adding item4:
+  Δ = {&quot;items&quot;: {add: item4, causal_context: [(A,15)]}}
+  Size: O(1) regardless of set size
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Network cost: O(delta) instead of O(state) per sync</li>
+<li>Causal consistency via dotted version vectors (compact causal metadata)</li>
+<li>Anti-entropy: periodic delta shipping catches missed real-time updates</li>
+<li>Garbage collection: prune causal metadata when all replicas have converged</li>
+</ul>
+<p><strong>Automerge 2.0 (Columnar CRDT):</strong></p>
+<ul>
+<li>Stores CRDT metadata in columnar format (compressed operation log)</li>
+<li>10-100× less memory than row-based CRDT storage</li>
+<li>Supports text, JSON-like documents, tables</li>
+</ul>
+<hr />
+<h2 id="51-bw-tree-buzzword-tree">51. <strong>Bw-Tree (Buzzword Tree)</strong></h2>
+<p><strong>Used in:</strong> Microsoft SQL Server Hekaton, Azure Cosmos DB, Silo</p>
+<p>Lock-free B+-tree using delta chains and logical-to-physical page mapping. Designed for modern multi-core + flash.</p>
+<pre><code>Mapping Table (logical → physical):
+┌─────┬────────────┐
+│ PID │ Phys Addr  │
+├─────┼────────────┤
+│  0  │ → Node A   │
+│  1  │ → Δ₃→Δ₂→Δ₁→Node B │  ← delta chain
+│  2  │ → Node C   │
+└─────┴────────────┘
+
+Update page 1:
+  1. Create delta record Δ₄ (insert/delete)
+  2. Δ₄.next = current mapping[1]
+  3. CAS mapping[1] from old to Δ₄
+  → Lock-free! Failed CAS = contention, just retry
+
+Consolidation: when chain too long, merge deltas into new base page, CAS mapping
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>No latching on pages: all updates via CAS on mapping table</li>
+<li>Delta chains amortize write amplification (no full page rewrite per update)</li>
+<li>Elastic page sizes: pages grow/shrink via split/merge deltas</li>
+<li>Flash-friendly: log-structured writes, sequential I/O</li>
+<li>Epoch-based GC for old pages and delta records</li>
+</ul>
+<p><strong>OpenBw-Tree</strong> (Wang et al., 2018): open-source reimplementation:</p>
+<ul>
+<li>Found Bw-tree often slower than optimistic-lock-coupled B+-tree in practice</li>
+<li>Delta chain traversal costs more cache misses than anticipated</li>
+<li>Mapping table indirection adds ~1 cache miss per access</li>
+</ul>
+<p><strong>Lesson:</strong> Lock-free ≠ faster. Optimistic lock coupling on B+-trees often wins due to simpler cache access patterns.</p>
+<hr />
+<h2 id="52-splay-tree">52. <strong>Splay Tree</strong></h2>
+<p><strong>Used in:</strong> Link-Cut trees (network flow), compression (move-to-front), memory allocators (dlmalloc), cache-like structures</p>
+<p>Self-adjusting BST that moves accessed nodes to root via rotations. Amortized O(log N) with working-set optimality.</p>
+<pre><code>Access node X → splay X to root via zig-zig, zig-zag, zig rotations:
+
+Before accessing 1:          After splaying 1 to root:
+        5                           1
+       / \                           \
+      3   7                           3
+     /                               / \
+    2                               2   5
+   /                                     \
+  1  ← access this                        7
+
+Working Set Property:
+  If you access the same k elements repeatedly,
+  amortized cost = O(log k), NOT O(log N)
+  → adapts to temporal locality automatically
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>No balance metadata stored (no colors, no heights)</li>
+<li>O(log N) amortized for all operations (Sleator &amp; Tarjan, 1985)</li>
+<li>Static optimality conjecture: within O(1) factor of optimal static BST (unproven)</li>
+<li>Dynamic optimality conjecture: within O(1) of ANY BST algorithm (open for 40 years)</li>
+<li>Bad worst-case: single operation can be O(N), but amortized sequence is O(N log N)</li>
+</ul>
+<p><strong>Link-Cut Trees</strong> (Sleator &amp; Tarjan, 1983):</p>
+<ul>
+<li>Splay trees as auxiliary trees representing paths in a forest</li>
+<li>O(log N) amortized: link, cut, find-root, path-aggregate</li>
+<li>Used in: max-flow algorithms, dynamic connectivity, network optimization</li>
+</ul>
+<hr />
+<h2 id="53-extendible-hashing-linear-hashing">53. <strong>Extendible Hashing / Linear Hashing</strong></h2>
+<p><strong>Used in:</strong> Berkeley DB, early MySQL ISAM, disk-based hash indexes, embedded databases</p>
+<p>Disk-friendly hash tables that grow gracefully without full rehashing.</p>
+<pre><code>Extendible Hashing:
+
+Global directory (depth=2): indexes into buckets by first d bits of hash
+
+  hash prefix → bucket
+  00 → Bucket A [items with hash 00...]
+  01 → Bucket B [items with hash 01...]
+  10 → Bucket C [items with hash 10...]
+  11 → Bucket C [items with hash 10... and 11...] (shared, local depth=1)
+
+Bucket overflow → split ONE bucket, double directory if needed:
+  Bucket C splits: 10→C&#39;, 11→C&#39;&#39;
+  Only C&#39;s entries rehashed — everything else untouched
+</code></pre>
+<p><strong>Linear Hashing</strong> (Litwin, 1980):</p>
+<pre><code>Split pointer advances linearly through buckets:
+
+Buckets:  [B0] [B1] [B2] [B3] [B4]
+                      ↑ split pointer
+
+Lookup(key):
+  h = hash(key) % N       (current table size)
+  if h &lt; split_ptr:
+    h = hash(key) % 2N    (use extended hash range)
+
+Split: take bucket at split_ptr, redistribute using 2N hash
+  → amortized O(1) cost, no directory, smooth growth
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>No full rehash ever: at most one bucket reorganized per split</li>
+<li>Extendible: O(1) lookup (directory + 1 page I/O), directory may fit in memory</li>
+<li>Linear: no directory at all, slightly less uniform but simpler</li>
+<li>Both support ~75-90% fill factor</li>
+</ul>
+<hr />
+<h2 id="54-packed-memory-array-pma-gapped-array">54. <strong>Packed Memory Array (PMA) / Gapped Array</strong></h2>
+<p><strong>Used in:</strong> ALEX (learned index leaves), cache-oblivious B-trees, density-based indexes</p>
+<p>Sorted array with gaps that allows O(log² N) amortized inserts while maintaining cache-friendly sequential layout.</p>
+<pre><code>Logical sorted order: [1, 3, 5, 7, 9, 11, 13, 15]
+
+PMA with gaps (density ~50-75%):
+[ 1 | 3 | _ | 5 | 7 | _ | 9 | _ | 11 | 13 | _ | 15 | _ | _ | _ | _ ]
+
+Insert 6:
+  Find position between 5 and 7
+  Local rebalance: shift within window to maintain density bounds
+
+  [ 1 | 3 | _ | 5 | 6 | 7 | 9 | _ | 11 | 13 | _ | 15 | _ | _ | _ | _ ]
+                     ↑ inserted, neighbors shifted
+
+If local density exceeds threshold → rebalance larger window (amortized)
+Density thresholds at each level: τ_h (upper) and ρ_h (lower)
+</code></pre>
+<p><strong>Key properties:</strong></p>
+<ul>
+<li>Sequential scan: just iterate the flat array, skip gaps (SIMD-friendly)</li>
+<li>Insert: O(log² N) amortized (rebalance cascades at most O(log N) levels)</li>
+<li>Cache-oblivious: no tuning needed for cache line size</li>
+<li>Predecessor/successor: O(1) — just scan forward/backward</li>
+<li>Space overhead: ~2× for gaps (configurable via density bounds)</li>
+</ul>
+<p><strong>Used in ALEX:</strong> Gapped arrays at learned index leaf nodes allow inserts without restructuring the model. Gaps absorb local inserts; when exhausted, split the node.</p>
+<hr />
+<h2 id="comparison-matrix">Comparison Matrix</h2>
+<table><thead><tr><th>#</th><th>Structure</th><th>Lookup</th><th>Insert</th><th>Space</th><th>Use Case</th></tr></thead><tbody>
+<tr><td>1</td><td>Ring Buffer</td><td>O(1)</td><td>O(1)</td><td>O(N)</td><td>IPC, streaming</td></tr>
+<tr><td>2</td><td>Bε-tree</td><td>O(logₐ N)</td><td>O(logₐ N / B)</td><td>O(N)</td><td>Write-heavy DBs</td></tr>
+<tr><td>3</td><td>Skip List</td><td>O(log N)</td><td>O(log N)</td><td>O(N)</td><td>Order books</td></tr>
+<tr><td>4</td><td>HAMT</td><td>O(log₃₂ N)</td><td>O(log₃₂ N)</td><td>O(N)</td><td>Immutable maps</td></tr>
+<tr><td>5</td><td>LSM Tree</td><td>O(log N × L)</td><td>O(1) amort</td><td>O(N)</td><td>Time-series DBs</td></tr>
+<tr><td>6</td><td>Judy Array</td><td>O(key_len)</td><td>O(key_len)</td><td>&lt; O(N)</td><td>Sparse integers</td></tr>
+<tr><td>7</td><td>Cuckoo Hash</td><td>O(1) worst</td><td>O(1) amort</td><td>O(N)</td><td>Packet lookup</td></tr>
+<tr><td>8</td><td>vEB Tree</td><td>O(log log U)</td><td>O(log log U)</td><td>O(U)</td><td>Priority queues</td></tr>
+<tr><td>9</td><td>Rope</td><td>O(log N)</td><td>O(log N)</td><td>O(N)</td><td>Text editors</td></tr>
+<tr><td>10</td><td>ART</td><td>O(k)</td><td>O(k)</td><td>Adaptive</td><td>In-memory indexes</td></tr>
+<tr><td>11</td><td>B+ Tree</td><td>O(log N)</td><td>O(log N)</td><td>O(N)</td><td>Database indexes</td></tr>
+<tr><td>12</td><td>Red-Black Tree</td><td>O(log N)</td><td>O(log N)</td><td>O(N)</td><td>Ordered maps</td></tr>
+<tr><td>13</td><td>Memory Pool</td><td>O(1)</td><td>O(1)</td><td>O(N)</td><td>Fixed-size alloc</td></tr>
+<tr><td>14</td><td>Bloom/Xor/Ribbon</td><td>O(k)</td><td>O(k) / build</td><td>bits/key</td><td>Set membership</td></tr>
+<tr><td>15</td><td>Count-Min Sketch</td><td>O(d)</td><td>O(d)</td><td>O(1/ε log 1/δ)</td><td>Frequency estimation</td></tr>
+<tr><td>16</td><td>HyperLogLog</td><td>—</td><td>O(1)</td><td>O(log log N)</td><td>Cardinality estimation</td></tr>
+<tr><td>17</td><td>HNSW</td><td>O(log N)</td><td>O(log N)</td><td>O(N × M)</td><td>Vector ANN search</td></tr>
+<tr><td>18</td><td>Learned Index</td><td>O(1)+local</td><td>O(log N)</td><td>O(N/ε)</td><td>ML-based indexing</td></tr>
+<tr><td>19</td><td>CRDTs</td><td>O(1)-O(N)</td><td>O(1)</td><td>O(N × replicas)</td><td>Distributed consensus-free</td></tr>
+<tr><td>20</td><td>Succinct / Wavelet</td><td>O(log Σ)</td><td>Static</td><td>n + o(n) bits</td><td>Compressed full-text</td></tr>
+<tr><td>21</td><td>Masstree</td><td>O(k)</td><td>O(k)</td><td>O(N)</td><td>Concurrent KV stores</td></tr>
+<tr><td>22</td><td>CTrie</td><td>O(k)</td><td>O(k)</td><td>O(N)</td><td>Lock-free concurrent maps</td></tr>
+<tr><td>23</td><td>Pairing Heap</td><td>O(1)</td><td>O(1)</td><td>O(N)</td><td>Priority queues</td></tr>
+<tr><td>24</td><td>R*-Tree</td><td>O(N^(1-1/d))</td><td>O(N^(1-1/d))</td><td>O(N)</td><td>Spatial indexing</td></tr>
+<tr><td>25</td><td>Fenwick Tree</td><td>O(log N)</td><td>O(log N)</td><td>O(N)</td><td>Prefix sums</td></tr>
+<tr><td>26</td><td>Persistent BST</td><td>O(log N)</td><td>O(log N)</td><td>O(log N)/op</td><td>Versioned data</td></tr>
+<tr><td>27</td><td>Quotient Filter</td><td>O(1)</td><td>O(1)</td><td>~1.2× Bloom</td><td>Mergeable set membership</td></tr>
+<tr><td>28</td><td>COW B-Tree</td><td>O(log N)</td><td>O(log N)</td><td>O(N)</td><td>Snapshot-friendly DBs</td></tr>
+<tr><td>29</td><td>XOR-Linked List</td><td>O(1) step</td><td>O(1)</td><td>O(N) halved ptrs</td><td>Embedded systems</td></tr>
+<tr><td>30</td><td>Dancing Links</td><td>—</td><td>O(1) cover</td><td>O(N×M)</td><td>Exact cover/backtracking</td></tr>
+<tr><td>31</td><td>Roaring Bitmap</td><td>O(1)</td><td>O(1)</td><td>Adaptive</td><td>Compressed set operations</td></tr>
+<tr><td>32</td><td>Swiss Table</td><td>O(1) avg</td><td>O(1) avg</td><td>O(N)</td><td>General-purpose hash map</td></tr>
+<tr><td>33</td><td>Merkle Tree</td><td>O(log N) proof</td><td>O(log N)</td><td>O(N)</td><td>Integrity verification</td></tr>
+<tr><td>34</td><td>Consistent Hash</td><td>O(log N)</td><td>O(log N)</td><td>O(N log N) vnodes</td><td>Distributed key routing</td></tr>
+<tr><td>35</td><td>T-Digest/DDSketch</td><td>O(1) quantile</td><td>O(1)</td><td>O(1/ε)</td><td>Streaming quantiles</td></tr>
+<tr><td>36</td><td>Eytzinger Layout</td><td>O(log N)</td><td>Static</td><td>O(N)</td><td>Cache-optimal search</td></tr>
+<tr><td>37</td><td>Flat Combining</td><td>O(1) amort</td><td>O(1) amort</td><td>O(N + T)</td><td>High-contention concurrency</td></tr>
+<tr><td>38</td><td>MPHF (RecSplit)</td><td>O(1)</td><td>Static build</td><td>~1.56 bits/key</td><td>Static key→index</td></tr>
+<tr><td>39</td><td>CSR (graphs)</td><td>O(degree)</td><td>Static</td><td>O(V+E)</td><td>Sparse graph storage</td></tr>
+<tr><td>40</td><td>SIMD structures</td><td>O(1)-O(log N)</td><td>varies</td><td>O(N)</td><td>Vectorized computation</td></tr>
+<tr><td>41</td><td>DHT (Chord)</td><td>O(log N) hops</td><td>O(log N)</td><td>O(log N)/node</td><td>Decentralized KV</td></tr>
+<tr><td>42</td><td>Epoch reclamation</td><td>—</td><td>—</td><td>O(T × retired)</td><td>Lock-free memory safety</td></tr>
+<tr><td>43</td><td>Vector Clock/HLC</td><td>O(1) compare</td><td>O(1)</td><td>O(N) or O(1)</td><td>Distributed ordering</td></tr>
+<tr><td>44</td><td>Loser Tree</td><td>O(log K)</td><td>O(log K) replay</td><td>O(K)</td><td>K-way merge</td></tr>
+<tr><td>45</td><td>Double-Array Trie</td><td>O(k)</td><td>O(k) amort</td><td>O(states × 2)</td><td>String dictionary</td></tr>
+<tr><td>46</td><td>Theta/KLL Sketch</td><td>O(1)</td><td>O(1)</td><td>O(1/ε)</td><td>Distributed set/quantile</td></tr>
+<tr><td>47</td><td>Segment Tree</td><td>O(log N)</td><td>O(log N)</td><td>O(N)</td><td>Range query/update</td></tr>
+<tr><td>48</td><td>Treap</td><td>O(log N)*</td><td>O(log N)*</td><td>O(N)</td><td>Split/merge BST</td></tr>
+<tr><td>49</td><td>ARC/CLOCK-Pro</td><td>O(1)</td><td>O(1)</td><td>O(C)</td><td>Adaptive cache eviction</td></tr>
+<tr><td>50</td><td>δ-CRDTs</td><td>O(1)</td><td>O(1)</td><td>O(N × replicas)</td><td>Efficient distributed sync</td></tr>
+<tr><td>51</td><td>Bw-Tree</td><td>O(log N)</td><td>O(log N)</td><td>O(N + deltas)</td><td>Lock-free B-tree</td></tr>
+<tr><td>52</td><td>Splay Tree</td><td>O(log N)*</td><td>O(log N)*</td><td>O(N)</td><td>Working-set adaptive</td></tr>
+<tr><td>53</td><td>Extendible Hash</td><td>O(1)</td><td>O(1) amort</td><td>O(N)</td><td>Disk-friendly hashing</td></tr>
+<tr><td>54</td><td>Packed Memory Array</td><td>O(log N)</td><td>O(log² N)*</td><td>O(N) gaps</td><td>Sorted array + inserts</td></tr>
+</tbody></table>
+<hr />
+<h2 id="further-reading">Further Reading</h2>
+<p><strong>Classic references:</strong></p>
+<ul>
+<li><strong>"Modern B-Tree Techniques"</strong> - Graefe (Foundations and Trends in DBs, 2011)</li>
+<li><strong>"The Adaptive Radix Tree"</strong> - Leis et al. (ICDE 2013)</li>
+<li><strong>"Cuckoo Filter: Practically Better Than Bloom"</strong> - Fan et al. (CoNEXT 2014)</li>
+<li><strong>"LSM-based Storage Techniques: A Survey"</strong> - Luo &amp; Carey (VLDB Journal 2020)</li>
+<li><strong>LMAX Disruptor</strong> - Mechanical sympathy blog</li>
+</ul>
+<p><strong>Probabilistic &amp; streaming:</strong></p>
+<ul>
+<li><strong>"An Improved Data Stream Summary: The Count-Min Sketch"</strong> - Cormode &amp; Muthukrishnan (2005)</li>
+<li><strong>"HyperLogLog in Practice"</strong> - Heule, Nunkesser, Hall (Google, 2013)</li>
+<li><strong>"Xor Filters: Faster and Smaller Than Bloom and Cuckoo Filters"</strong> - Graf &amp; Lemire (2020)</li>
+<li><strong>"Ribbon Filter: Practically Smaller Than Bloom and Xor"</strong> - Dillinger &amp; Walzer (2021)</li>
+</ul>
+<p><strong>Learned &amp; adaptive structures:</strong></p>
+<ul>
+<li><strong>"The Case for Learned Index Structures"</strong> - Kraska et al. (SIGMOD 2018)</li>
+<li><strong>"PGM-Index: A Fully-Dynamic Compressed Learned Index"</strong> - Ferragina &amp; Vinciguerra (VLDB 2020)</li>
+<li><strong>"ALEX: An Updatable Adaptive Learned Index"</strong> - Ding et al. (SIGMOD 2020)</li>
+<li><strong>"Are Updatable Learned Indexes Ready?"</strong> - Wongkham et al. (VLDB 2022)</li>
+</ul>
+<p><strong>Concurrent &amp; distributed:</strong></p>
+<ul>
+<li><strong>"Cache Craftiness for Fast Multicore Key-Value Storage"</strong> (Masstree) - Mao et al. (EuroSys 2012)</li>
+<li><strong>"Concurrent Tries with Efficient Non-Blocking Snapshots"</strong> (CTrie) - Prokopec et al. (PPoPP 2012)</li>
+<li><strong>"A Comprehensive Study of CRDTs"</strong> - Shapiro et al. (INRIA 2011)</li>
+<li><strong>"Fugue: A List CRDT with Maximal Non-Interleaving"</strong> - Weidner (2023)</li>
+</ul>
+<p><strong>Vector search &amp; ANN:</strong></p>
+<ul>
+<li><strong>"Efficient and Robust Approximate Nearest Neighbor Search Using HNSW Graphs"</strong> - Malkov &amp; Yashunin (TPAMI 2020)</li>
+<li><strong>"DiskANN: Fast Accurate Billion-point Nearest Neighbor Search on a Single Node"</strong> - Subramanya et al. (NeurIPS 2019)</li>
+<li><strong>"Accelerating Large-Scale Inference with ANN on GPUs"</strong> (Glass) - 2023</li>
+</ul>
+<p><strong>Succinct &amp; compressed:</strong></p>
+<ul>
+<li><strong>"Succinct Data Structures"</strong> - Navarro (Cambridge University Press, 2016)</li>
+<li><strong>"Opportunistic Data Structures with Applications"</strong> (FM-Index) - Ferragina &amp; Manzini (FOCS 2000)</li>
+<li><strong>"Wavelet Trees for All"</strong> - Navarro (J. Discrete Algorithms, 2014)</li>
+</ul>
+<p><strong>Memory-efficient &amp; compressed:</strong></p>
+<ul>
+<li><strong>"Roaring Bitmaps: Implementation of an Optimized Software Library"</strong> - Lemire et al. (Software: Practice &amp; Experience, 2018)</li>
+<li><strong>"Swiss Tables and absl::flat_hash_map"</strong> - Kulukundis (CppCon 2017)</li>
+<li><strong>"RecSplit: Minimal Perfect Hashing via Recursive Splitting"</strong> - Esposito et al. (ALENEX 2020)</li>
+<li><strong>"PTHash: Revisiting FCH Minimal Perfect Hashing"</strong> - Pibiri &amp; Trani (SIGIR 2021)</li>
+<li><strong>"The WebGraph Framework"</strong> - Boldi &amp; Vigna (WWW 2004)</li>
+<li><strong>"Array Layouts for Comparison-Based Searching"</strong> (Eytzinger) - Khuong &amp; Morin (JEA 2017)</li>
+</ul>
+<p><strong>Distributed &amp; concurrent:</strong></p>
+<ul>
+<li><strong>"Chord: A Scalable Peer-to-peer Lookup Protocol"</strong> - Stoica et al. (IEEE/ACM TON 2003)</li>
+<li><strong>"Kademlia: A Peer-to-peer Information System Based on the XOR Metric"</strong> - Maymounkov &amp; Mazieres (IPTPS 2002)</li>
+<li><strong>"Logical Physical Clocks and Consistent Snapshots"</strong> (HLC) - Kulkarni et al. (OPODIS 2014)</li>
+<li><strong>"Flat Combining and the Synchronization-Parallelism Tradeoff"</strong> - Hendler et al. (SPAA 2010)</li>
+<li><strong>"Safe Memory Reclamation for Optimistic Concurrency"</strong> (Epoch-based) - Fraser (PhD thesis, 2004)</li>
+<li><strong>"Hazard Pointers: Safe Memory Reclamation for Lock-Free Objects"</strong> - Michael (TPDS 2004)</li>
+<li><strong>"Delta State Replicated Data Types"</strong> - Almeida et al. (J. Parallel &amp; Distributed Computing, 2018)</li>
+<li><strong>"The Bw-Tree: A B-tree for New Hardware Platforms"</strong> - Levandoski et al. (ICDE 2013)</li>
+</ul>
+<p><strong>Compute-efficient &amp; cache-aware:</strong></p>
+<ul>
+<li><strong>"SIMD-Scan: Ultra Fast In-Memory Table Scan Using SIMD Instructions"</strong> - Polychroniou et al. (VLDB 2015)</li>
+<li><strong>"ARC: A Self-Tuning, Low Overhead Replacement Cache"</strong> - Megiddo &amp; Modha (FAST 2003)</li>
+<li><strong>"CLOCK-Pro: An Effective Improvement of the CLOCK Replacement"</strong> - Jiang et al. (USENIX ATC 2005)</li>
+<li><strong>"Packed Memory Arrays"</strong> - Bender &amp; Hu (FOCS 2007)</li>
+<li><strong>"Optimal Streaming Quantile Sketches"</strong> (KLL) - Karnin, Lang, Liberty (VLDB 2016)</li>
+<li><strong>"DDSketch: A Fast and Fully-Mergeable Quantile Sketch"</strong> - Masson et al. (VLDB 2019)</li>
+<li><strong>"Self-Adjusting Binary Search Trees"</strong> (Splay) - Sleator &amp; Tarjan (JACM 1985)</li>
+</ul>
+<hr />
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://nmbr7.github.io/notes/database/join-algorithms/">Join Algorithms</a> — Hash tables, Bloom filters, and ART indexes in join implementations</li>
+<li><a href="https://nmbr7.github.io/notes/database/lsm-trees/">LSM Trees</a> — LSM-tree architecture using Bloom filters, skip lists, and merge strategies covered here</li>
+<li><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a> — CRDTs, vector clocks, and consistent hashing used in distributed consensus systems</li>
+<li><a href="https://nmbr7.github.io/notes/hardware/isa-critical-instructions/">ISA Critical Instructions</a> — SIMD instructions enabling the vectorized data structures documented here</li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

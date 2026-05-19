@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Agent Native Version Control</h1>
+  <h1 id="agent-native-version-control-beyond-git-for-ai-driven-development">Agent-Native Version Control: Beyond Git for AI-Driven Development</h1>
+<h2 id="changelog">Changelog</h2>
+<table><thead><tr><th>Date</th><th>Section added / updated</th></tr></thead><tbody>
+<tr><td>2026-04-04</td><td>Initial comprehensive deep dive: Git limitations for agent workflows, theoretical foundations (patch theory, OT, CRDTs, AST merge theory), alternative VCS systems (Pijul, Jujutsu, Sapling, Piper, Mega), CRDT collaboration systems (Automerge, Loro, Yjs), semantic merge tools (Difftastic, Mergiraf, Spork), database-backed version control (Prolly trees, event sourcing), agent-native VCS architecture synthesis, open problems</td></tr>
+</tbody></table>
+<hr />
+<h2 id="1-introduction-motivation">1. Introduction &amp; Motivation</h2>
+<p>Git was designed in 2005 by Linus Torvalds for a specific workflow: human developers working asynchronously on the Linux kernel, submitting patches via email, with a benevolent dictator merging them. Two decades later, the development landscape has fundamentally shifted. AI coding agents now generate 41% of new code in merged PRs (GitHub, 2025), and agentic coding frameworks deploy planning agents, coding agents, and reviewing agents that operate at machine speed.</p>
+<p>The mismatch is structural:</p>
+<pre><code>Git&#39;s assumptions:                    Agent reality:
+─────────────────                     ──────────────
+Human typing speed (~50 WPM)          Machine speed (thousands of changes/hour)
+One developer per working copy        100+ agents on same codebase simultaneously
+Asynchronous review cycles (hours)    Continuous validation (milliseconds)
+Branch-per-feature (tens of branches) Branch explosion (thousands of micro-branches)
+Line-based diffs (textual)            Function-level changes (semantic)
+Manual conflict resolution            Must auto-resolve or escalate programmatically
+Commit messages for context           Need: agent ID, prompt, reasoning trace, validation
+</code></pre>
+<p>This document surveys the theoretical foundations, existing systems, and emerging architectures that could replace or augment git for agent-native development workflows.</p>
+<hr />
+<h2 id="2-git-s-fundamental-limitations-for-agent-workflows">2. Git's Fundamental Limitations for Agent Workflows</h2>
+<h3 id="2-1-snapshot-model-vs-change-model">2.1 Snapshot Model vs Change Model</h3>
+<p>Git stores snapshots (trees of blobs), not changes. A commit is a pointer to a tree object, with parent pointers forming a DAG. Diffs are computed on demand by comparing trees. This design choice has consequences:</p>
+<ul>
+<li><strong>No patch commutation</strong>: git cannot reorder commits without replaying diffs (rebase). Two independent changes to different functions in the same file create spurious conflicts because git sees overlapping line ranges, not independent semantic units.</li>
+<li><strong>Cherry-pick pollution</strong>: cherry-picking from branch A to branch B creates a <em>new</em> commit with different SHA. Future merges between A and B may conflict on the already-cherry-picked content. Patch-based systems (Darcs, Pijul) handle this correctly by identity.</li>
+<li><strong>No structural sharing of changes</strong>: if agent A and agent B both make the same rename refactoring independently, git sees two different diffs that conflict. A change-aware system would recognize them as identical operations.</li>
+</ul>
+<h3 id="2-2-line-based-3-way-merge">2.2 Line-Based 3-Way Merge</h3>
+<p>Git's merge algorithm (recursive/ort) operates on text lines. It has no understanding of programming language syntax:</p>
+<pre><code>Base:       Agent A:          Agent B:
+─────       ────────          ────────
+fn foo() {  fn foo() {        fn foo() {
+  x = 1;     x = 1;            x = 1;
+  y = 2;     y = 3;  // ← A    z = 9;  // ← B adds line
+  z = 3;     z = 3;            y = 2;
+}           }                   z = 3;
+                              }
+
+Git: CONFLICT (both modified near line 3)
+Reality: These changes are independent — A modifies y, B adds z before y
+</code></pre>
+<p>An AST-aware merge would see that A changed the assignment to <code>y</code> and B inserted a new statement — no conflict.</p>
+<h3 id="2-3-working-copy-assumption">2.3 Working Copy Assumption</h3>
+<p>Git requires a working directory: checked-out files on a filesystem. Every <code>git checkout</code>, <code>git merge</code>, <code>git rebase</code> materializes files to disk. For agents:</p>
+<ul>
+<li>An agent modifying a single function doesn't need the other 10,000 files on disk</li>
+<li>Multiple agents cannot share a single working directory without coordination</li>
+<li>Each agent clone consumes disk I/O and storage proportional to the repo size (mitigated by sparse checkout, but still fundamentally limited)</li>
+</ul>
+<p>Google's CitC and Meta's EdenFS solved this with virtual filesystems that materialize files on demand. The average Google developer workspace contains fewer than 10 files despite the monorepo containing 1 billion+.</p>
+<h3 id="2-4-concurrency-model">2.4 Concurrency Model</h3>
+<p>Git uses filesystem-level locking for critical operations:</p>
+<pre><code>.git/index.lock          — prevents concurrent staging
+.git/refs/heads/main.lock — prevents concurrent ref updates
+.git/shallow.lock        — prevents concurrent fetch
+</code></pre>
+<p>Two agents running <code>git commit</code> simultaneously on the same repo will have one fail with <code>fatal: Unable to create '.git/index.lock': File exists</code>. Workarounds (worktrees, separate clones) add overhead and don't solve the fundamental serialization problem.</p>
+<p>At Google's scale, Piper handles <strong>800,000 requests/second</strong> across 10 data centers using Paxos consensus on Spanner storage — a fundamentally different architecture than filesystem locks.</p>
+<h3 id="2-5-branch-pr-model-mismatch">2.5 Branch/PR Model Mismatch</h3>
+<p>The branch → PR → review → merge cycle assumes:</p>
+<ul>
+<li>A human creates a branch (seconds)</li>
+<li>Works on it over hours/days</li>
+<li>Opens a PR for human review (hours)</li>
+<li>CI runs (minutes to hours)</li>
+<li>A human merges</li>
+</ul>
+<p>With agents generating thousands of changes per hour, this model creates:</p>
+<ul>
+<li><strong>Branch explosion</strong>: thousands of micro-branches polluting the ref namespace</li>
+<li><strong>Review bottleneck</strong>: humans can't review at machine speed (the "hourglass effect" — AI collapses writing but review becomes the bottleneck)</li>
+<li><strong>CI overload</strong>: each micro-change triggers full CI pipelines</li>
+</ul>
+<h3 id="2-6-no-native-provenance">2.6 No Native Provenance</h3>
+<p>Git tracks <code>Author</code>, <code>Committer</code>, <code>Date</code>, and a free-text <code>message</code>. For agent workflows, we need:</p>
+<ul>
+<li>Which agent (model, version, configuration)</li>
+<li>What prompt/instruction triggered the change</li>
+<li>What reasoning led to the specific implementation</li>
+<li>What validation was performed (tests passed, type-checked, etc.)</li>
+<li>Confidence level of the change</li>
+<li>Dependencies on other agents' changes</li>
+</ul>
+<p>Git trailers (<code>Signed-off-by</code>, <code>Co-Authored-By</code>) are an informal workaround, not a structured provenance system.</p>
+<hr />
+<h2 id="3-theoretical-foundations">3. Theoretical Foundations</h2>
+<h3 id="3-1-patch-theory">3.1 Patch Theory</h3>
+<h4 id="darcs-2003">Darcs (2003)</h4>
+<p>David Roundy's Darcs introduced the idea that version control should be based on <strong>patches</strong> (changes) rather than <strong>snapshots</strong> (states). The key operation is <strong>commutation</strong>: given sequential patches A then B, can we find equivalent patches B' then A' that produce the same result?</p>
+<pre><code>        A         B
+  O ────────→ X ────────→ Y
+  │                        │
+  │ B&#39;                     │ A&#39;    (if A and B commute)
+  ↓                        ↓
+  Z ────────────────────→ Y
+              A&#39;
+</code></pre>
+<p>Formally: if <code>AB = B'A'</code>, patches A and B commute. A <strong>conflict</strong> occurs when commutation is undefined.</p>
+<p>Darcs's critical flaw: the merge algorithm in Darcs 1.x was <strong>exponential</strong> in the number of conflicting patches. Certain real-world merge patterns caused Darcs to hang for hours. Darcs 2.0 (2008) introduced new "darcs-2" patch semantics to mitigate this, but the theoretical problem motivated Pijul's redesign.</p>
+<p><strong>Key paper</strong>: Roundy, "Darcs: Distributed Version Management in Haskell," 2005; Dagit, "Darcs Patch Theory," Tufts CS.</p>
+<h4 id="pijul-2016">Pijul (2016)</h4>
+<p>Pijul, by Samuel Mimram and Cinzia di Giusto, places version control on rigorous category-theoretic foundations. The core insight: <strong>merges are pushouts</strong> in a category where files are objects and patches are arrows.</p>
+<pre><code>         p
+    O ────────→ A       Alice&#39;s changes
+    │           │
+  q │           │ s     If Alice (p) and Bob (q) edit concurrently,
+    ↓           ↓       the pushout P is the unique merge where
+    B ────────→ P       pr = qs (the diagram commutes)
+         r
+</code></pre>
+<p>The pushout P has a universal property: anything reachable from both A and B is reachable from P. This gives merge a precise mathematical meaning, unlike git's heuristic 3-way text merge.</p>
+<p><strong>Graggles</strong>: When patches conflict (no clean file merge exists), Pijul represents the result as a <strong>graggle</strong> — a directed graph of lines (generalizing a file's linear order). A file is a special case of a graggle where the graph is a total order. Graggles enable <strong>perfect merges</strong>: every pair of patches has a unique perfect merge in graggle-space. Flattening a graggle back to a file is just another patch.</p>
+<p><strong>Data structure</strong>: The repository state is a <strong>graph of byte chunks</strong> where edges represent sequential ordering. This graph is a cache of applied patches — unlike Darcs, which must repeatedly verify patch compatibility.</p>
+<p><strong>Complexity</strong>: Pijul targets O(log h) for all operations, where h is history size — optimal since filesystem operations are also O(log h).</p>
+<p><strong>Properties critical for agents</strong>:</p>
+<ul>
+<li>Patches <strong>commute</strong>: concurrent agents' changes can be applied in any order with identical results (when non-conflicting)</li>
+<li>Merges are <strong>associative</strong>: <code>merge(merge(A,B), C) = merge(A, merge(B,C))</code> — git does NOT guarantee this</li>
+<li>Cherry-pick is <strong>idempotent</strong>: picking the same patch twice is a no-op, not a conflict</li>
+</ul>
+<p><strong>Key paper</strong>: Mimram &amp; di Giusto, "A Categorical Theory of Patches," 2013, <em>Electronic Notes in Theoretical Computer Science</em>.</p>
+<h3 id="3-2-operational-transformation-ot">3.2 Operational Transformation (OT)</h3>
+<p>OT was introduced by Ellis and Gibbs (1989) for real-time collaborative editing. The core idea: when concurrent operations arrive, <strong>transform</strong> each operation against the others so they can be applied in any order and converge.</p>
+<pre><code>Client A: insert(&quot;x&quot;, pos=3)    Client B: delete(pos=1)
+Server receives A first, then B:
+  B&#39; = transform(B, A) = delete(pos=1)  // pos unchanged since insert was after
+Server receives B first, then A:
+  A&#39; = transform(A, B) = insert(&quot;x&quot;, pos=2)  // pos shifted left since delete was before
+</code></pre>
+<p><strong>Google Docs</strong> uses OT with a central server as the canonical ordering authority. The server serializes all operations, resolving ordering ambiguity.</p>
+<p><strong>Limitations for agent workflows</strong>:</p>
+<ul>
+<li><strong>Central server required</strong>: single point of coordination and potential bottleneck</li>
+<li><strong>Transformation explosion</strong>: O(n²) worst case for n concurrent operations</li>
+<li><strong>Correctness is notoriously hard</strong>: Sun et al. proved that many published OT algorithms have correctness bugs (the "TP2 puzzle"). Google invested years getting OT right for Docs.</li>
+<li><strong>Not composable</strong>: OT doesn't naturally extend to structured data (trees, ASTs) without significant additional complexity</li>
+</ul>
+<p><strong>Key papers</strong>: Ellis &amp; Gibbs, "Concurrency Control in Groupware Systems," SIGMOD 1989; Sun et al., "Operational Transformation in Real-Time Group Editors: Issues, Algorithms, and Achievements," CSCW 1998.</p>
+<h3 id="3-3-crdts-conflict-free-replicated-data-types">3.3 CRDTs (Conflict-free Replicated Data Types)</h3>
+<p>CRDTs, formalized by Shapiro et al. (2011), are data structures that can be replicated across nodes and updated independently, with all replicas guaranteed to converge to the same state — <strong>without coordination</strong>.</p>
+<p>Two flavors:</p>
+<ul>
+<li><strong>State-based (CvRDT)</strong>: merge by computing join (least upper bound) of states</li>
+<li><strong>Operation-based (CmRDT)</strong>: broadcast operations, which must be commutative</li>
+</ul>
+<h4 id="text-crdts-for-code-editing">Text CRDTs for Code Editing</h4>
+<p><strong>RGA (Replicated Growable Array)</strong> — Roh et al. 2011: each character gets a unique, immutable ID (timestamp + node ID). Insertions reference the ID of the character they follow. Deletions mark characters as tombstones. Concurrent inserts at the same position are ordered by timestamp.</p>
+<p><strong>Fugue</strong> — used by Loro: designed to minimize <strong>interleaving anomalies</strong> where concurrent inserts at the same position produce garbled text. Fugue provides a tree-based ordering that keeps concurrent inserts from interleaving.</p>
+<p><strong>Automerge</strong> — Kleppmann et al.: JSON-level CRDT supporting maps, lists, text, and counters. Preserves full version history. The Rust-based Automerge 2.0 dramatically improved performance over the original JS implementation.</p>
+<p><strong>Diamond Types</strong> — Seph Gentle: cutting-edge text CRDT focused on raw performance and minimal memory footprint. Achieves near-native-string-editing speed by using a novel run-length-encoded representation of CRDT metadata.</p>
+<p><strong>Tradeoffs for agent workflows</strong>:</p>
+<table><thead><tr><th>Property</th><th>OT</th><th>CRDT</th></tr></thead><tbody>
+<tr><td>Central server</td><td>Required</td><td>Not required</td></tr>
+<tr><td>Offline support</td><td>No</td><td>Yes</td></tr>
+<tr><td>Metadata overhead</td><td>Low</td><td>High (tombstones, IDs)</td></tr>
+<tr><td>Correctness proofs</td><td>Very hard (TP2)</td><td>Automatic (by construction)</td></tr>
+<tr><td>Undo/redo</td><td>Complex</td><td>Complex (tombstone chains)</td></tr>
+<tr><td>Suitable for agents</td><td>Limited (bottleneck)</td><td>Strong (decentralized)</td></tr>
+</tbody></table>
+<p>CRDTs are the stronger foundation for agent workflows because agents are inherently distributed — they don't share a single server connection like human collaborators in Google Docs.</p>
+<p><strong>Key papers</strong>: Shapiro et al., "Conflict-free Replicated Data Types," SSS 2011; Roh et al., "Replicated Abstract Data Types," JPDC 2011; Kleppmann &amp; Beresford, "A Conflict-Free Replicated JSON Datatype," IEEE TPDS 2017; Gentle, "Diamond Types," 2023.</p>
+<h3 id="3-4-ast-level-merge-theory">3.4 AST-Level Merge Theory</h3>
+<p>Line-based merging is fundamentally limited because lines are not meaningful units of code. The alternative: merge at the Abstract Syntax Tree (AST) level, where the units are language constructs (functions, statements, expressions).</p>
+<h4 id="3dm-algorithm">3DM Algorithm</h4>
+<p>Lindholm's 3DM (Three-Dimensional Merge) operates on ordered, labeled trees:</p>
+<ol>
+<li><strong>Match</strong> nodes between base, left, and right versions using tree matching</li>
+<li><strong>Detect</strong> changes: insertions, deletions, moves, updates</li>
+<li><strong>Merge</strong> by applying non-conflicting changes from both sides</li>
+<li><strong>Report</strong> conflicts only when both sides modify the same node</li>
+</ol>
+<p>Used by Spork (Java) and adapted by Mergiraf (multi-language).</p>
+<h4 id="gumtree">GumTree</h4>
+<p>Falleri et al. (2014) introduced GumTree, a practical AST differencing algorithm:</p>
+<ol>
+<li><strong>Top-down phase</strong>: match identical subtrees using hash-based comparison (fast)</li>
+<li><strong>Bottom-up phase</strong>: match remaining nodes by label/value similarity</li>
+<li><strong>Output</strong>: edit script of insert, delete, update, and <strong>move</strong> operations</li>
+</ol>
+<p>Move detection is critical — git's line-based diff cannot detect that a function was moved from one file to another. GumTree can.</p>
+<h4 id="semantic-vs-syntactic-conflicts">Semantic vs Syntactic Conflicts</h4>
+<p>AST-level merging distinguishes:</p>
+<ul>
+<li><strong>Syntactic conflict</strong>: both sides modify the same AST node → always a conflict</li>
+<li><strong>Semantic conflict</strong>: both sides modify different nodes but the combined effect is semantically invalid (e.g., agent A renames function <code>foo</code> → <code>bar</code>, agent B adds a call to <code>foo</code>) → requires program analysis beyond tree structure</li>
+<li><strong>False conflict</strong> (in git): both sides modify nearby lines but different AST nodes → NOT a conflict at AST level</li>
+</ul>
+<p>Research from Schesch et al. (2024) evaluated merge tools: Mergiraf achieves <strong>42% fewer false negatives</strong> than Spork, and both Rust-based generic tools (Mergiraf, LASTMERGE) match the performance of language-specific Java implementations.</p>
+<p><strong>Key papers</strong>: Lindholm, "A Three-way Merge for XML," DocEng 2004; Falleri et al., "Fine-grained and Accurate Source Code Differencing," ASE 2014; Schesch et al., "Evaluation of Version Control Merge Tools," ASE 2024; Cavalcanti et al., "LASTMERGE: A Language-Agnostic Structured Tool for Code Integration," 2025.</p>
+<hr />
+<h2 id="4-alternative-vcs-systems">4. Alternative VCS Systems</h2>
+<h3 id="4-1-pijul">4.1 Pijul</h3>
+<table><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody>
+<tr><td>Language</td><td>Rust</td></tr>
+<tr><td>Model</td><td>Patch-based (category-theoretic pushouts)</td></tr>
+<tr><td>Data structure</td><td>Graph of byte chunks (graggle cache)</td></tr>
+<tr><td>Merge</td><td>Automatic via pushouts; conflicts produce graggles</td></tr>
+<tr><td>Complexity</td><td>O(log h) per operation</td></tr>
+<tr><td>Status</td><td>Usable but small ecosystem</td></tr>
+</tbody></table>
+<p>Pijul stores patches, not snapshots. A <strong>branch is exactly a set of patches</strong>. This means:</p>
+<pre><code># In git, cherry-picking then merging creates conflicts:
+git cherry-pick abc123    # creates new commit def456
+git merge feature         # conflict on abc123&#39;s changes (already applied as def456)
+
+# In Pijul, patches have identity:
+pijul pull --patch XYZ    # patch XYZ is now in this channel
+pijul pull origin          # XYZ already present, skip — no conflict
+</code></pre>
+<p><strong>Agent relevance</strong>: if 50 agents each cherry-pick useful patches from a shared pool, Pijul's idempotent patch identity prevents the combinatorial explosion of conflicts that git would produce. The commutative merge means agents don't need to coordinate ordering of their changes.</p>
+<p><strong>Limitation</strong>: small community, limited tooling, no IDE integration, unclear scaling characteristics beyond small-to-medium repos.</p>
+<h3 id="4-2-jujutsu-jj">4.2 Jujutsu (jj)</h3>
+<table><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody>
+<tr><td>Language</td><td>Rust</td></tr>
+<tr><td>Creator</td><td>Martin von Zweigbergk (Google)</td></tr>
+<tr><td>Model</td><td>Snapshot-based (like git) but with operation log</td></tr>
+<tr><td>Backend</td><td>Git-compatible (uses git object storage)</td></tr>
+<tr><td>Key innovation</td><td>First-class conflicts, operation log, working-copy-as-commit</td></tr>
+<tr><td>Status</td><td>Active development, growing adoption, Google internal use</td></tr>
+</tbody></table>
+<h4 id="first-class-conflicts">First-Class Conflicts</h4>
+<p>In git, a conflict is a textual artifact (<code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>, <code>=======</code>, <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code>). In jj, conflicts are <strong>objects in the data model</strong>:</p>
+<pre><code># Git: conflict markers in working directory, must resolve before committing
+# jj: conflict is stored in the commit itself, can be committed and resolved later
+
+$ jj log
+@ qpvuntsm  (conflict) Merge feature-a and feature-b
+│ ├─ Added authentication module
+│ └─ Refactored user module (conflicts with auth changes)
+</code></pre>
+<p>Conflicts propagate through rebases — if commit C conflicts, and you rebase D on top of C, D inherits the conflict. When you eventually resolve C's conflict, the resolution automatically propagates to D. This is profoundly better for agents: an agent can commit conflicted state, and a separate conflict-resolution agent can resolve it later without blocking the original agent.</p>
+<h4 id="operation-log">Operation Log</h4>
+<p>Every mutation to the repo (commit, rebase, merge, amend) is recorded in an append-only operation log:</p>
+<pre><code>$ jj op log
+@ 2f4e3d Operation { id: &quot;abc123&quot;, description: &quot;commit&quot;, time: &quot;...&quot; }
+│ Parent: def456
+│ Tags: agent_id=coding-agent-7, prompt_hash=a1b2c3
+○ def456 Operation { id: &quot;def456&quot;, description: &quot;rebase&quot;, time: &quot;...&quot; }
+</code></pre>
+<p>This enables:</p>
+<ul>
+<li><strong>Lock-free concurrency</strong>: multiple agents can commit simultaneously; conflicting operations are detected and merged at the operation level, not the file level</li>
+<li><strong>Time travel</strong>: <code>jj op restore &lt;id&gt;</code> reverts the entire repo to any past state</li>
+<li><strong>Audit trail</strong>: every agent's every action is recorded</li>
+</ul>
+<h4 id="working-copy-as-commit">Working-Copy-as-Commit</h4>
+<p>In jj, the working copy IS a commit (the <code>@</code> commit). There's no staging area, no "dirty" working directory. Every <code>jj status</code> shows the diff between the working-copy commit and its parent. This simplifies agent workflows — an agent just makes changes and they're automatically part of a commit.</p>
+<p><strong>Agent relevance</strong>: jj is the closest existing system to an agent-native VCS. Its operation log provides the concurrency model, first-class conflicts provide programmatic conflict handling, and the git-compatible backend means existing tooling (CI, code review) continues to work.</p>
+<h3 id="4-3-sapling-meta">4.3 Sapling (Meta)</h3>
+<table><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody>
+<tr><td>Language</td><td>Rust + Python</td></tr>
+<tr><td>Creator</td><td>Meta (formerly Facebook)</td></tr>
+<tr><td>Components</td><td>Sapling client, Mononoke server, EdenFS virtual FS</td></tr>
+<tr><td>Model</td><td>Snapshot-based (Mercurial-derived)</td></tr>
+<tr><td>Scale</td><td>10s of millions of files/commits/branches</td></tr>
+<tr><td>Key innovation</td><td>Virtual filesystem, stacked diffs, server-side scaling</td></tr>
+</tbody></table>
+<h4 id="edenfs-virtual-filesystem">EdenFS: Virtual Filesystem</h4>
+<p>EdenFS is a FUSE filesystem that presents the entire repo but <strong>only materializes files on access</strong>:</p>
+<pre><code># Traditional git clone:
+$ git clone mega-repo     # downloads all files → 50GB, 10 minutes
+$ ls src/auth/login.rs    # file already on disk
+
+# Sapling + EdenFS:
+$ sl clone mega-repo      # downloads metadata only → seconds
+$ ls src/auth/login.rs    # EdenFS fetches this file on demand from Mononoke
+                          # Only files actually read are fetched
+</code></pre>
+<p>For agents, this means:</p>
+<ul>
+<li>Clone is near-instant (metadata only)</li>
+<li>Agent touching 5 files in a 10M-file repo only fetches those 5 files</li>
+<li>Multiple agents can share the same EdenFS mount with different views</li>
+</ul>
+<h4 id="stacked-diffs">Stacked Diffs</h4>
+<p>Sapling uses <strong>stacked diffs</strong> instead of branches: a chain of dependent changes that can be reviewed and landed independently. This maps better to agent workflows where changes are incremental refinements.</p>
+<p><strong>Limitation</strong>: EdenFS is not yet supported outside Meta's infrastructure. Mononoke requires significant server-side infrastructure.</p>
+<h3 id="4-4-google-piper-citc">4.4 Google Piper / CitC</h3>
+<p>Google's internal system represents the extreme end of centralized version control at scale:</p>
+<pre><code>Scale:
+├── 1 billion+ files in single repository
+├── 35 million+ commits
+├── 25,000+ developers
+├── 800,000 requests/second peak
+├── Distributed across 10 data centers
+└── Built on Spanner (Paxos consensus)
+
+CitC (Clients in the Cloud):
+├── FUSE filesystem presenting full repo
+├── Average workspace: &lt;10 files (out of 1 billion)
+├── Only modified files stored in workspace
+├── No explicit &quot;clone&quot; or &quot;checkout&quot;
+└── Trunk-based development (no long-lived branches)
+</code></pre>
+<p><strong>Trunk-based development</strong> at Google means everyone works on HEAD. Changes are submitted directly to trunk after code review and automated testing. No feature branches, no merge hell.</p>
+<p><strong>Agent relevance</strong>: Piper/CitC is the gold standard for what an agent-native VCS should achieve:</p>
+<ul>
+<li>Virtual workspaces with near-zero overhead (agents get &lt;10-file workspaces)</li>
+<li>Centralized truth source (no distributed consistency headaches)</li>
+<li>Trunk-based development (no branch proliferation)</li>
+<li>Scale to billions of operations</li>
+</ul>
+<p><strong>Limitation</strong>: proprietary, tightly coupled to Google infrastructure (Spanner, Borg, etc.).</p>
+<h3 id="4-5-mega-open-source-piper">4.5 Mega (Open-Source Piper)</h3>
+<p>Mega is an open-source Rust implementation of the Google Piper model, explicitly targeting the "AI agent era":</p>
+<pre><code>Architecture:
+├── Mega Server: monorepo engine with Git protocol compatibility
+├── Libra Client: Rust-based client with SQLite-backed local storage
+├── Buck2 Integration: hermetic, reproducible builds
+├── Git Compatibility: clone/pull/push any subfolder as standard git repo
+└── Agent Attribution: agents are tracked, attributable contributors
+</code></pre>
+<p>Key design choices:</p>
+<ul>
+<li><strong>Monorepo-first</strong>: single logical repository with subfolder-level access</li>
+<li><strong>Git protocol</strong>: agents and humans use standard git commands</li>
+<li><strong>AI-native features</strong>: full codebase context for dependency analysis, impact assessment, cross-project reasoning</li>
+<li><strong>Fine-grained access control</strong>: agents can be scoped to specific directories</li>
+</ul>
+<p><strong>Status</strong>: early-stage, active development (2024-2026). The most explicit attempt to build a git-compatible VCS for the agent era.</p>
+<hr />
+<h2 id="5-crdt-and-real-time-collaboration-systems">5. CRDT and Real-Time Collaboration Systems</h2>
+<p>While VCS systems handle asynchronous, coarse-grained collaboration (commit-level), CRDT-based systems enable synchronous, fine-grained collaboration (character-level). For agents, the boundary blurs — agents operate fast enough that their collaboration resembles real-time editing more than traditional VCS workflows.</p>
+<h3 id="5-1-automerge">5.1 Automerge</h3>
+<pre><code>Architecture:
+├── Core: Rust implementation of JSON CRDT
+├── Bindings: JavaScript (WASM), Python, Ruby, Elixir, Go
+├── Sync: automerge-repo (peer-to-peer, WebSocket, MessageChannel)
+├── Data Model: JSON-compatible (maps, lists, text, counters)
+└── History: Full operation log preserved, time travel supported
+</code></pre>
+<p>Automerge models documents as a tree of CRDT types. Each operation (set field, insert into list, edit text) is recorded with a Lamport timestamp and actor ID. Replicas sync by exchanging operations and applying them in causal order.</p>
+<p><strong>Strengths for agents</strong>: decentralized sync, full history, no central server needed.</p>
+<p><strong>Weakness</strong>: <strong>tombstone and metadata accumulation</strong>. Deleted characters remain as tombstones forever. Long-running documents accumulate unbounded metadata. Automerge limits undo history to 100 operations to prevent unbounded growth. For a codebase with millions of edits, this is a serious scalability concern.</p>
+<h3 id="5-2-loro">5.2 Loro</h3>
+<pre><code>Architecture:
+├── Core: Rust (high-performance)
+├── Bindings: JavaScript (WASM), Swift
+├── Data Types: List, Map (LWW), Tree, Text (Fugue)
+├── History: Git-like (time travel, fork, undo/redo)
+├── Encoding: Compact binary format, columnar storage
+└── Performance: Optimized for memory, CPU, and loading speed
+</code></pre>
+<p>Loro is the most promising CRDT library for agent-native version control because of its <strong>Tree CRDT</strong>. Code projects are hierarchical (directories → files → functions → statements), and Loro's tree CRDT can represent this structure natively, using the algorithm from Martin et al., "A Highly-Available Move Operation for Replicated Trees" (2020).</p>
+<pre><code>// Loro Tree CRDT can represent code project structure:
+project/
+├── src/
+│   ├── main.rs      ← Text CRDT for file contents
+│   ├── lib.rs       ← Text CRDT
+│   └── auth/
+│       ├── mod.rs   ← Text CRDT
+│       └── jwt.rs   ← Text CRDT
+└── Cargo.toml       ← Text CRDT
+
+// Agent A moves auth/ to a new crate — tree move operation
+// Agent B edits auth/jwt.rs — text edit operation
+// Loro: both operations merge correctly (move + edit commute)
+// Git: move creates delete+add, edit conflicts with delete
+</code></pre>
+<p><strong>Version history</strong>: Loro preserves full version history with <code>oplog_vv</code> (version vector) and <code>state_frontiers</code>. Documents can be forked (branching), and changes can be time-traveled. This provides git-like semantics at the CRDT level.</p>
+<h3 id="5-3-yjs">5.3 Yjs</h3>
+<p>The most widely deployed CRDT framework. Powers VS Code Live Share, Jupyter collaborative editing, and numerous web editors. Uses a list CRDT (YATA) for text, with efficient binary encoding that keeps memory usage low.</p>
+<p><strong>Relevance</strong>: proves that CRDT-based collaboration scales to millions of users in production. However, Yjs is focused on real-time editing, not version control — it doesn't natively provide branching, merging, or history querying at the VCS level.</p>
+<h3 id="5-4-ot-vs-crdt-comparison">5.4 OT vs CRDT Comparison</h3>
+<pre><code>                      OT                          CRDT
+                      ──                          ────
+Server requirement    Central server required     No server needed
+Offline support       No (needs server)           Yes (merge on reconnect)
+Consistency           Server-ordered              Eventual (convergent)
+Metadata overhead     Low (ops are ephemeral)     High (tombstones, IDs)
+Undo/redo             Server-managed              Complex (effect ordering)
+Correctness proofs    Very hard (TP2 puzzle)      By construction
+Mature systems        Google Docs, SharePoint     Figma, VS Code Live Share
+Agent suitability     Bottleneck at server        Natural fit (decentralized)
+Scale limit           Server throughput           Metadata growth
+</code></pre>
+<p>For agent systems, CRDTs win because:</p>
+<ol>
+<li>No central bottleneck — agents are distributed by nature</li>
+<li>Offline-first — agents can batch changes and sync later</li>
+<li>Provable convergence — no subtle correctness bugs from bad transformation functions</li>
+<li>Natural for event sourcing — each CRDT operation is an event</li>
+</ol>
+<hr />
+<h2 id="6-semantic-merge-and-ast-level-tools">6. Semantic Merge and AST-Level Tools</h2>
+<h3 id="6-1-difftastic">6.1 Difftastic</h3>
+<p>Tree-sitter based structural diff tool supporting 30+ languages:</p>
+<pre><code data-lang="bash">$ difft old.rs new.rs
+# Output shows:
+# - Moved function highlighted as MOVE (not delete + add)
+# - Reformatted code shown as unchanged (ignores whitespace/formatting)
+# - Only semantic changes highlighted
+</code></pre>
+<p>Difftastic understands that <code>{x: 1, y: 2}</code> and <code>{y: 2, x: 1}</code> may be equivalent depending on language semantics. It shows <strong>moves</strong> as first-class operations, unlike git's line-based diff which shows delete at old location + insert at new location.</p>
+<p><strong>Limitation</strong>: diff only, no merge. Cannot be used as a git merge driver.</p>
+<h3 id="6-2-mergiraf">6.2 Mergiraf</h3>
+<p>Production-ready AST-based merge tool, usable as a <strong>git merge driver</strong>:</p>
+<pre><code>Architecture:
+├── Parser: tree-sitter (language-agnostic)
+├── Matching: GumTree classic algorithm (top-down + bottom-up)
+├── Merge: 3DM-based with enhancements
+├── Languages: Any language with tree-sitter grammar
+├── Integration: Drop-in git merge driver
+└── Implementation: Rust
+</code></pre>
+<p>Setup as git merge driver:</p>
+<pre><code data-lang="gitconfig">[merge &quot;mergiraf&quot;]
+    name = mergiraf
+    driver = mergiraf merge --git %O %A %B -s %S -p %P
+</code></pre>
+<p>Mergiraf processes the three versions (base, ours, theirs), constructs ASTs via tree-sitter, computes matchings using GumTree, and performs structured three-way merge. Falls back to line-based merge for unparseable files.</p>
+<p><strong>Results</strong> (Schesch et al., ASE 2024): 42% fewer false negatives than Spork across a benchmark of real-world merge scenarios from open-source Java projects.</p>
+<h3 id="6-3-spork">6.3 Spork</h3>
+<p>AST-based structured merge for Java (Larsen et al., IEEE TSE 2022):</p>
+<pre><code>Pipeline:
+1. Parse base/left/right → Java ASTs (via Spoon)
+2. Match nodes between trees (GumTree)
+3. 3DM merge algorithm on matched trees
+4. Print merged AST preserving original formatting
+</code></pre>
+<p>Spork's formatting preservation is notable — it maintains the original code style of both contributors, not the AST's canonical pretty-printing. This matters for human readability of agent-generated merges.</p>
+<h3 id="6-4-lastmerge">6.4 LASTMERGE</h3>
+<p>Language-agnostic structured merge (Cavalcanti et al., 2025). Rust implementation using tree-sitter, achieving comparable performance to language-specific tools like Spork and jDime. Demonstrates that tree-sitter grammars are sufficient for high-quality structured merging without language-specific logic.</p>
+<p><strong>Agent relevance of AST merge tools</strong>: an agent-native VCS would integrate AST-level merging as the default merge strategy, not an optional extension. When agents modify code at the function level, merges should operate at the function level too.</p>
+<hr />
+<h2 id="7-database-backed-version-control">7. Database-Backed Version Control</h2>
+<h3 id="7-1-prolly-trees-noms-dolt">7.1 Prolly Trees (Noms → Dolt)</h3>
+<p>Traditional git stores objects in pack files — a custom binary format optimized for git's specific access patterns. An alternative: use a proper database.</p>
+<p><strong>Prolly trees</strong> (probabilistic B-trees) combine properties of B-trees and Merkle trees:</p>
+<pre><code>                    ┌──────────────────┐
+                    │   Root (hash=A)  │
+                    └────────┬─────────┘
+                   ┌─────────┴──────────┐
+              ┌────┴────┐          ┌────┴────┐
+              │ Internal│          │ Internal│
+              │(hash=B) │          │(hash=C) │
+              └────┬────┘          └────┬────┘
+            ┌──────┴──────┐      ┌─────┴──────┐
+         ┌──┴──┐      ┌──┴──┐ ┌──┴──┐     ┌──┴──┐
+         │Leaf │      │Leaf │ │Leaf │     │Leaf │
+         │k1:v1│      │k2:v2│ │k3:v3│     │k4:v4│
+         └─────┘      └─────┘ └─────┘     └─────┘
+
+Properties:
+├── B-tree: O(log n) seek/insert/delete (fast queries)
+├── Merkle: content-addressed (hash identifies content)
+├── Probabilistic: chunk boundaries determined by content hash rolling
+│   → Two trees with similar data share most chunks (structural sharing)
+│   → Diff between versions is O(changes), not O(data)
+└── Queryable: supports range scans, prefix queries, etc.
+</code></pre>
+<p><strong>Noms</strong> (Attic Labs, 2016): pioneered prolly trees for version-controlled data storage. Open-source, content-addressed, with git-style branching and merging.</p>
+<p><strong>Dolt</strong> (DoltHub): built a full MySQL-compatible SQL database on top of prolly trees. Provides <code>DOLT_DIFF()</code>, <code>DOLT_LOG()</code>, <code>DOLT_BLAME()</code> as SQL functions.</p>
+<pre><code data-lang="sql">-- Query code history as SQL (hypothetical agent-native VCS):
+SELECT agent_id, change_type, function_name, timestamp
+FROM code_history
+WHERE file_path = &#39;src/auth/login.rs&#39;
+  AND timestamp &gt; &#39;2026-04-01&#39;
+ORDER BY timestamp DESC;
+
+-- Find all functions modified by a specific agent:
+SELECT DISTINCT function_name, file_path
+FROM code_changes
+WHERE agent_id = &#39;coding-agent-7&#39;
+  AND confidence &lt; 0.8;  -- low-confidence changes for review
+</code></pre>
+<p><strong>Agent relevance</strong>: a database-backed VCS enables rich queries over code history that git cannot support without external tooling. "Show me all low-confidence changes by agent-7 to authentication code in the last week" is a SQL query, not a complex pipeline of <code>git log | grep | awk</code>.</p>
+<h3 id="7-2-event-sourcing-model-for-code">7.2 Event Sourcing Model for Code</h3>
+<p>Event sourcing (Fowler, 2005) stores all changes as an append-only log of events. The current state is a materialized view derived by replaying events.</p>
+<p>Applied to code:</p>
+<pre><code>Event Log (append-only):
+─────────────────────────
+Event 1: CreateFile(&quot;src/main.rs&quot;, agent=&quot;init-agent&quot;)
+Event 2: InsertFunction(&quot;src/main.rs&quot;, &quot;fn main()&quot;, agent=&quot;scaffold-agent&quot;)
+Event 3: AddParameter(&quot;src/main.rs&quot;, &quot;main&quot;, &quot;args: Vec&lt;String&gt;&quot;, agent=&quot;cli-agent&quot;)
+Event 4: InsertStatement(&quot;src/main.rs&quot;, &quot;main&quot;, &quot;let config = parse(args);&quot;, agent=&quot;cli-agent&quot;)
+Event 5: CreateFile(&quot;src/config.rs&quot;, agent=&quot;cli-agent&quot;)
+Event 6: RenameFunction(&quot;src/main.rs&quot;, &quot;main&quot; → &quot;run&quot;, agent=&quot;refactor-agent&quot;)
+...
+
+Materialized View (current code):
+──────────────────────────────────
+// src/main.rs
+fn run(args: Vec&lt;String&gt;) {
+    let config = parse(args);
+    ...
+}
+</code></pre>
+<p>Properties:</p>
+<ul>
+<li><strong>Complete audit trail</strong>: every agent action is recorded as a typed event</li>
+<li><strong>Replay</strong>: reconstruct any historical state by replaying events up to a timestamp</li>
+<li><strong>Branching</strong>: fork the event stream; merge by interleaving compatible events</li>
+<li><strong>Undo</strong>: reverse a specific agent's events without affecting others (unlike <code>git revert</code> which creates anti-commits)</li>
+<li><strong>Streaming</strong>: agents subscribe to event streams for real-time awareness of other agents' changes</li>
+</ul>
+<p>This model naturally produces the provenance data that git lacks — each event carries agent ID, intent, and context.</p>
+<hr />
+<h2 id="8-designing-an-agent-native-vcs-architecture-synthesis">8. Designing an Agent-Native VCS: Architecture Synthesis</h2>
+<h3 id="8-1-requirements-matrix">8.1 Requirements Matrix</h3>
+<pre><code>┌─────────────────────┬──────────────────────┬──────────────────────────────┐
+│ Requirement         │ Git                  │ Agent-Native Target          │
+├─────────────────────┼──────────────────────┼──────────────────────────────┤
+│ Concurrency         │ Lock on refs,        │ Lock-free (CRDT / op-log)   │
+│                     │ index.lock           │                              │
+├─────────────────────┼──────────────────────┼──────────────────────────────┤
+│ Change granularity  │ File / line          │ AST node / function          │
+├─────────────────────┼──────────────────────┼──────────────────────────────┤
+│ Merge model         │ 3-way text merge     │ Semantic (AST + intent)      │
+├─────────────────────┼──────────────────────┼──────────────────────────────┤
+│ Working copy        │ Full checkout on disk │ Virtual / on-demand          │
+├─────────────────────┼──────────────────────┼──────────────────────────────┤
+│ Change model        │ Snapshots (trees)    │ Patches / operations         │
+├─────────────────────┼──────────────────────┼──────────────────────────────┤
+│ Provenance          │ Free-text message    │ Agent ID, prompt, reasoning, │
+│                     │                      │ validation, confidence       │
+├─────────────────────┼──────────────────────┼──────────────────────────────┤
+│ Conflict resolution │ Manual (human)       │ Auto-resolve + escalation    │
+├─────────────────────┼──────────────────────┼──────────────────────────────┤
+│ History query       │ git log (linear scan)│ SQL / graph queries          │
+├─────────────────────┼──────────────────────┼──────────────────────────────┤
+│ Commit speed        │ ~10ms (human-scale)  │ &lt;1ms (machine-speed)         │
+├─────────────────────┼──────────────────────┼──────────────────────────────┤
+│ API model           │ CLI-first            │ Programmatic SDK-first       │
+├─────────────────────┼──────────────────────┼──────────────────────────────┤
+│ Collaboration unit  │ Branch → PR → merge  │ Session (intent + changes +  │
+│                     │                      │ reasoning + validation)      │
+└─────────────────────┴──────────────────────┴──────────────────────────────┘
+</code></pre>
+<h3 id="8-2-proposed-architecture">8.2 Proposed Architecture</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│                        Agent SDK / API                          │
+│         (Rust core, bindings: Python, TypeScript, Go)           │
+├──────────┬──────────┬───────────┬──────────┬───────────────────┤
+│ Session  │ Conflict │ Provenance│ Query    │ Notification      │
+│ Manager  │ Resolver │ Tracker   │ Engine   │ Stream            │
+├──────────┴──────────┴───────────┴──────────┴───────────────────┤
+│                     Merge Engine                                │
+│  ┌──────────┐  ┌──────────────┐  ┌───────────────────────┐    │
+│  │ Text     │  │ AST-Level    │  │ Semantic Conflict      │    │
+│  │ (CRDT)   │  │ (tree-sitter │  │ Detection (type-check, │    │
+│  │          │  │  + GumTree)  │  │  test, LSP)            │    │
+│  └──────────┘  └──────────────┘  └───────────────────────┘    │
+├────────────────────────────────────────────────────────────────┤
+│                   Concurrency Layer                             │
+│  ┌──────────────────┐  ┌──────────────────────────────┐       │
+│  │ Operation Log    │  │ CRDT Sync                     │       │
+│  │ (jj-style,      │  │ (Loro-based, peer-to-peer     │       │
+│  │  append-only)   │  │  or server-mediated)           │       │
+│  └──────────────────┘  └──────────────────────────────┘       │
+├────────────────────────────────────────────────────────────────┤
+│                    Storage Engine                               │
+│  ┌──────────────────┐  ┌──────────────────────────────┐       │
+│  │ Prolly Trees     │  │ Virtual Filesystem             │       │
+│  │ (content-        │  │ (FUSE / in-memory views,       │       │
+│  │  addressed,      │  │  CitC/EdenFS-inspired)         │       │
+│  │  SQL-queryable)  │  │                                │       │
+│  └──────────────────┘  └──────────────────────────────┘       │
+├────────────────────────────────────────────────────────────────┤
+│                   Git Compatibility Bridge                      │
+│            (import/export, git protocol, CI/CD)                │
+└────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h4 id="layer-1-storage-engine-prolly-trees-virtual-fs">Layer 1: Storage Engine — Prolly Trees + Virtual FS</h4>
+<p>The storage layer uses <strong>prolly trees</strong> for content-addressable, diffable storage:</p>
+<ul>
+<li>Each file version is a leaf in the prolly tree</li>
+<li>File contents stored as byte chunks with content-defined chunking (CDC)</li>
+<li>Structural sharing: two versions differing by one function share all other chunks</li>
+<li>SQL-queryable: "SELECT * FROM changes WHERE agent='X' AND file LIKE 'src/auth/%'"</li>
+<li>Virtual filesystem layer presents on-demand file views to agents (like CitC)</li>
+</ul>
+<h4 id="layer-2-concurrency-operation-log-crdt-sync">Layer 2: Concurrency — Operation Log + CRDT Sync</h4>
+<p>Borrowing from jj's operation log and Loro's CRDT sync:</p>
+<ul>
+<li>Every mutation is an operation in an append-only log (like jj)</li>
+<li>Operations carry CRDT metadata for automatic merge (like Loro)</li>
+<li>Lock-free: multiple agents commit simultaneously; conflicts detected at sync time</li>
+<li>Causal ordering via vector clocks / Lamport timestamps</li>
+</ul>
+<h4 id="layer-3-merge-engine-multi-strategy">Layer 3: Merge Engine — Multi-Strategy</h4>
+<pre><code>Change arrives → Parse both versions with tree-sitter
+              → Compute AST diff (GumTree)
+              → Classify changes:
+                 ├── Independent (different AST subtrees) → auto-merge
+                 ├── Syntactic conflict (same node modified) → try semantic resolution
+                 │   ├── Both made identical change → deduplicate (idempotent)
+                 │   ├── Changes are composable → compose
+                 │   └── True conflict → escalate to conflict resolver agent
+                 └── Semantic conflict (type error, test failure after merge)
+                     → run type checker / tests
+                     → escalate with diagnostic context
+</code></pre>
+<h4 id="layer-4-agent-sdk">Layer 4: Agent SDK</h4>
+<pre><code data-lang="rust">// Pseudocode: agent-native VCS API
+let repo = AgentRepo::connect(&quot;https://mega.example.com/monorepo&quot;);
+
+// Create a session (not a branch)
+let session = repo.create_session(SessionConfig {
+    agent_id: &quot;refactor-agent-v3&quot;,
+    prompt_hash: &quot;sha256:abc123...&quot;,
+    intent: &quot;Rename all instances of &#39;user_id&#39; to &#39;account_id&#39; in auth module&quot;,
+    scope: PathGlob(&quot;src/auth/**&quot;),  // agent only sees auth module
+});
+
+// Read file (virtual — fetched on demand)
+let content = session.read(&quot;src/auth/login.rs&quot;)?;
+
+// Parse and modify at AST level
+let ast = session.parse_ast(&quot;src/auth/login.rs&quot;)?;
+ast.rename_identifier(&quot;user_id&quot;, &quot;account_id&quot;);
+
+// Commit with provenance
+session.commit(CommitConfig {
+    confidence: 0.95,
+    validation: vec![
+        Validation::TypeCheck(passed),
+        Validation::Tests(TestResult { passed: 47, failed: 0 }),
+    ],
+    reasoning: &quot;Renamed user_id → account_id per naming convention RFC-42&quot;,
+});
+
+// Auto-merge with trunk (AST-level)
+let merge_result = session.merge_to_trunk()?;
+match merge_result {
+    MergeResult::Clean =&gt; println!(&quot;Merged successfully&quot;),
+    MergeResult::AutoResolved(resolutions) =&gt; {
+        println!(&quot;Auto-resolved {} conflicts&quot;, resolutions.len());
+    }
+    MergeResult::NeedsEscalation(conflicts) =&gt; {
+        // Assign to conflict-resolution agent
+        session.escalate(conflicts, &quot;conflict-resolver-agent&quot;)?;
+    }
+}
+</code></pre>
+<h3 id="8-3-sessions-over-branches">8.3 Sessions Over Branches</h3>
+<p>Pedro Piñera's "sessions" concept (2026) replaces branches and PRs:</p>
+<pre><code>Branch/PR Model:                    Session Model:
+─────────────────                   ──────────────
+1. Create branch                    1. Open session
+2. Make changes                     2. Make changes + record reasoning
+3. Write commit messages            3. Intent auto-captured from prompt
+4. Open PR (describe what/why)      4. Session contains everything:
+5. CI runs                             ├── Code changes
+6. Human reviews code                  ├── Agent&#39;s reasoning trace
+7. Merge                               ├── Prompt that initiated work
+                                       ├── Validation results
+                                       ├── Confidence scores
+                                       └── Dependencies on other sessions
+                                    5. Auto-validate + auto-merge if clean
+                                    6. Escalate to human only if needed
+</code></pre>
+<p>Sessions make <strong>intent a first-class citizen</strong>. A future agent analyzing the codebase can query: "Why was this function renamed?" and get the full reasoning trace, not just a commit message that says "rename function."</p>
+<h3 id="8-4-prompt-requests-over-pull-requests">8.4 Prompt Requests Over Pull Requests</h3>
+<p>For open-source collaboration with agents, Piñera proposes <strong>prompt requests</strong>: instead of submitting code (PR), submit <strong>intent</strong> (prompt). The maintainer reviews the intent and runs it with their own agent, ensuring:</p>
+<ul>
+<li>Code is generated in the context of the full codebase</li>
+<li>No malicious code hidden in a large diff</li>
+<li>The intent is auditable and reproducible</li>
+<li>Maintainers validate <em>what should change</em>, not <em>how it changed</em></li>
+</ul>
+<hr />
+<h2 id="9-open-problems">9. Open Problems</h2>
+<h3 id="9-1-ast-level-crdts-for-arbitrary-languages">9.1 AST-Level CRDTs for Arbitrary Languages</h3>
+<p>Tree-sitter provides parsers for 200+ languages, but each language has different semantic rules for what constitutes a conflict. Renaming a variable in Python (dynamic dispatch) has different implications than in Rust (static dispatch, borrow checker). A truly semantic merge needs language-specific conflict rules on top of generic AST merging.</p>
+<h3 id="9-2-scaling-crdt-metadata">9.2 Scaling CRDT Metadata</h3>
+<p>CRDTs accumulate metadata: tombstones for deletions, unique IDs for every character, vector clocks for causal ordering. For a codebase with millions of changes over years, this metadata can exceed the code itself. Garbage collection of CRDT metadata without breaking convergence guarantees is an active research area. Diamond Types shows promising approaches with run-length encoding of metadata.</p>
+<h3 id="9-3-agent-intent-specification-language">9.3 Agent Intent Specification Language</h3>
+<p>How should an agent express "rename function foo to bar everywhere" in a way that:</p>
+<ul>
+<li>Is portable across languages?</li>
+<li>Can be verified (all references updated)?</li>
+<li>Can be replayed on a different version of the code?</li>
+<li>Composes with other intents?</li>
+</ul>
+<p>This is essentially the problem of a <strong>refactoring DSL</strong> — an unsolved problem that becomes critical when agents produce thousands of intents per hour.</p>
+<h3 id="9-4-semantic-correctness-validation">9.4 Semantic Correctness Validation</h3>
+<p>Auto-merging two AST-compatible changes doesn't guarantee the result is correct:</p>
+<pre><code>Agent A: adds null check before dereference
+Agent B: adds logging that dereferences the pointer
+Merged: logging happens before null check → crash
+</code></pre>
+<p>Detecting this requires at minimum type-checking the merged result, and ideally running tests. The validation loop (merge → type-check → test → fix → re-merge) needs to be fast enough for machine-speed iteration.</p>
+<h3 id="9-5-git-ecosystem-bridge">9.5 Git Ecosystem Bridge</h3>
+<p>The entire software development ecosystem assumes git: GitHub/GitLab, CI/CD (GitHub Actions, Jenkins), IDEs (VS Code, JetBrains), code review tools, deployment pipelines, package registries. Any agent-native VCS must either:</p>
+<ol>
+<li><strong>Be git-compatible</strong> (jj, Mega approach): use git as the backend/transport, add agent-native features on top</li>
+<li><strong>Provide a git bridge</strong>: bidirectional sync between the native format and git</li>
+<li><strong>Replace the ecosystem</strong>: build new CI, review, and deployment tools (highest effort, highest reward)</li>
+</ol>
+<p>Option 1 (jj/Mega) is the pragmatic path. Option 3 is where the industry will eventually end up.</p>
+<hr />
+<h2 id="10-key-references">10. Key References</h2>
+<h3 id="foundational-theory">Foundational Theory</h3>
+<ol>
+<li>Ellis &amp; Gibbs, "Concurrency Control in Groupware Systems," SIGMOD 1989</li>
+<li>Roundy, "Darcs: Distributed Version Management in Haskell," 2005</li>
+<li>Shapiro et al., "Conflict-free Replicated Data Types," SSS 2011</li>
+<li>Roh et al., "Replicated Abstract Data Types: Building Blocks for Collaborative Applications," JPDC 2011</li>
+<li>Mimram &amp; di Giusto, "A Categorical Theory of Patches," ENTCS 2013</li>
+<li>Kleppmann &amp; Beresford, "A Conflict-Free Replicated JSON Datatype," IEEE TPDS 2017</li>
+<li>Sun et al., "Operational Transformation in Real-Time Group Editors," CSCW 1998</li>
+<li>Martin et al., "A Highly-Available Move Operation for Replicated Trees," IEEE TPDS 2020</li>
+</ol>
+<h3 id="ast-differencing-and-merge">AST Differencing and Merge</h3>
+<ol start="9">
+<li>Falleri et al., "Fine-grained and Accurate Source Code Differencing," ASE 2014 (GumTree)</li>
+<li>Lindholm, "A Three-way Merge for XML," DocEng 2004 (3DM algorithm)</li>
+<li>Larsen et al., "Spork: Structured Merge for Java with Formatting Preservation," IEEE TSE 2022</li>
+<li>Schesch et al., "Evaluation of Version Control Merge Tools," ASE 2024</li>
+<li>Cavalcanti et al., "LASTMERGE: A Language-Agnostic Structured Tool for Code Integration," 2025</li>
+<li>Apel et al., "Semistructured Merge: Rethinking Merge in Revision Control Systems," FSE 2011</li>
+</ol>
+<h3 id="systems">Systems</h3>
+<ol start="15">
+<li>Potvin &amp; Levenberg, "Why Google Stores Billions of Lines of Code in a Single Repository," CACM 2016 (Piper)</li>
+<li>Dagit, "Darcs Patch Theory," Tufts CS (Darcs formal model)</li>
+<li>Gentle, "Diamond Types: A High-Performance Text CRDT," 2023</li>
+<li>Fowler, "Event Sourcing," martinfowler.com, 2005</li>
+</ol>
+<h3 id="tools-and-implementations">Tools and Implementations</h3>
+<ol start="19">
+<li><strong>Pijul</strong> — https://pijul.org/ — Patch-based VCS with category-theoretic foundations</li>
+<li><strong>Jujutsu (jj)</strong> — https://github.com/jj-vcs/jj — Git-compatible VCS with first-class conflicts and operation log</li>
+<li><strong>Sapling</strong> — https://sapling-scm.com/ — Meta's scalable VCS with EdenFS virtual filesystem</li>
+<li><strong>Mega</strong> — https://gitmega.dev/ — Open-source Piper implementation for the AI agent era</li>
+<li><strong>Automerge</strong> — https://automerge.org/ — JSON CRDT library (Rust + WASM)</li>
+<li><strong>Loro</strong> — https://loro.dev/ — High-performance CRDT with tree support (Rust)</li>
+<li><strong>Yjs</strong> — https://yjs.dev/ — Widely deployed CRDT for collaborative editing</li>
+<li><strong>Difftastic</strong> — https://github.com/Wilfred/difftastic — Structural diff using tree-sitter</li>
+<li><strong>Mergiraf</strong> — https://mergiraf.org/ — AST-based git merge driver (tree-sitter + GumTree)</li>
+<li><strong>Dolt</strong> — https://dolthub.com/ — SQL database with git-style version control (prolly trees)</li>
+<li><strong>Tree-sitter</strong> — https://tree-sitter.github.io/ — Universal parser generator for AST tooling</li>
+</ol>
+<h3 id="analysis-and-commentary">Analysis and Commentary</h3>
+<ol start="30">
+<li>Piñera, "Rethinking Version Control for an Agentic World," 2026</li>
+<li>All Things Open, "What Version Control Looks Like When AI Agents Write the Code," 2026</li>
+<li>DoltHub, "How to Chunk Your Database into a Merkle Tree," 2022 (prolly tree chunking)</li>
+<li>Balintona, "Jujutsu (jj) VCS Workflows and the Convenience of its Operation Log," 2025</li>
+<li>Anthropic, "2026 Agentic Coding Trends Report," 2026</li>
+</ol>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

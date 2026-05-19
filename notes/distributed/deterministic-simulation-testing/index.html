@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Deterministic Simulation Testing</h1>
+  <h1 id="deterministic-simulation-testing-dst">Deterministic Simulation Testing (DST)</h1>
+<p>A comprehensive reference on DST: the technique of running distributed systems inside a fully controlled, deterministic simulation to find correctness bugs that are impossible to reproduce in traditional testing.</p>
+<hr />
+<h2 id="1-foundations">1. Foundations</h2>
+<h3 id="1-1-what-dst-is">1.1 What DST Is</h3>
+<p>DST runs an entire distributed system — multiple nodes, network, disk, clocks — inside a single-threaded, deterministic process. All sources of non-determinism (I/O, time, scheduling, random numbers) are replaced with controlled, seed-driven simulations. Given the same seed, the system executes the <strong>exact same sequence of events</strong> every time.</p>
+<pre><code>Traditional Testing:                    DST:
+  Real nodes, real network               All nodes in one process
+  Real clocks, real disk                 Simulated clock, simulated disk
+  Non-deterministic scheduling           Deterministic scheduling (PRNG)
+  Bugs may not reproduce                 Bugs always reproduce (same seed)
+  Hours per scenario                     Milliseconds per scenario
+</code></pre>
+<p>Formally (Tornow, 2024): a system S with initial state σ and runtime R is deterministic if:</p>
+<pre><code>∀ σ ∈ Σ : | traces(S, σ, R) | = 1
+</code></pre>
+<p>That is, for every initial state, there exists exactly one possible trace of external events. DST achieves this by replacing the non-deterministic runtime R with a deterministic simulator R_sim seeded by a PRNG.</p>
+<h3 id="1-2-the-core-insight">1.2 The Core Insight</h3>
+<p>All non-determinism in software comes from a small number of sources:</p>
+<pre><code>Source                  Solution in DST
+─────────────────────   ──────────────────────────────
+Thread scheduling       Single-threaded event loop
+Wall clock time         Simulated clock (discrete advances)
+Network I/O             Simulated network (in-process)
+Disk I/O                Simulated filesystem (in-memory)
+Random numbers          Seeded PRNG
+OS signals/interrupts   Not simulated (or intercepted)
+Hardware interrupts     Not simulated (or hypervisor)
+</code></pre>
+<p>If you control all of these, execution becomes a deterministic function of the seed. This enables:</p>
+<ul>
+<li><strong>Perfect reproducibility</strong>: re-run any bug with the same seed</li>
+<li><strong>Time-travel debugging</strong>: step through the exact event sequence</li>
+<li><strong>Accelerated time</strong>: skip <code>sleep()</code> calls, compress hours into seconds</li>
+<li><strong>Exhaustive fault injection</strong>: inject every combination of faults</li>
+</ul>
+<h3 id="1-3-historical-origins">1.3 Historical Origins</h3>
+<p>The idea traces to <strong>hardware simulation</strong>: chip designers have used deterministic simulation (Verilog/VHDL simulators) since the 1980s to verify circuits before fabrication. The FoundationDB team (2009-2013) applied this insight to distributed software.</p>
+<p>Key intellectual lineage:</p>
+<ul>
+<li><strong>Lamport, "Time, Clocks, and the Ordering of Events"</strong> (CACM, 1978): establishes that logical time can replace wall-clock time — the foundation of simulated clocks.</li>
+<li><strong>FLP impossibility</strong> (Fischer, Lynch, Paterson, JACM, 1985): proves distributed consensus is impossible with even one faulty process — motivates why distributed systems are so hard to test.</li>
+<li><strong>Hardware simulation</strong> (Verilog, VHDL, 1980s-): deterministic cycle-accurate simulation of digital circuits. The FoundationDB team explicitly drew on this analogy.</li>
+<li><strong>Discrete-event simulation</strong> (Simula, 1967; ns-2/ns-3): network simulators that model packet-level behavior deterministically.</li>
+</ul>
+<hr />
+<h2 id="2-foundationdb-the-origin-story">2. FoundationDB: The Origin Story</h2>
+<h3 id="2-1-the-radical-decision">2.1 The Radical Decision</h3>
+<p>When FoundationDB Inc. (~2009) set out to build a distributed database, they didn't start by building a database. <strong>They built a deterministic simulator first.</strong> The database came second.</p>
+<blockquote>
+<p>"Before building the database itself, we built a deterministic database simulation framework that can simulate a network of interacting processes and a variety of disk, process, network, and request-level failures and recoveries, all within a single physical process."
+— Zhou et al., SIGMOD 2021</p>
+</blockquote>
+<p>This decision was driven by the founders' (Dave Scherer, Will Wilson, et al.) conviction that distributed systems cannot be made correct through ad-hoc testing. The combinatorial explosion of failure modes (crashes × partitions × disk errors × clock skew × message reordering) makes manual testing inadequate.</p>
+<h3 id="2-2-the-flow-language">2.2 The Flow Language</h3>
+<p>To make simulation possible, they built <strong>Flow</strong>, a custom programming language that compiles to C++11.</p>
+<p><strong>What Flow is:</strong></p>
+<ul>
+<li>An <strong>actor-based concurrency framework</strong> implemented as a C++ preprocessor</li>
+<li>Compilation: <code>Flow source → Flow compiler → C++11 → g++/clang++ → binary</code></li>
+<li>Every asynchronous operation is an <strong>actor</strong> decorated with the <code>ACTOR</code> macro</li>
+<li>Actors communicate via <code>Future&lt;T&gt;</code> / <code>Promise&lt;T&gt;</code> pairs</li>
+<li><code>wait()</code> suspends an actor until a Future resolves (non-blocking, cooperative)</li>
+</ul>
+<p><strong>Key constructs:</strong></p>
+<pre><code data-lang="cpp">// ACTOR: declares an asynchronous function (compiled to a state machine)
+ACTOR Future&lt;int&gt; fetchAndAdd(Database db, Key key, int delta) {
+    state int current = wait(db.get(key));     // suspend until get() completes
+    wait(db.set(key, current + delta));        // suspend until set() completes
+    return current + delta;
+}
+
+// state keyword: variable survives across wait() calls
+// (local vars do NOT survive wait — Flow rewrites actors as classes)
+
+// choose...when: wait on multiple futures
+ACTOR void handleRequests(ServerInterface si) {
+    state int count = 0;
+    loop {
+        choose {
+            when(int x = waitNext(si.addCount.getFuture())) {
+                count += x;
+            }
+            when(Promise&lt;int&gt; r = waitNext(si.getCount.getFuture())) {
+                r.send(count);
+            }
+        }
+    }
+}
+
+// PromiseStream&lt;T&gt; / FutureStream&lt;T&gt;: multiple async messages
+// waitNext(): wait for next stream value
+</code></pre>
+<p><strong>Why Flow enables DST:</strong></p>
+<ul>
+<li>All I/O goes through abstract interfaces (<code>INetwork</code>, <code>IAsyncFile</code>)</li>
+<li>The Flow runtime scheduler is a <strong>single-threaded event loop</strong> with a priority queue</li>
+<li>In production: the event loop uses <code>epoll</code>/<code>kqueue</code> for real I/O (<code>Net2</code>)</li>
+<li>In simulation: the event loop is replaced with a time-stepped simulator (<code>Sim2</code>)</li>
+<li>Same binary, two runtimes:</li>
+</ul>
+<pre><code>Production mode:   App → INetwork → Net2 (real TCP/epoll)
+                   App → IAsyncFile → AsyncFileNonDurable (real disk)
+
+Simulation mode:   App → INetwork → Sim2 (simulated network)
+                   App → IAsyncFile → SimAsyncFile (simulated disk)
+</code></pre>
+<h3 id="2-3-the-simulator-architecture">2.3 The Simulator Architecture</h3>
+<pre><code>┌─────────────────────────────────────────────────┐
+│              Single OS Process                   │
+│                                                  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
+│  │ Process 1│  │ Process 2│  │ Process 3│ ...   │
+│  │ (actors) │  │ (actors) │  │ (actors) │       │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘      │
+│       │              │              │            │
+│  ┌────┴──────────────┴──────────────┴────┐      │
+│  │         Simulated Network              │      │
+│  │  (latency, reordering, drops,          │      │
+│  │   partitions, connection failures)     │      │
+│  └────────────────┬──────────────────────┘      │
+│                   │                              │
+│  ┌────────────────┴──────────────────────┐      │
+│  │         Simulated Disk                 │      │
+│  │  (latency, torn writes, corruption,    │      │
+│  │   space exhaustion, power loss)        │      │
+│  └────────────────┬──────────────────────┘      │
+│                   │                              │
+│  ┌────────────────┴──────────────────────┐      │
+│  │         Simulated Clock                │      │
+│  │  (discrete advances, clock skew)       │      │
+│  └────────────────┬──────────────────────┘      │
+│                   │                              │
+│  ┌────────────────┴──────────────────────┐      │
+│  │         Deterministic Scheduler        │      │
+│  │  (seeded PRNG, priority queue)         │      │
+│  └───────────────────────────────────────┘      │
+└─────────────────────────────────────────────────┘
+</code></pre>
+<p><strong>What gets simulated:</strong></p>
+<ul>
+<li>Machine count, type, drive performance, storage capacity</li>
+<li>Network: latency, packet drops, reordering, partitions, connection failures</li>
+<li>Disk: latency, torn writes, corruption, space exhaustion</li>
+<li>Process: crashes, reboots, recovery</li>
+<li>Datacenter: full datacenter failures</li>
+<li>Clock: skew, drift, jumps</li>
+</ul>
+<p><strong>Time compression</strong>: simulations achieve ~10:1 real-to-simulated time ratio. A 1-hour test covers ~10 hours of simulated cluster operation.</p>
+<p><strong>Scale</strong>: FoundationDB claims roughly <strong>one trillion CPU-hours</strong> of cumulative simulation testing.</p>
+<h3 id="2-4-buggify-cooperative-fault-injection">2.4 BUGGIFY: Cooperative Fault Injection</h3>
+<p><code>BUGGIFY</code> is a macro that injects faults <strong>only in simulation mode</strong>. In production builds, <code>BUGGIFY</code> always evaluates to false.</p>
+<pre><code data-lang="cpp">// In FoundationDB source code:
+if (BUGGIFY) {
+    // Only executes during simulation testing
+    wait(delay(deterministicRandom()-&gt;random01() * 10));  // random delay
+}
+
+if (BUGGIFY) {
+    throw io_error();  // simulate I/O failure
+}
+
+// BUGGIFY_WITH_PROB(p): fire with probability p
+if (BUGGIFY_WITH_PROB(0.01)) {
+    // 1% chance in simulation
+    connection.close();
+}
+</code></pre>
+<p><strong>Why BUGGIFY is powerful</strong>: developers sprinkle <code>BUGGIFY</code> throughout the codebase at every point where something unusual could happen. This creates a cooperative fault injection system where the code itself knows its own failure modes. Over time, the codebase accumulates thousands of BUGGIFY sites covering edge cases that external fault injection could never target.</p>
+<h3 id="2-5-swarm-testing">2.5 Swarm Testing</h3>
+<p>FoundationDB uses <strong>swarm testing</strong> (Chen et al., ISSTA 2012): instead of running every test with all features enabled, each test run randomly enables/disables a subset of features and BUGGIFY sites. This dramatically increases coverage by exploring different regions of the state space.</p>
+<pre><code>Run 1: BUGGIFY sites {A, C, F} enabled, features {X, Z} on
+Run 2: BUGGIFY sites {B, D, E} enabled, features {Y} on
+Run 3: BUGGIFY sites {A, B, F} enabled, features {X, Y, Z} on
+...
+</code></pre>
+<p><strong>"Swizzle-clogging"</strong>: a stress pattern that randomly stops and unclogs machine network connections to surface deep, rare bugs in connection management.</p>
+<h3 id="2-6-will-wilson-s-strange-loop-talk-2014">2.6 Will Wilson's Strange Loop Talk (2014)</h3>
+<p>The talk that introduced DST to the broader software community. Key claims:</p>
+<ol>
+<li>FoundationDB's simulator found <strong>every bug</strong> that later appeared in production (before deployment).</li>
+<li>When Kyle Kingsbury (Jepsen's creator) tested FoundationDB, he found nothing worth reporting — the simulator had already caught everything.</li>
+<li>The simulator runs <strong>millions of test scenarios</strong> that would be impossible to reproduce in real infrastructure.</li>
+<li>Determinism enables "time-travel debugging": given a failing seed, replay the exact event sequence, set breakpoints, and step through.</li>
+</ol>
+<hr />
+<h2 id="3-how-dst-works-technical-deep-dive">3. How DST Works: Technical Deep Dive</h2>
+<h3 id="3-1-controlling-non-determinism">3.1 Controlling Non-Determinism</h3>
+<p><strong>Step 1: Seed a PRNG</strong></p>
+<p>All randomness flows from a single seed. The seed determines:</p>
+<ul>
+<li>Network message delivery order and latency</li>
+<li>Fault injection timing and type</li>
+<li>Process scheduling order</li>
+<li>Workload generation</li>
+</ul>
+<pre><code data-lang="rust">// Pseudocode
+fn simulate(seed: u64, steps: usize) {
+    let mut rng = StdRng::seed_from_u64(seed);
+    let mut clock = SimulatedClock::new();
+    let mut network = SimulatedNetwork::new(&amp;mut rng);
+    let mut disk = SimulatedDisk::new(&amp;mut rng);
+    let mut scheduler = DeterministicScheduler::new(&amp;mut rng);
+
+    let cluster = spawn_cluster(&amp;scheduler, &amp;network, &amp;disk, &amp;clock);
+
+    for _ in 0..steps {
+        scheduler.run_next_event(&amp;mut clock);
+        inject_faults(&amp;mut rng, &amp;mut network, &amp;mut disk);
+        check_invariants(&amp;cluster);
+    }
+}
+</code></pre>
+<p><strong>Step 2: Replace real I/O with simulated I/O</strong></p>
+<pre><code>Real I/O path:        App → syscall → kernel → hardware
+Simulated I/O path:   App → simulated interface → in-process event queue
+</code></pre>
+<p>The simulated network delivers messages via an in-memory priority queue ordered by simulated delivery time. The simulated disk writes to in-memory buffers with optional fault injection (torn writes, corruption).</p>
+<p><strong>Step 3: Simulated clock</strong></p>
+<p>Time does not advance with the wall clock. Instead, time advances discretely when:</p>
+<ul>
+<li>The scheduler has no ready events and jumps to the next scheduled event</li>
+<li>A <code>sleep()</code> call schedules a wake-up event at <code>now + duration</code></li>
+</ul>
+<p>This enables <strong>time compression</strong>: hours of simulated operation in seconds of real time.</p>
+<p><strong>Step 4: Single-threaded execution</strong></p>
+<p>All "nodes" run as coroutines/actors in a single thread. The scheduler controls which coroutine runs next using the seeded PRNG. This eliminates OS thread scheduling non-determinism entirely.</p>
+<h3 id="3-2-fault-injection">3.2 Fault Injection</h3>
+<p>A typical DST framework injects:</p>
+<pre><code>Category          Faults Injected
+─────────────     ──────────────────────────────────────────
+Network           Message delay, drop, reorder, duplicate
+                  Connection reset, timeout
+                  Network partition (asymmetric, symmetric)
+                  Bandwidth throttling
+Disk              Read/write latency spikes
+                  Torn writes (partial page writes)
+                  Bit corruption (bit rot)
+                  Space exhaustion (ENOSPC)
+                  I/O errors (EIO)
+Process           Crash at any point (SIGKILL simulation)
+                  Slow process (freeze for N seconds)
+                  Reboot with recovery
+Clock             Clock skew between nodes
+                  Clock jumps (NTP correction)
+                  Monotonic clock violations
+Datacenter        Full DC failure (all nodes in a DC crash)
+                  DC network isolation
+</code></pre>
+<h3 id="3-3-invariant-checking-test-oracles">3.3 Invariant Checking (Test Oracles)</h3>
+<p>DST is only useful if you can check that the system behaves correctly. Common invariant classes:</p>
+<p><strong>Safety properties</strong> (nothing bad happens):</p>
+<ul>
+<li>Linearizability: operations appear to execute atomically in some order</li>
+<li>No data loss: acknowledged writes must be readable after recovery</li>
+<li>No duplicate operations: idempotency guarantees hold</li>
+<li>Consistency: application-level invariants (e.g., account balances sum correctly)</li>
+</ul>
+<p><strong>Liveness properties</strong> (something good eventually happens):</p>
+<ul>
+<li>The system eventually makes progress after faults heal</li>
+<li>Pending operations eventually complete or fail</li>
+<li>Leader election eventually succeeds</li>
+</ul>
+<h3 id="3-4-shrinking-and-debugging">3.4 Shrinking and Debugging</h3>
+<p>When a seed produces a failure:</p>
+<ol>
+<li><strong>Replay</strong>: re-run with the same seed → identical execution → identical failure</li>
+<li><strong>Minimize</strong>: try removing fault injection events to find the minimal reproducer</li>
+<li><strong>Inspect</strong>: add logging/breakpoints and re-run — the execution is identical</li>
+<li><strong>Time-travel</strong>: step forward and backward through the event log</li>
+</ol>
+<p>This is qualitatively different from debugging non-deterministic systems where "just run it again" may never reproduce the bug.</p>
+<hr />
+<h2 id="4-antithesis-dst-for-everyone">4. Antithesis: DST for Everyone</h2>
+<h3 id="4-1-the-company">4.1 The Company</h3>
+<p>Founded by <strong>Will Wilson</strong> (CEO, FoundationDB co-creator) and <strong>Dave Scherer</strong> (FoundationDB's former chief architect) in 2018. Launched publicly in 2024. Based in Virginia.</p>
+<p><strong>Core thesis</strong>: FoundationDB proved DST works, but required building a custom language (Flow) and simulator. Antithesis makes DST work for <strong>any software</strong> by operating at the hypervisor level.</p>
+<h3 id="4-2-the-determinator-deterministic-hypervisor">4.2 The Determinator (Deterministic Hypervisor)</h3>
+<p>Instead of requiring applications to be rewritten for a simulator, Antithesis runs unmodified software inside a <strong>deterministic hypervisor</strong> built on top of FreeBSD's bhyve.</p>
+<pre><code>FoundationDB approach:           Antithesis approach:
+
+  App (Flow actors)                App (any language)
+      │                                │
+  Sim2 (simulated runtime)            OS (Linux, unmodified)
+      │                                │
+  Host OS                          The Determinator (det. hypervisor)
+                                       │
+                                   Host OS
+</code></pre>
+<p><strong>How it achieves determinism:</strong></p>
+<ul>
+<li>Controls CPU instruction scheduling (deterministic virtual CPU)</li>
+<li>Intercepts and replays all I/O (disk, network, time)</li>
+<li>Controls thread scheduling at the hypervisor level</li>
+<li>All entropy (RDRAND, <code>/dev/urandom</code>) replaced with seeded PRNG</li>
+</ul>
+<p><strong>Key advantage</strong>: no code changes required. Package your app as Docker containers and Antithesis runs them as-is.</p>
+<h3 id="4-3-software-explorer">4.3 Software Explorer</h3>
+<p>Antithesis doesn't just replay seeds — it actively <strong>explores</strong> the state space using:</p>
+<ul>
+<li><strong>Code coverage instrumentation</strong>: detects rarely-executed paths</li>
+<li><strong>Snapshot-on-interest</strong>: when a rare branch is hit, snapshot state and explore alternative execution paths from that point</li>
+<li><strong>Branch exploration</strong>: fork execution to try different scheduling decisions</li>
+<li><strong>Guided fuzzing</strong>: coverage-guided mutation of fault schedules</li>
+</ul>
+<h3 id="4-4-sometimes-always-never-assertions">4.4 Sometimes / Always / Never Assertions</h3>
+<p>Antithesis introduces a three-valued assertion model:</p>
+<pre><code>always(condition)     // Must be true in every execution (safety)
+sometimes(condition)  // Must be true in at least one execution (coverage)
+never(condition)      // Must be false in every execution (safety)
+</code></pre>
+<p><code>sometimes</code> is the key innovation: it catches <strong>coverage gaps</strong>. If <code>sometimes(leader_elected_after_partition_heals)</code> never fires across millions of runs, your test workload isn't exercising that scenario — even though your code handles it.</p>
+<h3 id="4-5-notable-users">4.5 Notable Users</h3>
+<table><thead><tr><th>Company</th><th>What they test</th><th>Result</th></tr></thead><tbody>
+<tr><td>CockroachDB</td><td>Distributed SQL database</td><td>Found a "one-in-a-million" non-idempotent retry bug in Parallel Commits (25 hours of testing, thousands of scenarios)</td></tr>
+<tr><td>WarpStream</td><td>Kafka-compatible streaming (full SaaS)</td><td>Found critical data loss bug with microsecond-window race in file-flushing logic (233 seconds vs. 10,000+ CI hours undetected)</td></tr>
+<tr><td>TigerBeetle</td><td>Financial transaction database</td><td>Ongoing testing partnership</td></tr>
+<tr><td>Ramp</td><td>Corporate card platform</td><td>Financial correctness testing</td></tr>
+<tr><td>MongoDB</td><td>Document database</td><td>Correctness testing</td></tr>
+<tr><td>Jepsen 0.3.10</td><td>Runs Jepsen scenarios inside Antithesis</td><td>Deterministic replay of Jepsen tests</td></tr>
+</tbody></table>
+<hr />
+<h2 id="5-systems-using-dst">5. Systems Using DST</h2>
+<h3 id="5-1-foundationdb-c-flow">5.1 FoundationDB (C++, Flow)</h3>
+<ul>
+<li><strong>Approach</strong>: custom language (Flow), actor-level simulation</li>
+<li><strong>Simulator</strong>: Sim2, replaces Net2 (production runtime)</li>
+<li><strong>Testing scale</strong>: ~1 trillion CPU-hours cumulative</li>
+<li><strong>Owner</strong>: Apple (acquired 2015, open-sourced 2018)</li>
+<li><strong>BUGGIFY</strong>: cooperative fault injection macros throughout codebase</li>
+<li><strong>Swarm testing</strong>: randomized feature/fault configurations per run</li>
+</ul>
+<h3 id="5-2-tigerbeetle-zig-vopr">5.2 TigerBeetle (Zig, VOPR)</h3>
+<p>TigerBeetle built DST from day one, inspired by FoundationDB.</p>
+<p><strong>VOPR (Viewstamped Operation Replicator):</strong></p>
+<ul>
+<li>Named after WOPR from WarGames</li>
+<li>Simulates full cluster: multiple replicas + clients in a single process</li>
+<li>All I/O mocked: network simulator (faults, latency), storage simulator (sector corruption, torn writes)</li>
+<li>State machine checker using AEGIS-128L checksums validates replica consistency</li>
+</ul>
+<p><strong>Scale:</strong></p>
+<ul>
+<li>3.3 seconds of VOPR simulation ≈ 39 minutes of real-world testing time (~700x acceleration)</li>
+<li>10 VOPR simulators run 24/7 on 1,000 CPU cores ("VOPR-1000")</li>
+<li>~2 millennia of simulated runtime per day</li>
+</ul>
+<p><strong>Key difference from FoundationDB:</strong></p>
+<ul>
+<li>Written in Zig (no custom language needed — Zig's explicit control flow and comptime provide sufficient abstraction)</li>
+<li>Tests both safety AND liveness (system must make progress, not just avoid errors)</li>
+<li>Single-threaded in production too — no simulation tax for threading</li>
+</ul>
+<pre><code>VOPR Architecture:
+  ┌─────────────────────────────────────────┐
+  │          Single Zig Process              │
+  │                                          │
+  │  ┌────────┐ ┌────────┐ ┌────────┐      │
+  │  │Replica1│ │Replica2│ │Replica3│      │
+  │  └───┬────┘ └───┬────┘ └───┬────┘      │
+  │      │          │          │            │
+  │  ┌───┴──────────┴──────────┴───┐        │
+  │  │   Network Simulator          │        │
+  │  │ (drops, delays, partitions,  │        │
+  │  │  reordering, duplication)    │        │
+  │  └─────────────┬───────────────┘        │
+  │                │                         │
+  │  ┌─────────────┴───────────────┐        │
+  │  │   Storage Simulator          │        │
+  │  │ (torn writes, corruption,    │        │
+  │  │  latency, sector faults)     │        │
+  │  └─────────────┬───────────────┘        │
+  │                │                         │
+  │  ┌─────────────┴───────────────┐        │
+  │  │   State Checker              │        │
+  │  │ (AEGIS-128L checksums,       │        │
+  │  │  linearizability, liveness)  │        │
+  │  └─────────────────────────────┘        │
+  └─────────────────────────────────────────┘
+</code></pre>
+<h3 id="5-3-turmoil-rust-tokio-network-simulation">5.3 Turmoil (Rust, Tokio network simulation)</h3>
+<p>An importable Rust crate from the Tokio project. Provides deterministic execution by running multiple concurrent hosts within a single thread.</p>
+<pre><code data-lang="rust">use turmoil::Builder;
+
+#[test]
+fn test_partition_recovery() {
+    let mut sim = Builder::new().build();
+
+    sim.host(&quot;node-1&quot;, || async { /* node logic */ });
+    sim.host(&quot;node-2&quot;, || async { /* node logic */ });
+    sim.host(&quot;node-3&quot;, || async { /* node logic */ });
+
+    // Partition node-1 from the others
+    sim.partition(&quot;node-1&quot;, &quot;node-2&quot;);
+    sim.partition(&quot;node-1&quot;, &quot;node-3&quot;);
+
+    sim.run().unwrap();
+
+    // Heal the partition
+    sim.repair(&quot;node-1&quot;, &quot;node-2&quot;);
+    sim.repair(&quot;node-1&quot;, &quot;node-3&quot;);
+
+    sim.run().unwrap();
+}
+</code></pre>
+<p><strong>Limitations:</strong></p>
+<ul>
+<li>Only simulates networking. Filesystem and other I/O are not simulated</li>
+<li>Requires using turmoil's TCP types instead of <code>tokio::net</code></li>
+<li>Does not intercept <code>libc</code> calls — cannot control randomness or time at the OS level</li>
+</ul>
+<h3 id="5-4-madsim-rust-full-async-runtime-replacement">5.4 MadSim (Rust, full async runtime replacement)</h3>
+<p>MadSim (Magical Deterministic Simulator) replaces the entire async runtime.</p>
+<pre><code>Production mode:  App → Tokio Runtime → OS
+Simulation mode:  App → MadSim Runtime → Simulated {Network, Time, Random, FS}
+</code></pre>
+<p><strong>Key technique: libc interception.</strong> Overloads <code>gettimeofday</code>, <code>clock_gettime</code>, <code>getrandom</code>, and <code>sysconf</code> at link time to control time and randomness at the OS level:</p>
+<pre><code data-lang="rust">// MadSim overrides libc symbols at link time
+#[no_mangle]
+pub unsafe extern &quot;C&quot; fn clock_gettime(
+    clk_id: libc::clockid_t,
+    tp: *mut libc::timespec,
+) -&gt; libc::c_int {
+    // Return simulated time instead of real time
+    let sim_time = SIMULATOR.with(|s| s.borrow().current_time());
+    (*tp).tv_sec = sim_time.as_secs() as i64;
+    (*tp).tv_nsec = sim_time.subsec_nanos() as i64;
+    0
+}
+</code></pre>
+<p><strong>Features:</strong></p>
+<ul>
+<li>API-compatible with Tokio (change <code>Cargo.toml</code>, not code)</li>
+<li>Simulated implementations of tonic (gRPC), etcd-client, rust-rdkafka, aws-sdk-s3</li>
+<li>Multi-node simulation with separate network namespaces in a single process</li>
+<li>BUGGIFY-style fault injection</li>
+</ul>
+<p><strong>Users:</strong> RisingWave (distributed streaming SQL database) uses MadSim extensively, simulating full clusters with Kafka, S3, and etcd mocked.</p>
+<h3 id="5-5-s2-rust-mad-turmoil-hybrid">5.5 S2 (Rust, mad-turmoil hybrid)</h3>
+<p>S2.dev (streaming storage) created <code>mad-turmoil</code>, combining MadSim's libc overrides with Turmoil's ergonomic API.</p>
+<p><strong>Key techniques:</strong></p>
+<ul>
+<li>Override <code>getrandom</code>, <code>getentropy</code>, <code>CCRandomGenerateBytes</code> (macOS) for deterministic randomness</li>
+<li>Override <code>clock_gettime</code> using Turmoil's simulated clock</li>
+<li><strong>Meta-test for determinism</strong>: re-run the same seed twice in CI, diff TRACE-level logs byte-by-byte. Any difference = determinism leak.</li>
+<li>Found 17 bugs (API nuances, protocol errors, deadlocks) before production</li>
+</ul>
+<h3 id="5-6-sled-rust-embedded-database">5.6 Sled (Rust, embedded database)</h3>
+<p>Tyler Neely's embedded database was an early Rust adopter of simulation-style testing.</p>
+<p><strong>Approach:</strong></p>
+<ul>
+<li>Model components as state machines communicating via messages</li>
+<li>Deterministic "delivery times" from a seeded PRNG</li>
+<li>Priority queue processes messages in time order</li>
+<li>Combine with quickcheck (property-based testing) for model checking</li>
+<li>Failpoints at every I/O operation for crash testing</li>
+</ul>
+<p><strong>Sled's testing stack (7 layers):</strong></p>
+<ol>
+<li>quickcheck model testing on Tree, PageCache, Log</li>
+<li>proptest model testing on PageTable</li>
+<li>Linearizability testing</li>
+<li>Deterministic concurrent model testing</li>
+<li>Failpoints with model testing at every I/O</li>
+<li>Crash testing</li>
+<li>Fuzzing with libfuzzer</li>
+</ol>
+<p>Tyler Neely's claim: "Simulators give implementations that Jepsen will not find bugs in."</p>
+<h3 id="5-7-polar-signals-rust-state-machine-approach">5.7 Polar Signals (Rust, state machine approach)</h3>
+<p>Instead of using a deterministic runtime, Polar Signals modeled core components as <strong>explicit state machines</strong>:</p>
+<pre><code data-lang="rust">enum NodeAction {
+    SendMessage { to: NodeId, msg: Message },
+    WriteToDisk { key: Key, value: Value },
+    SetTimer { duration: Duration, callback: TimerId },
+}
+
+trait StateMachine {
+    fn handle_event(&amp;mut self, event: Event) -&gt; Vec&lt;NodeAction&gt;;
+}
+
+// The simulator drives state machines directly:
+fn simulate(seed: u64, steps: usize) {
+    let mut rng = StdRng::seed_from_u64(seed);
+    let mut nodes: Vec&lt;Box&lt;dyn StateMachine&gt;&gt; = create_cluster();
+    let mut event_queue: BinaryHeap&lt;TimedEvent&gt; = BinaryHeap::new();
+
+    for _ in 0..steps {
+        let event = event_queue.pop().unwrap();
+        let actions = nodes[event.target].handle_event(event.payload);
+        for action in actions {
+            schedule_action(&amp;mut event_queue, action, &amp;mut rng);
+        }
+    }
+}
+</code></pre>
+<p><strong>Pro:</strong> inherently deterministic — a pure function from (state, event) → (new_state, actions). No runtime hacks, no libc overrides.
+<strong>Con:</strong> requires restructuring all code as state machines. Loses ability to test "real" async code paths.</p>
+<h3 id="5-8-gosim-go">5.8 Gosim (Go)</h3>
+<p>Released December 2024. Brings DST to Go through <strong>source translation</strong>:</p>
+<ul>
+<li>Rewrites Go source to replace concurrency primitives: <code>go foo()</code> → <code>gosimruntime.Go(foo)</code></li>
+<li>Implements a subset of Linux syscalls to simulate disk and network</li>
+<li>Deterministic goroutine scheduling</li>
+</ul>
+<p><strong>Status:</strong> Experimental. Limited simulated APIs (files/directories work but not permissions; TCP but not UDP; IP addresses but not DNS).</p>
+<h3 id="5-9-hermit-meta-deterministic-linux-container">5.9 Hermit (Meta, deterministic Linux container)</h3>
+<p>Meta's open-source tool for deterministic execution of arbitrary Linux x86_64 programs.</p>
+<p><strong>How it works:</strong></p>
+<ul>
+<li>Uses the Reverie syscall interception framework</li>
+<li>Intercepts system calls and replaces responses to remove non-determinism</li>
+<li>Controls: thread scheduling, time (<code>gettimeofday</code>, <code>clock_gettime</code>), random (<code>getrandom</code>), PIDs, file descriptors</li>
+</ul>
+<p><strong>Limitations:</strong></p>
+<ul>
+<li>Determinizes a single process, not a distributed cluster</li>
+<li>Cannot isolate from filesystem changes or external network</li>
+<li>Requires fixed filesystem base image (Docker) and disabled external networking</li>
+<li><strong>Maintenance mode</strong> since ~2023 — no longer actively developed at Meta</li>
+</ul>
+<h3 id="5-10-warpstream-go-uses-antithesis">5.10 WarpStream (Go, uses Antithesis)</h3>
+<p>WarpStream (Kafka-compatible streaming, acquired by Confluent) uses Antithesis to test their <strong>entire SaaS platform</strong> — not just the data plane but user signup, metadata management, billing.</p>
+<p><strong>Results (6 wall-clock hours, 280 simulated application hours):</strong></p>
+<ul>
+<li>Data race in metrics library (found in 233 seconds vs. 10,000+ CI hours undetected)</li>
+<li>Critical data loss bug: network failure + race condition in file-flushing logic with a <strong>microsecond-window</strong> condition</li>
+</ul>
+<h3 id="5-11-cockroachdb-go-uses-antithesis">5.11 CockroachDB (Go, uses Antithesis)</h3>
+<p>Found a "one-in-a-million" bug in the Parallel Commits protocol. An RPC failure during a write caused a non-idempotent retry, which raced with transaction recovery logic. Antithesis reproduced it in 25 hours of testing across thousands of scenarios.</p>
+<p>The concept of <strong>"demonic nondeterminism"</strong> (Cockroach Labs, 2024): in distributed systems, non-determinism acts as if an adversary ("demon") is choosing the worst possible execution at every step. DST lets you systematically explore these worst-case executions.</p>
+<hr />
+<h2 id="6-comparison-with-other-testing-approaches">6. Comparison with Other Testing Approaches</h2>
+<h3 id="6-1-dst-vs-jepsen">6.1 DST vs. Jepsen</h3>
+<pre><code>                DST                              Jepsen
+                ───                              ─────
+Approach:       White-box simulation             Black-box fault injection
+                (runs inside simulator)          (runs on real cluster)
+Tests:          Real code, simulated env         Real code, real env
+Faults:         Simulated (precise control)      Real (iptables, kill -9)
+Determinism:    Yes (seed-based)                 No (real OS non-determinism)
+Reproducibility:Perfect                          Approximate (retry)
+Speed:          1000s of scenarios/sec           1-10 scenarios/hour
+Setup:          High (must integrate simulator)  Medium (Docker + Jepsen)
+Finds real I/O: No (except Antithesis)           Yes
+</code></pre>
+<p><strong>When to use Jepsen:</strong> to validate that your system works in the real world with real OS, real network stacks, and real disk behavior. Jepsen is a <strong>validation tool</strong>. DST is a <strong>development tool</strong> that finds bugs before deployment.</p>
+<p><strong>Convergence:</strong> Jepsen 0.3.10 added support for running inside Antithesis, enabling deterministic replay of Jepsen scenarios.</p>
+<h3 id="6-2-dst-vs-tla-model-checking">6.2 DST vs. TLA+ / Model Checking</h3>
+<pre><code>                DST                              TLA+ / Model Checking
+                ───                              ────────────────────
+Tests:          Implementation (real code)       Specification (model)
+Language:       Production language               TLA+, P, Alloy
+Exhaustive:     No (random sampling)             Yes (within state bound)
+Finds impl bugs:Yes                              No (spec may be correct,
+                                                     impl may diverge)
+Finds design:   Sometimes                        Yes (finds spec bugs)
+</code></pre>
+<p><strong>Complementary:</strong> TLA+ finds design bugs (the algorithm is wrong). DST finds implementation bugs (the code doesn't match the algorithm). Use both: TLA+ to verify the design, DST to verify the implementation. Amazon describes this dual approach (Newcombe et al., CACM 2015).</p>
+<h3 id="6-3-dst-vs-property-based-testing-quickcheck">6.3 DST vs. Property-Based Testing / QuickCheck</h3>
+<pre><code>                DST                              Property-Based Testing
+                ───                              ──────────────────────
+Scope:          Full system integration          Unit/component level
+Inputs:         Fault schedules + workloads      Input data
+Shrinking:      Seed-based (limited)             Automatic (QuickCheck)
+Finds:          Distributed/concurrent bugs      Logic bugs, edge cases
+</code></pre>
+<p>Natural complements. Many DST frameworks use PBT internally. TigerBeetle's VOPR is essentially a property-based test at the system level.</p>
+<h3 id="6-4-dst-vs-chaos-engineering">6.4 DST vs. Chaos Engineering</h3>
+<pre><code>                DST                              Chaos Engineering
+                ───                              ─────────────────
+Environment:    Simulated                        Production / staging
+Determinism:    Yes                              No
+Safety:         Zero risk (simulation)           Real risk
+Scope:          Correctness testing              Operational resilience
+Faults:         Precise, reproducible            Coarse, probabilistic
+Used by:        Developers during development    SREs in production
+</code></pre>
+<p>Chaos engineering (Chaos Monkey, LitmusChaos, Gremlin) tests <strong>operational resilience</strong>: can the system survive real failures? DST tests <strong>correctness</strong>: does the system produce correct results under failures? Different questions.</p>
+<h3 id="6-5-dst-vs-formal-verification-coq-dafny-verus">6.5 DST vs. Formal Verification (Coq, Dafny, Verus)</h3>
+<pre><code>                DST                              Formal Verification
+                ───                              ────────────────────
+Guarantee:      Statistical confidence           Mathematical proof
+Cost:           High (simulator)                 Very high (proof effort)
+Scope:          Full system                      Usually single component
+Real code:      Yes                              Depends (Verus = Rust)
+</code></pre>
+<p>IronFleet (Dafny), Verdi (Coq), and Verus (Rust) have formally verified distributed systems, but proof effort is enormous and doesn't extend to third-party dependencies.</p>
+<h3 id="6-6-summary-matrix">6.6 Summary Matrix</h3>
+<pre><code>           Design  Impl   Ops    Repro-     Cost       Scope
+           Bugs    Bugs   Bugs   ducible
+─────────  ──────  ─────  ─────  ────────   ─────────  ──────────
+DST        Some    Yes    No     Yes        Very High  Full system
+Jepsen     No      Yes    Some   No         Medium     Full system
+TLA+       Yes     No     No     N/A        High       Design only
+PBT        No      Yes    No     Yes        Low        Component
+Chaos      No      No     Yes    No         Low        Operations
+Formal     Yes     Dep.   No     N/A        Very High  Component
+</code></pre>
+<hr />
+<h2 id="7-practical-considerations">7. Practical Considerations</h2>
+<h3 id="7-1-when-dst-is-worth-the-investment">7.1 When DST Is Worth the Investment</h3>
+<p><strong>Good fit:</strong></p>
+<ul>
+<li>Distributed databases (correctness is existential)</li>
+<li>Consensus protocol implementations (Raft, Paxos, VSR)</li>
+<li>Financial transaction systems (money must not be lost or duplicated)</li>
+<li>Storage engines (data durability is paramount)</li>
+</ul>
+<p><strong>Poor fit:</strong></p>
+<ul>
+<li>Simple CRUD applications</li>
+<li>Prototypes or early-stage projects</li>
+<li>Systems with many external dependencies hard to simulate</li>
+</ul>
+<p><strong>Rule of thumb:</strong> if your system has &gt;3 interacting failure modes (crashes × partitions × corruption × clock skew), DST becomes valuable because the combinatorial explosion makes manual testing inadequate.</p>
+<h3 id="7-2-what-dst-can-and-cannot-find">7.2 What DST Can and Cannot Find</h3>
+<p><strong>Can find:</strong></p>
+<ul>
+<li>Protocol bugs (violated invariants under specific fault sequences)</li>
+<li>Crash recovery bugs (data lost after crash + restart)</li>
+<li>Network partition handling errors (split brain, stale reads)</li>
+<li>Logical race conditions in distributed state machines</li>
+<li>Liveness bugs (system hangs under specific conditions)</li>
+<li>Edge cases in timeout/retry/backoff logic</li>
+</ul>
+<p><strong>Cannot find:</strong></p>
+<ul>
+<li>Performance bugs (simulation does not model real timing)</li>
+<li>Real hardware bugs (disk firmware, NIC offload, kernel bugs)</li>
+<li>Memory safety bugs (use-after-free, buffer overflow) — use sanitizers</li>
+<li>CPU-level data races (cache coherence) — use ThreadSanitizer</li>
+<li>Bugs in the simulator itself</li>
+<li>Bugs in code outside the simulation boundary</li>
+</ul>
+<h3 id="7-3-the-simulation-tax">7.3 The Simulation Tax</h3>
+<p>Making code simulatable imposes costs:</p>
+<p><strong>1. Abstraction layers:</strong> all I/O must go through swappable interfaces.</p>
+<pre><code data-lang="cpp">// Direct I/O (fast, not simulatable):
+ssize_t n = write(fd, buf, len);
+
+// Abstracted I/O (simulatable, slight overhead):
+ssize_t n = g_io-&gt;write(fd, buf, len);
+</code></pre>
+<p><strong>2. Single-threaded constraint:</strong> if your system relies on multi-threading for performance, the single-threaded simulation may not test the same code paths. FoundationDB and TigerBeetle solve this by being single-threaded in production too.</p>
+<p><strong>3. No real concurrency testing:</strong> CPU-level concurrency bugs (atomics, lock-free data structures) are invisible in single-threaded simulation. Use <code>loom</code> (Rust) or ThreadSanitizer separately.</p>
+<p><strong>4. Simulation fidelity:</strong> a simulated disk that doesn't model torn writes will miss torn-write bugs. The simulation is only as good as the fault model.</p>
+<p><strong>5. Seed fragility:</strong> reproducibility only works if the code doesn't change. A code change may cause a previously-failing seed to take a completely different path. Requires continuous re-simulation.</p>
+<h3 id="7-4-architecture-patterns">7.4 Architecture Patterns</h3>
+<pre><code>Pattern 1: Interface-based swapping (FoundationDB)
+  Production:  App → INetwork → Net2 (real TCP)
+  Simulation:  App → INetwork → Sim2 (simulated)
+
+Pattern 2: libc interception (MadSim)
+  Production:  App → libc → kernel
+  Simulation:  App → intercepted libc → MadSim runtime
+
+Pattern 3: Runtime replacement (Turmoil, Gosim)
+  Production:  App → tokio/Go runtime → OS
+  Simulation:  App → turmoil/gosim runtime → simulated OS
+
+Pattern 4: Hypervisor (Antithesis)
+  Production:  App → OS → Hardware
+  Simulation:  App → OS → Deterministic Hypervisor
+
+Pattern 5: State machines (Polar Signals, Sled)
+  Production:  Event loop drives state machines via real I/O
+  Simulation:  Simulator drives state machines via simulated events
+</code></pre>
+<table><thead><tr><th>Pattern</th><th>Language Support</th><th>Code Changes</th><th>Fidelity</th><th>Performance</th></tr></thead><tbody>
+<tr><td>Interface-based</td><td>Language-specific</td><td>High (custom lang)</td><td>Highest</td><td>Fastest</td></tr>
+<tr><td>libc intercept</td><td>C/Rust (libc-based)</td><td>Low</td><td>High</td><td>Fast</td></tr>
+<tr><td>Runtime replace</td><td>Runtime-specific</td><td>Medium</td><td>Medium</td><td>Fast</td></tr>
+<tr><td>Hypervisor</td><td>Any</td><td>None</td><td>High</td><td>Slowest</td></tr>
+<tr><td>State machine</td><td>Any</td><td>Very high (rewrite)</td><td>Highest</td><td>Fastest</td></tr>
+</tbody></table>
+<hr />
+<h2 id="8-key-papers-talks-and-resources">8. Key Papers, Talks, and Resources</h2>
+<h3 id="8-1-foundational-papers">8.1 Foundational Papers</h3>
+<ol>
+<li><strong>Lamport</strong> - "Time, Clocks, and the Ordering of Events in a Distributed System", CACM, 1978. Logical time, foundational to removing wall-clock dependence.</li>
+<li><strong>Fischer, Lynch, Paterson</strong> - "Impossibility of Distributed Consensus with One Faulty Process", JACM, 1985. FLP impossibility — motivates why distributed systems need rigorous testing.</li>
+<li><strong>Newcombe, Rath, Zhang, Metz, Kelley</strong> - "How Amazon Web Services Uses Formal Methods", CACM, 2015. AWS's TLA+ and simulation approach.</li>
+<li><strong>Chen, Groce, Zhang, Wong, Fern, Eide, Regehr</strong> - "Taming Compiler Fuzzers", PLDI, 2013. Swarm testing — randomizing configurations for coverage.</li>
+<li><strong>Alpern, Schneider</strong> - "Defining Liveness", Information Processing Letters, 1985. Safety/liveness decomposition used by FDB test oracles.</li>
+</ol>
+<h3 id="8-2-foundationdb-papers">8.2 FoundationDB Papers</h3>
+<ol start="6">
+<li><strong>Zhou, Donaghy, Dowling, Dunning, Liao, Meyerovich, Shraer</strong> - "FoundationDB: A Distributed Unbundled Transactional Key Value Store", SIGMOD, 2021. Best Industrial Paper. Definitive paper on FDB including simulation testing.</li>
+</ol>
+<h3 id="8-3-key-talks-and-articles">8.3 Key Talks and Articles</h3>
+<ol start="7">
+<li><strong>Will Wilson</strong> - "Testing Distributed Systems w/ Deterministic Simulation", Strange Loop, 2014. The talk that introduced DST to the broader community.</li>
+<li><strong>Will Wilson</strong> - SE Radio Episode 685, "Deterministic Simulation Testing", September 2025.</li>
+<li><strong>TigerBeetle team</strong> - "A Descent into the Vortex", blog, February 2025. VOPR internals deep dive.</li>
+<li><strong>TigerBeetle team</strong> - "Simulation Testing for Liveness", blog, July 2023. Liveness mode in VOPR.</li>
+<li><strong>CockroachDB</strong> - "Antithesis of a One-in-a-Million Bug: Taming Demonic Nondeterminism", blog, 2024.</li>
+<li><strong>WarpStream</strong> - "Deterministic Simulation Testing for Our Entire SaaS", blog, March 2024.</li>
+<li><strong>Phil Eaton</strong> - "What's the Big Deal About Deterministic Simulation Testing?", blog, August 2024.</li>
+<li><strong>Dominik Tornow / Resonate</strong> - "Deterministic Simulation Testing", journal, 2024. Formal treatment.</li>
+<li><strong>Pierre Zemb</strong> - "Diving into FoundationDB's Simulation Framework", blog, 2023.</li>
+<li><strong>S2.dev</strong> - "Deterministic Simulation Testing for Async Rust", blog, 2025. mad-turmoil hybrid.</li>
+<li><strong>RisingWave</strong> - "Deterministic Simulation: A New Era of Distributed System Testing" (Parts 1 &amp; 2), blog, 2023.</li>
+<li><strong>Polar Signals</strong> - "Deterministic Simulation Testing in Rust: A Theater of State Machines", blog/FOSDEM 2026.</li>
+<li><strong>Antithesis</strong> - "So You Think You Want to Write a Deterministic Hypervisor?", blog, March 2024.</li>
+<li><strong>Amplify Partners</strong> - "A DST Primer for Unit Test Maxxers", blog, 2024.</li>
+</ol>
+<h3 id="8-4-tools-and-frameworks">8.4 Tools and Frameworks</h3>
+<table><thead><tr><th>Tool</th><th>Language</th><th>Approach</th><th>Status</th></tr></thead><tbody>
+<tr><td>FoundationDB Sim2</td><td>C++ (Flow)</td><td>Actor-level simulation</td><td>Production (Apple)</td></tr>
+<tr><td>TigerBeetle VOPR</td><td>Zig</td><td>Full-system simulation</td><td>Production</td></tr>
+<tr><td>Antithesis</td><td>Any (hypervisor)</td><td>Deterministic hypervisor</td><td>Commercial</td></tr>
+<tr><td>Turmoil</td><td>Rust</td><td>Tokio network simulation</td><td>Active OSS</td></tr>
+<tr><td>MadSim</td><td>Rust</td><td>Full runtime replacement</td><td>Active OSS</td></tr>
+<tr><td>mad-turmoil</td><td>Rust</td><td>MadSim + Turmoil hybrid</td><td>Active OSS</td></tr>
+<tr><td>Gosim</td><td>Go</td><td>Source translation + runtime</td><td>Experimental</td></tr>
+<tr><td>Hermit</td><td>Linux x86_64</td><td>Syscall interception (Reverie)</td><td>Maintenance mode</td></tr>
+<tr><td>loom</td><td>Rust</td><td>Thread interleaving exploration</td><td>Active OSS</td></tr>
+<tr><td>Sled testing</td><td>Rust</td><td>State machine simulation</td><td>Integrated in sled</td></tr>
+<tr><td>Coyote</td><td>C#</td><td>Binary rewriting + scheduler</td><td>Microsoft Research</td></tr>
+</tbody></table>
+<h3 id="8-5-curated-lists">8.5 Curated Lists</h3>
+<ul>
+<li><a rel="external" href="https://github.com/ivanyu/awesome-deterministic-simulation-testing">ivanyu/awesome-deterministic-simulation-testing</a> — curated DST resources</li>
+<li><a rel="external" href="https://databases.systems/posts/open-source-antithesis-p1">databases.systems/posts/open-source-antithesis-p1</a> — ecosystem analysis</li>
+<li>FoundationDB forums: "Systems using simulation testing" thread</li>
+</ul>
+<hr />
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://nmbr7.github.io/notes/distributed/distributed-consensus/">Distributed Consensus</a> — Consensus algorithms that DST is designed to verify (Paxos, Raft, VR)</li>
+<li><a href="https://nmbr7.github.io/notes/database/wal-torn-pages/">WAL, Torn Pages, and Disk Reliability</a> — Crash recovery correctness that simulation testing validates</li>
+<li><a href="https://nmbr7.github.io/notes/database/database-systems/">Database Systems Survey</a> — TigerBeetle and FoundationDB, key DST adopters, are surveyed here</li>
+<li><a href="https://nmbr7.github.io/notes/programming/rust-low-level/">Rust Low-Level Programming</a> — Turmoil, MadSim, and loom are Rust-based DST frameworks</li>
+</ul>
+<hr />
+<p><em>Last updated: 2026-02-11</em></p>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

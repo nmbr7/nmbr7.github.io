@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Cloudnativepg</h1>
+  <h1 id="cloudnativepg-cnpg-expert-level-technical-deep-dive">CloudNativePG (CNPG) - Expert-Level Technical Deep Dive</h1>
+<h2 id="changelog">Changelog</h2>
+<table><thead><tr><th>Date</th><th>Section added / updated</th></tr></thead><tbody>
+<tr><td>2026-03-26</td><td>Initial comprehensive deep dive: Architecture, Operator Implementation, Instance Manager, CRDs, Lifecycle Management, Storage, HA, Backup &amp; Recovery, Networking, Security, Monitoring, Design Decisions, CNPG-I Plugin Interface, Distributed Topology</td></tr>
+</tbody></table>
+<hr />
+<h2 id="1-architecture-overview">1. Architecture Overview</h2>
+<h3 id="1-1-high-level-design-philosophy">1.1 High-Level Design Philosophy</h3>
+<p>CloudNativePG is a Kubernetes operator for PostgreSQL that follows a radically different design philosophy from older PostgreSQL-on-Kubernetes solutions (Crunchy PGO, Zalando's postgres-operator with Patroni/Spilo, Stolon). Its three fundamental architectural principles are:</p>
+<ol>
+<li>
+<p><strong>No external failover management tools</strong> -- no Patroni, no repmgr, no Stolon. The operator directly extends the Kubernetes controller and relies on the Kubernetes API server to hold the status of a PostgreSQL cluster.</p>
+</li>
+<li>
+<p><strong>No StatefulSets</strong> -- the operator implements its own custom pod controller, managing Pods and PVCs directly.</p>
+</li>
+<li>
+<p><strong>Instance manager as PID 1</strong> -- instead of the sidecar pattern, each PostgreSQL container runs a custom Go binary (<code>/controller/manager</code>) as PID 1, which in turn manages the <code>postmaster</code> process.</p>
+</li>
+</ol>
+<p>These three choices are deeply interrelated and represent a coherent design where the operator has maximum control over the PostgreSQL lifecycle, free from the constraints and abstractions of StatefulSet and external HA tools.</p>
+<h3 id="1-2-shared-nothing-architecture">1.2 Shared-Nothing Architecture</h3>
+<p>CNPG mandates a shared-nothing deployment model:</p>
+<ul>
+<li>Each PostgreSQL instance runs in its own Pod with its own dedicated PVCs</li>
+<li>No shared storage between instances (no NFS, no shared block volumes)</li>
+<li>Replication uses PostgreSQL's native WAL shipping and streaming replication -- application-level replication, not storage-level replication</li>
+<li>Instances should reside on different Kubernetes worker nodes, ideally across different availability zones</li>
+<li>Storage-level replication (Ceph replicas, Longhorn replicas) is explicitly discouraged because PostgreSQL already handles replication; doubling it causes unnecessary write amplification</li>
+</ul>
+<h3 id="1-3-primary-standby-topology">1.3 Primary-Standby Topology</h3>
+<p>Within a single Kubernetes cluster, CNPG manages:</p>
+<ul>
+<li>Exactly one primary instance (read-write)</li>
+<li>Zero or more hot standby replicas (read-only, via streaming replication)</li>
+<li>The number of replicas = <code>.spec.instances - 1</code></li>
+<li>Automatic service updates during failover to redirect traffic seamlessly</li>
+</ul>
+<h3 id="1-4-operator-deployment-model">1.4 Operator Deployment Model</h3>
+<p>The operator itself runs as a standard Kubernetes Deployment (typically a single replica, or multiple for HA of the operator process). It:</p>
+<ul>
+<li>Watches all Cluster, Backup, ScheduledBackup, Pooler, and related resources across configured namespaces</li>
+<li>Runs reconciliation loops using <code>controller-runtime</code> (the standard Go framework underlying kubebuilder)</li>
+<li>Exposes webhook endpoints on port 9443 (validating and mutating admission webhooks)</li>
+<li>Exposes Prometheus metrics on port 8080</li>
+<li>Communicates with instance managers via port 8000 on each Pod (TLS-secured, operator-authenticated)</li>
+</ul>
+<hr />
+<h2 id="2-custom-resource-definitions-crds">2. Custom Resource Definitions (CRDs)</h2>
+<p>CNPG defines its CRDs under the API group <code>postgresql.cnpg.io/v1</code>:</p>
+<h3 id="2-1-cluster">2.1 Cluster</h3>
+<p>The primary CRD. Declaratively defines an entire PostgreSQL cluster:</p>
+<ul>
+<li><code>.spec.instances</code> -- number of PostgreSQL instances (primary + replicas)</li>
+<li><code>.spec.imageName</code> / <code>.spec.imageCatalogRef</code> -- container image with PostgreSQL</li>
+<li><code>.spec.storage</code> -- PGDATA PVC specification</li>
+<li><code>.spec.walStorage</code> -- optional separate WAL PVC</li>
+<li><code>.spec.tablespaces</code> -- declarative tablespace volumes</li>
+<li><code>.spec.postgresql</code> -- PostgreSQL configuration parameters, pg_hba.conf, synchronous replication</li>
+<li><code>.spec.bootstrap</code> -- how to initialize the cluster (initdb, recovery from backup, pg_basebackup)</li>
+<li><code>.spec.backup</code> -- backup configuration (volume snapshots, object store via plugins)</li>
+<li><code>.spec.replica</code> -- replica cluster configuration for distributed topologies</li>
+<li><code>.spec.monitoring</code> -- Prometheus metrics configuration</li>
+<li><code>.spec.resources</code> -- CPU/memory requests and limits</li>
+<li><code>.spec.affinity</code> -- node affinity, pod anti-affinity, topology constraints</li>
+<li><code>.spec.plugins</code> -- CNPG-I plugin declarations</li>
+</ul>
+<h3 id="2-2-backup">2.2 Backup</h3>
+<p>A one-shot request for a physical backup:</p>
+<ul>
+<li><code>.spec.cluster</code> -- reference to the target Cluster</li>
+<li><code>.spec.method</code> -- backup method (plugin-based or volumeSnapshot)</li>
+<li><code>.spec.target</code> -- prefer standby (default) or primary</li>
+<li>Status tracks start/stop times, backup size, WAL position, success/failure</li>
+</ul>
+<h3 id="2-3-scheduledbackup">2.3 ScheduledBackup</h3>
+<p>Cron-scheduled backups:</p>
+<ul>
+<li><code>.spec.schedule</code> -- six-field cron expression (includes seconds field, unlike Unix crontab)</li>
+<li><code>.spec.cluster</code> -- target Cluster reference</li>
+<li><code>.spec.method</code> -- backup method</li>
+<li><code>.spec.immediate</code> -- take one immediately on creation</li>
+<li><code>.spec.suspend</code> -- temporarily disable scheduling</li>
+</ul>
+<h3 id="2-4-pooler">2.4 Pooler</h3>
+<p>Connection pooling via PgBouncer:</p>
+<ul>
+<li><code>.spec.cluster</code> -- target Cluster</li>
+<li><code>.spec.type</code> -- <code>rw</code> (routes to primary) or <code>ro</code> (routes to replicas)</li>
+<li><code>.spec.instances</code> -- number of PgBouncer pods</li>
+<li><code>.spec.pgbouncer</code> -- PgBouncer configuration (poolMode, parameters)</li>
+<li><code>.spec.template</code> -- full PodSpec customization (container must be named <code>pgbouncer</code>)</li>
+</ul>
+<h3 id="2-5-clusterimagecatalog-imagecatalog">2.5 ClusterImageCatalog / ImageCatalog</h3>
+<p>Catalogs mapping PostgreSQL major versions to container images, enabling simplified version management and rolling upgrades.</p>
+<hr />
+<h2 id="3-operator-implementation-details">3. Operator Implementation Details</h2>
+<h3 id="3-1-technology-stack">3.1 Technology Stack</h3>
+<ul>
+<li><strong>Language</strong>: Go</li>
+<li><strong>Framework</strong>: <code>controller-runtime</code> (the library underlying kubebuilder, but CNPG does not use kubebuilder scaffolding directly for all controllers)</li>
+<li><strong>CRD generation</strong>: Standard controller-gen markers in Go types under <code>api/v1/</code></li>
+<li><strong>Build</strong>: Makefile + GoReleaser + Docker Bake (multi-platform builds)</li>
+<li><strong>CI</strong>: GitHub Actions with golangci-lint, gosec, govulncheck, CodeQL, Snyk, Dockle</li>
+<li><strong>Image signing</strong>: cosign with short-lived OIDC tokens, SBOM (SPDX), SLSA provenance attestations</li>
+</ul>
+<h3 id="3-2-repository-structure">3.2 Repository Structure</h3>
+<pre><code>cloudnative-pg/
+  api/v1/          -- CRD type definitions (Cluster, Backup, ScheduledBackup, Pooler, etc.)
+  cmd/             -- Entry points (operator binary, instance manager binary -- same binary, different modes)
+  internal/        -- Private packages: reconciliation logic, controllers, management
+  pkg/             -- Public packages: specs, utilities, PgBouncer helpers, metrics
+  config/          -- Kubernetes manifests, CRD YAMLs, RBAC, webhooks
+  docs/            -- Documentation source (Markdown, built into the documentation site)
+  tests/           -- Integration and E2E test suites
+  hack/            -- Build scripts, development utilities
+</code></pre>
+<p>The operator and instance manager are compiled into the <strong>same Go binary</strong>. The binary's behavior is determined by how it is invoked:</p>
+<ul>
+<li>As the operator controller manager (running in the operator Deployment)</li>
+<li>As the instance manager (running as PID 1 inside each PostgreSQL Pod)</li>
+</ul>
+<h3 id="3-3-reconciliation-architecture">3.3 Reconciliation Architecture</h3>
+<p>The operator uses <code>controller-runtime</code>'s standard reconciliation pattern:</p>
+<p><strong>Cluster Controller</strong> -- the most complex reconciler. On each reconciliation:</p>
+<ol>
+<li>Reads the current Cluster spec and status from the API server</li>
+<li>Reads the current state of Pods, PVCs, Services, Secrets, ConfigMaps</li>
+<li>Compares desired state (spec) with actual state (live resources)</li>
+<li>Takes corrective actions:
+<ul>
+<li>Creates missing Pods (new instances)</li>
+<li>Creates missing PVCs (storage provisioning)</li>
+<li>Updates Services to point to the correct primary</li>
+<li>Triggers rolling updates when image or configuration changes</li>
+<li>Initiates failover when the primary is unhealthy</li>
+<li>Initiates switchover when requested</li>
+<li>Manages fencing annotations</li>
+<li>Updates Cluster status with current topology, replication state, phase</li>
+</ul>
+</li>
+</ol>
+<p><strong>Backup Controller</strong> -- watches Backup resources, coordinates with the instance manager (or CNPG-I plugin sidecar) to execute physical backups.</p>
+<p><strong>ScheduledBackup Controller</strong> -- evaluates cron schedules and creates Backup resources at the appropriate times.</p>
+<p><strong>Pooler Controller</strong> -- manages PgBouncer Deployments, Services, Secrets, and ConfigMaps for each Pooler resource.</p>
+<p>The reconciliation queue uses <code>client-go/util/workqueue</code> with deduplication (same item not processed concurrently) and configurable <code>MaxConcurrentReconciles</code>.</p>
+<h3 id="3-4-webhooks">3.4 Webhooks</h3>
+<p>CNPG implements both:</p>
+<ul>
+<li><strong>Validating admission webhooks</strong> -- reject invalid Cluster specs (e.g., instances &lt; 1, invalid storage config, conflicting options)</li>
+<li><strong>Mutating admission webhooks</strong> -- set defaults, inject annotations, normalize configurations</li>
+</ul>
+<p>Webhooks run on port 9443 with mandatory TLS, served by the operator Deployment.</p>
+<hr />
+<h2 id="4-the-instance-manager-the-signature-design-choice">4. The Instance Manager (The Signature Design Choice)</h2>
+<h3 id="4-1-why-not-sidecars">4.1 Why Not Sidecars?</h3>
+<p>Traditional operators (Crunchy PGO, Zalando) use sidecar containers alongside the PostgreSQL container to handle health checks, WAL archiving, metrics export, and failover coordination. CNPG rejected this pattern because:</p>
+<ul>
+<li><strong>Sidecar lifecycle is decoupled from the main container</strong> -- a sidecar can restart independently, creating coordination challenges</li>
+<li><strong>Signal handling is fragmented</strong> -- the Pod's PID 1 (typically <code>tini</code> or <code>dumb-init</code>) does not understand PostgreSQL's shutdown semantics</li>
+<li><strong>Resource overhead</strong> -- multiple containers per Pod means more memory, more CPU, more complexity</li>
+<li><strong>Tight coupling needed</strong> -- PostgreSQL lifecycle events (promotion, demotion, shutdown, WAL archiving) need to be atomically coordinated with Kubernetes state updates</li>
+</ul>
+<h3 id="4-2-pid-1-behavior">4.2 PID 1 Behavior</h3>
+<p>The instance manager binary runs as PID 1 inside the PostgreSQL container. It:</p>
+<ol>
+<li><strong>Starts PostgreSQL</strong> -- launches the <code>postmaster</code> process as a child</li>
+<li><strong>Manages the full lifecycle</strong> -- handles initialization (initdb, pg_basebackup, recovery), configuration updates, role changes (primary &lt;-&gt; standby), and shutdown</li>
+<li><strong>Handles signals</strong> -- when kubelet sends SIGTERM (pod deletion, node drain), the instance manager executes a multi-stage graceful shutdown:
+<ul>
+<li><strong>Stage 1 (Smart Shutdown)</strong>: Issues a CHECKPOINT, then requests smart shutdown (no new connections). Duration: up to <code>.spec.smartShutdownTimeout</code> (default 180s)</li>
+<li><strong>Stage 2 (Fast Shutdown)</strong>: If PostgreSQL is still up, requests fast shutdown (terminates existing connections)</li>
+<li><strong>Stage 3 (WAL completion)</strong>: Waits for WAL archiving/streaming to complete up to remaining <code>.spec.stopDelay</code> time, then forcibly terminates</li>
+</ul>
+</li>
+<li><strong>Serves health probes</strong> -- implements the HTTP endpoints for liveness, readiness, and startup probes</li>
+<li><strong>Exports Prometheus metrics</strong> -- runs the metrics exporter on port 9187</li>
+<li><strong>Manages certificates</strong> -- watches TLS certificate secrets and reloads PostgreSQL when they change</li>
+<li><strong>Coordinates with the operator</strong> -- exposes a REST API on port 8000 for operator-to-instance communication (status reporting, backup triggering, fencing)</li>
+<li><strong>Handles WAL archiving</strong> -- coordinates with CNPG-I plugin sidecars (or the deprecated native Barman Cloud integration)</li>
+</ol>
+<h3 id="4-3-probe-architecture">4.3 Probe Architecture</h3>
+<p><strong>Startup Probe</strong>:</p>
+<ul>
+<li>Default mechanism: <code>pg_isready</code></li>
+<li>Controlled by <code>.spec.startDelay</code> (default 3600s -- generous for large databases)</li>
+<li><code>failureThreshold</code> auto-calculated as <code>startDelay / periodSeconds</code></li>
+<li>Supports strategies: <code>pg_isready</code>, <code>query</code> (run an actual SQL query), <code>streaming</code> (verify replication lag)</li>
+<li><code>maximumLag</code> option: replication lag threshold in bytes -- standby not considered ready until caught up</li>
+</ul>
+<p><strong>Liveness Probe</strong>:</p>
+<ul>
+<li>Ensures the instance manager and PostgreSQL are operating correctly</li>
+<li>Default timeout: 30 seconds total (3 failures x 10s period)</li>
+<li><strong>Primary Isolation Detection</strong> (v1.27+): Reports failure when BOTH conditions hold:
+<ol>
+<li>Cannot reach the Kubernetes API server</li>
+<li>Cannot reach any other instance via REST API</li>
+</ol>
+</li>
+<li>This prevents split-brain: an isolated primary that cannot communicate with anything gets killed by its own liveness probe, triggering failover to a replica that can still communicate</li>
+</ul>
+<p><strong>Readiness Probe</strong>:</p>
+<ul>
+<li>Activates after startup probe succeeds</li>
+<li>Verifies PostgreSQL can accept connections</li>
+<li>Used by Services to route traffic -- a Pod removed from Service endpoints cannot receive application traffic</li>
+<li>Supports same strategies and <code>maximumLag</code> as startup probe</li>
+</ul>
+<h3 id="4-4-switchover-shutdown-behavior">4.4 Switchover Shutdown Behavior</h3>
+<p>During a controlled switchover (as opposed to Pod deletion), the instance manager of the former primary:</p>
+<ol>
+<li>Issues a CHECKPOINT</li>
+<li>Initiates a <strong>fast</strong> shutdown (not smart -- switchover must be fast)</li>
+<li>Waits up to <code>.spec.switchoverDelay</code> (default 3600s) for WAL archival to complete</li>
+<li>The new primary is promoted only after the old primary's WAL receiver stops</li>
+</ol>
+<h3 id="4-5-independence-from-the-operator">4.5 Independence from the Operator</h3>
+<p>A critical resilience property: <strong>the instance manager operates independently of the operator</strong>. If the operator Pod dies or is being upgraded:</p>
+<ul>
+<li>PostgreSQL instances continue running normally</li>
+<li>WAL archiving continues</li>
+<li>Metrics export continues</li>
+<li>Liveness/readiness probes continue</li>
+<li>The only thing paused is reconciliation (no new Pods created, no failovers initiated, no rolling updates)</li>
+</ul>
+<p>The operator is a control plane component; the instance manager is a data plane component. This separation ensures that operator downtime does not cause PostgreSQL downtime.</p>
+<hr />
+<h2 id="5-why-no-statefulsets">5. Why No StatefulSets?</h2>
+<p>This is one of CNPG's most controversial and most important design decisions. The rationale:</p>
+<h3 id="5-1-pvc-resizing">5.1 PVC Resizing</h3>
+<p>StatefulSet cannot resize PVCs. For a database, this is a showstopper -- you will inevitably need to expand storage. CNPG manages PVCs directly and can trigger online resizing (if the StorageClass supports it) or offline resizing (delete Pod, resize PVC, recreate Pod).</p>
+<h3 id="5-2-role-aware-update-ordering">5.2 Role-Aware Update Ordering</h3>
+<p>StatefulSet updates Pods in reverse ordinal order (highest to lowest). It has no concept of PostgreSQL roles. CNPG's custom controller understands that:</p>
+<ul>
+<li>Replicas must be updated before the primary</li>
+<li>The primary must undergo a switchover (not just restart) to minimize downtime</li>
+<li>Rolling updates can use different strategies for different Pods</li>
+</ul>
+<h3 id="5-3-pvc-coherence">5.3 PVC Coherence</h3>
+<p>A PostgreSQL instance may have multiple PVCs (PGDATA + WAL + tablespaces). StatefulSet has no concept of PVC groups. If one PVC in a group becomes orphaned or corrupted, StatefulSet would blindly reattach it. CNPG classifies orphaned PVCs as unusable rather than silently reusing them, preventing data corruption.</p>
+<h3 id="5-4-node-maintenance-flexibility">5.4 Node Maintenance Flexibility</h3>
+<p>When a node goes down, CNPG supports three recovery strategies:</p>
+<ul>
+<li><strong>Clone to new PVCs</strong> on a different node (fast recovery, requires re-syncing data)</li>
+<li><strong>Remount existing PVCs</strong> on a different node (works with network-attached storage)</li>
+<li><strong>Wait for node recovery</strong> (optimal for large databases with local SSDs where re-cloning would take hours)</li>
+</ul>
+<p>StatefulSet offers only one behavior: wait for the Pod to be rescheduled, which may or may not work depending on storage topology.</p>
+<h3 id="5-5-direct-pvc-lifecycle-management">5.5 Direct PVC Lifecycle Management</h3>
+<p>CNPG creates PVCs independently of Pods, using the configured StorageClass for dynamic provisioning. This means:</p>
+<ul>
+<li>PVCs survive Pod deletion (intentional -- data persists across instance restarts)</li>
+<li>PVCs can be resized independently</li>
+<li>PVC creation can be decoupled from Pod scheduling</li>
+<li>The operator can inspect PVC state and make intelligent decisions about reuse vs. recreation</li>
+</ul>
+<hr />
+<h2 id="6-lifecycle-management">6. Lifecycle Management</h2>
+<h3 id="6-1-cluster-bootstrapping">6.1 Cluster Bootstrapping</h3>
+<p>Three bootstrap methods:</p>
+<p><strong>initdb</strong> -- fresh cluster initialization:</p>
+<ul>
+<li>Runs <code>initdb</code> with configurable options (encoding, locale, data checksums)</li>
+<li>Creates the application database and user</li>
+<li>Applies initial PostgreSQL configuration</li>
+<li>Creates replicas via <code>pg_basebackup</code> from the new primary</li>
+</ul>
+<p><strong>recovery</strong> -- restore from backup:</p>
+<ul>
+<li>Bootstrap from a physical backup (object store via CNPG-I plugin or volume snapshot)</li>
+<li>Applies WAL replay for PITR to a target time, LSN, XID, or "immediate"</li>
+<li>The first instance becomes the new primary; replicas are cloned from it</li>
+<li><strong>Recovery is never in-place</strong> -- it always creates a new Cluster resource</li>
+</ul>
+<p><strong>pg_basebackup</strong> -- clone from an existing PostgreSQL instance:</p>
+<ul>
+<li>Creates the primary via <code>pg_basebackup</code> from an external PostgreSQL server</li>
+<li>Useful for migrating from non-CNPG PostgreSQL installations</li>
+</ul>
+<h3 id="6-2-rolling-updates-minor-versions-config-changes">6.2 Rolling Updates (Minor Versions, Config Changes)</h3>
+<p>Triggered by changes to: <code>imageName</code>, extension images, image catalog entries, PostgreSQL parameters requiring restart, resource requests/limits, or operator upgrades.</p>
+<p><strong>Sequence</strong>:</p>
+<ol>
+<li>Operator detects the drift between desired and actual Pod specs</li>
+<li>Replicas are updated one at a time, starting from the highest serial number</li>
+<li>Each replica Pod is deleted, then recreated with the new spec -- same PVCs, new container image</li>
+<li>Identity is preserved (same PVC, same PostgreSQL data directory, same replication slot)</li>
+<li>After all replicas are updated, the primary is handled based on <code>primaryUpdateStrategy</code>:
+<ul>
+<li><strong><code>unsupervised</code> (default)</strong>: Automatic -- switchover to the most aligned replica (which is now running the new version), then update the old primary</li>
+<li><strong><code>supervised</code></strong>: Pauses after replica updates; operator waits for manual <code>kubectl cnpg promote</code> or <code>kubectl cnpg restart</code></li>
+</ul>
+</li>
+<li>Two methods for primary update:
+<ul>
+<li><strong>Restart method</strong> (default): In-place pod restart</li>
+<li><strong>Switchover method</strong>: Promotes a replica first, then updates the old primary -- zero-downtime for writes (brief pause during switchover)</li>
+</ul>
+</li>
+</ol>
+<h3 id="6-3-major-version-upgrades">6.3 Major Version Upgrades</h3>
+<p>Three strategies:</p>
+<p><strong>Offline In-Place with pg_upgrade (v1.26+)</strong>:</p>
+<ul>
+<li>Triggered by changing <code>.spec.imageName</code> to a higher major version</li>
+<li>The operator shuts down all pods</li>
+<li>Runs a <code>pg_upgrade --link</code> job (hard links, fast)</li>
+<li>Replaces original data directories with upgraded versions</li>
+<li>Destroys replica PVCs and re-clones all replicas from the upgraded primary</li>
+<li>Limitations: same OS distribution required, extensions must be compatible, cluster offline during the entire process</li>
+<li>Previous image info stored in <code>.status.pgDataImageInfo</code> for potential rollback</li>
+</ul>
+<p><strong>Blue/Green with Logical Replication (Online)</strong>:</p>
+<ul>
+<li>Create a new Cluster with the target major version</li>
+<li>Set up PostgreSQL native logical replication from old to new</li>
+<li>Switchover at the application level when caught up</li>
+<li>Zero downtime but requires careful handling of DDL, sequences, large objects</li>
+</ul>
+<p><strong>Blue/Green with Dump/Restore (Offline)</strong>:</p>
+<ul>
+<li>pg_dump from old cluster, pg_restore into new cluster</li>
+<li>Simplest approach, longest downtime for large databases</li>
+</ul>
+<h3 id="6-4-operator-upgrades">6.4 Operator Upgrades</h3>
+<p>When the CNPG operator itself is upgraded:</p>
+<ul>
+<li>If the new operator version requires a different instance manager binary, rolling updates of all managed Pods are triggered</li>
+<li><strong>In-place instance manager updates</strong> (configurable): if enabled, the operator can update the instance manager binary inside running Pods without restarting them, avoiding a full rolling update</li>
+</ul>
+<hr />
+<h2 id="7-storage">7. Storage</h2>
+<h3 id="7-1-pgdata-pvc">7.1 PGDATA PVC</h3>
+<p>Every PostgreSQL instance gets one PVC for PGDATA. Configuration via:</p>
+<ul>
+<li><strong>Simple mode</strong>: <code>.spec.storage.storageClass</code> + <code>.spec.storage.size</code></li>
+<li><strong>Template mode</strong>: <code>.spec.storage.pvcTemplate</code> with full PVC spec (access modes, volume mode, storage class, etc.)</li>
+</ul>
+<p>The operator creates PVCs directly (not via StatefulSet volumeClaimTemplates). PVCs are named deterministically based on the instance serial number.</p>
+<h3 id="7-2-wal-volume-separation">7.2 WAL Volume Separation</h3>
+<p>Optional but recommended for production. Configured via <code>.spec.walStorage</code>:</p>
+<ul>
+<li>Puts <code>pg_wal</code> on a dedicated PVC, separate from PGDATA</li>
+<li>Enables parallel I/O (sequential WAL writes + random data file I/O on separate devices)</li>
+<li>Prevents PGDATA disk exhaustion from blocking WAL writes</li>
+<li>Allows independent sizing and monitoring</li>
+<li><strong>Irreversible</strong>: once added, WAL separation cannot be removed from a running cluster</li>
+</ul>
+<h3 id="7-3-tablespace-volumes">7.3 Tablespace Volumes</h3>
+<p>Declarative tablespace support via <code>.spec.tablespaces</code>:</p>
+<ul>
+<li>Each tablespace gets a dedicated PVC</li>
+<li>Managed as part of the PVC group for each instance</li>
+<li>Enables tiered storage (fast SSD for hot tables, slower storage for archive tables)</li>
+</ul>
+<h3 id="7-4-volume-expansion">7.4 Volume Expansion</h3>
+<ul>
+<li><strong>Online expansion</strong>: If StorageClass supports <code>allowVolumeExpansion</code>, just update the <code>.spec.storage.size</code> -- the operator patches all PVCs</li>
+<li><strong>Offline expansion</strong>: For non-expandable classes, delete Pod+PVC (replicas first, then primary with switchover), operator recreates with new size</li>
+<li><strong>WAL volume expansion</strong>: Same process, but both PGDATA and WAL PVCs may need handling</li>
+</ul>
+<h3 id="7-5-volume-snapshots">7.5 Volume Snapshots</h3>
+<p>For backup and recovery:</p>
+<ul>
+<li>Configured via <code>.spec.backup.volumeSnapshot</code></li>
+<li>Requires CSI driver supporting <code>VolumeSnapshot</code></li>
+<li>Separate <code>VolumeSnapshotClass</code> can be specified for PGDATA and WAL volumes via <code>walClassName</code></li>
+<li>Snapshots are taken from standbys by default (minimize primary I/O impact)</li>
+<li>Copy-on-write snapshots provide near-instant recovery</li>
+</ul>
+<h3 id="7-6-disk-exhaustion-handling">7.6 Disk Exhaustion Handling</h3>
+<p>The instance manager detects when there is insufficient space to store the next WAL segment. Instead of allowing PostgreSQL to crash (which would trigger a failover), it proactively avoids the situation. Recovery: expand the PVC and update the Cluster resource.</p>
+<hr />
+<h2 id="8-high-availability">8. High Availability</h2>
+<h3 id="8-1-streaming-replication">8.1 Streaming Replication</h3>
+<ul>
+<li>CNPG creates a <code>streaming_replica</code> user with <code>REPLICATION</code> privilege immediately after cluster initialization</li>
+<li>Replication connections use TLS client certificate authentication (mutual TLS)</li>
+<li>When continuous backup is configured, replicas also use <code>restore_command</code> as a WAL fallback mechanism</li>
+<li>Replicas connect directly to the primary's Pod IP (not through Services)</li>
+</ul>
+<h3 id="8-2-synchronous-replication">8.2 Synchronous Replication</h3>
+<p>Two configuration approaches:</p>
+<p><strong>Modern (recommended)</strong>:</p>
+<ul>
+<li><code>.spec.postgresql.synchronous.method</code>: <code>any</code> (quorum-based) or <code>first</code> (priority-based)</li>
+<li><code>.spec.postgresql.synchronous.number</code>: count of synchronous standbys required for commit</li>
+<li>Operator auto-populates <code>synchronous_standby_names</code></li>
+<li>Supports <code>standbyNamesPre</code> / <code>standbyNamesPost</code> for including external standbys</li>
+</ul>
+<p><strong>Legacy (deprecated)</strong>:</p>
+<ul>
+<li><code>minSyncReplicas</code> / <code>maxSyncReplicas</code> -- auto-calculated quorum</li>
+</ul>
+<p><strong>Data durability modes</strong>:</p>
+<ul>
+<li><strong>Required</strong> (default): Writes block if insufficient synchronous standbys. RPO=0 guaranteed, but reduced availability during disruptions.</li>
+<li><strong>Preferred</strong>: Adjusts required synchronous count based on available standbys. Self-healing but risks data loss if all standbys fail.</li>
+</ul>
+<h3 id="8-3-replication-slots">8.3 Replication Slots</h3>
+<p>CNPG manages replication slots automatically:</p>
+<p><strong>High Availability Slots</strong>:</p>
+<ul>
+<li>Enabled by default (<code>.spec.replicationSlots.highAvailability.enabled: true</code>)</li>
+<li>Primary creates HA slots for each standby (prefixed <code>_cnpg_</code> by default)</li>
+<li>Standbys advance their own HA slots using <code>pg_replication_slot_advance()</code></li>
+<li>This ensures WAL files are retained even after failover -- the new primary already has slots for all standbys</li>
+<li>Update interval: 30 seconds (configurable)</li>
+</ul>
+<p><strong>User-Defined Slot Synchronization</strong>:</p>
+<ul>
+<li>Custom replication slots created via SQL are synchronized to standbys</li>
+<li><code>excludePatterns</code> allows regex-based filtering</li>
+<li>Logical decoding slot synchronization available (<code>synchronizeLogicalDecoding: true</code>)</li>
+<li>PostgreSQL 17+: operator manages <code>synchronized_standby_slots</code> natively</li>
+<li>PostgreSQL 16 and earlier: <code>pg_failover_slots</code> extension required</li>
+</ul>
+<h3 id="8-4-failover">8.4 Failover</h3>
+<p><strong>Detection</strong>: The reconciliation loop detects primary failure when the primary Pod's readiness probe fails. Failover begins after <code>.spec.failoverDelay</code> (default: 0 seconds -- immediate).</p>
+<p><strong>Two-Phase Process</strong>:</p>
+<ol>
+<li><strong>Shutdown Phase</strong>: <code>TargetPrimary</code> is set to pending. The primary Pod is forced to shut down, which stops WAL receivers on replicas (prevents timeline fork).
+<ul>
+<li>Fast shutdown with <code>.spec.switchoverDelay</code> timeout for WAL archival</li>
+<li>If fast shutdown fails, immediate shutdown</li>
+</ul>
+</li>
+<li><strong>Promotion Phase</strong>: Leader election selects the best replica. The selected replica is promoted. The former primary restarts, detects it is no longer primary, and becomes a replica.</li>
+</ol>
+<p><strong>Replica Selection</strong>: The operator selects the most up-to-date replica (based on received/replayed LSN). With quorum-based failover, it ensures the promoted replica has confirmed all synchronous commits.</p>
+<p><strong>Quorum-Based Failover</strong>: Uses the Dynamo <code>R + W &gt; N</code> consistency model:</p>
+<ul>
+<li>R = number of promotable replicas (read quorum)</li>
+<li>W = write quorum (replicas acknowledging synchronous commits)</li>
+<li>N = total potentially synchronous replicas</li>
+<li>Failover proceeds only if <code>R + W &gt; N</code>, guaranteeing at least one promotable replica has all committed data</li>
+</ul>
+<p><strong>Post-Failover Recovery</strong>: The former primary uses <code>pg_rewind</code> to synchronize with the new primary's timeline. This avoids a full re-clone, making recovery fast.</p>
+<h3 id="8-5-switchover-planned">8.5 Switchover (Planned)</h3>
+<p>A controlled, zero-data-loss primary change:</p>
+<ol>
+<li>Operator selects the most aligned replica (or a specified target)</li>
+<li>Former primary issues CHECKPOINT, then fast shutdown</li>
+<li>WAL receiver on the target replica catches up</li>
+<li>Target replica is promoted</li>
+<li>Former primary restarts as a standby</li>
+<li>Services are updated to point to the new primary</li>
+</ol>
+<h3 id="8-6-fencing">8.6 Fencing</h3>
+<p>Fencing isolates instances by shutting down PostgreSQL while keeping the Pod running:</p>
+<ul>
+<li>Set annotation <code>cnpg.io/fencedInstances</code> to a JSON list of instance names, or <code>["*"]</code> for all</li>
+<li>Or use <code>kubectl cnpg fencing on/off</code></li>
+<li>Fenced instances: PostgreSQL is stopped, Pod remains running but not Ready, configuration and certificate updates continue, only <code>cnpg_collector_fencing_on</code> metric is collected</li>
+<li><strong>Fencing a primary does NOT trigger automatic failover</strong> -- this is intentional for debugging. The primary restarts when fencing is lifted.</li>
+<li>Useful for: debugging crashlooping instances, manual maintenance, investigating data issues</li>
+</ul>
+<h3 id="8-7-primary-isolation-detection-v1-27">8.7 Primary Isolation Detection (v1.27+)</h3>
+<p>The liveness probe on the primary reports failure when BOTH conditions hold:</p>
+<ol>
+<li>The instance manager cannot reach the Kubernetes API server</li>
+<li>The instance manager cannot reach any other instance via REST API</li>
+</ol>
+<p>This is a split-brain prevention mechanism. An isolated primary (network partitioned from both the API server and all replicas) will fail its liveness probe, get killed by kubelet, and the replicas (which can still communicate) will elect a new primary. Configurable via <code>.spec.probes.liveness.isolationCheck.enabled</code> (default: true).</p>
+<hr />
+<h2 id="9-backup-recovery">9. Backup &amp; Recovery</h2>
+<h3 id="9-1-architecture-moving-to-cnpg-i-plugins">9.1 Architecture: Moving to CNPG-I Plugins</h3>
+<p>Starting with v1.26, backup/recovery is being progressively moved from native implementations to the CNPG-I plugin interface. The <strong>Barman Cloud Plugin</strong> (<code>barman-cloud.cloudnative-pg.io</code>) is the official community plugin.</p>
+<p>The native Barman Cloud integration (built into the operator) is deprecated as of v1.26 in favor of the plugin-based approach.</p>
+<h3 id="9-2-object-store-backups-via-barman-cloud-plugin">9.2 Object Store Backups (via Barman Cloud Plugin)</h3>
+<ul>
+<li>Physical base backups stored as tarballs in S3, GCS, Azure Blob, or any S3-compatible object store</li>
+<li>WAL archiving to the same object store is <strong>mandatory</strong> for object store backups</li>
+<li>Hot backups only (online, no downtime)</li>
+<li>Supports PITR to any target: time, LSN, XID, named restore point, or "immediate"</li>
+<li>Retention policies managed by the plugin</li>
+<li>No incremental/differential backup support (full backups only)</li>
+<li>Backups prefer standbys by default (operator selects the most synchronized standby)</li>
+</ul>
+<h3 id="9-3-volume-snapshot-backups">9.3 Volume Snapshot Backups</h3>
+<ul>
+<li>Leverages Kubernetes CSI VolumeSnapshot API</li>
+<li>Configured via <code>.spec.backup.volumeSnapshot</code></li>
+<li>Can snapshot PGDATA and WAL volumes separately (with different VolumeSnapshotClasses)</li>
+<li>WAL archiving optional but recommended (needed for PITR)</li>
+<li>Supports both hot and cold backups</li>
+<li>Incremental/differential possible (depends on storage driver's copy-on-write capabilities)</li>
+<li>Near-instant recovery from snapshots</li>
+<li>No retention policy management (handled outside CNPG)</li>
+</ul>
+<h3 id="9-4-scheduled-backups">9.4 Scheduled Backups</h3>
+<p>ScheduledBackup CRD with six-field cron expressions (includes seconds):</p>
+<ul>
+<li><code>"0 0 0 * * *"</code> = daily at midnight</li>
+<li><code>immediate: true</code> = take one backup right now in addition to the schedule</li>
+<li><code>suspend: true</code> = temporarily disable</li>
+<li>Creates Backup resources on schedule; the Backup controller handles execution</li>
+</ul>
+<h3 id="9-5-recovery-bootstrap">9.5 Recovery (Bootstrap)</h3>
+<p>Recovery always creates a <strong>new</strong> Cluster -- never in-place modification:</p>
+<ul>
+<li>Bootstrap a new Cluster from a Backup resource, object store, or volume snapshot</li>
+<li>PITR: specify <code>recoveryTarget</code> with <code>targetTime</code>, <code>targetLSN</code>, <code>targetXID</code>, <code>targetName</code>, or <code>targetImmediate</code></li>
+<li>First instance recovers to the target, becomes the new primary</li>
+<li>Replicas are cloned from the recovered primary</li>
+<li>WAL archive is mandatory for PITR (volume snapshots alone give you the snapshot point, not arbitrary PITR)</li>
+</ul>
+<h3 id="9-6-wal-archiving">9.6 WAL Archiving</h3>
+<ul>
+<li>Foundation of continuous backup</li>
+<li>Coordinated by the instance manager, executed by CNPG-I plugin sidecars</li>
+<li>Archives every completed WAL segment to the object store</li>
+<li>Enables PITR from any base backup to any point with available WAL</li>
+<li>Without a base backup, WAL archive alone is useless for recovery</li>
+</ul>
+<hr />
+<h2 id="10-networking-services">10. Networking &amp; Services</h2>
+<h3 id="10-1-kubernetes-services">10.1 Kubernetes Services</h3>
+<p>CNPG automatically creates and manages three Services per Cluster:</p>
+<ul>
+<li><strong><code>&lt;cluster&gt;-rw</code></strong>: Points to the primary (read-write). Updated immediately during failover/switchover.</li>
+<li><strong><code>&lt;cluster&gt;-ro</code></strong>: Points to standby replicas (read-only). Load balances across all healthy replicas.</li>
+<li><strong><code>&lt;cluster&gt;-r</code></strong>: Points to all instances (any read -- primary + replicas).</li>
+</ul>
+<p>Service selectors use labels managed by the operator. During failover, the operator updates labels on Pods so that the <code>-rw</code> Service immediately points to the new primary.</p>
+<h3 id="10-2-connection-pooling-pgbouncer-via-pooler-crd">10.2 Connection Pooling (PgBouncer via Pooler CRD)</h3>
+<p>The Pooler CRD creates a managed PgBouncer deployment:</p>
+<p><strong>Architecture</strong>:</p>
+<ul>
+<li>Deployed as a Kubernetes Deployment (not managed by the Cluster controller)</li>
+<li>Each Pooler creates its own Service (named after the Pooler)</li>
+<li>Applications connect to the Pooler Service instead of the Cluster Service</li>
+<li>PgBouncer requires v1.19+ (for <code>auth_dbname</code> feature)</li>
+</ul>
+<p><strong>Types</strong>:</p>
+<ul>
+<li><code>rw</code>: Routes through to the <code>&lt;cluster&gt;-rw</code> Service (primary)</li>
+<li><code>ro</code>: Routes through to the <code>&lt;cluster&gt;-ro</code> Service (replicas)</li>
+</ul>
+<p><strong>Authentication</strong>:</p>
+<ul>
+<li>Operator creates a <code>cnpg_pooler_pgbouncer</code> user in PostgreSQL</li>
+<li>Creates <code>public.user_search(text)</code> function with <code>SECURITY DEFINER</code> for <code>auth_query</code></li>
+<li>Issues TLS client certificates for the pooler authentication user</li>
+<li>PgBouncer authenticates to PostgreSQL via TLS client certificates</li>
+</ul>
+<p><strong>TLS</strong>:</p>
+<ul>
+<li>Fully integrated with CNPG's certificate infrastructure</li>
+<li>TLS on both client side (application -&gt; PgBouncer) and server side (PgBouncer -&gt; PostgreSQL)</li>
+<li>Reuses cluster CA certificates by default</li>
+<li>Custom certificates supported</li>
+</ul>
+<p><strong>Configuration</strong>:</p>
+<ul>
+<li>~70 PgBouncer parameters exposed via <code>.spec.pgbouncer.parameters</code></li>
+<li>Pool modes: session, transaction, statement</li>
+<li>Connection limits: <code>max_client_conn</code>, <code>default_pool_size</code>, <code>min_pool_size</code>, <code>reserve_pool_size</code></li>
+<li>Operator does NOT validate parameter values -- user responsibility</li>
+</ul>
+<p><strong>Scaling &amp; HA</strong>:</p>
+<ul>
+<li>Multiple PgBouncer pods distribute connections</li>
+<li>Pod anti-affinity rules for cross-node distribution</li>
+<li><code>paused: true</code> invokes PgBouncer PAUSE command (graceful connection draining)</li>
+</ul>
+<p><strong>Lifecycle</strong>:</p>
+<ul>
+<li>Independent of Cluster lifecycle (deleting a Cluster does not delete its Poolers, and vice versa)</li>
+<li>Multiple Poolers can serve one Cluster (e.g., one per application)</li>
+<li>Operator upgrades trigger rolling updates of Pooler pods</li>
+</ul>
+<p><strong>Monitoring</strong>:</p>
+<ul>
+<li>PgBouncer metrics on port 9127 with <code>cnpg_pgbouncer_</code> prefix</li>
+<li>Exposes SHOW LISTS, SHOW POOLS, SHOW STATS data as Prometheus metrics</li>
+</ul>
+<hr />
+<h2 id="11-distributed-topology-replica-clusters">11. Distributed Topology (Replica Clusters)</h2>
+<h3 id="11-1-concept">11.1 Concept</h3>
+<p>A replica cluster is a separate Cluster resource that continuously replicates from another PostgreSQL source. Two use cases:</p>
+<ol>
+<li><strong>Distributed Topology</strong> (DR/HA across Kubernetes clusters): Multiple Cluster resources across different K8s clusters, one primary, rest are replicas. Supports controlled switchover.</li>
+<li><strong>Standalone Replica Clusters</strong> (read-only workloads): One-way replication, no switchover capability, promotion is irreversible.</li>
+</ol>
+<h3 id="11-2-replication-methods-for-cross-cluster">11.2 Replication Methods for Cross-Cluster</h3>
+<ul>
+<li><strong>Streaming Replication</strong>: Direct TCP connection between clusters via <code>pg_basebackup</code> for bootstrap, then continuous WAL receiver</li>
+<li><strong>WAL Archive</strong>: WAL files written to object store by primary, retrieved by replica via <code>restore_command</code></li>
+<li><strong>Hybrid</strong>: Both methods active; PostgreSQL dynamically switches between them</li>
+</ul>
+<h3 id="11-3-controlled-switchover-distributed-topology">11.3 Controlled Switchover (Distributed Topology)</h3>
+<p>A two-step, manual process:</p>
+<p><strong>Step 1 -- Demotion</strong>:</p>
+<ul>
+<li>Change <code>.spec.replica.primary</code> on the primary cluster to point to the new primary</li>
+<li>Operator archives the WAL file containing the shutdown checkpoint as a <code>.partial</code> file</li>
+<li>Generates a <code>demotionToken</code> (base64-encoded JSON from <code>pg_controldata</code>) in cluster status</li>
+<li>Retrieve via <code>kubectl get cluster &lt;name&gt; -o jsonpath='{.status.demotionToken}'</code></li>
+</ul>
+<p><strong>Step 2 -- Promotion</strong>:</p>
+<ul>
+<li>On the replica cluster, set <code>.spec.replica.primary</code> to itself and <code>.spec.replica.promotionToken</code> to the demotion token</li>
+<li>CloudNativePG waits for the replica to replay all WAL up to the specified LSN</li>
+<li>Upon reaching target LSN, switches timelines, archives history file</li>
+<li>Former primary begins replicating from the new primary</li>
+</ul>
+<p><strong>Critical</strong>: <code>primary</code> and <code>promotionToken</code> must be set simultaneously. Omitting <code>promotionToken</code> triggers an uncontrolled failover instead of a controlled switchover.</p>
+<h3 id="11-4-cross-cluster-failover-limitation">11.4 Cross-Cluster Failover Limitation</h3>
+<p>CloudNativePG <strong>cannot perform cross-cluster automated failover</strong>. This is a deliberate design decision -- cross-cluster failover requires human judgment about network partitions, data consistency, and application routing. The operator provides the primitives (demotion/promotion tokens, WAL synchronization) but leaves the decision to operators.</p>
+<h3 id="11-5-delayed-replicas">11.5 Delayed Replicas</h3>
+<p><code>.spec.replica.minApplyDelay</code> maps to PostgreSQL's <code>recovery_min_apply_delay</code>. Use cases: protection against accidental DDL, time-travel queries, compliance buffers. Cannot be combined with <code>promotionToken</code>.</p>
+<hr />
+<h2 id="12-security-model">12. Security Model</h2>
+<h3 id="12-1-tls-certificate-management">12.1 TLS Certificate Management</h3>
+<p><strong>Auto-provisioned by default</strong>:</p>
+<ul>
+<li>Operator generates a self-signed CA per cluster</li>
+<li>Issues server certificates for PostgreSQL instances</li>
+<li>Issues client certificates for the <code>streaming_replica</code> user (replication) and <code>cnpg_pooler_pgbouncer</code> user (connection pooling)</li>
+<li>Certificates stored in Kubernetes Secrets</li>
+<li>Instance manager watches secrets and triggers PostgreSQL configuration reload on certificate rotation</li>
+<li>TLS v1.3 required by default for streaming replication</li>
+</ul>
+<p><strong>Bring Your Own Certificates</strong>:</p>
+<ul>
+<li>Supply your own CA and server certificates via Secrets</li>
+<li>Integration with cert-manager supported</li>
+</ul>
+<h3 id="12-2-rbac">12.2 RBAC</h3>
+<p><strong>Operator RBAC</strong> (<code>cnpg-manager</code> ServiceAccount):</p>
+<ul>
+<li>ClusterRole for reading Nodes and ClusterImageCatalog objects</li>
+<li>All other permissions can be namespace-scoped</li>
+<li>Watches and manages Pods, PVCs, Services, Secrets, ConfigMaps, Jobs in the target namespace(s)</li>
+</ul>
+<p><strong>Instance Manager RBAC</strong> (per-cluster ServiceAccount, named after the cluster):</p>
+<ul>
+<li>Can read only secrets related to its own cluster (streaming replication, app user, superuser, LDAP, CA certs, server cert, backup credentials, custom monitoring queries)</li>
+<li>Can update its own Cluster status</li>
+<li>Can manage Backup resources in its namespace</li>
+</ul>
+<h3 id="12-3-pod-security">12.3 Pod Security</h3>
+<ul>
+<li>Containers run as non-root <code>postgres</code> user</li>
+<li>Read-only root filesystem (no writable layer)</li>
+<li><code>allowPrivilegeEscalation: false</code></li>
+<li>All Linux capabilities dropped</li>
+<li>No privileged mode required</li>
+<li>Seccomp profile: <code>RuntimeDefault</code> by default</li>
+<li>Customizable via <code>.spec.podSecurityContext</code> and <code>.spec.securityContext</code></li>
+</ul>
+<h3 id="12-4-user-management">12.4 User Management</h3>
+<ul>
+<li>Passwords auto-generated and stored in Secrets</li>
+<li>PostgreSQL 14+: <code>scram-sha-256</code> password encryption (earlier: md5)</li>
+<li><code>enableSuperuserAccess</code> disabled by default (postgres password set to NULL)</li>
+<li>Application user gets full ownership of the application database</li>
+</ul>
+<h3 id="12-5-network-security">12.5 Network Security</h3>
+<ul>
+<li>Port 8000: Operator-to-instance communication (TLS + operator authentication)</li>
+<li>Port 5432: PostgreSQL (optional TLS + password auth)</li>
+<li>Port 9187: Instance metrics (optional TLS)</li>
+<li>Port 9443: Operator webhook server (TLS required)</li>
+<li>Network policies must permit operator access to port 8000</li>
+</ul>
+<hr />
+<h2 id="13-monitoring">13. Monitoring</h2>
+<h3 id="13-1-instance-metrics-port-9187">13.1 Instance Metrics (Port 9187)</h3>
+<p>Each PostgreSQL Pod exposes Prometheus metrics via the instance manager's built-in exporter.</p>
+<p><strong>Built-in metrics</strong> (<code>cnpg_collector_*</code> prefix):</p>
+<ul>
+<li>WAL file counts and disk usage</li>
+<li>Archive status (.ready/.done file counts)</li>
+<li>Synchronous replica configuration</li>
+<li>Node distribution</li>
+<li>Backup timestamps and recovery point info</li>
+<li>Replica mode and fencing status</li>
+<li>PostgreSQL version information</li>
+</ul>
+<p><strong>Custom metrics</strong>: Defined via ConfigMap or Secret, referenced in <code>.spec.monitoring.customQueriesConfigMap</code> / <code>customQueriesSecret</code>:</p>
+<ul>
+<li>SQL queries executed atomically with <code>pg_monitor</code> role</li>
+<li><code>application_name</code> set to <code>cnpg_metrics_exporter</code></li>
+<li>Support metric types: COUNTER, GAUGE, HISTOGRAM, DURATION, LABEL, MAPPEDMETRIC, DISCARD</li>
+<li>Database targeting: specific databases, multiple databases, or auto-discovery via shell patterns</li>
+<li>Version constraints via <code>runonserver</code> semantic versioning</li>
+<li>Primary-only execution flag</li>
+<li>30-second output cache (configurable)</li>
+<li>Auto-reloading via <code>cnpg.io/reload</code> label on ConfigMaps/Secrets</li>
+</ul>
+<p><strong>Default monitoring ConfigMap</strong>: <code>cnpg-default-monitoring</code> installed by the operator. Can be disabled per-cluster (<code>.spec.monitoring.disableDefaultQueries: true</code>) or globally via operator configuration.</p>
+<h3 id="13-2-operator-metrics-port-8080">13.2 Operator Metrics (Port 8080)</h3>
+<p>The operator exposes kubebuilder/controller-runtime standard metrics:</p>
+<ul>
+<li>Reconciliation counts, durations, errors</li>
+<li>Work queue depth and latency</li>
+<li>Go runtime metrics</li>
+<li>Webhook request counts</li>
+</ul>
+<h3 id="13-3-podmonitor-integration">13.3 PodMonitor Integration</h3>
+<p>Manual PodMonitor creation is now recommended (the <code>.spec.monitoring.enablePodMonitor</code> field is deprecated):</p>
+<pre><code data-lang="yaml">apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+spec:
+  selector:
+    matchLabels:
+      cnpg.io/cluster: &lt;cluster-name&gt;
+  podMetricsEndpoints:
+  - port: metrics
+</code></pre>
+<p>For TLS-enabled metrics, the PodMonitor must reference the cluster CA secret and use <code>serverName</code> matching <code>&lt;cluster-name&gt;-rw</code>.</p>
+<hr />
+<h2 id="14-cnpg-i-plugin-interface">14. CNPG-I Plugin Interface</h2>
+<h3 id="14-1-architecture">14.1 Architecture</h3>
+<p>CNPG-I is a gRPC-based protocol that defines a standardized interface between the operator and external plugins. It enables extending CloudNativePG without modifying the core codebase.</p>
+<h3 id="14-2-deployment-modes">14.2 Deployment Modes</h3>
+<p><strong>Sidecar Container</strong>:</p>
+<ul>
+<li>Plugin exposes gRPC server via Unix domain socket</li>
+<li>Socket placed in shared directory at <code>PLUGIN_SOCKET_DIR</code> (default: <code>/plugin</code>)</li>
+<li>Lifecycle coupled to the operator Pod</li>
+<li>Simpler setup via shared <code>emptyDir</code> volume</li>
+</ul>
+<p><strong>Standalone Deployment (recommended)</strong>:</p>
+<ul>
+<li>Plugin runs as independent Kubernetes Deployment</li>
+<li>Exposes TCP gRPC endpoint behind a Service</li>
+<li>Decoupled lifecycle, independent scaling</li>
+<li>Requires mTLS (cert-manager recommended)</li>
+<li>Service must have label <code>cnpg.io/plugin: &lt;plugin-name&gt;</code> for discovery</li>
+<li>Annotation <code>cnpg.io/pluginPort: &lt;port&gt;</code> specifies the gRPC endpoint</li>
+</ul>
+<p>Plugins are discovered <strong>at operator startup only</strong> (requires operator restart to pick up new plugins).</p>
+<h3 id="14-3-capability-categories">14.3 Capability Categories</h3>
+<p>Plugins can extend eight areas:</p>
+<ol>
+<li>WAL Management (archiving, restore)</li>
+<li>Backup and Recovery (physical base backups)</li>
+<li>Logging and Auditing</li>
+<li>Metrics Export</li>
+<li>Authentication and Authorization</li>
+<li>Extension Management</li>
+<li>Instance Lifecycle Management</li>
+<li>Configuration Management</li>
+</ol>
+<h3 id="14-4-lifecycle-hooks">14.4 Lifecycle Hooks</h3>
+<p>Plugins can hook into key points in a cluster's lifecycle:</p>
+<ul>
+<li>Pre/Post reconciliation hooks</li>
+<li>Backup execution</li>
+<li>WAL archive/restore commands</li>
+<li>Recovery orchestration</li>
+<li>Sub-resource reconciliation</li>
+</ul>
+<h3 id="14-5-the-barman-cloud-plugin">14.5 The Barman Cloud Plugin</h3>
+<p>The official community plugin for object store integration:</p>
+<ul>
+<li>Runs as a sidecar container in PostgreSQL Pods (for WAL archiving and backup execution)</li>
+<li>Uses <code>barman-cloud-backup</code> for physical base backups</li>
+<li>Uses <code>barman-cloud-wal-archive</code> / <code>barman-cloud-wal-restore</code> for WAL management</li>
+<li>Supports S3, GCS, Azure Blob Storage</li>
+<li>Manages retention policies</li>
+<li>Replaces the deprecated native Barman Cloud integration</li>
+</ul>
+<hr />
+<h2 id="15-key-design-decisions-summary">15. Key Design Decisions Summary</h2>
+<h3 id="why-instance-manager-instead-of-sidecar">Why Instance Manager Instead of Sidecar?</h3>
+<table><thead><tr><th>Aspect</th><th>Sidecar Pattern</th><th>Instance Manager (PID 1)</th></tr></thead><tbody>
+<tr><td>Signal handling</td><td>Fragmented across containers</td><td>Unified, PostgreSQL-aware</td></tr>
+<tr><td>Lifecycle coupling</td><td>Loose -- sidecar can restart independently</td><td>Tight -- manager IS the container</td></tr>
+<tr><td>Resource overhead</td><td>Extra container per concern</td><td>Single binary handles all concerns</td></tr>
+<tr><td>Coordination</td><td>Requires IPC between containers</td><td>Direct function calls</td></tr>
+<tr><td>Shutdown semantics</td><td>Generic SIGTERM to each container</td><td>Multi-stage PostgreSQL-aware shutdown</td></tr>
+<tr><td>Resilience</td><td>Depends on sidecar orchestration</td><td>Independent of operator</td></tr>
+</tbody></table>
+<h3 id="why-no-patroni-stolon">Why No Patroni/Stolon?</h3>
+<ul>
+<li>Patroni requires a DCS (Distributed Consensus Store) -- etcd, ZooKeeper, or Consul -- adding operational complexity</li>
+<li>Kubernetes already IS a distributed system with an etcd-backed API server</li>
+<li>CNPG uses the K8s API server directly as its source of truth for cluster state</li>
+<li>Eliminating the DCS dependency removes a failure domain and simplifies the architecture</li>
+<li>The operator's reconciliation loop + instance manager replaces the Patroni agent</li>
+</ul>
+<h3 id="why-no-statefulset">Why No StatefulSet?</h3>
+<p>See Section 5 above. In summary: PVC resizing, role-aware updates, PVC group coherence, and flexible node maintenance strategies all require a custom pod controller.</p>
+<hr />
+<h2 id="16-comparison-with-other-operators">16. Comparison with Other Operators</h2>
+<table><thead><tr><th>Feature</th><th>CloudNativePG</th><th>Crunchy PGO</th><th>Zalando postgres-operator</th></tr></thead><tbody>
+<tr><td>HA mechanism</td><td>Native K8s reconciliation + instance manager</td><td>Patroni</td><td>Patroni</td></tr>
+<tr><td>DCS requirement</td><td>None (K8s API server)</td><td>etcd (via Patroni)</td><td>etcd (via Patroni)</td></tr>
+<tr><td>Pod management</td><td>Custom controller (direct Pods)</td><td>StatefulSet</td><td>StatefulSet</td></tr>
+<tr><td>Sidecar pattern</td><td>No (instance manager as PID 1)</td><td>Yes</td><td>Yes</td></tr>
+<tr><td>Connection pooling</td><td>PgBouncer (Pooler CRD)</td><td>PgBouncer (built-in)</td><td>Connection pooler operator</td></tr>
+<tr><td>Backup tool</td><td>Barman Cloud (CNPG-I plugin)</td><td>pgBackRest</td><td>WAL-G / logical backup</td></tr>
+<tr><td>Volume snapshots</td><td>Native support</td><td>Via pgBackRest</td><td>Limited</td></tr>
+<tr><td>Major version upgrade</td><td>pg_upgrade in-place (v1.26+)</td><td>pg_upgrade via PGUpgrade CRD</td><td>Not natively supported</td></tr>
+<tr><td>Cross-cluster DR</td><td>Replica clusters with controlled switchover</td><td>Distributed PostgreSQL via PGO</td><td>Not natively supported</td></tr>
+<tr><td>Plugin architecture</td><td>CNPG-I (gRPC-based)</td><td>None</td><td>None</td></tr>
+<tr><td>CNCF status</td><td>Sandbox project</td><td>None</td><td>None</td></tr>
+</tbody></table>
+<hr />
+<h2 id="17-sources">17. Sources</h2>
+<ul>
+<li><a rel="external" href="https://cloudnative-pg.io/docs/">CloudNativePG Official Documentation</a></li>
+<li><a rel="external" href="https://cloudnative-pg.io/docs/devel/faq">CloudNativePG FAQ</a></li>
+<li><a rel="external" href="https://cloudnative-pg.io/docs/devel/architecture">CloudNativePG Architecture</a></li>
+<li><a rel="external" href="https://cloudnative-pg.io/docs/devel/instance_manager">Instance Manager Documentation</a></li>
+<li><a rel="external" href="https://cloudnative-pg.io/docs/1.28/controller/">Custom Pod Controller</a></li>
+<li><a rel="external" href="https://cloudnative-pg.io/docs/1.28/storage/">Storage Documentation</a></li>
+<li><a rel="external" href="https://cloudnative-pg.io/docs/1.28/replication/">Replication Documentation</a></li>
+<li><a rel="external" href="https://cloudnative-pg.io/docs/1.28/security/">Security Documentation</a></li>
+<li><a rel="external" href="https://cloudnative-pg.io/docs/1.28/monitoring/">Monitoring Documentation</a></li>
+<li><a rel="external" href="https://cloudnative-pg.io/docs/1.28/backup/">Backup Documentation</a></li>
+<li><a rel="external" href="https://cloudnative-pg.io/docs/1.28/rolling_update/">Rolling Updates</a></li>
+<li><a rel="external" href="https://cloudnative-pg.io/docs/1.28/failover/">Failover Documentation</a></li>
+<li><a rel="external" href="https://cloudnative-pg.io/docs/1.28/fencing/">Fencing Documentation</a></li>
+<li><a rel="external" href="https://cloudnative-pg.io/docs/1.28/connection_pooling/">Connection Pooling</a></li>
+<li><a rel="external" href="https://cloudnative-pg.io/docs/1.28/postgres_upgrades/">PostgreSQL Upgrades</a></li>
+<li><a rel="external" href="https://cloudnative-pg.io/docs/1.28/replica_cluster/">Replica Clusters</a></li>
+<li><a rel="external" href="https://cloudnative-pg.io/docs/1.25/cnpg_i/">CNPG-I Plugin Interface</a></li>
+<li><a rel="external" href="https://github.com/cloudnative-pg/cnpg-i">CNPG-I GitHub Repository</a></li>
+<li><a rel="external" href="https://cloudnative-pg.io/plugin-barman-cloud/docs/next/concepts/">Barman Cloud Plugin Concepts</a></li>
+<li><a rel="external" href="https://github.com/cloudnative-pg/cloudnative-pg">CloudNativePG GitHub Repository</a></li>
+<li><a rel="external" href="https://www.enterprisedb.com/blog/offline-place-major-upgrades-cloudnativepg">Offline In-Place Major Upgrades Blog (EDB)</a></li>
+<li><a rel="external" href="https://www.enterprisedb.com/blog/how-cloudnativepg-manages-replication-slots">Replication Slots Management Blog (EDB)</a></li>
+<li><a rel="external" href="https://www.gabrielebartolini.it/articles/2025/04/cnpg-recipe-17-postgresql-in-place-major-upgrades/">CNPG Recipe 17 - Major Upgrades (Gabriele Bartolini)</a></li>
+<li><a rel="external" href="https://blog.palark.com/cloudnativepg-and-other-kubernetes-operators-for-postgresql/">Comparing K8s Operators: CloudNativePG (Palark Blog)</a></li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>
