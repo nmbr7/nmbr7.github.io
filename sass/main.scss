@@ -936,9 +936,9 @@ input:focus::placeholder {
 
   .post-meta, .sub-note, .sub-title, .bold-head { color: #b5ac98; }
 
-  .timeline-year { color: #8a8276; }
-  .timeline-desc { color: #c5bda8; }
-  .timeline-title a { color: #f0e8d6; &:hover { color: #e57347; } }
+  .timeline-item .timeline-year { color: #c5bda8; }
+  .timeline-item .timeline-content .timeline-desc { color: #c5bda8; }
+  div.timeline-content div.timeline-title a { color: #f0e8d6; &:hover { color: #e57347; } }
 
   .library-heading, .library-title, .r-header { color: #f4eede; }
   .bio h2, .bio h4 { color: #f4eede; }
@@ -1181,8 +1181,8 @@ $reference-dim: #2a5564;
   margin-bottom: 28px;
 
   .timeline-year {
-    min-width: 40px;
-    font-size: medium;
+    min-width: 48px;
+    font-size: large;
     color: $grey-300;
     font-family: $monospace;
     padding-top: 2px;
@@ -1196,18 +1196,18 @@ $reference-dim: #2a5564;
   .timeline-content {
     .timeline-title {
       font-family: $monospace;
-      font-size: large;
+      font-size: x-large;
       font-weight: 600;
 
       a {
-        color: $grey-500;
+        color: $ink;
         &:hover { color: $rust; text-decoration: none; }
       }
     }
 
     .timeline-desc {
-      font-size: medium;
-      color: $grey-400;
+      font-size: large;
+      color: $ink-muted;
       margin-top: 4px;
       line-height: 1.5;
     }
