@@ -39,6 +39,9 @@
         <lastmod>2026-02-24</lastmod>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/notes/database/cache-algorithms/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/notes/database/cloudnativepg/</loc>
         <lastmod>2026-05-20</lastmod>
     </url>
@@ -226,6 +229,9 @@
         <loc>https://nmbr7.github.io/tags/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/admission/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/ai-agents/</loc>
     </url>
     <url>
@@ -236,6 +242,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/ann/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/arc/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/arm-cortex/</loc>
@@ -290,6 +299,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/cache-miss/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/cache/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/cardinality-estimation/</loc>
@@ -418,6 +430,9 @@
         <loc>https://nmbr7.github.io/tags/erlang/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/eviction/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/exactly-once/</loc>
     </url>
     <url>
@@ -526,7 +541,13 @@
         <loc>https://nmbr7.github.io/tags/leveldb/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/lhd/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/linux-kernel/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/lirs/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/live-migration/</loc>
@@ -542,6 +563,12 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/logical-decoding/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/lrb/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/lru/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/lsm-tree/</loc>
@@ -569,6 +596,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/mongodb/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/mrc/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/mvcc/</loc>
@@ -661,6 +691,9 @@
         <loc>https://nmbr7.github.io/tags/postgresql/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/prefetch/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/pwm/</loc>
     </url>
     <url>
@@ -703,6 +736,9 @@
         <loc>https://nmbr7.github.io/tags/rust/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/s3fifo/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/sampling/</loc>
     </url>
     <url>
@@ -710,6 +746,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/sharding/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/sieve/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/simd/</loc>
@@ -779,6 +818,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/timers/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/tinylfu/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/tlp/</loc>

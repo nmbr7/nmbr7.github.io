@@ -1,0 +1,1793 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<article class="note-page">
+  <h1 class="r-header">Cache Algorithms</h1>
+  <h1 id="cache-eviction-admission-and-prefetching-expert-reference">Cache Eviction, Admission, and Prefetching — Expert Reference</h1>
+<p>A comprehensive, depth-first reference for the cache replacement literature spanning
+<strong>1966 → 2025</strong>. The goal is not breadth-only coverage but accurate, citation-grade
+mechanism descriptions: data-structure layouts, invariants, pseudocode, complexity,
+and where each algorithm is actually deployed.</p>
+<p>The document is structured as:</p>
+<pre><code>0.  Mental model and decision framework
+1.  Theoretical foundations (Belady, Mattson, Denning)
+2.  Classical eviction (FIFO, LRU, CLOCK, SLRU, LFU)
+3.  Recency-frequency hybrids (LRU-K, 2Q, MQ, ARC, CAR/CART, LIRS, CLOCK-Pro)
+4.  TinyLFU family (TinyLFU, W-TinyLFU, Caffeine internals)
+5.  Modern lazy-promotion family (FIFO-Reinsertion, S3-FIFO, SIEVE, QD-LP)
+6.  Cost/size-aware (GreedyDual, GDSF, LFUDA, Hyperbolic, LHD)
+7.  Flash-aware (CFLRU and family)
+8.  Admission policies (Bloom doorkeeper, AdaptSize, FlashShield)
+9.  Learned / ML caching (LeCaR, Cacheus, LRB, HALP, GL-Cache, 3L-Cache)
+10. Buffer-manager-specific (WATT, PostgreSQL clock-sweep, MGLRU)
+11. LLM KV-cache eviction (H2O, StreamingLLM, PagedAttention/vLLM)
+12. Prefetching (sequential, stride, AMP, Mithril, Pythia)
+13. Simulators (libCacheSim, Caffeine simulator, PyMimircache)
+14. Standard traces and benchmarks
+15. Evaluation methodology (MRC construction, SHARDS, Counter Stacks)
+16. Decision matrix and recommendations
+17. References
+</code></pre>
+<hr />
+<h2 id="0-mental-model-and-decision-framework">0. Mental model and decision framework</h2>
+<p>Every cache replacement policy is a heuristic approximation of Belady's
+<strong>MIN</strong> (evict the item whose next reuse is furthest in the future). The
+state-of-the-art research is essentially a 60-year history of attempts to
+estimate "next reuse time" under different workload characteristics.</p>
+<h3 id="four-orthogonal-axes">Four orthogonal axes</h3>
+<p>A useful taxonomy decomposes any modern policy into four design axes:</p>
+<pre><code>                  ┌───── Signal ─────┐  ┌── Granularity ──┐  ┌── Action ──┐  ┌── Adaptivity ──┐
+recency  ──┐      │ recency / age    │  │ object          │  │ promote    │  │ static         │
+frequency ──┼──►  │ frequency        │  │ block / page    │  │ demote     │  │ workload-tuned │
+size     ──┤      │ size             │  │ group / class   │  │ admit      │  │ online-learned │
+cost     ──┤      │ cost             │  │ region / shard  │  │ evict      │  │ ML-mixture     │
+ML feats ──┘      │ derived features │  └─────────────────┘  └────────────┘  └────────────────┘
+                  └──────────────────┘
+</code></pre>
+<p>Most "new" algorithms are simply a particular point in this 4-D space.
+For example:</p>
+<ul>
+<li><strong>LRU</strong> = {recency, object, evict-LRU, static}</li>
+<li><strong>ARC</strong> = {recency+freq, object, evict, workload-tuned}</li>
+<li><strong>W-TinyLFU</strong> = {recency+freq sketch, object, admit+evict, hill-climbed}</li>
+<li><strong>S3-FIFO</strong> = {ghost-confirmed freq, object, demote-fast+lazy-promote, static}</li>
+<li><strong>LHD</strong> = {hit-density features, object, evict, online}</li>
+<li><strong>LRB</strong> = {many features, object, evict, GBDT-learned}</li>
+<li><strong>GL-Cache</strong> = {features, group, evict-batch, ML-ranked}</li>
+</ul>
+<h3 id="two-design-patterns-from-the-2023-literature">Two design patterns from the 2023+ literature</h3>
+<p>Yang et al. (HotOS '23) crystallised two patterns that explain why the
+modern lazy-promotion family (S3-FIFO, SIEVE, QD-LP) outperforms LRU:</p>
+<ul>
+<li><strong>Lazy Promotion (LP)</strong>: do <em>not</em> promote objects on every hit. Only
+promote at eviction time. LRU's main inefficiency is that it pays a
+pointer-swap per hit, polluting front-of-list with one-hit wonders.</li>
+<li><strong>Quick Demotion (QD)</strong>: most objects in skewed (Zipf-like) workloads are
+one-hit wonders. A small front-of-cache filter (FIFO with ghost entries)
+evicts them before they consume scarce capacity in the main region.</li>
+</ul>
+<p>Modern algorithms are "FIFO + LP + QD" assemblies. They are simpler and
+<em>faster</em> than LRU while having lower miss ratios.</p>
+<h3 id="workload-taxonomy">Workload taxonomy</h3>
+<table><thead><tr><th>Class</th><th>Pattern</th><th>Best-fit policies</th></tr></thead><tbody>
+<tr><td>Zipfian (web)</td><td>few hot keys, long tail of one-hit</td><td>S3-FIFO, SIEVE, W-TinyLFU</td></tr>
+<tr><td>LRU-friendly</td><td>recent past = best predictor</td><td>LRU, CLOCK</td></tr>
+<tr><td>LFU-friendly</td><td>stable hot set</td><td>LFU, W-TinyLFU</td></tr>
+<tr><td>Scan</td><td>one-pass over much-larger-than-cache</td><td>LIRS, ARC, CLOCK-Pro, MQ</td></tr>
+<tr><td>Loop</td><td>sequential reuse &gt; cache</td><td>LIRS, MRU/anti-LRU at the right size</td></tr>
+<tr><td>Churn</td><td>replacement signal weak (rolling)</td><td>Cacheus, CR-LFU, LeCaR (mixed expert)</td></tr>
+<tr><td>Variable-size</td><td>mix of small and large objects</td><td>GDSF, AdaptSize, LHD, hyperbolic</td></tr>
+<tr><td>LLM KV-cache</td><td>attention sparsity, sliding window</td><td>H2O, StreamingLLM, PagedAttention</td></tr>
+</tbody></table>
+<hr />
+<h2 id="1-theoretical-foundations">1. Theoretical foundations</h2>
+<h3 id="1-1-working-set-denning-1968">1.1 Working set (Denning 1968)</h3>
+<p><strong>Paper</strong>: Peter J. Denning, "The Working Set Model for Program Behavior",
+CACM 11(5), 1968. (ACM Best Paper for Systems.)</p>
+<p>The <strong>working set</strong> <code>W(t, τ)</code> is the set of pages referenced in the time
+window <code>[t-τ, t]</code>. Denning proved that under a working-set replacement
+policy a multiprogrammed memory cannot thrash and produces throughput
+within 5–10% of optimal. The working-set principle remains the conceptual
+ground truth for <em>why</em> recency-based caching works at all: the locality
+principle says programs concentrate references over short windows.</p>
+<h3 id="1-2-belady-s-opt-min-1966">1.2 Belady's OPT / MIN (1966)</h3>
+<p><strong>Paper</strong>: L. A. Belady, "A Study of Replacement Algorithms for a
+Virtual-Storage Computer", IBM Systems Journal 5(2), 1966.</p>
+<pre><code>OPT:  on miss, evict the page whose next reference is furthest in the future.
+</code></pre>
+<p>OPT is <em>optimal</em> (minimum number of misses on any reference string) and
+infeasible online (requires future knowledge). It is the upper-bound oracle
+in every empirical evaluation. Belady &amp; Palermo 1974 proved equivalence
+with Mattson's OPT (different formulations, same algorithm).</p>
+<p><strong>Belady's anomaly</strong>: FIFO can have <em>more</em> misses when given <em>more</em> cache.
+Stack algorithms (LRU, OPT, LFU under certain assumptions) are immune
+because the cache at size <code>N</code> is always a subset of the cache at size <code>N+1</code>
+(the <em>inclusion property</em>).</p>
+<h3 id="1-3-beladysize-variable-object-size-optimal">1.3 BeladySize (variable-object-size optimal)</h3>
+<p>When objects have variable sizes (CDN/web caching), Belady is <strong>not
+optimal</strong> anymore. The problem becomes NP-hard. Berger et al. (SIGMETRICS
+2018, "Practical Bounds on Optimal Caching with Variable Object Sizes")
+gave a practical bound. <strong>OFMA</strong> (Offline Min for variable sizes) — also
+called "OPT-Size" — uses an LP relaxation. Used as oracle in CDN papers
+(LRB, AdaptSize). Tooling: <code>dasebe/optimalwebcaching</code> on GitHub.</p>
+<h3 id="1-4-mattson-stack-distance-1970">1.4 Mattson stack distance (1970)</h3>
+<p><strong>Paper</strong>: R. L. Mattson, J. Gecsei, D. R. Slutz, I. L. Traiger,
+"Evaluation Techniques for Storage Hierarchies", IBM Systems Journal 9(2),
+1970.</p>
+<p><strong>Stack distance</strong> <code>d(r)</code> of a reference <code>r</code> is the number of <em>distinct</em>
+items accessed since the previous reference to the same item (∞ on cold
+miss). The <strong>miss-ratio curve (MRC)</strong> is <code>MR(c) = Pr[d ≥ c]</code>, plotted
+against cache size <code>c</code>. For LRU specifically, <code>MR(c) = #(refs with d ≥ c) / total</code>.</p>
+<p><strong>Complexity</strong>: naive stack simulation is O(N·M) time, O(M) space for N
+references over M unique items. Modern approximations (SHARDS, Counter
+Stacks) reduce this to sub-linear.</p>
+<p><strong>Stack (inclusion) property</strong>: a policy has the stack property iff for
+every reference string and every cache size <code>c</code>, the cache contents at
+size <code>c</code> are a subset of those at size <code>c+1</code>. LRU, LFU (with ties broken
+consistently), and OPT satisfy it; FIFO and CLOCK do not.</p>
+<hr />
+<h2 id="2-classical-eviction">2. Classical eviction</h2>
+<h3 id="2-1-fifo">2.1 FIFO</h3>
+<p><strong>Mechanism</strong>: a singly-linked queue of resident items. Insert at tail,
+evict from head. Hits do nothing.</p>
+<pre><code>struct fifo {
+    list&lt;Item&gt; queue;
+    hashmap&lt;Key, list::iterator&gt; index;
+};
+op get(k):  return index.contains(k) ? index[k]-&gt;value : MISS
+op put(k, v):
+    if |queue| == capacity:  evict_head();
+    queue.push_back(Item{k,v});
+    index[k] = queue.tail();
+</code></pre>
+<ul>
+<li><strong>Time</strong>: O(1) per op.</li>
+<li><strong>Space</strong>: O(c) pointers + values.</li>
+<li><strong>Property</strong>: not a stack algorithm (suffers Belady's anomaly). Provides
+Quick Demotion intrinsically (oldest leaves first).</li>
+<li><strong>Surprise (Yang OSDI '20)</strong>: on real Twitter cache traces, FIFO had
+lower miss ratio than LRU on a meaningful fraction of clusters. Plain
+FIFO is the foundation of the entire QD-LP family.</li>
+<li><strong>Production</strong>: surprisingly common as last-resort policy; basis of S3-FIFO,
+SIEVE, etc.</li>
+</ul>
+<h3 id="2-2-lru-least-recently-used">2.2 LRU (Least Recently Used)</h3>
+<p><strong>Mechanism</strong>: doubly-linked list + hash map. Hit ⇒ move-to-front. Miss
+⇒ insert-at-front, drop-from-tail.</p>
+<pre><code>on hit(k):       move node(k) to head
+on miss(k):
+    if size == cap:  evict tail
+    insert k at head
+</code></pre>
+<ul>
+<li><strong>Time</strong>: O(1) per op (assuming hash table).</li>
+<li><strong>Space</strong>: O(c) plus 2 pointers per entry.</li>
+<li><strong>Properties</strong>: stack algorithm (no Belady anomaly), recency-only, no
+scan resistance (single sequential scan flushes the cache).</li>
+<li><strong>Production</strong>: textbook default. Pure LRU has been replaced by ARC,
+W-TinyLFU, or S3-FIFO in most modern caches due to scan vulnerability
+and lock contention (every hit takes a write lock).</li>
+</ul>
+<h3 id="2-3-clock-second-chance">2.3 CLOCK (second-chance)</h3>
+<p><strong>Paper</strong>: F. J. Corbató, "A Paging Experiment with the Multics System",
+MIT Project MAC Memo M-384, 1968.</p>
+<p><strong>Mechanism</strong>: a circular array of resident frames, each with a 1-bit
+<em>reference</em> bit. A "hand" rotates clockwise. To find a victim, scan
+forward: if ref-bit=1 clear it and advance; if ref-bit=0 evict. Hit just
+sets ref-bit to 1.</p>
+<pre><code>hand = 0
+on hit(k):       frame[idx(k)].ref = 1
+on miss(k):
+    while frames[hand].ref == 1:
+        frames[hand].ref = 0
+        hand = (hand + 1) % cap
+    evict frames[hand]; install k at frames[hand]; hand = (hand+1) % cap
+</code></pre>
+<ul>
+<li><strong>Time</strong>: amortised O(1).</li>
+<li><strong>Space</strong>: 1 ref-bit per frame.</li>
+<li><strong>Property</strong>: approximates LRU with much lower overhead — no list
+pointer manipulation, no lock per hit. The dominant kernel
+page-replacement algorithm for decades. Foundation of CAR, CLOCK-Pro,
+PostgreSQL clock-sweep, etc.</li>
+</ul>
+<h3 id="2-4-slru-segmented-lru">2.4 SLRU — Segmented LRU</h3>
+<p><strong>Paper</strong>: Karedla, Love, Wherry, "Caching Strategies to Improve Disk
+System Performance", IEEE Computer 27(3), 1994.</p>
+<p><strong>Mechanism</strong>: two LRU lists — <strong>probationary</strong> and <strong>protected</strong> — with
+a configurable split (often 20%/80%).</p>
+<pre><code>Probationary (newcomers and demoted)        Protected (proven hot)
+[ tail -------------------- head ]    [ tail -------------------- head ]
+                       │                                      │
+new misses go to    head of prob              hit in prob promotes to head of
+                                              protected (may demote prot tail
+                                              back to prob head)
+</code></pre>
+<ul>
+<li><strong>Time</strong>: O(1).</li>
+<li><strong>Space</strong>: O(c) plus list pointers.</li>
+<li><strong>Property</strong>: scan-resistant — single pass through cold data leaves
+protected segment intact. On test workloads SLRU averaged 71.4% hit ratio
+vs LRU 67% / LFU 62% / FIFO 55.8% (Karedla et al. 1994). Used as the
+"main" region in W-TinyLFU.</li>
+</ul>
+<h3 id="2-5-lfu-and-lfu-aging">2.5 LFU and LFU-Aging</h3>
+<p><strong>Mechanism</strong>: each item carries an access counter. Evict minimum counter.
+Two implementations:</p>
+<ul>
+<li><strong>Counter + min-heap</strong>: O(log c) ops.</li>
+<li><strong>Frequency bucket lists</strong> (Ketan Shah variant): O(1) — each frequency
+is a doubly-linked list of items at that frequency; a separate
+doubly-linked list of frequency nodes is kept sorted.</li>
+</ul>
+<p><strong>Cache pollution problem</strong>: an item with high historical count that is
+no longer popular is impossible to evict. <strong>LFU-Aging</strong>: periodically
+halve all counters, <em>or</em> use <strong>LFUDA</strong> (LFU with Dynamic Aging,
+Arlitt, Cherkasova, Dilley, Friedrich, Jin, "Evaluating content
+management techniques for web proxy caches", Performance Eval Review
+2000):</p>
+<pre><code>on insert/reaccess:  counter = cache_age + freq
+on eviction:         cache_age = max(cache_age, evicted.counter)
+</code></pre>
+<p>Cache age is monotone non-decreasing and bounded below by the minimum
+counter, ensuring stale highly-counted items eventually age out. LFUDA is
+a common baseline for byte hit ratio in CDN literature.</p>
+<hr />
+<h2 id="3-recency-frequency-hybrids">3. Recency–frequency hybrids</h2>
+<p>This section is the historical core of cache replacement research
+(1993–2005). All algorithms here combine some form of recency tracking
+with frequency tracking.</p>
+<h3 id="3-1-lru-k-o-neil-o-neil-weikum-sigmod-1993">3.1 LRU-K (O'Neil, O'Neil, Weikum, SIGMOD 1993)</h3>
+<p><strong>Mechanism</strong>: track the timestamps of the <strong>last K accesses</strong> to each
+page. Predict next inter-arrival time by extrapolating from the Kth most
+recent access (i.e. backward time window of size K). Evict the page with
+the <em>oldest Kth-to-last reference</em>.</p>
+<ul>
+<li>LRU-1 ≡ LRU.</li>
+<li>LRU-2 is the practical choice — covers "second chance" semantics
+without the cost of K-deep history.</li>
+</ul>
+<p><strong>Data structure</strong>: per-page LRU-K queue plus retained-information
+queue for non-resident pages (so a newly-promoted page can leverage
+older access history). Includes a <em>correlation period</em> — references
+within a short interval are treated as one access, to handle
+back-to-back accesses by a single transaction.</p>
+<ul>
+<li><strong>Time</strong>: O(log c) (priority queue keyed on Kth-last timestamp).</li>
+<li><strong>Space</strong>: O(c · K) timestamps.</li>
+<li><strong>Property</strong>: explicit recency <em>and</em> frequency: a page with two
+recent references gets a tighter inter-arrival estimate than one
+with one recent reference. Strongly outperforms LRU on database OLTP
+workloads. Drawbacks: log-time ops, parameter K and correlation
+period need tuning.</li>
+</ul>
+<h3 id="3-2-2q-johnson-shasha-vldb-1994">3.2 2Q (Johnson &amp; Shasha, VLDB 1994)</h3>
+<p>Designed as an explicit O(1) approximation of LRU-2.</p>
+<p><strong>Mechanism</strong>: three structures:</p>
+<ul>
+<li><strong>A1in</strong>: FIFO of recent first-time admits (size <code>Kin</code>, typically 25% of cache).</li>
+<li><strong>Am</strong>: LRU of frequent pages (size = <code>cap - Kin</code>).</li>
+<li><strong>A1out</strong>: FIFO of <em>ghost</em> (key-only) entries recently kicked out of
+A1in (size <code>Kout</code>, typically 50% of cache).</li>
+</ul>
+<pre><code>on hit(k):
+    if k in Am:    move-to-MRU in Am
+    elif k in A1in: do nothing                 # stay in FIFO order
+    elif k in A1out:
+        # ghost hit — second sighting, promote
+        install k in Am MRU; drop k from A1out
+
+on miss(k):
+    if k in A1out:                              # not in cache but ghost-known
+        reclaim victim; install k as MRU of Am; remove ghost
+    else:
+        if |A1in| == Kin:  victim = head(A1in); push victim.key into A1out
+        else if cache full: victim = LRU of Am
+        push k into A1in; remember victim
+</code></pre>
+<ul>
+<li><strong>Time</strong>: O(1) all operations.</li>
+<li><strong>Space</strong>: <code>cap + Kout</code> keys (<code>Kout</code> are ghost-only, no data).</li>
+<li><strong>Property</strong>: first-time arrivals do <em>not</em> enter Am — pure
+scan-resistance. A ghost-confirmed second access is required for hot
+promotion. Foundation pattern for ARC, S3-FIFO, etc.</li>
+<li><strong>Suggested tuning</strong> (Johnson &amp; Shasha): Kin = 25% of cache, Kout =
+50% (of value-bearing entries).</li>
+<li><strong>Production</strong>: PostgreSQL pgvector recent revisions, several CDN
+prototypes, default in some JVM cache libraries.</li>
+</ul>
+<h3 id="3-3-mq-multi-queue-zhou-philbin-li-usenix-atc-2001">3.3 MQ — Multi-Queue (Zhou, Philbin, Li, USENIX ATC 2001)</h3>
+<p>Designed specifically for <strong>second-level</strong> (storage-array) buffer caches,
+where the access pattern is the miss stream from a first-level cache —
+much less locality, longer reuse distances.</p>
+<p><strong>Mechanism</strong>: M LRU queues <code>Q0, Q1, ..., Q_{M-1}</code>, each with an
+<strong>expiration time</strong>. An item in Q<em>i</em> whose access frequency reaches
+<code>2^(i+1)</code> is promoted to Q<em>i+1</em>; if it sits in a queue past expiration it
+is demoted to Q<em>i-1</em>. A separate <strong>ghost</strong> queue <code>Q_out</code> retains keys
+and frequency for evicted items (so re-arrivals can resume their freq).</p>
+<ul>
+<li><strong>Time</strong>: O(1) per op.</li>
+<li><strong>Space</strong>: O(c + |Q_out|).</li>
+<li><strong>Property</strong>: explicitly designed for long inter-reference times, so a
+page idle for a long stretch isn't immediately treated as "cold".
+Outperformed LRU, LRU-2, 2Q, MRU, ARC on second-level traces in the
+original paper (across all 7 alternatives).</li>
+</ul>
+<h3 id="3-4-arc-adaptive-replacement-cache-megiddo-modha-fast-2003">3.4 ARC — Adaptive Replacement Cache (Megiddo &amp; Modha, FAST 2003)</h3>
+<p>The seminal modern algorithm. IBM patent encumbrance forced ZFS to
+implement it (then patent expired ~2020).</p>
+<p><strong>Mechanism</strong>: four LRU lists, total size 2c:</p>
+<pre><code>       L1 (recency)               L2 (frequency)
+[ T1  | B1 ]               [ B2 |  T2  ]
+  ↑ resident (T1+T2 = c)         ↑ ghost (B1+B2 ≤ c)
+
+T1: items seen once recently      (resident)
+T2: items seen ≥ 2 times          (resident)
+B1: ghosts evicted from T1        (key only)
+B2: ghosts evicted from T2        (key only)
+p : target size for T1, adapts online (0 ≤ p ≤ c)
+</code></pre>
+<p>Adaptive parameter <code>p</code> is the <em>target</em> size of T1. Hits in B1 (a
+ghost-confirmed recency item proved useful) increase <code>p</code>; hits in B2
+decrease <code>p</code>.</p>
+<pre><code>on access(k):
+    Case I  (T1 ∪ T2 hit):  move k to MRU of T2          # promote
+    Case II (B1 ghost hit): p = min(p + δ1, c)            # favour recency
+                            REPLACE; move k to MRU of T2
+    Case III (B2 ghost hit): p = max(p - δ2, 0)           # favour frequency
+                            REPLACE; move k to MRU of T2
+    Case IV (true miss):
+        if |L1| == c:    evict from T1 or B1 ; REPLACE
+        else if |L1|+|L2| ≥ c: evict from B2; REPLACE
+        install k in MRU of T1
+
+REPLACE():
+    if (|T1| ≥ 1 and (|T1| &gt; p or (k ∈ B2 and |T1| == p))):
+        demote LRU of T1 to MRU of B1; evict its data
+    else:
+        demote LRU of T2 to MRU of B2; evict its data
+
+δ1 = max(|B2|/|B1|, 1)
+δ2 = max(|B1|/|B2|, 1)
+</code></pre>
+<ul>
+<li><strong>Time</strong>: O(1) — every operation is a constant number of list moves.</li>
+<li><strong>Space</strong>: 2c keys (half ghost), c values.</li>
+<li><strong>Properties</strong>: self-tuning (no parameters), scan-resistant, no Belady
+anomaly. ARC dominates LRU on essentially every storage benchmark and
+by an order of magnitude on adversarial workloads.</li>
+<li><strong>Production</strong>: ZFS (the ARC namesake), PostgreSQL has experimented
+with ARC, IBM DB2 patented the algorithm (US 6,996,676), many storage
+systems.</li>
+</ul>
+<h3 id="3-5-car-and-cart-bansal-modha-fast-2004">3.5 CAR and CART (Bansal &amp; Modha, FAST 2004)</h3>
+<p>CAR addresses ARC's main weakness — every hit takes a global lock to
+move an item to the MRU position.</p>
+<p><strong>CAR (Clock with Adaptive Replacement)</strong>: replaces ARC's T1 and T2 LRU
+lists with two <strong>CLOCK lists</strong>, retaining B1 and B2 ghost LRU lists for
+adaptation. Same <code>p</code> adaptation rule as ARC.</p>
+<pre><code>T1 = CLOCK list of recency items (1-bit ref per slot)
+T2 = CLOCK list of frequency items (1-bit ref per slot)
+B1 = LRU ghost (recency)
+B2 = LRU ghost (frequency)
+
+on hit:  just set ref-bit (no list movement, no lock)
+on eviction: rotate hand on the appropriate clock until ref=0
+</code></pre>
+<p><strong>CART (CAR with Temporal filtering)</strong>: addresses a CAR pathology where
+short-burst correlated references (one transaction touching a page twice
+in 100ms) wrongly promote pages to T2. Adds a temporal filter — an item
+must be referenced <em>after a sufficient temporal gap</em> to migrate from T1
+to T2. Achieved by a <em>long-term</em> bit alongside the <em>reference</em> bit.</p>
+<ul>
+<li><strong>Time</strong>: O(1) amortised per op, <strong>no lock per hit</strong> — major scaling win.</li>
+<li><strong>Production</strong>: heavily cited in storage research, less in mainstream
+use because by ~2010 the dominant alternative had become TinyLFU.</li>
+</ul>
+<h3 id="3-6-lirs-low-inter-reference-recency-set-jiang-zhang-sigmetrics-2002">3.6 LIRS — Low Inter-Reference recency Set (Jiang &amp; Zhang, SIGMETRICS 2002)</h3>
+<p><strong>Insight</strong>: recency alone is a poor predictor; the <strong>inter-reference
+recency (IRR)</strong> — number of <em>other distinct items</em> accessed between
+two consecutive accesses to the same item — is a better one.</p>
+<p><strong>Definitions</strong>:</p>
+<ul>
+<li><strong>R (recency)</strong> of an item: distinct items accessed since its last
+reference (current "distance" from MRU).</li>
+<li><strong>IRR</strong>: R measured at the <em>previous</em> access.</li>
+</ul>
+<p><strong>Block types</strong>:</p>
+<ul>
+<li><strong>LIR (Low IRR)</strong>: kept resident.</li>
+<li><strong>HIR (High IRR)</strong>: may be resident or non-resident (key-only).</li>
+</ul>
+<p><strong>Data structures</strong>:</p>
+<ul>
+<li><strong>Stack S</strong>: variable-size LRU-like stack containing <em>all</em> LIR blocks
+plus HIR blocks with R less than the maximum LIR recency. (Used for
+<em>recency comparison</em>; non-resident HIR ghosts also live here.)</li>
+<li><strong>List Q</strong>: FIFO of <em>resident HIR</em> blocks (size = small budget,
+typically 1% of cache).</li>
+</ul>
+<p><strong>Invariants</strong>:</p>
+<ul>
+<li>Cache = <code>Llirs</code> resident LIR + <code>Lhirs</code> resident HIR blocks, where
+<code>Llirs + Lhirs = c</code> and <code>Lhirs</code> is small (e.g. 1% of c).</li>
+<li>The "bottom" of S is always a LIR block. When this changes due to S
+pruning, the algorithm performs a <strong>stack pruning</strong> — remove
+non-LIR blocks from the bottom of S until a LIR is exposed.</li>
+</ul>
+<pre><code>on access(k):
+    case k is LIR:
+        move k to top of S; if k was at bottom, prune S
+    case k is HIR and in S:                 # ghost hit OR resident HIR in S
+        change k to LIR
+        move LIR at bottom of S to HIR (push to MRU of Q); prune S
+        if k was resident HIR (in Q): remove from Q
+        else: bring k into memory from disk
+    case k is HIR and not in S:             # new or long-gone
+        if cache full: evict LRU of Q (resident HIR)
+        bring k into memory, add to Q tail, add to top of S as HIR
+</code></pre>
+<ul>
+<li><strong>Time</strong>: O(1) amortised (stack pruning is amortised constant).</li>
+<li><strong>Space</strong>: cache + ghost entries in S.</li>
+<li><strong>Properties</strong>: strong scan resistance (a one-pass scan is filtered by
+the HIR/Q region), loop resistance superior to ARC on loop sizes
+<em>just larger than cache</em> — LIRS's hallmark. Original paper showed LIRS
+beats LRU by 5–60% on multi-process traces.</li>
+<li><strong>Production</strong>: H2 database, Apache Cassandra (historically), Caffeine
+simulator's reference policy, MySQL InnoDB midpoint-LRU borrows
+ideas from LIRS.</li>
+<li><strong>LIRS2</strong> (Zhong, Tao, Jiang 2021): handles cases where LIRS's stack
+pruning loses important history — adds a configurable history
+retention region.</li>
+<li><strong>DLIRS</strong> (Li, Wei, 2018, SYSTOR): adds ARC-style dynamic partitioning
+between cold/hot — performs close to whichever of LIRS/ARC is the
+winner on a given workload.</li>
+</ul>
+<h3 id="3-7-clock-pro-jiang-chen-zhang-usenix-atc-2005">3.7 CLOCK-Pro (Jiang, Chen, Zhang, USENIX ATC 2005)</h3>
+<p>CLOCK-Pro is to LIRS what CAR is to ARC: a clock-based, lock-friendly
+approximation of LIRS.</p>
+<p><strong>Three hands</strong> on a single circular list:</p>
+<pre><code>HAND_HOT   — finds hot pages, ages them down if not recently referenced
+HAND_COLD  — finds cold pages to evict
+HAND_TEST  — sweeps non-resident cold ghosts past their test period
+</code></pre>
+<p>Block states:</p>
+<ul>
+<li><strong>hot</strong> (= LIR equivalent): always resident.</li>
+<li><strong>cold</strong> (= HIR resident or non-resident).</li>
+<li>"<strong>test period</strong>": a cold page is on probation; if it is re-accessed
+<em>during</em> this period, it is promoted to hot (which forces a hot page
+somewhere in the ring to demote to cold).</li>
+</ul>
+<pre><code>on access(k):
+    if resident:    ref-bit ← 1
+    else:           # miss
+        if k is cold-ghost in ring:
+            promote: turn k hot; pick a hot to demote
+        else:
+            install k as cold-resident, ref-bit=0
+        run HAND_COLD until a cold ref=0 is found, evict
+        adjust HAND_HOT and HAND_TEST as needed
+</code></pre>
+<ul>
+<li><strong>Time</strong>: amortised O(1).</li>
+<li><strong>Space</strong>: hot+cold resident + cold-ghost = roughly 2c slots.</li>
+<li><strong>Property</strong>: same LIR/HIR scan and loop resistance as LIRS, but with
+CLOCK's hit-path simplicity. Adopted in the <strong>NetBSD VM</strong> and was the
+basis of Linux kernel patches in the late 2000s (FBSD followed similar
+ideas). The Linux mainline approach evolved into multi-generational
+LRU instead (see §10.3).</li>
+</ul>
+<h3 id="3-8-frd-filtering-buffer-cache-park-yeom-msst-2017">3.8 FRD — Filtering buffer cache (Park, Yeom, MSST 2017)</h3>
+<p><strong>Mechanism</strong>: a "filter" of recently-seen items (small FIFO of ghosts) +
+two LRU lists for filtered (one-touch) and re-referenced pages. The
+filter prevents one-hit wonders from polluting the cache. Conceptually
+similar to 2Q but uses a hit-frequency criterion and adapts the filter
+size based on observed filter recall. Cited as a baseline in modern
+papers (Cacheus, LeCaR).</p>
+<hr />
+<h2 id="4-tinylfu-family">4. TinyLFU family</h2>
+<h3 id="4-1-tinylfu-einziger-friedman-manes-acm-tos-13-4-2017">4.1 TinyLFU (Einziger, Friedman, Manes, ACM ToS 13(4), 2017)</h3>
+<p>A pure <strong>admission policy</strong> plugged in front of any eviction policy
+(usually SLRU). Decides at miss time whether the incoming object should
+<em>replace</em> the current eviction victim.</p>
+<p><strong>Data structures</strong>:</p>
+<ul>
+<li><strong>Count-Min Sketch (CMS)</strong> with 4-bit counters and W rows × D
+counters per row (default 4 hash functions).</li>
+<li><strong>Doorkeeper</strong>: a plain Bloom filter that absorbs the first
+occurrence of each item. Only items past the doorkeeper increment the
+CMS. (Halves CMS update cost since 80%+ of web objects are one-hit.)</li>
+<li><strong>Aging mechanism</strong>: when the total sample size reaches <code>W</code> (sampling
+window), halve all CMS counters and reset the doorkeeper. This is the
+<em>fresh-CMS</em> trick that bounds memory while letting frequencies decay.</li>
+</ul>
+<pre><code>estimate_freq(k):
+    f_main = min over rows of CMS[row][hash_row(k)]
+    f_door = 1 if k in doorkeeper else 0
+    return f_main + f_door
+
+on access(k):
+    if k in doorkeeper:           CMS_increment(k)
+    else:                         doorkeeper.add(k)
+    sample_count += 1
+    if sample_count == W:         CMS *= 0.5; doorkeeper.reset()
+
+admit(new, victim):
+    return estimate_freq(new) &gt; estimate_freq(victim)
+</code></pre>
+<ul>
+<li><strong>Space</strong>: bits/object ≈ 8 (4-bit counters × ≥2 cache-size's worth of
+sketch entries to maintain accuracy). Empirically Caffeine uses 8 bytes
+per cache entry total.</li>
+<li><strong>Properties</strong>: provably bounded error (CMS guarantee), strong
+frequency awareness even with tiny memory. Original TinyLFU + LRU
+beat ARC on web/CDN traces.</li>
+<li><strong>Production</strong>: in front of W-TinyLFU below.</li>
+</ul>
+<h3 id="4-2-w-tinylfu-window-tinylfu-caffeine-s-policy">4.2 W-TinyLFU (window TinyLFU) — Caffeine's policy</h3>
+<p>The eviction policy in Ben Manes's <strong>Caffeine</strong> library (and by transitive
+adoption: Cassandra, HBase, Kafka, Solr, Neo4j, Druid, Apache Beam …).</p>
+<p><strong>Architecture</strong>:</p>
+<pre><code>                              admission decision (TinyLFU)
+       ┌─ Window LRU ─┐   ┌────►────┐
+miss → │ ~1% capacity │ → │compare? │── admitted → Probationary segment (SLRU)
+       │ LRU eviction │   │  freq   │
+       └──────────────┘   └────►────┘
+                          rejected
+                                                     SLRU main (~99%):
+                                                     - probationary (~20% of main)
+                                                     - protected    (~80% of main)
+</code></pre>
+<ul>
+<li><strong>Window</strong>: small admission LRU absorbs burstiness.</li>
+<li><strong>TinyLFU admission</strong>: an item evicted from window is admitted to
+the main region only if its CMS frequency exceeds the frequency of
+the current SLRU LRU victim.</li>
+<li><strong>Main SLRU</strong>: protected (proven hot) + probationary (newcomers).</li>
+<li><strong>Hill climbing</strong>: the <strong>window:main split</strong> is adaptive. Hit ratio
+is sampled periodically; the window grows/shrinks in the direction of
+the last beneficial step; step size decays toward convergence.</li>
+</ul>
+<pre><code>hit_rate_t = recorded; if Δhit &gt; 0, repeat last move; else reverse and shrink step
+</code></pre>
+<ul>
+<li><strong>Performance</strong>: matches or beats ARC, LIRS, LFU on the standard ARC
+traces; within 99% of Belady on real-world workloads.</li>
+<li><strong>Memory</strong>: 8 bytes/entry (4-bit CMS × ~10 counters per entry plus 1
+bit-each in doorkeeper).</li>
+<li><strong>Production</strong>: see above; the dominant Java-ecosystem cache.</li>
+</ul>
+<hr />
+<h2 id="5-modern-lazy-promotion-family-2023">5. Modern lazy-promotion family (2023+)</h2>
+<p>The CMU PDL group, led by Juncheng Yang and Yazhuo Zhang, demolished much
+of the LRU-family conventional wisdom with three closely-related papers.</p>
+<h3 id="5-1-fifo-reinsertion-and-the-qd-lp-design-pattern-hotos-23">5.1 FIFO-Reinsertion and the QD-LP design pattern (HotOS '23)</h3>
+<p><strong>Paper</strong>: Yang, Qiu, Zhang, Yue, Rashmi, "FIFO can be Better than LRU:
+the Power of Lazy Promotion and Quick Demotion", HotOS 2023.</p>
+<p><strong>Surprising empirical finding</strong>: on Twitter's 153 production cache
+clusters, plain FIFO had the <em>lowest</em> miss ratio on a large fraction of
+clusters; CLOCK (FIFO with reference bits) frequently outperformed LRU.</p>
+<p><strong>Reasons</strong>:</p>
+<ol>
+<li><strong>Lazy Promotion (LP)</strong>: LRU promotes every hit ⇒ pollutes head with
+one-hit wonders that were briefly accessed; FIFO promotes nothing,
+so no pollution.</li>
+<li><strong>Quick Demotion (QD)</strong>: FIFO automatically evicts oldest first; LRU
+gives every item a "second chance" through the entire stack.</li>
+</ol>
+<p><strong>QD-LP-FIFO</strong> prescription:</p>
+<ul>
+<li>Cache = <code>S</code> (small FIFO, ~5–10%) + <code>M</code> (large FIFO with reinsertion).</li>
+<li>Ghost FIFO <code>G</code> of size |M| records recently-evicted-from-M keys.</li>
+<li>New items: insert at S head.</li>
+<li>S overflow: if item was <em>also referenced</em> while in S → demote to M
+with reference bit cleared; else drop and put a ghost in G.</li>
+<li>M overflow: read reference bit. If 1 → clear and <em>reinsert at head</em>
+(lazy promotion). If 0 → evict; if its key is in G it gets <em>re-promoted</em>
+to M instead.</li>
+</ul>
+<p>QD-LP-FIFO requires at most 1 metadata update per hit and <strong>no lock at
+all</strong> on the hit path. Reduces miss ratios of LIRS by 1.6% and LeCaR
+by 4.3% on average across CloudPhysics, MSR, FIU, Twitter traces.</p>
+<h3 id="5-2-s3-fifo-yang-zhang-yue-rashmi-sosp-2023">5.2 S3-FIFO (Yang, Zhang, Yue, Rashmi, SOSP 2023)</h3>
+<p>The production-grade member of the QD-LP family.</p>
+<p><strong>Three FIFO queues</strong>:</p>
+<pre><code>┌─ S (Small) ──┐    ┌──────── M (Main) ────────┐
+│  10% of c    │    │       90% of c           │
+│   FIFO       │    │  FIFO + reinsertion      │
+└──────────────┘    └──────────────────────────┘
+                                                 
+┌─ G (Ghost) ──┐
+│  ≈ |M| keys, │
+│  no data     │
+└──────────────┘
+</code></pre>
+<p><strong>Per-object</strong> state: 2-bit access counter (saturating, max value 3).</p>
+<pre><code>INSERT(k):
+    if k.key was in G:  install k into M (head), counter=0
+    else:               install k into S (head), counter=0
+
+ACCESS hit(k):          counter = min(counter+1, 3)         # 2 bits only
+
+EVICT (when cache full):
+    while |S| &gt; size_S:
+        x = tail(S)
+        if x.counter &gt; 0:                        # earned its keep
+            re-insert x into M (head); x.counter = 0
+        else:                                    # one-hit-wonder
+            remove x from S; add ghost(x.key) to G; drop oldest ghost if |G| &gt; |M|
+    while |M| &gt; size_M:
+        x = tail(M)
+        if x.counter &gt; 0:
+            x.counter -= 1; reinsert x at head(M)   # lazy promotion
+        else:
+            evict x  ; add ghost(x.key) to G; drop oldest ghost if |G| &gt; |M|
+</code></pre>
+<ul>
+<li><strong>Time</strong>: O(1) per op; <strong>lock-free reads</strong> by design — the hit path is
+a single atomic counter increment.</li>
+<li><strong>Space</strong>: 2 bits per object + ghost (key-only) entries.</li>
+<li><strong>Properties</strong>: Quick Demotion via S; Lazy Promotion via M counter.
+No need for ghost on S — that role is filled by G.</li>
+<li><strong>Empirical</strong>: across 6594 production traces from 14 datasets, S3-FIFO
+had the best mean miss ratio on <strong>10/14 datasets</strong>, and at 16 threads
+delivered <strong>6× throughput</strong> vs an optimised LRU.</li>
+<li><strong>Production</strong>: implemented in CacheLib (experimental), foyer-rs (Rust),
+go-tinylfu/sieve forks, libCacheSim, multiple Python crates.</li>
+</ul>
+<h3 id="5-3-sieve-zhang-yang-yue-vigfusson-rashmi-nsdi-2024">5.3 SIEVE (Zhang, Yang, Yue, Vigfusson, Rashmi, NSDI 2024)</h3>
+<p><strong>SIEVE</strong> is the simplest of the family — <em>one</em> doubly-linked list, <em>one</em>
+pointer, <em>one</em> visited bit per item. No ghost queue, no admission, no
+parameters. Despite this, it beats W-TinyLFU on most web workloads.</p>
+<p><strong>Data structures</strong>:</p>
+<ul>
+<li>A doubly-linked list <code>L</code> of resident objects in <strong>insertion order</strong>.</li>
+<li>A single pointer <code>hand</code> into the list.</li>
+<li>1 bit <code>visited</code> per object.</li>
+</ul>
+<pre><code>get(k):
+    if k in cache:  k.visited = 1; return HIT
+    else:           insert_and_maybe_evict(k); return MISS
+
+insert_and_maybe_evict(k):
+    if cache full:  evict()
+    push k to HEAD of L with visited=0; hash[k] = node
+
+evict():
+    while hand.visited == 1:
+        hand.visited = 0          # second chance
+        hand = hand.prev or TAIL  # move toward older
+    victim = hand
+    hand = hand.prev or TAIL
+    unlink victim; remove from hash
+</code></pre>
+<p>Key contrast with CLOCK: hand moves from TAIL → HEAD (old to new). When
+an item is touched, it <strong>stays in its current position</strong> in L — no
+move-to-front, no list mutation on hit. Only the bit changes, atomically.</p>
+<ul>
+<li><strong>Time</strong>: O(1) amortised; hit path is <em>one atomic bit set</em>.</li>
+<li><strong>Space</strong>: 1 bit + list pointers per object.</li>
+<li><strong>Properties</strong>: provides BOTH quick demotion (newly-inserted objects
+reach the hand soon since hand sweeps low-end) AND lazy promotion (a
+popular object retains its high position until visited bit is cleared).</li>
+<li><strong>Empirical</strong>: in 5470 web traces, SIEVE has lower miss ratio than
+LRU/CLOCK/W-TinyLFU on more than 45% of traces; reduces FIFO miss
+ratio by 42% on the worst 10%. At 16 threads, 2× the throughput of
+optimised LRU.</li>
+<li><strong>Limitations</strong> (per authors): SIEVE is <strong>not a stack algorithm</strong>.
+Cache contents at size <em>N</em> are not strictly a subset of those at size
+<em>N+1</em> — possible Belady-style anomalies (rare in practice).</li>
+<li><strong>Production adoption</strong> (within ~12 months of publication):
+<ul>
+<li><strong>Rust</strong>: <code>sieve-cache</code> crate (jedisct1), used by various services.</li>
+<li><strong>Go</strong>: <code>opencoff/go-sieve</code>, <code>scalalang2/go-sieve-cache</code> — 90–300×
+faster than <code>hashicorp/golang-lru</code> on read-heavy concurrent loads.</li>
+<li><strong>Python</strong>, <strong>JavaScript</strong>, <strong>C++</strong> community ports.</li>
+<li>Five production cache libraries adopted SIEVE within a year, each
+with &lt;20 lines of code change.</li>
+</ul>
+</li>
+</ul>
+<h3 id="5-4-qd-lp-design-pattern-as-a-building-block">5.4 QD-LP design pattern as a building block</h3>
+<p>The HotOS '23 paper explicitly positions QD-LP as a <strong>LEGO-block design
+pattern</strong> to be layered on top of any base policy. Modern algorithms can
+all be re-derived in this framework:</p>
+<table><thead><tr><th>Algorithm</th><th>Base</th><th>LP</th><th>QD</th></tr></thead><tbody>
+<tr><td>LRU</td><td>--</td><td>always promote to MRU</td><td>none</td></tr>
+<tr><td>CLOCK</td><td>FIFO</td><td>flip ref bit</td><td>none</td></tr>
+<tr><td>2Q</td><td>LRU</td><td>hit in Am → MRU</td><td>A1in FIFO</td></tr>
+<tr><td>ARC</td><td>LRU</td><td>second access → T2</td><td>none</td></tr>
+<tr><td>W-TinyLFU</td><td>SLRU</td><td>promote prob→prot</td><td>Window LRU</td></tr>
+<tr><td>S3-FIFO</td><td>FIFO</td><td>M counter reinsertion</td><td>S queue + G ghost</td></tr>
+<tr><td>SIEVE</td><td>FIFO</td><td>visited bit set on hit</td><td>hand sweeps from old end</td></tr>
+</tbody></table>
+<hr />
+<h2 id="6-cost-and-size-aware-eviction">6. Cost- and size-aware eviction</h2>
+<p>When items have <strong>variable cost</strong> (latency to refetch) or <strong>variable
+size</strong> (CDN: 100B JSON vs 100MB video), pure recency/frequency policies
+are suboptimal. The classical solutions all derive from Young's
+<strong>GreedyDual</strong> (1991).</p>
+<h3 id="6-1-greedydual-landlord-young-1991">6.1 GreedyDual / Landlord (Young, 1991)</h3>
+<p><strong>Paper</strong>: Neal E. Young, "Online caching as cache size decreases",
+SODA 1991 — and the journal versions "On-line caching as cache size
+decreases" / "On-line file caching".</p>
+<p><strong>Mechanism</strong>: each item <code>i</code> has a <em>credit</em> <code>H(i)</code>. On admission:
+<code>H(i) = cost(i)</code>. To evict: pick the item with <strong>minimum H</strong>. Subtract
+the minimum H from <em>every</em> item's H (representing "rent" paid). On a
+hit, reset <code>H(i) = cost(i)</code>.</p>
+<p>Bookkeeping trick: maintain a global "rent" counter <code>L</code>. Internally store
+<code>H'(i) = H(i) + L</code>. Then "subtracting min H from everyone" becomes "set
+L = L + min H' (and the new minimum becomes 0 by definition)". O(log c)
+with a priority queue keyed on <code>H'</code>.</p>
+<pre><code>on miss(k):
+    while size_used + size(k) &gt; C:
+        v = argmin_i H&#39;(i)
+        L = H&#39;(v); evict v
+    H&#39;(k) = cost(k) + L; admit k
+on hit(k):
+    H&#39;(k) = cost(k) + L            # full credit restored
+</code></pre>
+<ul>
+<li><strong>Time</strong>: O(log c) per op.</li>
+<li><strong>Property</strong>: provably <strong>k/(k − h + 1)-competitive</strong> for weighted
+caching, matching LRU's optimal bound. Generalises LRU (cost = 1) and
+FIFO (when cost is set on admission only).</li>
+</ul>
+<h3 id="6-2-gd-size-cao-irani-1997">6.2 GD-Size (Cao &amp; Irani, 1997)</h3>
+<p><code>H(i) = cost(i) / size(i)</code>. Optimises <em>byte hit ratio</em> — important for
+proxy/CDN economics.</p>
+<h3 id="6-3-gdsf-greedy-dual-size-frequency-cherkasova-hp-tr-1998">6.3 GDSF — Greedy-Dual-Size-Frequency (Cherkasova, HP TR 1998)</h3>
+<p><strong>Formula</strong>:</p>
+<pre><code>H(i) = freq(i) · cost(i) / size(i)  +  L
+</code></pre>
+<p>Where <code>L</code> is the global aging counter as in GreedyDual. <code>freq(i)</code> is the
+running access count of <code>i</code>. On every access, the formula is recomputed
+with the new freq.</p>
+<ul>
+<li><strong>Property</strong>: tri-balanced among popularity, retrieval cost, and size.
+Long-time champion among web-proxy strategies and the basis of many CDN
+policies. Outperforms LRU/LFU/GDS on both object hit ratio and byte
+hit ratio on web traces.</li>
+<li><strong>Production</strong>: Squid web proxy (configurable), RIPQ on Facebook's
+flash-photo CDN uses GDSF as one of its first-class policies.</li>
+</ul>
+<h3 id="6-4-hyperbolic-caching-blankstein-sen-freedman-usenix-atc-2017">6.4 Hyperbolic Caching (Blankstein, Sen, Freedman, USENIX ATC 2017)</h3>
+<p><strong>Insight</strong>: traditional priority-queue caches couple the
+<em>priority function</em> to the <em>data structure</em>. Hyperbolic decouples them.
+Eviction uses <strong>random sampling</strong> (like Redis): sample <code>n</code> items,
+compute each item's <em>current</em> priority, evict the worst.</p>
+<p><strong>Priority function</strong>:</p>
+<pre><code>priority(i) = n_i / (t − t_i^enter)
+</code></pre>
+<p>where <code>n_i</code> is the access count and <code>t_i^enter</code> is the time <code>i</code> entered
+the cache. The denominator grows with age, so the per-second access
+rate is the priority. <strong>Hyperbolic</strong> because the cumulative hit rate
+curve as a function of time spent in cache forms a hyperbola.</p>
+<p>Easy to extend:</p>
+<ul>
+<li>
+<p>Add cost: <code>priority = n_i · c_i / (t − t_i^enter)</code>.</p>
+</li>
+<li>
+<p>Add staleness: <code>priority *= (1 − e^{−(t−t_i^stale)/τ})</code>.</p>
+</li>
+<li>
+<p>Use any application-specific feature.</p>
+</li>
+<li>
+<p><strong>Time</strong>: O(n) per eviction where <code>n</code> is sample size (small, e.g. 5-20).</p>
+</li>
+<li>
+<p><strong>Property</strong>: no global lock, no priority-queue maintenance, trivially
+extensible to arbitrary cost/value functions. Inspired by Redis's
+approximate-LRU random-sampling design.</p>
+</li>
+<li>
+<p><strong>Production</strong>: implemented in Redis variants, several academic CDNs,
+Postgres-compatible caching plugins.</p>
+</li>
+</ul>
+<h3 id="6-5-lhd-least-hit-density-beckmann-chen-cidon-nsdi-2018">6.5 LHD — Least Hit Density (Beckmann, Chen, Cidon, NSDI 2018)</h3>
+<p>A statistically rigorous reformulation. Object's value:</p>
+<pre><code>hit_density(i) = Pr[next access happens within remaining cache lifetime]
+                 / expected size · lifetime
+</code></pre>
+<p>LHD computes this from conditional probabilities derived from <strong>observed
+reuse-time distribution</strong> binned by class (<code>class</code> = object features
+like size, type, frequency bucket).</p>
+<p><strong>Mechanism</strong>:</p>
+<ul>
+<li>Maintain a histogram of reuse times per class.</li>
+<li>For each resident object, compute the conditional probability of
+next-access-before-eviction given its current age and class.</li>
+<li>Sample <code>n</code> items at eviction, evict minimum <code>hit_density</code>.</li>
+</ul>
+<p>Adaptation: the histograms decay over time; classes auto-discover.</p>
+<ul>
+<li><strong>Time</strong>: O(n) eviction via sampling.</li>
+<li><strong>Space</strong>: O(|classes| · |reuse-time-bins|), tiny.</li>
+<li><strong>Properties</strong>: provably optimises hit density (rate of hits per byte
+of cache occupied); handles variable sizes natively; adapts online.</li>
+<li><strong>Empirical</strong>: in the original paper LHD reduces tail latency and
+improves hit ratio over LRU/Hyperbolic/LRU-K on CDN and key-value
+traces.</li>
+</ul>
+<hr />
+<h2 id="7-flash-aware-eviction">7. Flash-aware eviction</h2>
+<p>NAND flash and 3D XPoint have <strong>asymmetric</strong> read/write costs and limited
+endurance. Replacement policies that ignore dirty-page write-back cost
+under-perform.</p>
+<h3 id="7-1-cflru-clean-first-lru-park-jung-kang-kim-lee-cases-2006">7.1 CFLRU — Clean-First LRU (Park, Jung, Kang, Kim, Lee, CASES 2006)</h3>
+<p><strong>Mechanism</strong>: split LRU into a <strong>working region</strong> (front W%) and a
+<strong>clean-first region</strong> (back). When evicting, prefer to drop <strong>clean</strong>
+pages from the clean-first region first (a clean drop has no write
+cost). Only if no clean page exists in the clean-first region, fall
+back to LRU eviction.</p>
+<pre><code>LRU list:  [ MRU ────── working ────── │ ── clean-first ── LRU ]
+evict():
+    scan clean-first region from LRU toward MRU
+    if a clean page found → evict it
+    else → evict LRU
+</code></pre>
+<ul>
+<li><strong>Result</strong> (paper): 28.4% reduction in swap replacement cost vs LRU.</li>
+<li><strong>Variants</strong>:
+<ul>
+<li><strong>LRU-WSR</strong> (Write-Sequence-Reordering): a single LRU + a "cold"
+flag on dirty pages so they get a second chance.</li>
+<li><strong>CCF-LRU</strong>: also flags cold-clean pages.</li>
+<li><strong>FAB</strong>: flash-aware buffering at block granularity.</li>
+</ul>
+</li>
+<li><strong>Production</strong>: filesystem/page-cache patches for flash SSDs, embedded
+Linux configurations.</li>
+</ul>
+<hr />
+<h2 id="8-admission-policies">8. Admission policies</h2>
+<p>Admission policies precede eviction in the cache decision pipeline: at
+miss time, "should this object even be cached?" Important because:</p>
+<ul>
+<li>One-hit wonders waste capacity.</li>
+<li>Very large objects can evict many smaller useful objects.</li>
+<li>Some objects have low refetch cost (cheap to redownload).</li>
+</ul>
+<h3 id="8-1-bloom-filter-2-bit-doorkeeper-admission">8.1 Bloom-filter / 2-bit doorkeeper admission</h3>
+<p>The simplest production admission: a Bloom filter records what has been
+<em>seen</em> before. On miss, admit only if the key is already in the BF (i.e.
+this is its <em>second</em> sighting). Periodically reset the BF.</p>
+<ul>
+<li>Used in Facebook <strong>CacheLib</strong> (default for AC engine), TinyLFU.</li>
+<li>Filters &gt; 80% of one-hit wonders for typical Zipfian web workloads.</li>
+</ul>
+<h3 id="8-2-tinylfu-admission-see-ss4-1">8.2 TinyLFU admission (see §4.1)</h3>
+<p>Compare incoming-object frequency estimate vs eviction victim's. Admit
+only if the new item is <em>more frequent</em> than what would be evicted.</p>
+<h3 id="8-3-adaptsize-berger-sitaraman-harchol-balter-nsdi-2017">8.3 AdaptSize (Berger, Sitaraman, Harchol-Balter, NSDI 2017)</h3>
+<p><strong>Problem</strong>: in CDN HOCs (Hot Object Caches), small objects far
+outnumber large ones, but large objects can dominate total bytes. A pure
+LRU lets a single 100MB object evict 10,000 small files. The classic
+solution is <strong>size-threshold admission</strong>: admit only if <code>size ≤ T</code>. But
+the optimal <code>T</code> varies with workload and must be adapted online.</p>
+<p><strong>Mechanism</strong>:</p>
+<ul>
+<li>Continuously fit a <strong>Markov-chain model</strong> of the cache as a function
+of <code>T</code>, parameterised by observed size and popularity distributions
+from recent traffic.</li>
+<li>Use the model to compute predicted OHR for many <code>T</code> values.</li>
+<li>Hill-climb <code>T</code> toward optimum every reconfiguration period.</li>
+</ul>
+<pre><code>every Δt seconds:
+    snapshot recent request size and popularity dist
+    for T in candidate set:
+        OHR_pred[T] = run Markov chain on model
+    T = argmax OHR_pred
+</code></pre>
+<ul>
+<li><strong>Empirical</strong>: 30–48% higher OHR than Nginx, 47–91% higher than
+Varnish on a large CDN trace.</li>
+<li><strong>Production</strong>: deployed at Akamai (per paper).</li>
+</ul>
+<h3 id="8-4-lightweight-robust-size-aware-einziger-friedman-kassner-acm-tos-2022">8.4 Lightweight Robust Size Aware (Einziger, Friedman, Kassner, ACM ToS 2022)</h3>
+<p>A simpler, parameter-free alternative to AdaptSize: probabilistic
+admission weighted by <code>1/size</code> (large objects less likely to enter).
+Combined with TinyLFU for popularity. Robust to changing size
+distributions without explicit model fitting.</p>
+<h3 id="8-5-flashshield-ssd-aware-admission">8.5 FlashShield / SSD-aware admission</h3>
+<p>In disk-backed flash caches, write amplification destroys SSD lifespan.
+<strong>Admission policies</strong> for flash:</p>
+<ul>
+<li><strong>Probabilistic gate</strong>: admit at rate <code>p</code> to throttle writes.</li>
+<li><strong>Frequency gate</strong>: admit only if seen ≥ 2 times in the last window.</li>
+<li><strong>Size gate</strong>: admit only objects in a sweet-spot size range
+(very small or very large skip flash).</li>
+<li><strong>Production</strong>: CacheLib's small-object cache uses doorkeeper +
+size + probabilistic admission tiers.</li>
+</ul>
+<hr />
+<h2 id="9-learned-ml-based-caching">9. Learned / ML-based caching</h2>
+<p>The last decade has seen ML-derived policies replace hand-tuned
+heuristics, especially for CDN workloads.</p>
+<h3 id="9-1-lecar-vietri-rodriguez-cheng-mukherjee-ge-lyons-liu-narasimhan">9.1 LeCaR (Vietri, Rodriguez, Cheng, Mukherjee, Ge, Lyons, Liu, Narasimhan,</h3>
+<p>HotStorage 2018)</p>
+<p><strong>Reinforcement-learning meta-policy</strong> mixing two base experts: <strong>LRU</strong>
+and <strong>LFU</strong>.</p>
+<ul>
+<li>Maintains two weights <code>(w_LRU, w_LFU)</code> over the experts.</li>
+<li>On every cache miss, <em>sample</em> an expert with probability proportional
+to its weight. Use that expert's victim.</li>
+<li>Track <em>regret</em>: if the evicted item later comes back as a miss, the
+expert that chose it gets penalised.</li>
+<li>Update weights via the <strong>multiplicative weights / Hedge</strong> algorithm.</li>
+</ul>
+<pre><code>w_LRU = 0.5; w_LFU = 0.5
+on miss:
+    sample expert e ∈ {LRU, LFU} with prob proportional to (w_LRU, w_LFU)
+    victim = e.pick()
+    push victim into ghost FIFO (key + which expert evicted it)
+on later miss of a ghost:
+    blame expert e_blamed; w_{e_blamed} *= exp(-η · regret)
+    renormalise
+</code></pre>
+<ul>
+<li><strong>Empirical</strong>: outperforms ARC by up to 18× on small caches relative
+to working set.</li>
+<li><strong>Variant</strong>: <strong>OLeCaR</strong> extends to N experts (ARC, LIRS, LFU, …).</li>
+</ul>
+<h3 id="9-2-cacheus-rodriguez-yusuf-lyons-paz-rangaswami-liu-zhao">9.2 Cacheus (Rodriguez, Yusuf, Lyons, Paz, Rangaswami, Liu, Zhao,</h3>
+<p>Narasimhan, FAST 2021)</p>
+<p>Improves LeCaR with:</p>
+<ul>
+<li><strong>Self-tuning hyperparameters</strong>: learning rate and discount rate
+computed from observed reuse patterns; no static tuning.</li>
+<li><strong>Mixture of four experts</strong> tuned for four workload primitive types:
+LFU-friendly, LRU-friendly, scan, churn.</li>
+<li>New experts: <strong>SR-LRU</strong> (Scan-Resistant LRU) and <strong>CR-LFU</strong>
+(Churn-Resistant LFU).</li>
+<li>Classifies the workload's current primitive composition and
+re-weights experts continually.</li>
+</ul>
+<p>Performance: more robust than LeCaR across diverse traces (CloudPhysics,
+MSR, FIU, web).</p>
+<h3 id="9-3-lrb-learning-relaxed-belady-song-berger-li-lloyd-nsdi-2020">9.3 LRB — Learning Relaxed Belady (Song, Berger, Li, Lloyd, NSDI 2020)</h3>
+<p>The first practical learned-CDN-cache paper, deployed within Apache
+Traffic Server.</p>
+<p><strong>Key concepts</strong>:</p>
+<ul>
+<li><strong>Relaxed Belady boundary</strong>: rather than predicting <em>exact</em> next-reuse
+time (a hard regression), predict whether an object's next access is
+beyond some boundary <code>D</code> (a much easier binary-ish decision).</li>
+<li><strong>Good decision ratio</strong>: a new metric for how often the learner's
+eviction choice matches Belady's choice (correlates with hit ratio
+better than per-prediction accuracy).</li>
+</ul>
+<p><strong>Mechanism</strong>:</p>
+<ul>
+<li>
+<p>Per-object features: object size, access frequency, time since each
+of the last <em>N</em> accesses (the "delta" vector), edge-server-specific
+derived features.</p>
+</li>
+<li>
+<p><strong>Gradient-boosted decision tree (LightGBM)</strong> trained offline on a
+trace, then continually fine-tuned online.</p>
+</li>
+<li>
+<p>On eviction: sample ~64 candidates, score each with the model, evict
+highest predicted next-access time.</p>
+</li>
+<li>
+<p><strong>Empirical</strong>: 4–25% WAN-traffic reduction over a production CDN
+cache on 6 traces; outperforms LeCaR, LRU-K, AdaptSize.</p>
+</li>
+<li>
+<p><strong>Overhead</strong>: in-prototype CPU overhead ~10%; can be deployed on
+today's CDN servers.</p>
+</li>
+</ul>
+<h3 id="9-4-halp-heuristic-aided-learned-preference-song-berger-lloyd-nsdi-2023">9.4 HALP — Heuristic-Aided Learned Preference (Song, Berger, Lloyd, NSDI 2023)</h3>
+<p>Deployed in <strong>YouTube CDN DRAM tier</strong> since early 2022.</p>
+<p><strong>Architecture</strong>:</p>
+<ul>
+<li>
+<p>A heuristic baseline (e.g. SLRU) computes a candidate set of K eviction
+victims.</p>
+</li>
+<li>
+<p>A small neural network ranks these K via a <em>preference-learning</em>
+objective (which-pair-is-better, not absolute regression).</p>
+</li>
+<li>
+<p>Feedback is automated: when a victim is later requested, the model
+gets a corrective gradient on the pair.</p>
+</li>
+<li>
+<p><strong>Empirical</strong>: 9.1% reduction in peak byte-miss, only 1.8% CPU
+overhead.</p>
+</li>
+<li>
+<p><strong>Production</strong>: YouTube CDN.</p>
+</li>
+</ul>
+<h3 id="9-5-gl-cache-group-level-learning-yang-mao-yue-rashmi-fast-2023">9.5 GL-Cache — Group-Level learning (Yang, Mao, Yue, Rashmi, FAST 2023)</h3>
+<p><strong>Insight</strong>: object-level learning (LRB, HALP) has prohibitive overhead
+on millions of objects. GL-Cache <em>clusters</em> similar objects into groups
+and learns at the group level — orders-of-magnitude cheaper.</p>
+<p><strong>Mechanism</strong>:</p>
+<ul>
+<li>
+<p>Partition cache into groups (e.g. by size bucket, content type,
+insertion-time epoch). Each group is itself a FIFO.</p>
+</li>
+<li>
+<p>Features (per group): write rate, miss rate, request rate, mean object
+size, last-access age.</p>
+</li>
+<li>
+<p>Train a simple regressor (linear or shallow XGBoost) <strong>once per day</strong>
+on a sampled trace.</p>
+</li>
+<li>
+<p>Inference: rank all groups by predicted utility; evict from lowest
+group(s); reuse a single inference for many evictions.</p>
+</li>
+<li>
+<p><strong>Empirical</strong>: vs the best learned cache (LRB), GL-Cache is <strong>64%
+higher throughput</strong>, <strong>3% higher mean hit ratio</strong>, <strong>13% higher P90</strong>.</p>
+</li>
+<li>
+<p>Training: 10–50 ms of one CPU core per day.</p>
+</li>
+</ul>
+<h3 id="9-6-3l-cache-low-overhead-learning-zhou-et-al-fast-2025">9.6 3L-Cache — Low-overhead Learning (Zhou et al., FAST 2025)</h3>
+<p>The most recent advance. Object-level learning at <strong>almost group-level
+cost</strong>.</p>
+<p><strong>Three innovations</strong>:</p>
+<ol>
+<li><strong>Sampling</strong>: record at most one object per request as training data
+(constant per-request overhead).</li>
+<li><strong>Bidirectional eviction sampling</strong>: at eviction, sample candidates
+biased toward <em>unpopular</em> objects (since most evictions hit the
+tail).</li>
+<li><strong>Adaptive retraining frequency</strong>: detect drift via a low-cost
+metric; retrain only when needed.</li>
+</ol>
+<ul>
+<li><strong>Empirical</strong>: 60.9% lower CPU than HALP, 94.9% lower than LRB, while
+achieving the lowest miss ratio among learned policies on benchmark
+traces.</li>
+<li><strong>Affiliation</strong>: Beijing University of Technology + Microsoft Research.</li>
+</ul>
+<hr />
+<h2 id="10-buffer-manager-specific-designs">10. Buffer-manager-specific designs</h2>
+<p>Buffer pools differ from object caches in three ways:</p>
+<ul>
+<li>Fixed page size (no variable-size complication).</li>
+<li>Throughput is dominated by lock contention on hot pages.</li>
+<li>Persistence: dirty pages must be written before eviction, adding
+cost asymmetry.</li>
+</ul>
+<h3 id="10-1-postgresql-clock-sweep-buffer-ring">10.1 PostgreSQL clock-sweep + buffer ring</h3>
+<p>PostgreSQL's <code>shared_buffers</code> uses CLOCK with a 3-bit (formerly 2-bit)
+<strong>usage_count</strong> per buffer:</p>
+<pre><code>on access(buf):    buf.usage_count = min(buf.usage_count + 1, 5)
+on sweep(buf):     if pinned: skip
+                   else if buf.usage_count &gt; 0: buf.usage_count--; advance
+                   else: this is the victim
+
+nextVictimBuffer  — global rotating index
+</code></pre>
+<p><strong>Buffer ring</strong> strategy for bulk operations (sequential scans,
+COPY, VACUUM): use a small private ring of 256KB–16MB so a single
+large scan does not evict the entire shared cache. Detected
+automatically when accessing &gt; 1/4 of shared_buffers.</p>
+<ul>
+<li><strong>Property</strong>: pure CLOCK with no ghost queue or admission filter.
+Recognised in the PG community as suboptimal for mixed OLTP/scan
+workloads — a recurring proposal is to adopt CAR/CART or W-TinyLFU.</li>
+</ul>
+<h3 id="10-2-watt-write-aware-timestamp-tracking-vohringer-leis-vldb-2023">10.2 WATT — Write-Aware Timestamp Tracking (Vöhringer &amp; Leis, VLDB 2023)</h3>
+<p><strong>Paper</strong>: Demian E. Vöhringer, Viktor Leis, "Write-Aware Timestamp
+Tracking: Effective and Efficient Page Replacement for Modern Hardware",
+PVLDB 16(11), 2023.</p>
+<p>Designed for the <strong>LeanStore</strong> buffer manager (NVMe SSD storage engine).
+Addresses the gap that classical replacement algorithms (CLOCK, second
+chance) provide poor hit ratios for modern NVMe workloads, while
+sophisticated policies (LRU-K, ARC, LIRS) have CPU overhead too high
+for in-memory hot paths.</p>
+<p><strong>Mechanism</strong>:</p>
+<ul>
+<li>
+<p><strong>Per-page timestamp log</strong>: rather than store a single last-access
+time, WATT keeps the last K (default 4–8) reference timestamps per
+page in a small ring buffer <strong>inserted cyclically</strong> — no shifting,
+no list manipulation on hit. Per-hit cost ≈ one timestamp store.</p>
+</li>
+<li>
+<p><strong>Page value function</strong>: combines recency (last timestamp) and
+frequency (interval between recent timestamps) into a scalar
+"page value". The exact form is a weighted geometric average of
+recent inter-arrival times.</p>
+</li>
+<li>
+<p><strong>Sample-based eviction</strong>: sample ~8 random page descriptors, compute
+page value for each, evict the minimum.</p>
+</li>
+<li>
+<p><strong>Write-awareness</strong>: dirty pages' page values get a penalty so they
+are eviction targets later (saving a write-back).</p>
+</li>
+<li>
+<p><strong>Empirical</strong>: matches LRU-K hit ratio at CLOCK-level CPU cost; up to
+2× throughput vs CLOCK on TPC-C and YCSB in the LeanStore paper's
+follow-up.</p>
+</li>
+<li>
+<p><strong>Production</strong>: LeanStore (open-source); related ideas appear in
+Umbra and CedarDB.</p>
+</li>
+</ul>
+<h3 id="10-3-linux-mglru-multi-generational-lru">10.3 Linux MGLRU — Multi-Generational LRU</h3>
+<p>Merged in Linux 6.1 (late 2022) as an alternative to the traditional
+active/inactive lists.</p>
+<p><strong>Mechanism</strong>:</p>
+<ul>
+<li>
+<p>Pages are tagged with an integer <strong>generation</strong>. New pages get the
+current generation; an "aging" scan promotes recently-accessed pages
+to younger generations.</p>
+</li>
+<li>
+<p>Eviction always proceeds from the <strong>oldest generation</strong>.</p>
+</li>
+<li>
+<p>Uses <strong>hardware accessed bits</strong> in page tables aggressively (walked
+via <code>pte_young()</code>), avoiding per-page software bookkeeping.</p>
+</li>
+<li>
+<p>Generations are demand-managed: aging is triggered when there is
+reclaim pressure, not on every access.</p>
+</li>
+<li>
+<p><strong>Empirical</strong> (Google internal data): 40% reduction in <code>kswapd</code> CPU,
+85% reduction in low-memory kills, 18% improvement in rendering
+latency.</p>
+</li>
+<li>
+<p><strong>Production</strong>: default on Android (since 2022), Amazon Linux 2023,
+ChromeOS, modern kernels.</p>
+</li>
+</ul>
+<h3 id="10-4-predictive-translation-leanstore-lineage-sigmod-2026">10.4 Predictive Translation (LeanStore lineage, SIGMOD 2026)</h3>
+<p>Covered separately in
+<a href="https://nmbr7.github.io/notes/database/buffer-management-predictive-translation/"><code>database/buffer_management_predictive_translation.md</code></a>.
+Uses a hashed indirection table with optimistic latching to keep the hot
+path lock-free at the cost of probabilistic translation misses, in the
+spirit of pointer swizzling but with hardware-prefetch-friendly access
+patterns.</p>
+<hr />
+<h2 id="11-llm-kv-cache-eviction-2023-2025">11. LLM KV-cache eviction (2023–2025)</h2>
+<p>A new and fast-moving subfield. As LLM context windows grew to
+128k–1M tokens, the <strong>per-token key/value tensors</strong> of the attention
+cache (KV cache) dominate GPU memory. KV-cache eviction is critical for
+long-context inference and batched serving.</p>
+<h3 id="11-1-pagedattention-vllm-kwon-et-al-sosp-2023">11.1 PagedAttention / vLLM (Kwon et al., SOSP 2023)</h3>
+<p>Not eviction per se, but the <strong>block-wise memory management</strong> that makes
+eviction tractable. KV-cache is stored in fixed-size <strong>blocks</strong> (e.g.
+16 tokens × num_heads × head_dim), addressed through a per-sequence
+<strong>block table</strong> — borrowed directly from OS virtual memory paging.
+Enables sharing prefixes across requests, copy-on-write for sampling, and
+swapping blocks to host memory when GPU memory is exhausted.</p>
+<h3 id="11-2-h2o-heavy-hitter-oracle-zhang-et-al-neurips-2023">11.2 H2O — Heavy-Hitter Oracle (Zhang et al., NeurIPS 2023)</h3>
+<p><strong>Insight</strong>: attention weights are extremely sparse — for most tokens, a
+few "heavy hitter" past tokens dominate the dot product.</p>
+<p><strong>Mechanism</strong>:</p>
+<ul>
+<li>
+<p>Maintain per-token <strong>cumulative normalised attention scores</strong> updated
+on every decoding step.</p>
+</li>
+<li>
+<p>Cache contains:</p>
+<ul>
+<li>A fixed budget of <em>recent</em> tokens (sliding window).</li>
+<li>A fixed budget of <em>high-score</em> tokens (heavy hitters).</li>
+</ul>
+</li>
+<li>
+<p>On every decoding step, evict the token with lowest cumulative score
+outside the recent window.</p>
+</li>
+<li>
+<p><strong>Empirical</strong>: with 20% KV-cache retained, throughput up to <strong>29×</strong>
+vs DeepSpeed Zero-Inference / HF Accelerate, <strong>3×</strong> vs FlexGen on
+OPT-6.7B and OPT-30B; latency reduced 1.9× at constant batch.</p>
+</li>
+<li>
+<p><strong>Theoretical</strong>: cast as a dynamic submodular maximisation problem
+with approximation guarantees.</p>
+</li>
+</ul>
+<h3 id="11-3-streamingllm-xiao-tian-chen-han-iclr-2024">11.3 StreamingLLM (Xiao, Tian, Chen, Han, ICLR 2024)</h3>
+<p><strong>Surprising observation</strong>: attention sinks — the very first few tokens
+(BOS, system prompt prefix) accumulate disproportionately high attention
+weights regardless of content, because they are the only tokens visible
+to every later position.</p>
+<p><strong>Mechanism</strong>: maintain the first ~4 "sink" tokens + a sliding window of
+the last K tokens; evict everything in the middle. Achieves stable
+generation for <em>millions</em> of tokens with constant memory.</p>
+<h3 id="11-4-later-directions-2024-2025">11.4 Later directions (2024–2025)</h3>
+<ul>
+<li><strong>PagedEviction</strong>: block-wise pruning that integrates with vLLM's
+paged structure.</li>
+<li><strong>In-context KV-Cache Eviction via Attention-Gate</strong>: differentiable
+eviction module trained jointly with the LLM.</li>
+<li><strong>FastGen</strong>: heads-aware eviction — different attention heads have
+different sparsity patterns.</li>
+<li><strong>SnapKV / PyramidKV / RazorAttention</strong>: layer-wise budget allocation
+reflecting that deeper layers have more diffuse attention.</li>
+</ul>
+<hr />
+<h2 id="12-prefetching">12. Prefetching</h2>
+<p>Prefetching attacks the <em>compulsory miss</em> (first reference) part of the
+3C miss taxonomy (compulsory, capacity, conflict). Modern caches combine
+prefetching with eviction.</p>
+<h3 id="12-1-sequential-obl-one-block-lookahead">12.1 Sequential / OBL / one-block-lookahead</h3>
+<p>The classical baseline: on a miss for block <code>b</code>, also fetch <code>b+1</code>. Used
+in disk read-ahead (Linux <code>readahead()</code>). <strong>Asynchronous OBL</strong> issues
+the prefetch out of the critical path.</p>
+<h3 id="12-2-stride-prefetching">12.2 Stride prefetching</h3>
+<p>Detect constant stride patterns (block <code>b</code>, <code>b+s</code>, <code>b+2s</code>, …) and
+extrapolate. Common in CPU hardware prefetchers (L1/L2). Storage
+analogue: detect <code>s</code>-spaced disk-block sequences.</p>
+<h3 id="12-3-adaptive-multi-stream-prefetching-gill-bathen-fast-2007">12.3 Adaptive Multi-stream Prefetching (Gill &amp; Bathen, FAST 2007)</h3>
+<p><strong>AMP</strong> addresses two failure modes of fixed-degree sequential prefetch
+in <strong>shared caches</strong> (with multiple concurrent streams):</p>
+<ul>
+<li><strong>Cache pollution</strong>: prefetched data evicts more useful data.</li>
+<li><strong>Prefetch wastage</strong>: prefetched data evicted before use.</li>
+</ul>
+<p>AMP is in the <strong>Adaptive Asynchronous (AA)</strong> class — per-stream
+prefetch depth <code>p</code> and trigger distance <code>g</code> adapt online based on
+observed cache hit/miss feedback. Proved near-optimal for steady
+sequential streams under any cache size.</p>
+<ul>
+<li><strong>Production</strong>: IBM storage controllers, multiple SAN products.</li>
+</ul>
+<h3 id="12-4-mithril-mining-sporadic-associations-yang-karimi-saemundsson">12.4 Mithril — Mining sporadic associations (Yang, Karimi, Sæmundsson,</h3>
+<p>Wildani, Vigfusson, ACM SoCC 2017)</p>
+<p><strong>Association-rule mining</strong> applied to cache prefetching. Detects
+<strong>mid-frequency</strong> correlations that classical prefetchers miss (not
+sequential, not random — sporadic but reliable: "every time block A is
+read, block C is read within 10 accesses").</p>
+<p><strong>Mechanism</strong>:</p>
+<ul>
+<li>
+<p>Mine the access log online using a streaming variant of FP-Growth.</p>
+</li>
+<li>
+<p>Generate rules <code>X ⇒ Y</code> with support and confidence thresholds.</p>
+</li>
+<li>
+<p>On hit of <code>X</code>, prefetch all <code>Y</code> whose rule confidence exceeds a
+threshold.</p>
+</li>
+<li>
+<p>Mid-frequency targeting: filter out very-hot blocks (always cached)
+and very-cold (rules unreliable).</p>
+</li>
+<li>
+<p><strong>Empirical</strong>: 55% average hit-ratio gain over LRU + Probability
+Graph on 135 block-storage traces; 36% over AMP.</p>
+</li>
+<li>
+<p><strong>Property</strong>: composable — sits on top of any eviction policy.</p>
+</li>
+</ul>
+<h3 id="12-5-hardware-learned-prefetchers">12.5 Hardware learned prefetchers</h3>
+<ul>
+<li><strong>Pythia</strong> (Bera, Kanellopoulos, Nori, Shahroodi, Subramoney, Mutlu,
+MICRO 2021): reinforcement-learning hardware prefetcher with multiple
+program-context features (PC, address delta, page offset, page
+granularity); reward signal includes memory bandwidth utilisation.
+Implemented in Chisel HDL. ~3.4% IPC improvement over the
+best non-learned prefetcher.</li>
+<li><strong>Voyager</strong> (Shi, Akram, Pickett, Lustig, ASPLOS 2021):
+LSTM-based memory prefetcher for irregular pointer-chasing workloads.</li>
+</ul>
+<hr />
+<h2 id="13-cache-simulators">13. Cache simulators</h2>
+<p>Reproducible benchmarking is critical because miss ratios are
+trace-dependent.</p>
+<h3 id="13-1-libcachesim-cmu-pdl-yang-et-al">13.1 libCacheSim (CMU PDL, Yang et al.)</h3>
+<p><strong>Repository</strong>: <code>cacheMon/libCacheSim</code>. The de-facto modern reference
+simulator — used in the S3-FIFO, SIEVE, GL-Cache, 3L-Cache papers.</p>
+<ul>
+<li><strong>Language</strong>: C++ with C / Python bindings.</li>
+<li><strong>Traces</strong>: text CSV, binary <code>oraclegeneral</code> format (compact, hashed),
+Zstandard-compressed binary.</li>
+<li><strong>Policies</strong>: LRU, FIFO, CLOCK, ARC, LIRS, 2Q, SLRU, S3-FIFO, SIEVE,
+Hyperbolic, LHD, GDSF, TinyLFU, W-TinyLFU, optimal (offline Belady),
+GL-Cache, … (50+).</li>
+<li><strong>Throughput</strong>: ~10–50 million requests/sec on a single core.</li>
+<li><strong>Adoption</strong>: ~100 research institutions and companies.</li>
+</ul>
+<h3 id="13-2-caffeine-simulator-ben-manes">13.2 Caffeine simulator (Ben Manes)</h3>
+<p>Java module <code>caffeine/simulator</code>. Implements every major academic
+policy (LRU, ARC, LIRS, LIRS2, CAR, CLOCK-Pro, W-TinyLFU, LeCaR,
+Hyperbolic, …) for hit-ratio comparison. The Caffeine README has the
+canonical comparison charts on the ARC, LIRS, OLTP traces.</p>
+<h3 id="13-3-pymimircache-pycachesim">13.3 PyMimircache / PyCacheSim</h3>
+<p>Pythonic exploratory tools. Older PyMimircache (Emory / CMU) is largely
+superseded by libCacheSim, but its Jupyter-friendly API remains useful
+for plotting.</p>
+<h3 id="13-4-webcachesim-berger-et-al">13.4 webcachesim (Berger et al.)</h3>
+<p>C++ simulator from the AdaptSize / LRB papers, focused on CDN object
+caching with variable sizes.</p>
+<h3 id="13-5-champsim">13.5 ChampSim</h3>
+<p>Cycle-accurate simulator from the <strong>CRC2 (Cache Replacement Championship 2)</strong>
+ecosystem — used for hardware (CPU LLC) replacement, not software caches.
+Hosts the Pythia HDL+sim reference.</p>
+<hr />
+<h2 id="14-standard-traces-and-benchmarks">14. Standard traces and benchmarks</h2>
+<h3 id="14-1-snia-iotta-repository-msr-cambridge-narayanan-fast-2008">14.1 SNIA IOTTA Repository — MSR Cambridge (Narayanan, FAST 2008)</h3>
+<p>http://iotta.snia.org/traces/388 — 36 enterprise-server block-IO traces
+from a week in 2007. The de facto storage-cache benchmark for 15+ years.
+Used in nearly every replacement paper from 2008 onward.</p>
+<h3 id="14-2-twitter-cache-traces-yang-yue-rashmi-osdi-2020">14.2 Twitter cache traces (Yang, Yue, Rashmi, OSDI 2020)</h3>
+<p><code>twitter/cache-trace</code> on GitHub. 54 traces from production Memcached /
+Twemcache clusters, anonymised. Spans Zipfian, write-heavy, TTL-heavy,
+and bursty workloads. Source of the observation that "FIFO often beats
+LRU" that motivated S3-FIFO / SIEVE.</p>
+<h3 id="14-3-cloudphysics-vm-i-o-traces-ahmad-et-al-2015">14.3 CloudPhysics VM I/O traces (Ahmad et al., 2015)</h3>
+<p>Used in LeCaR, Cacheus, LIRS2. Heterogeneous virtual disk I/O,
+moderately sized.</p>
+<h3 id="14-4-fiu-src-traces">14.4 FIU SRC traces</h3>
+<p>8 server/client traces (web, mail, virtualisation) from Florida
+International University. Used in LeCaR family.</p>
+<h3 id="14-5-wikipedia-cdn-traces">14.5 Wikipedia CDN traces</h3>
+<p>Published with AdaptSize and LRB papers; one server's San Francisco
+Wikipedia traffic. CDN-focused (variable object sizes).</p>
+<h3 id="14-6-cdn-web-public-traces">14.6 CDN / web public traces</h3>
+<ul>
+<li><strong>CDN1, CDN2, CDN3</strong>: anonymised production CDN traces from large
+providers (used in S3-FIFO; &gt;2 trillion requests total).</li>
+<li><strong>Tencent Photo cache trace</strong> (Zhang et al., FAST 2020): photo
+service trace, byte- and request-skewed.</li>
+<li><strong>IBM ObjectStore</strong> traces (Eytan et al., 2019): cloud-block-store
+workloads with object-size variation.</li>
+<li><strong>MemCachier</strong>: anonymised production cache logs from MemCachier.com.</li>
+<li><strong>Twitch</strong>: video streaming workload.</li>
+<li><strong>Twitter cluster</strong> (above).</li>
+</ul>
+<h3 id="14-7-cache-benchmarking-suites">14.7 Cache benchmarking suites</h3>
+<ul>
+<li><strong>CacheBench</strong> (Meta CacheLib): synthetic workload generation +
+trace replay with hit-ratio, throughput, latency-percentile reports.</li>
+<li><strong>YCSB cache mode</strong>: Zipfian, uniform, latest distributions for
+pure-rate testing.</li>
+<li><strong>ARC benchmark suite</strong> (IBM 2003): the classic OLTP, P*, S*, ConCat,
+Merge, DS1 traces still used today.</li>
+</ul>
+<hr />
+<h2 id="15-evaluation-methodology">15. Evaluation methodology</h2>
+<h3 id="15-1-miss-ratio-curves-mrc">15.1 Miss-ratio curves (MRC)</h3>
+<p>The fundamental tool: <code>miss_ratio(c)</code> as a function of cache size <code>c</code>.
+Captures <em>all</em> sizes in one chart, exposing knees and convexity.</p>
+<p><strong>Properties</strong>:</p>
+<ul>
+<li>For <strong>stack algorithms</strong> (LRU, OPT), MRC is monotone-decreasing.</li>
+<li>For non-stack algorithms (FIFO, CLOCK), the MRC may have local
+bumps (Belady's anomaly).</li>
+<li>The MRC under OPT is the <em>lower envelope</em> against which every other
+policy is judged.</li>
+</ul>
+<p><strong>Naive computation</strong>: Mattson's stack algorithm — O(N·M).</p>
+<h3 id="15-2-shards-waldspurger-park-garthwaite-ahmad-fast-2015">15.2 SHARDS (Waldspurger, Park, Garthwaite, Ahmad, FAST 2015)</h3>
+<p><strong>Spatially Hashed Approximate Reuse-Distance Sampling</strong>: an approximate
+MRC algorithm in <em>constant</em> space.</p>
+<p><strong>Idea</strong>: deterministically sample a subset of references by hashing the
+<em>key</em> (not random per-reference): <code>if hash(k) &lt; T then keep</code>. Because
+the decision is keyed on the object, the same items are consistently
+included or excluded — preserving inter-reference patterns within the
+sample.</p>
+<pre><code>threshold T  — sampling intensity (e.g. T = 1% of hash range)
+for each ref(k):
+    if hash(k) &lt; T:  feed to exact MRC algorithm scaled by 1/(T/MAX)
+
+To run in constant space:  if memory pressure → lower T further;
+re-scale previously-seen sample counts accordingly.
+</code></pre>
+<ul>
+<li><strong>Empirical</strong>: at 0.1% sampling rate, the approximate MRC is within
+0.02 of exact on average. Production-deployable.</li>
+<li><strong>Production</strong>: VMware vSphere (where Waldspurger was at the time of
+publication); influences modern observability tools.</li>
+</ul>
+<h3 id="15-3-counter-stacks-wires-ingram-drudi-harvey-warfield-osdi-2014">15.3 Counter Stacks (Wires, Ingram, Drudi, Harvey, Warfield, OSDI 2014)</h3>
+<p>A <em>streaming sublinear-space</em> MRC algorithm using <strong>HyperLogLog</strong>
+sketches.</p>
+<p><strong>Idea</strong>: maintain a sequence of HLL counters over different lookback
+intervals; the HLL union/cardinality difference yields an estimate of
+stack distance distribution. Sublinear in distinct items.</p>
+<ul>
+<li><strong>Empirical</strong>: a week of trace from 13 enterprise servers (≈ 1
+trillion refs) processed in 17 minutes with 80 MB RAM.</li>
+<li>Followed by <strong>AET</strong> (Hu et al., 2018) and <strong>PARDA</strong> for parallel MRC.</li>
+</ul>
+<h3 id="15-4-beyond-hit-ratio">15.4 Beyond hit ratio</h3>
+<p>Modern evaluation considers multiple metrics:</p>
+<ul>
+<li><strong>Hit ratio</strong> (object) — fraction of requests served from cache.</li>
+<li><strong>Byte hit ratio</strong> — fraction of bytes served from cache (matters
+for bandwidth-constrained CDNs).</li>
+<li><strong>Throughput</strong> (requests/sec/core) — exposes lock contention,
+promotion cost.</li>
+<li><strong>Tail latency</strong> (P99, P999) — eviction policies that incur sweep
+storms cause tail blips.</li>
+<li><strong>Memory overhead</strong> (bytes/entry of metadata).</li>
+<li><strong>CPU overhead</strong> of training/inference (for learned caches).</li>
+<li><strong>Adaptivity</strong> — how fast hit ratio recovers after workload shifts.</li>
+</ul>
+<h3 id="15-5-pareto-frontier-comparisons">15.5 Pareto-frontier comparisons</h3>
+<p>Recent papers (S3-FIFO, SIEVE, GL-Cache, 3L-Cache) report on the
+hit-ratio × throughput plane: simpler policies (FIFO, SIEVE) sit at high
+throughput / moderate hit ratio; complex policies (LRB) at high hit ratio
+/ lower throughput. The Pareto frontier moves outward each year.</p>
+<hr />
+<h2 id="16-decision-matrix-and-recommendations">16. Decision matrix and recommendations</h2>
+<h3 id="16-1-by-system-type">16.1 By system type</h3>
+<table><thead><tr><th>System</th><th>Recommended policy</th></tr></thead><tbody>
+<tr><td>In-process Java cache</td><td>W-TinyLFU (Caffeine)</td></tr>
+<tr><td>Web/key-value cache (Memcached-style)</td><td>S3-FIFO or SIEVE</td></tr>
+<tr><td>CDN with variable size</td><td>LRB / GL-Cache / GDSF / AdaptSize</td></tr>
+<tr><td>Database buffer pool (OLTP)</td><td>LRU-K / WATT / 2Q / clock-with-counters</td></tr>
+<tr><td>Database buffer pool (mixed)</td><td>CAR / ARC / W-TinyLFU</td></tr>
+<tr><td>Block storage cache</td><td>ARC / LIRS / CLOCK-Pro</td></tr>
+<tr><td>Flash-backed cache</td><td>CFLRU + write-aware admission</td></tr>
+<tr><td>Linux kernel page cache</td><td>MGLRU</td></tr>
+<tr><td>LLM KV-cache</td><td>H2O + StreamingLLM (sinks) + PagedAttn</td></tr>
+<tr><td>Operating system VM</td><td>MGLRU / CLOCK-Pro</td></tr>
+<tr><td>L1/L2 CPU caches</td><td>hardware LRU / pseudo-LRU / DIP / RRIP</td></tr>
+</tbody></table>
+<h3 id="16-2-implementation-cheat-sheet">16.2 Implementation cheat sheet</h3>
+<p>If you must implement <em>one</em> eviction policy in 2026:</p>
+<pre><code>- If you control the hit path and need scalability:        SIEVE
+- If you want best hit ratio at the cost of complexity:    W-TinyLFU
+- If you have ghost queues and want simplicity + headroom: S3-FIFO
+- If your workload is OLTP-like (DB pages):                LRU-2 or WATT
+- If sizes vary wildly (CDN):                              GDSF or LHD or LRB
+</code></pre>
+<h3 id="16-3-anti-patterns">16.3 Anti-patterns</h3>
+<ul>
+<li><strong>Pure LRU under scan workloads</strong>: one large query trashes the cache.</li>
+<li><strong>Pure LFU without aging</strong>: stale formerly-hot keys never leave.</li>
+<li><strong>High-frequency promotion under contention</strong>: pure LRU's
+move-to-front becomes the bottleneck; replace with CLOCK or
+ghost-confirmed promotion.</li>
+<li><strong>Mixing eviction and admission via thresholds without modelling</strong>:
+always-admit + LRU is often worse than always-admit + S3-FIFO at the
+same memory.</li>
+<li><strong>Ignoring write cost</strong>: in flash/dirty-page caches, eviction must
+factor in write-back amplification.</li>
+</ul>
+<h3 id="16-4-pitfalls-when-evaluating">16.4 Pitfalls when evaluating</h3>
+<ul>
+<li>Trace bias: ARC-1 trace conclusions don't generalise to CDN
+workloads.</li>
+<li>Cold-start: report only <em>after</em> warmup window (often 10% of trace).</li>
+<li>Ghost size: ARC/2Q/S3-FIFO require explicit ghost memory accounting
+in fair comparison.</li>
+<li>Concurrent benchmark: report single-thread and 8/16/64-thread
+numbers; the gap between LRU and SIEVE <em>grows</em> with contention.</li>
+</ul>
+<hr />
+<h2 id="17-references">17. References</h2>
+<h3 id="17-1-foundations">17.1 Foundations</h3>
+<ul>
+<li>Belady, L. A. <strong>"A Study of Replacement Algorithms for a Virtual-Storage
+Computer"</strong>. IBM Systems Journal 5(2), 1966.</li>
+<li>Belady, L. A., Palermo, F. P. <strong>"On-line measurement of paging
+behavior by the multivalued MIN algorithm"</strong>. IBM Journal of Research
+and Development 18(1), 1974.</li>
+<li>Denning, P. J. <strong>"The Working Set Model for Program Behavior"</strong>.
+CACM 11(5), 1968.</li>
+<li>Mattson, Gecsei, Slutz, Traiger. <strong>"Evaluation Techniques for Storage
+Hierarchies"</strong>. IBM Systems Journal 9(2), 1970.</li>
+<li>Corbató, F. J. <strong>"A Paging Experiment with the Multics System"</strong>.
+MIT Project MAC Memo M-384, 1968 (CLOCK).</li>
+<li>Young, N. E. <strong>"On-line caching as cache size decreases"</strong>. SODA 1991
+(GreedyDual).</li>
+</ul>
+<h3 id="17-2-classical-and-recency-frequency-hybrids">17.2 Classical and recency–frequency hybrids</h3>
+<ul>
+<li>Karedla, Love, Wherry. <strong>"Caching Strategies to Improve Disk System
+Performance"</strong>. IEEE Computer 27(3), 1994 (SLRU).</li>
+<li>O'Neil, O'Neil, Weikum. <strong>"The LRU-K Page Replacement Algorithm for
+Database Disk Buffering"</strong>. SIGMOD 1993.</li>
+<li>Johnson, T., Shasha, D. <strong>"2Q: A Low Overhead High Performance Buffer
+Replacement Algorithm"</strong>. VLDB 1994.</li>
+<li>Zhou, Y., Philbin, J., Li, K. <strong>"The Multi-Queue Replacement Algorithm
+for Second Level Buffer Caches"</strong>. USENIX ATC 2001.</li>
+<li>Megiddo, N., Modha, D. S. <strong>"ARC: A Self-Tuning, Low Overhead
+Replacement Cache"</strong>. FAST 2003. (IEEE Computer 2004 follow-up.)</li>
+<li>Bansal, S., Modha, D. S. <strong>"CAR: Clock with Adaptive Replacement"</strong>.
+FAST 2004.</li>
+<li>Jiang, S., Zhang, X. <strong>"LIRS: An Efficient Low Inter-Reference Recency
+Set Replacement Policy to Improve Buffer Cache Performance"</strong>.
+SIGMETRICS 2002.</li>
+<li>Jiang, S., Chen, F., Zhang, X. <strong>"CLOCK-Pro: An Effective Improvement
+of the CLOCK Replacement"</strong>. USENIX ATC 2005.</li>
+<li>Li, C. <strong>"DLIRS: Improving LIRS Cache Replacement with Dynamics"</strong>.
+SYSTOR 2018.</li>
+<li>Zhong, Tao, Jiang. <strong>"LIRS2: An Improved LIRS Replacement
+Algorithm"</strong>. SYSTOR 2021.</li>
+<li>Park, Yeom. <strong>"FRD: A Filtering-based Buffer Cache Algorithm"</strong>.
+MSST 2017.</li>
+</ul>
+<h3 id="17-3-tinylfu-family">17.3 TinyLFU family</h3>
+<ul>
+<li>Einziger, G., Friedman, R., Manes, B. <strong>"TinyLFU: A Highly Efficient
+Cache Admission Policy"</strong>. ACM Transactions on Storage 13(4), 2017
+(arXiv 1512.00727 — preliminary in PDP 2014).</li>
+<li>Caffeine Wiki — Efficiency and Design pages,
+https://github.com/ben-manes/caffeine/wiki</li>
+</ul>
+<h3 id="17-4-modern-lazy-promotion-family">17.4 Modern lazy-promotion family</h3>
+<ul>
+<li>Yang, Qiu, Zhang, Yue, Rashmi. <strong>"FIFO can be Better than LRU: the
+Power of Lazy Promotion and Quick Demotion"</strong>. HotOS 2023.</li>
+<li>Yang, Zhang, Qiu, Yue, Rashmi. <strong>"FIFO Queues Are All You Need for
+Cache Eviction"</strong> (S3-FIFO). SOSP 2023.</li>
+<li>Zhang, Yang, Yue, Vigfusson, Rashmi. <strong>"SIEVE is Simpler than LRU:
+an Efficient Turn-Key Eviction Algorithm for Web Caches"</strong>.
+NSDI 2024.</li>
+<li>Yang, J. (PhD dissertation). <strong>"Designing Efficient and Scalable
+Key-value Cache Management Systems"</strong>. CMU-CS-24-149, 2024.</li>
+</ul>
+<h3 id="17-5-cost-and-size-aware">17.5 Cost- and size-aware</h3>
+<ul>
+<li>Cao, P., Irani, S. <strong>"Cost-Aware WWW Proxy Caching Algorithms"</strong>.
+USENIX Symp. Internet Tech. and Systems, 1997 (GreedyDual-Size).</li>
+<li>Cherkasova, L. <strong>"Improving WWW Proxies Performance with
+Greedy-Dual-Size-Frequency Caching Policy"</strong>. HP TR HPL-98-69R1,
+1998 (GDSF).</li>
+<li>Arlitt, Cherkasova, Dilley, Friedrich, Jin. <strong>"Evaluating Content
+Management Techniques for Web Proxy Caches"</strong>. Performance
+Evaluation Review 27(4), 2000 (LFUDA).</li>
+<li>Blankstein, A., Sen, S., Freedman, M. J. <strong>"Hyperbolic Caching:
+Flexible Caching for Web Applications"</strong>. USENIX ATC 2017.</li>
+<li>Beckmann, N., Chen, H., Cidon, A. <strong>"LHD: Improving Cache Hit Rate by
+Maximizing Hit Density"</strong>. NSDI 2018.</li>
+</ul>
+<h3 id="17-6-flash-aware">17.6 Flash-aware</h3>
+<ul>
+<li>Park, Jung, Kang, Kim, Lee. <strong>"CFLRU: A Replacement Algorithm for
+Flash Memory"</strong>. CASES 2006.</li>
+<li>Jung, Y. et al. <strong>"LRU-WSR: A Page Replacement Algorithm Based on
+Cold Detection for Flash Memory"</strong>. CASES 2007 / IEEE TCE 2008.</li>
+<li>Li, Z. et al. <strong>"CCF-LRU: A New Buffer Replacement Algorithm for
+Flash Memory"</strong>. IEEE TCE 2009.</li>
+</ul>
+<h3 id="17-7-admission-policies">17.7 Admission policies</h3>
+<ul>
+<li>Berger, D. S., Sitaraman, R. K., Harchol-Balter, M. <strong>"AdaptSize:
+Orchestrating the Hot Object Memory Cache in a Content Delivery
+Network"</strong>. NSDI 2017.</li>
+<li>Einziger, Friedman, Kassner. <strong>"Lightweight Robust Size-Aware Cache
+Management"</strong>. ACM Transactions on Storage 18(3), 2022.</li>
+<li>(Doorkeeper / probabilistic admission concepts diffused through TinyLFU
+and CacheLib.)</li>
+</ul>
+<h3 id="17-8-learned-caching">17.8 Learned caching</h3>
+<ul>
+<li>Vietri, Rodriguez, Cheng, Mukherjee, Ge, Lyons, Liu, Narasimhan.
+<strong>"Driving Cache Replacement with ML-based LeCaR"</strong>. HotStorage 2018.</li>
+<li>Rodriguez, Yusuf, Lyons, Paz, Rangaswami, Liu, Zhao, Narasimhan.
+<strong>"Learning Cache Replacement with CACHEUS"</strong>. FAST 2021.</li>
+<li>Song, Berger, Li, Lloyd. <strong>"Learning Relaxed Belady for Content
+Distribution Network Caching"</strong>. NSDI 2020 (LRB).</li>
+<li>Song, Berger, Lloyd. <strong>"HALP: Heuristic Aided Learned Preference
+Eviction Policy for YouTube Content Delivery Network"</strong>. NSDI 2023.</li>
+<li>Yang, Mao, Yue, Rashmi. <strong>"GL-Cache: Group-level Learning for
+Efficient and High-performance Caching"</strong>. FAST 2023.</li>
+<li>Zhou et al. <strong>"3L-Cache: Low Overhead and Precise Learning-based
+Eviction Policy for Caches"</strong>. FAST 2025.</li>
+</ul>
+<h3 id="17-9-buffer-manager-specific">17.9 Buffer-manager-specific</h3>
+<ul>
+<li>Vöhringer, D. E., Leis, V. <strong>"Write-Aware Timestamp Tracking:
+Effective and Efficient Page Replacement for Modern Hardware"</strong>.
+PVLDB 16(11), 2023 (WATT).</li>
+<li>LWN coverage of MGLRU, https://lwn.net/Articles/851184/ and
+https://lwn.net/Articles/1060967/</li>
+<li>PostgreSQL source: <code>src/backend/storage/buffer/freelist.c</code>,
+<code>bufmgr.c</code>.</li>
+</ul>
+<h3 id="17-10-llm-kv-cache">17.10 LLM KV-cache</h3>
+<ul>
+<li>Kwon et al. <strong>"Efficient Memory Management for Large Language Model
+Serving with PagedAttention"</strong> (vLLM). SOSP 2023.</li>
+<li>Zhang et al. <strong>"H2O: Heavy-Hitter Oracle for Efficient Generative
+Inference of Large Language Models"</strong>. NeurIPS 2023.</li>
+<li>Xiao, Tian, Chen, Han. <strong>"Efficient Streaming Language Models with
+Attention Sinks"</strong> (StreamingLLM). ICLR 2024.</li>
+</ul>
+<h3 id="17-11-prefetching">17.11 Prefetching</h3>
+<ul>
+<li>Gill, B. S., Bathen, L. A. D. <strong>"AMP: Adaptive Multi-stream
+Prefetching in a Shared Cache"</strong>. FAST 2007.</li>
+<li>Yang, Karimi, Sæmundsson, Wildani, Vigfusson. <strong>"Mithril: Mining
+Sporadic Associations for Cache Prefetching"</strong>. ACM SoCC 2017.</li>
+<li>Bera, Kanellopoulos, Nori, Shahroodi, Subramoney, Mutlu. <strong>"Pythia:
+A Customizable Hardware Prefetching Framework Using Online
+Reinforcement Learning"</strong>. MICRO 2021.</li>
+<li>Shi, Akram, Pickett, Lustig. <strong>"Voyager: Combining Local and Global
+Features for Practical Learned Memory Prefetching"</strong>. ASPLOS 2021.</li>
+</ul>
+<h3 id="17-12-evaluation-and-tooling">17.12 Evaluation and tooling</h3>
+<ul>
+<li>Waldspurger, Park, Garthwaite, Ahmad. <strong>"Efficient MRC Construction
+with SHARDS"</strong>. FAST 2015.</li>
+<li>Wires, Ingram, Drudi, Harvey, Warfield. <strong>"Characterizing Storage
+Workloads with Counter Stacks"</strong>. OSDI 2014.</li>
+<li>Berg, Berger, et al. <strong>"The CacheLib Caching Engine: Design and
+Experiences at Scale"</strong>. OSDI 2020.</li>
+<li>libCacheSim — https://github.com/cacheMon/libCacheSim</li>
+<li>Caffeine — https://github.com/ben-manes/caffeine</li>
+<li>AdaptSize / webcachesim — https://github.com/dasebe/AdaptSize ,
+https://github.com/dasebe/optimalwebcaching</li>
+<li>LRB simulator — https://github.com/sunnyszy/lrb</li>
+<li>S3-FIFO repo — https://github.com/Thesys-lab/sosp23-s3fifo</li>
+<li>SIEVE repo — https://github.com/cacheMon/NSDI24-SIEVE</li>
+</ul>
+<h3 id="17-13-production-traces-and-datasets">17.13 Production traces and datasets</h3>
+<ul>
+<li>SNIA IOTTA — http://iotta.snia.org/</li>
+<li>MSR Cambridge — http://iotta.snia.org/traces/388</li>
+<li>Twitter cache traces — https://github.com/twitter/cache-trace</li>
+<li>Yang, J., Yue, Y., Rashmi, K. V. <strong>"A Large-scale Analysis of
+Hundreds of In-memory Key-value Cache Clusters at Twitter"</strong>.
+OSDI 2020; ACM TOS 17(3), 2021.</li>
+</ul>
+<h3 id="17-14-production-systems">17.14 Production systems</h3>
+<ul>
+<li>Berg, Berger, McAllister, Grosof, et al. CacheLib at Meta — OSDI 2020.</li>
+<li>Tang, L., Huang, Q., Lloyd, W., Kumar, S., Li, K. <strong>"RIPQ: Advanced
+Photo Caching on Flash for Facebook"</strong>. FAST 2015.</li>
+<li>Caffeine adoption (Cassandra, Kafka, Solr, HBase, Neo4j) —
+https://github.com/ben-manes/caffeine/wiki</li>
+</ul>
+<hr />
+<h2 id="appendix-a-one-page-algorithm-comparison-table">Appendix A — One-page algorithm comparison table</h2>
+<table><thead><tr><th>Algorithm</th><th>Year</th><th>Class</th><th>Hit-path</th><th>Time</th><th>Space (per entry)</th><th>Scan-res</th><th>Freq-aware</th><th>Adaptive</th><th>Production</th></tr></thead><tbody>
+<tr><td>FIFO</td><td>—</td><td>recency</td><td>nop</td><td>O(1)</td><td>1 ptr</td><td>no</td><td>no</td><td>no</td><td>LRU's worst replacement, common fallback</td></tr>
+<tr><td>LRU</td><td>—</td><td>recency</td><td>move-to-MRU</td><td>O(1)</td><td>2 ptr</td><td>no</td><td>no</td><td>no</td><td>textbook default</td></tr>
+<tr><td>CLOCK</td><td>1968</td><td>recency</td><td>set ref-bit</td><td>O(1) amort</td><td>1 bit</td><td>no</td><td>no</td><td>no</td><td>OS kernels</td></tr>
+<tr><td>SLRU</td><td>1994</td><td>both</td><td>move-segments</td><td>O(1)</td><td>2 ptr + flag</td><td>yes</td><td>yes</td><td>no</td><td>W-TinyLFU's main</td></tr>
+<tr><td>LFU</td><td>—</td><td>freq</td><td>counter++</td><td>O(1)–O(log c)</td><td>counter</td><td>yes</td><td>yes</td><td>no</td><td>hot-set caches</td></tr>
+<tr><td>LFUDA</td><td>2000</td><td>freq</td><td>counter + age</td><td>O(log c)</td><td>counter</td><td>yes</td><td>yes</td><td>no</td><td>proxy caches</td></tr>
+<tr><td>LRU-K</td><td>1993</td><td>both</td><td>timestamp log</td><td>O(log c)</td><td>K timestamps</td><td>yes</td><td>yes</td><td>no</td><td>OLTP DBs</td></tr>
+<tr><td>2Q</td><td>1994</td><td>both</td><td>move within Am</td><td>O(1)</td><td>2 ptr</td><td>yes</td><td>yes</td><td>no</td><td>Postgres pgvector etc.</td></tr>
+<tr><td>MQ</td><td>2001</td><td>both</td><td>counter + queue</td><td>O(1)</td><td>ptr + count</td><td>yes</td><td>yes</td><td>yes</td><td>2nd-level buffer</td></tr>
+<tr><td>ARC</td><td>2003</td><td>both</td><td>LRU move + adapt</td><td>O(1)</td><td>2 ptr + ghost</td><td>yes</td><td>yes</td><td>yes</td><td>ZFS, DB2</td></tr>
+<tr><td>CAR</td><td>2004</td><td>both</td><td>set ref-bit</td><td>O(1) amort</td><td>1 bit + ghost</td><td>yes</td><td>yes</td><td>yes</td><td>research</td></tr>
+<tr><td>CART</td><td>2004</td><td>both</td><td>+ long-term bit</td><td>O(1) amort</td><td>2 bits + ghost</td><td>yes</td><td>yes</td><td>yes</td><td>research</td></tr>
+<tr><td>LIRS</td><td>2002</td><td>both</td><td>stack maintain</td><td>O(1) amort</td><td>flag + ghost</td><td>yes</td><td>yes</td><td>no</td><td>H2 DB, Cassandra (hist.), Caffeine sim</td></tr>
+<tr><td>CLOCK-Pro</td><td>2005</td><td>both</td><td>set ref-bit</td><td>O(1) amort</td><td>flag + ghost</td><td>yes</td><td>yes</td><td>no</td><td>NetBSD VM</td></tr>
+<tr><td>TinyLFU</td><td>2017</td><td>admission</td><td>CMS update</td><td>O(1)</td><td>4-bit CMS</td><td>yes</td><td>yes</td><td>yes (sketch)</td><td>Caffeine</td></tr>
+<tr><td>W-TinyLFU</td><td>2017</td><td>both</td><td>window LRU + CMS</td><td>O(1)</td><td>8 B/entry</td><td>yes</td><td>yes</td><td>yes (hill)</td><td>Caffeine, Cassandra, Solr, Kafka</td></tr>
+<tr><td>S3-FIFO</td><td>2023</td><td>both</td><td>counter++</td><td>O(1)</td><td>2 bits + ghost</td><td>yes</td><td>yes</td><td>no</td><td>Foyer, libCacheSim</td></tr>
+<tr><td>SIEVE</td><td>2024</td><td>both</td><td>set visited bit</td><td>O(1)</td><td>1 bit</td><td>yes</td><td>impl.</td><td>no</td><td>Rust sieve-cache, Go go-sieve</td></tr>
+<tr><td>GDSF</td><td>1998</td><td>cost+size</td><td>recompute prio</td><td>O(log c)</td><td>ptr + cnt + size</td><td>yes</td><td>yes</td><td>no</td><td>Squid</td></tr>
+<tr><td>Hyperbolic</td><td>2017</td><td>rate</td><td>counter + time</td><td>O(n) sample</td><td>counter + ts</td><td>yes</td><td>rate</td><td>yes (sampled)</td><td>Redis-like</td></tr>
+<tr><td>LHD</td><td>2018</td><td>hit-density</td><td>hist update</td><td>O(n) sample</td><td>class id</td><td>yes</td><td>yes</td><td>yes</td><td>research</td></tr>
+<tr><td>LeCaR</td><td>2018</td><td>learned mix</td><td>sample expert</td><td>O(1)</td><td>weights</td><td>yes</td><td>yes</td><td>yes</td><td>research</td></tr>
+<tr><td>Cacheus</td><td>2021</td><td>learned mix</td><td>sample experts</td><td>O(1)</td><td>weights</td><td>yes</td><td>yes</td><td>yes</td><td>research</td></tr>
+<tr><td>LRB</td><td>2020</td><td>GBDT</td><td>model infer</td><td>O(model)</td><td>many feats</td><td>yes</td><td>yes</td><td>yes</td><td>Apache Traffic Server</td></tr>
+<tr><td>HALP</td><td>2023</td><td>NN preference</td><td>NN score</td><td>O(model · K)</td><td>feats</td><td>yes</td><td>yes</td><td>yes</td><td>YouTube CDN</td></tr>
+<tr><td>GL-Cache</td><td>2023</td><td>group learn</td><td>group update</td><td>O(1) hit</td><td>group ptr</td><td>yes</td><td>yes</td><td>yes</td><td>research</td></tr>
+<tr><td>3L-Cache</td><td>2025</td><td>sampled obj-learn</td><td>bit + ts</td><td>O(1) hot</td><td>bit + ts</td><td>yes</td><td>yes</td><td>yes</td><td>research</td></tr>
+<tr><td>CFLRU</td><td>2006</td><td>flash</td><td>LRU + dirty flag</td><td>O(1)</td><td>dirty bit</td><td>partial</td><td>no</td><td>no</td><td>embedded SSDs</td></tr>
+<tr><td>MGLRU</td><td>2022</td><td>generations</td><td>hw access bit</td><td>O(1)</td><td>generation</td><td>yes</td><td>yes</td><td>yes</td><td>Linux 6.1+</td></tr>
+<tr><td>WATT</td><td>2023</td><td>DB buffer</td><td>timestamp ring</td><td>O(1)</td><td>K timestamps</td><td>yes</td><td>yes</td><td>yes</td><td>LeanStore</td></tr>
+<tr><td>Clock-sweep</td><td>—</td><td>DB buffer</td><td>usage_count++</td><td>O(1)</td><td>3 bits</td><td>partial</td><td>partial</td><td>no</td><td>PostgreSQL</td></tr>
+<tr><td>H2O</td><td>2023</td><td>LLM KV</td><td>score update</td><td>O(L)</td><td>attn score</td><td>n/a</td><td>yes</td><td>n/a</td><td>LLM serving</td></tr>
+<tr><td>StreamingLLM</td><td>2024</td><td>LLM KV</td><td>sliding window</td><td>O(1)</td><td>none</td><td>n/a</td><td>n/a</td><td>n/a</td><td>LLM serving</td></tr>
+</tbody></table>
+<hr />
+<p><em>Last updated: 2026-05-26. ~40 algorithms, ~95 references.</em></p>
+
+</article>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>
