@@ -69,6 +69,7 @@
         document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
         localStorage.setItem('theme', dark ? 'light' : 'dark');
       });
+
     });
   })();
 </script>
@@ -76,9 +77,10 @@
     <div class="container">
       <main>
         
-<article class="note-page">
-  <h1 class="r-header">Glossary</h1>
-  <h1 id="glossary">Glossary</h1>
+<div class="note-layout">
+  <article class="note-page">
+    <h1 class="r-header">Glossary</h1>
+    <h1 id="glossary">Glossary</h1>
 <p>Acronyms and technical terms used across research docs.</p>
 <table><thead><tr><th>Term</th><th>Definition</th><th>Covered In</th></tr></thead><tbody>
 <tr><td>BTB</td><td>Branch Target Buffer — hardware cache mapping instruction PCs to predicted branch targets; hierarchical (L0 µBTB / L1 / L2)</td><td><a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a></td></tr>
@@ -369,7 +371,73 @@
 <tr><td>W-TinyLFU</td><td>Window-TinyLFU — 1% window LRU + 99% SLRU main cache + TinyLFU admission gate + hill-climbing window-size tuner; production standard; used in Caffeine, Cassandra, Kafka, Solr, HBase, Neo4j</td><td><a href="https://nmbr7.github.io/notes/database/cache-algorithms/">Cache Algorithms</a></td></tr>
 </tbody></table>
 
-</article>
+  </article>
+  <aside id="note-toc" class="note-toc hidden">
+    <div class="note-toc-inner">
+      <div class="note-toc-header">
+        <span>Contents</span>
+      </div>
+      <nav></nav>
+    </div>
+  </aside>
+</div>
+<button id="toc-toggle" aria-label="Toggle contents">‹</button>
+
+<script>
+  (function() {
+    var article = document.querySelector('.note-page');
+    var nav = document.querySelector('#note-toc nav');
+    if (!article || !nav) return;
+    var headings = article.querySelectorAll('h2, h3');
+    if (!headings.length) return;
+
+    var ul = document.createElement('ul');
+    headings.forEach(function(h) {
+      var li = document.createElement('li');
+      li.className = 'toc-' + h.tagName.toLowerCase();
+      var a = document.createElement('a');
+      a.href = '#' + h.id;
+      a.textContent = h.textContent.replace(/\s*#\s*$/, '');
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    nav.appendChild(ul);
+
+    // active heading highlight + scroll TOC to follow
+    var links = nav.querySelectorAll('a');
+    var tocEl = document.getElementById('note-toc');
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          links.forEach(function(l) { l.classList.remove('toc-active'); });
+          var active = nav.querySelector('a[href="#' + entry.target.id + '"]');
+          if (active) {
+            active.classList.add('toc-active');
+            var linkTop = active.offsetTop;
+            var tocMid = tocEl.clientHeight / 2;
+            tocEl.scrollTo({ top: linkTop - tocMid, behavior: 'smooth' });
+          }
+        }
+      });
+    }, { rootMargin: '-10% 0px -80% 0px' });
+    headings.forEach(function(h) { observer.observe(h); });
+
+    var toc = document.getElementById('note-toc');
+    var toggle = document.getElementById('toc-toggle');
+    function setToc(open) {
+      toc.classList.toggle('hidden', !open);
+      toggle.classList.toggle('toc-closed', !open);
+      toggle.textContent = open ? '›' : '‹';
+      localStorage.setItem('toc-open', String(open));
+    }
+
+    setToc(localStorage.getItem('toc-open') === 'true');
+
+    toggle.addEventListener('click', function() {
+      setToc(toc.classList.contains('hidden'));
+    });
+  })();
+</script>
 
       </main>
     </div>

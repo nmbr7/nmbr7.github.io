@@ -69,6 +69,7 @@
         document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
         localStorage.setItem('theme', dark ? 'light' : 'dark');
       });
+
     });
   })();
 </script>
@@ -76,9 +77,10 @@
     <div class="container">
       <main>
         
-<article class="note-page">
-  <h1 class="r-header">PCIE Internals</h1>
-  <h1 id="pci-express-internals-architecture-protocols-and-implementation">PCI Express Internals: Architecture, Protocols, and Implementation</h1>
+<div class="note-layout">
+  <article class="note-page">
+    <h1 class="r-header">PCIE Internals</h1>
+    <h1 id="pci-express-internals-architecture-protocols-and-implementation">PCI Express Internals: Architecture, Protocols, and Implementation</h1>
 <p>A comprehensive implementation-level reference for PCI Express — covering architecture fundamentals, packet formats with bit-level detail, configuration space registers, capability structures, interrupt mechanisms, Linux kernel driver APIs, device emulation for VMMs, SR-IOV, passthrough, error handling, power management, and advanced topics (CXL, NVMe, P2P DMA, FLIT mode). Written for engineers implementing PCIe device emulation, writing PCIe drivers, or working with PCIe passthrough in virtualization.</p>
 <hr />
 <h2 id="table-of-contents">Table of Contents</h2>
@@ -3451,7 +3453,73 @@ Coherent Interconnects layered on PCIe:
 <hr />
 <p><em>Last updated: 2026-03-27</em></p>
 
-</article>
+  </article>
+  <aside id="note-toc" class="note-toc hidden">
+    <div class="note-toc-inner">
+      <div class="note-toc-header">
+        <span>Contents</span>
+      </div>
+      <nav></nav>
+    </div>
+  </aside>
+</div>
+<button id="toc-toggle" aria-label="Toggle contents">‹</button>
+
+<script>
+  (function() {
+    var article = document.querySelector('.note-page');
+    var nav = document.querySelector('#note-toc nav');
+    if (!article || !nav) return;
+    var headings = article.querySelectorAll('h2, h3');
+    if (!headings.length) return;
+
+    var ul = document.createElement('ul');
+    headings.forEach(function(h) {
+      var li = document.createElement('li');
+      li.className = 'toc-' + h.tagName.toLowerCase();
+      var a = document.createElement('a');
+      a.href = '#' + h.id;
+      a.textContent = h.textContent.replace(/\s*#\s*$/, '');
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    nav.appendChild(ul);
+
+    // active heading highlight + scroll TOC to follow
+    var links = nav.querySelectorAll('a');
+    var tocEl = document.getElementById('note-toc');
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          links.forEach(function(l) { l.classList.remove('toc-active'); });
+          var active = nav.querySelector('a[href="#' + entry.target.id + '"]');
+          if (active) {
+            active.classList.add('toc-active');
+            var linkTop = active.offsetTop;
+            var tocMid = tocEl.clientHeight / 2;
+            tocEl.scrollTo({ top: linkTop - tocMid, behavior: 'smooth' });
+          }
+        }
+      });
+    }, { rootMargin: '-10% 0px -80% 0px' });
+    headings.forEach(function(h) { observer.observe(h); });
+
+    var toc = document.getElementById('note-toc');
+    var toggle = document.getElementById('toc-toggle');
+    function setToc(open) {
+      toc.classList.toggle('hidden', !open);
+      toggle.classList.toggle('toc-closed', !open);
+      toggle.textContent = open ? '›' : '‹';
+      localStorage.setItem('toc-open', String(open));
+    }
+
+    setToc(localStorage.getItem('toc-open') === 'true');
+
+    toggle.addEventListener('click', function() {
+      setToc(toc.classList.contains('hidden'));
+    });
+  })();
+</script>
 
       </main>
     </div>

@@ -69,6 +69,7 @@
         document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
         localStorage.setItem('theme', dark ? 'light' : 'dark');
       });
+
     });
   })();
 </script>
@@ -76,9 +77,10 @@
     <div class="container">
       <main>
         
-<article class="note-page">
-  <h1 class="r-header">KVM Internals</h1>
-  <h1 id="kvm-internals-building-hypervisors-with-the-kernel-based-virtual-machine">KVM Internals: Building Hypervisors with the Kernel-based Virtual Machine</h1>
+<div class="note-layout">
+  <article class="note-page">
+    <h1 class="r-header">KVM Internals</h1>
+    <h1 id="kvm-internals-building-hypervisors-with-the-kernel-based-virtual-machine">KVM Internals: Building Hypervisors with the Kernel-based Virtual Machine</h1>
 <p>A comprehensive, implementation-focused reference for KVM (Kernel-based Virtual Machine). Covers everything needed to build a working VMM from scratch: the ioctl API, hardware virtualization mechanics (VT-x/AMD-V/ARM/RISC-V), memory virtualization, interrupt handling, I/O models, live migration, security features, and kernel internals. Includes complete code examples and architecture diagrams.</p>
 <hr />
 <h2 id="table-of-contents">Table of Contents</h2>
@@ -3165,7 +3167,73 @@ L2 VM exits are extremely expensive (L2 -&gt; L0 -&gt; L1 -&gt; L0 -&gt; L2). Mi
 <li><a href="https://nmbr7.github.io/notes/os/io-uring-internals/">io_uring Internals</a> -- Async I/O relevant to VMM I/O backends</li>
 </ul>
 
-</article>
+  </article>
+  <aside id="note-toc" class="note-toc hidden">
+    <div class="note-toc-inner">
+      <div class="note-toc-header">
+        <span>Contents</span>
+      </div>
+      <nav></nav>
+    </div>
+  </aside>
+</div>
+<button id="toc-toggle" aria-label="Toggle contents">‹</button>
+
+<script>
+  (function() {
+    var article = document.querySelector('.note-page');
+    var nav = document.querySelector('#note-toc nav');
+    if (!article || !nav) return;
+    var headings = article.querySelectorAll('h2, h3');
+    if (!headings.length) return;
+
+    var ul = document.createElement('ul');
+    headings.forEach(function(h) {
+      var li = document.createElement('li');
+      li.className = 'toc-' + h.tagName.toLowerCase();
+      var a = document.createElement('a');
+      a.href = '#' + h.id;
+      a.textContent = h.textContent.replace(/\s*#\s*$/, '');
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    nav.appendChild(ul);
+
+    // active heading highlight + scroll TOC to follow
+    var links = nav.querySelectorAll('a');
+    var tocEl = document.getElementById('note-toc');
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          links.forEach(function(l) { l.classList.remove('toc-active'); });
+          var active = nav.querySelector('a[href="#' + entry.target.id + '"]');
+          if (active) {
+            active.classList.add('toc-active');
+            var linkTop = active.offsetTop;
+            var tocMid = tocEl.clientHeight / 2;
+            tocEl.scrollTo({ top: linkTop - tocMid, behavior: 'smooth' });
+          }
+        }
+      });
+    }, { rootMargin: '-10% 0px -80% 0px' });
+    headings.forEach(function(h) { observer.observe(h); });
+
+    var toc = document.getElementById('note-toc');
+    var toggle = document.getElementById('toc-toggle');
+    function setToc(open) {
+      toc.classList.toggle('hidden', !open);
+      toggle.classList.toggle('toc-closed', !open);
+      toggle.textContent = open ? '›' : '‹';
+      localStorage.setItem('toc-open', String(open));
+    }
+
+    setToc(localStorage.getItem('toc-open') === 'true');
+
+    toggle.addEventListener('click', function() {
+      setToc(toc.classList.contains('hidden'));
+    });
+  })();
+</script>
 
       </main>
     </div>

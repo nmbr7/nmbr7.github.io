@@ -69,6 +69,7 @@
         document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
         localStorage.setItem('theme', dark ? 'light' : 'dark');
       });
+
     });
   })();
 </script>
@@ -76,9 +77,10 @@
     <div class="container">
       <main>
         
-<article class="note-page">
-  <h1 class="r-header">Pgbouncer</h1>
-  <h1 id="pgbouncer-connection-pooling-for-postgresql-deep-dive">PgBouncer: Connection Pooling for PostgreSQL -- Deep Dive</h1>
+<div class="note-layout">
+  <article class="note-page">
+    <h1 class="r-header">Pgbouncer</h1>
+    <h1 id="pgbouncer-connection-pooling-for-postgresql-deep-dive">PgBouncer: Connection Pooling for PostgreSQL -- Deep Dive</h1>
 <h2 id="changelog">Changelog</h2>
 <table><thead><tr><th>Date</th><th>Section added / updated</th></tr></thead><tbody>
 <tr><td>2026-03-26</td><td>Initial comprehensive write-up: architecture, pooling modes, connection lifecycle, configuration, performance, monitoring, deployment patterns, limitations, recent developments</td></tr>
@@ -886,7 +888,73 @@ SV_TESTED       --&gt; test query in progress (server_check_query)
 </li>
 </ol>
 
-</article>
+  </article>
+  <aside id="note-toc" class="note-toc hidden">
+    <div class="note-toc-inner">
+      <div class="note-toc-header">
+        <span>Contents</span>
+      </div>
+      <nav></nav>
+    </div>
+  </aside>
+</div>
+<button id="toc-toggle" aria-label="Toggle contents">‹</button>
+
+<script>
+  (function() {
+    var article = document.querySelector('.note-page');
+    var nav = document.querySelector('#note-toc nav');
+    if (!article || !nav) return;
+    var headings = article.querySelectorAll('h2, h3');
+    if (!headings.length) return;
+
+    var ul = document.createElement('ul');
+    headings.forEach(function(h) {
+      var li = document.createElement('li');
+      li.className = 'toc-' + h.tagName.toLowerCase();
+      var a = document.createElement('a');
+      a.href = '#' + h.id;
+      a.textContent = h.textContent.replace(/\s*#\s*$/, '');
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    nav.appendChild(ul);
+
+    // active heading highlight + scroll TOC to follow
+    var links = nav.querySelectorAll('a');
+    var tocEl = document.getElementById('note-toc');
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          links.forEach(function(l) { l.classList.remove('toc-active'); });
+          var active = nav.querySelector('a[href="#' + entry.target.id + '"]');
+          if (active) {
+            active.classList.add('toc-active');
+            var linkTop = active.offsetTop;
+            var tocMid = tocEl.clientHeight / 2;
+            tocEl.scrollTo({ top: linkTop - tocMid, behavior: 'smooth' });
+          }
+        }
+      });
+    }, { rootMargin: '-10% 0px -80% 0px' });
+    headings.forEach(function(h) { observer.observe(h); });
+
+    var toc = document.getElementById('note-toc');
+    var toggle = document.getElementById('toc-toggle');
+    function setToc(open) {
+      toc.classList.toggle('hidden', !open);
+      toggle.classList.toggle('toc-closed', !open);
+      toggle.textContent = open ? '›' : '‹';
+      localStorage.setItem('toc-open', String(open));
+    }
+
+    setToc(localStorage.getItem('toc-open') === 'true');
+
+    toggle.addEventListener('click', function() {
+      setToc(toc.classList.contains('hidden'));
+    });
+  })();
+</script>
 
       </main>
     </div>
