@@ -34,6 +34,22 @@ Convenience wrappers that do both:
 ./scripts/serve.sh
 ```
 
+## Deploy
+
+Site is hosted on GitHub Pages from the `master` branch. The `source` branch holds the Zola source; `master` holds only the built `public/` output.
+
+**To deploy:**
+
+```sh
+./scripts/deploy.sh "Deploy: <description>"
+```
+
+Syncs notes, builds, copies `public/` to `master` branch via worktree, commits, pushes.
+
+Branch layout:
+- `source` — Zola source (templates, content, sass, scripts)
+- `master` — built HTML/CSS/assets only (GitHub Pages root)
+
 ## Categories
 
 Categories synced from RESEARCH are defined in `scripts/sync_notes.py`:
