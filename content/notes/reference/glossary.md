@@ -277,3 +277,26 @@ Acronyms and technical terms used across research docs.
 | WR | Work Request — RDMA element posted to a QP's send or receive queue describing an I/O (opcode, sg_list, remote_addr/rkey, etc.) | [Interconnects](@/notes/hardware/interconnects.md) |
 | xGMI | Inter-Socket Global Memory Interconnect — AMD coherent link between EPYC sockets (and between MI300 GPUs); 32 GT/s at gen4-5 | [Interconnects](@/notes/hardware/interconnects.md) |
 | ZR | Coherent optical pluggable family — 400ZR/800ZR for metro distances (80-120 km unamplified) using DP-16QAM with integrated DSP | [Interconnects](@/notes/hardware/interconnects.md) |
+
+## Cache Eviction, Admission & Prefetching
+
+| Term | Definition | Detailed In |
+|---|---|---|
+| ARC | Adaptive Replacement Cache — self-tuning O(1) policy with T1 (recency) + T2 (frequency) lists and B1/B2 ghost lists; adaptive partition point p updated on ghost hits; Megiddo & Modha FAST 2003; used in ZFS, DB2 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| CLOCK-Pro | Approximation of LIRS using three clock hands (hot/cold/test); scan-resistant without explicit ghost lists; lower memory overhead than ARC; Jiang et al. ATC 2005; used in NetBSD VM | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| GDSF | Greedy Dual Size Frequency — priority-queue eviction using key = (freq/size) + clock-inflation L; scan-resistant, size-aware; web proxy caching; Cherkasova HPL 1998; used in Squid | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| GL-Cache | Group-level Learned Cache — ML model ranks groups of objects for batch eviction rather than individual objects; amortises inference cost; Yang et al. FAST 2023 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| LeCaR | Learning Cache Replacement — online RL mixture of LRU + LFU experts via multiplicative-weights update; regret-minimising; Vietri et al. HotStorage 2018 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| LHD | Least Hit Density — evicts object with lowest estimated hits-per-byte-per-time-unit; sampled from random candidates; class-based histogram; Beckmann & Sanfilippo NSDI 2018 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| LIRS | Low Inter-reference Recency Set — recency stack with HIR (high IRR) / LIR (low IRR) classification; promotes repeatedly-hit items; scan-resistant; Jiang & Zhang SIGMETRICS 2002; used in H2 DB, Caffeine (historical) | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| LRB | Learning Relaxed Belady — GBDT model trained offline on request traces to predict next reuse time; approximates Belady's OPT; Song et al. NSDI 2020; deployed in Apache Traffic Server research | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| LRU-K | LRU variant tracking K most-recent access timestamps per object; evicts object with oldest K-th reference; eliminates one-hit wonders; O'Neil et al. SIGMOD 1993 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| MGLRU | Multi-Generational LRU — Linux 6.1+ page reclaim using hardware-assisted generation counters (PG_referenced + page table young bits); replaces clock-sweep for anonymous + file pages; Kuo LKML 2022 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| MRC | Miss Ratio Curve — function mapping cache size → miss ratio; computed via reuse-distance analysis (exact) or SHARDS sampling (approximate); essential for cache sizing decisions | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| QD-LP | Quick-Demotion Large-Protection — small FIFO filter for one-hit-wonder demotion (QD) + large LRU main region with lazy promotion (LP); Yang et al. HotOS 2023 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| S3-FIFO | Small/Slow/Sliding FIFO — three FIFO queues: S (10% capacity) + M (90%) + G (ghost); frequency bit in S promotes to M on second access; simple, scan-resistant, low metadata overhead; Yang et al. SOSP 2023 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| SHARDS | Spatially Hashed Approximate Reuse Distance Sampling — O(1) amortised MRC construction via consistent hashing on object keys; 1% sampling rate with <1% miss ratio error; Waldspurger et al. FAST 2015 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| SIEVE | SIEVE eviction — single FIFO queue + hand pointer; visited bit cleared on first eviction pass (lazy demotion); simpler than LRU, competitive hit rate on CDN workloads; Zhang et al. NSDI 2024 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| SLRU | Segmented LRU — two LRU segments: probationary (new entries) + protected (second-hit promoted); objects demoted from protected → probationary on eviction pressure; used as main cache in W-TinyLFU | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| TinyLFU | Tiny LFU admission filter — 4-bit Count-Min Sketch frequency estimator + doorkeeper Bloom filter; admits new object only if frequency ≥ eviction candidate; reset-based aging; Einziger et al. 2017 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| W-TinyLFU | Window-TinyLFU — 1% window LRU + 99% SLRU main cache + TinyLFU admission gate + hill-climbing window-size tuner; production standard; used in Caffeine, Cassandra, Kafka, Solr, HBase, Neo4j | [Cache Algorithms](@/notes/database/cache_algorithms.md) |

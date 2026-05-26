@@ -458,6 +458,46 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 | UCIe Consortium, "Universal Chiplet Interconnect Express 2.1 Specification" | Aug 2025 | [Interconnects](@/notes/hardware/interconnects.md) |
 | Ultra Ethernet Consortium, "Ultra Ethernet Specification 1.0" | Jun 2025 | [Interconnects](@/notes/hardware/interconnects.md) |
 
+## Cache Eviction, Admission & Prefetching
+
+| Paper | Venue | Cited In |
+|---|---|---|
+| Belady, "A Study of Replacement Algorithms for a Virtual-Storage Computer" | IBM Systems Journal, 1966 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Mattson, Gecsei, Slutz, Traiger, "Evaluation Techniques for Storage Hierarchies" | IBM Systems Journal, 1970 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Denning, "The Working Set Model for Program Behavior" | CACM, 1968 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| O'Neil, O'Neil, Weikum, "The LRU-K Page Replacement Algorithm for Database Disk Buffering" | SIGMOD 1993 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Johnson, Shasha, "2Q: A Low Overhead High Performance Buffer Management Replacement Algorithm" | VLDB 1994 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Jiang, Zhang, "LIRS: An Efficient Low Inter-reference Recency Set Replacement Policy to Improve Buffer Cache Performance" | SIGMETRICS 2002 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Megiddo, Modha, "ARC: A Self-Tuning, Low Overhead Replacement Cache" | FAST 2003 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Bansal, Modha, "CAR: Clock with Adaptive Replacement" | FAST 2004 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Jiang, Chen, Zhang, "CLOCK-Pro: An Effective Improvement of the CLOCK Replacement" | USENIX ATC 2005 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Park, Kang, Park, "CFLRU: A Replacement Algorithm for Flash Memory" | EMSOFT 2006 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Gill, Bathen, "AMP: Adaptive Multi-stream Prefetching in a Shared Cache" | FAST 2007 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Zhou, Philbin, Li, "The Multi-Queue Replacement Algorithm for Second Level Buffer Caches" | USENIX ATC 2001 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Cherkasova, "Improving WWW Proxies Performance with Greedy-Dual-Size-Frequency Caching Policy" | HPL Technical Report, 1998 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Wires, Ingram, Drudi, Harvey, Warfield, "Characterizing Storage Workloads with Counter Stacks" | OSDI 2014 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Waldspurger, Park, Garthwaite, Ahmad, "Efficient MRC Construction with SHARDS" | FAST 2015 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Blankstein, Shah, Wenisch, "Hyperbolic Caching: Flexible Caching for Web Applications" | USENIX ATC 2017 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Berger, Sitaraman, Harchol-Balter, "AdaptSize: Orchestrating the Hot Object Memory Cache in a CDN" | NSDI 2017 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Yang, Karimi, Sæmundsson, Wildani, Vigfusson, "Mithril: Mining Sporadic Associations for Cache Prefetching" | ACM SoCC 2017 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Einziger, Friedman, Manes, "TinyLFU: A Highly Efficient Cache Admission Policy" | USENIX SYSTOR 2017 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Einziger, Friedman, Manes, "Adaptive Software Cache Management" (W-TinyLFU / Caffeine) | IPDPS 2018 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Beckmann, Sanfilippo, "LHD: Improving Cache Hit Rate by Maximizing Hit Density" | NSDI 2018 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Vietri, Rodriguez, Bux, Singla, Smirni, "Driving Cache Replacement with ML-based LeCaR" | USENIX HotStorage 2018 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Song, Yang, Rashmi, "Learning Relaxed Belady for Content Distribution Network Caching" (LRB) | NSDI 2020 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Yang, Yue, Rashmi, "A Large-scale Analysis of Hundreds of In-memory Key-value Cache Clusters at Twitter" | OSDI 2020 / ACM TOS 2021 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Shi, Akram, Pickett, Lustig, "Voyager: Combining Local and Global Features for Practical Learned Memory Prefetching" | ASPLOS 2021 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Bera, Kanellopoulos, Nori, Shahroodi, Subramoney, Mutlu, "Pythia: A Customizable Hardware Prefetching Framework Using Online Reinforcement Learning" | MICRO 2021 | [Cache Algorithms](@/notes/database/cache_algorithms.md), [Superscalar OoO CPU](@/notes/hardware/superscalar_ooo_cpu.md) |
+| Rodriguez, Sundaram, "Learning Cache Replacement with CACHEUS" | FAST 2021 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Berg, Berger, McAllister, Grosof, et al., "The CacheLib Caching Engine: Design and Experiences at Scale" | OSDI 2020 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Yang, Zhang, Yue, Rashmi, "GL-Cache: Group-level Learning for Efficient and High-Performance Caching" | FAST 2023 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Yang, Qiu, Zhang, Yue, Rashmi, "FIFO Queues Are All You Need for Cache Eviction" (S3-FIFO) | SOSP 2023 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Kwon, Li, Zhuang, Sheng, et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention" | SOSP 2023 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Zhang, Sheng, Hou, et al., "H2O: Heavy-Hitter Oracle for Efficient Generative Inference of Large Language Models" | NeurIPS 2023 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Vöhringer, Leis, "WATT: Write-Aware Timestamp Tracking for Efficient Buffer Management" | VLDB 2023 | [Cache Algorithms](@/notes/database/cache_algorithms.md), [Buffer Management](@/notes/database/buffer_management_predictive_translation.md) |
+| Zhang, Yang, Yue, Rashmi, "SIEVE is Simpler than LRU: an Efficient Turn-Key Eviction Algorithm for Web Caches" | NSDI 2024 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+| Xiao, Tian, Chen, Han, "Efficient Streaming Language Models with Attention Sinks" (StreamingLLM) | ICLR 2024 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
+
 ## Textbooks & Reference Works
 
 | Paper | Venue | Cited In |
@@ -474,4 +514,4 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 
 ---
 
-*Last updated: 2026-05-01*
+*Last updated: 2026-05-26*

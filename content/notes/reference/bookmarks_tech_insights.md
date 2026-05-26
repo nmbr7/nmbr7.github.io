@@ -10,7 +10,7 @@ tags = ["survey", "case-studies", "postgresql", "kafka", "performance", "cloud-n
 
 Curated technical bookmarks covering engineering case studies, systems techniques, data storage, and programming languages. Extracted from Chrome bookmarks (March 2026).
 
-**Progress:** 30/200+ articles detailed | Last batch: 2026-03-09
+**Progress:** 60/200+ articles detailed | Last batch: 2026-05-26
 
 > Legend: entries with `> **Key insights:**` blocks have been read and summarized.
 > Run another batch anytime with: *"get details for 10 more articles"*
@@ -26,6 +26,17 @@ Company engineering blogs, postmortems, architecture deep-dives.
 - [How Uber Conquered Database Overload: From Static Rate-Limiting to Intelligent Load Management](https://www.uber.com/en-IN/blog/from-static-rate-limiting-to-intelligent-load-management/) -- Uber's evolution from static rate limiting to adaptive database load shedding
 
   > **Key insights:**
+  > - Stateless quota-based rate-limiting failed at scale (Redis dependency, can't track thousands of partitions); shifted shedding to storage layer where context is complete
+  > - Concurrency (in-flight ops) chosen over QPS as primary overload signal — Little's Law `Concurrency = Throughput × Latency` maps directly to resource usage
+  > - CoDel adapts queue policy: FIFO under normal load, LIFO under pressure ("newer requests still have a chance to succeed"); prevents wasted work on stale requests
+  > - Cinnamon adds priority tiers (t0-t5): user-facing work protected at t1 while background jobs shed first — priority-aware on top of CoDel's priority-agnostic base
+  > - PID controller treats overload as "dimmer switch" not binary reject; smooths recovery vs static thresholds that cause thundering herd
+  > - Unified engine results: +80% throughput (5400 vs 3000 QPS), -70% P99 latency (1.0s vs 3.1s upserts), -93% goroutine count (10K vs 150K peak), -60% heap (1GB vs 5-6GB spikes)
+  > - BYOS framework: pluggable signals (follower lag, write bytes, mem) feed unified decision loop without core rewrite
+  > - Scorecard layer: per-tenant deterministic concurrency limits isolate noisy neighbors independently of system-wide shedding
+  > - Regulators detect "low-fidelity" overload (large write payloads, partition hotspots, mem pressure) missed by concurrency metric alone
+
+  > **Key insights:**
   > - Uber's Docstore/Schemaless handle tens of millions of req/s across 170M+ MAU; minor overloads cascade across microservices
   > - Phase 1 (failed): quota-based rate limiting with Redis; fundamentally flawed cost model (full table scan = same cost as single row read)
   > - Phase 2: CoDel (Controlled Delay) queuing with LIFO under pressure + Scorecard engine for per-tenant concurrency limits
@@ -37,6 +48,17 @@ Company engineering blogs, postmortems, architecture deep-dives.
 - [One Stone, Three Birds: Finer-Grained Encryption @ Apache Parquet](https://www.uber.com/en-IN/blog/one-stone-three-birds-finer-grained-encryption-apache-parquet/) -- Uber's column-level encryption for Parquet data at rest
 
   > **Key insights:**
+  > - Single column-encryption mechanism solves three orthogonal needs: access control, retention/deletion, encryption-at-rest — avoids three separate systems
+  > - Schema-driven: encryption metadata flows through Hive Metastore (HMS) not per-file RPC to tag store — eliminates excessive remote calls
+  > - Per-column independent keys: each column encrypted with own key; access is "do you hold key K?" — permission enforcement at crypto layer, not app code
+  > - Crypto-shredding for retention: deleting the key turns ciphertext into garbage; no need to rewrite petabyte tables to expire one column
+  > - AES-CTR chosen over AES-GCM: 3-4.5× faster in single-thread Java 9; integrity provided by Parquet checksums at row-group level
+  > - Production overhead with 60% columns encrypted: +5.7% write, +3.7% read — small enough to enable by default
+  > - Parquet-1817 plugin factory enables Spark/Hive/Presto/Flink compatibility without per-engine modification
+  > - Auto-onboarding: tag changes propagate to ingestion pipelines; no manual table-by-table onboarding across PB-scale lake
+  > - Mask-on-deny: users without key get null values instead of hard failure — legacy pipelines keep working
+
+  > **Key insights:**
   > - One encryption mechanism solves three problems: column-level ACL (key permissions = access control), data retention (crypto-shredding — delete master key to render data irrecoverable without rewriting files), and encryption-at-rest
   > - Double-envelope key hierarchy: Data Encryption Keys (DEKs, per file/column) → Key Encryption Keys (KEKs, cached in Spark executors) → Master Encryption Keys (MEKs, in KMS); KMS contacted only once per MEK per executor, not per file
   > - Schema-driven auto-onboarding: tagging metadata propagated into Parquet schema itself; crypto retriever plugin reads tags at write time — no per-file RPC to tagging service
@@ -46,7 +68,29 @@ Company engineering blogs, postmortems, architecture deep-dives.
   > - Backfilling petabytes of historical data was hardest operational challenge; built 20× faster encryption tooling for re-encryption
   > - Access denial enforced at format level across all query engines (Spark, Hive, Presto); optionally null-mask sensitive values instead of hard failure
 - [How Uber Indexes Streaming Data with Pull-Based Ingestion in OpenSearch](https://www.uber.com/en-IN/blog/how-uber-indexes-streaming-data-with-pull-based-ingestion-in-opensearch/) -- Pull-based streaming data indexing at Uber
+
+  > **Key insights:**
+  > - Core idea: replace OpenSearch's push-based translog with native pull from Kafka/Kinesis; cluster focuses on indexing, Kafka owns durability
+  > - Each OpenSearch shard maps 1:1 to a stream partition; StreamPoller + IngestionPlugin interface handles source-specific consumer logic
+  > - Blocking queue decouples consumer and processor for throughput; optional document-ID partitioning parallelizes writes
+  > - IngestionEngine replaces translog with a no-op; stores `_BatchStartPointer` (min offset across active writers) with every Lucene commit for recovery
+  > - Recovery: init → retrieve last `_BatchStartPointer` → rewind consumer → replay; prevents data loss and duplicate indexing on replica promotion
+  > - External versioning supports out-of-order delivery: users set doc version in message; at-least-once processing + versioning = consistent views
+  > - Error policies: Drop (discard + advance) or Block (retry indefinitely)
+  > - Two replication modes: Segment Replication (primary ingests, replicas download via remote store — efficient but slight lag) vs All-Active (every shard ingests independently — zero lag, higher CPU)
+  > - Regional clusters consume from globally replicated Kafka topics; each region holds a full copy for failover
 - [Uforwarder: Uber's Scalable Kafka Consumer Proxy](https://www.infoq.com/news/2026/02/uber-uforwarder-kafka-push-proxy/) -- Push-based Kafka consumer proxy for event-driven microservices at scale
+
+  > **Key insights:**
+  > - Replaces pull-based Kafka client SDKs with gRPC push interface; centralizes offset management so application services need no Kafka library
+  > - Scale: 1000+ downstream consumer services, trillions of messages/day, multiple PB/day of data
+  > - Out-of-order commit tracker prevents head-of-line blocking: stuck message routes to DLQ while the commit pointer advances independently
+  > - Context-aware routing via Kafka headers: infrastructure-level decisions (region, env, isolation) replace app-level filter code
+  > - Auto-rebalancer reacts to CPU/memory/throughput signals continuously, redistributing partitions during traffic spikes without manual intervention
+  > - DelayProcessManager enables per-partition pause/resume — selective backpressure isolates slow consumers without freezing the whole stream
+  > - Eliminates bespoke delay/retry semantics in each service; one proxy implements the patterns once, all consumers inherit them
+  > - Trade-off: extra gRPC hop adds latency vs direct Kafka client; justified by operational simplification at thousand-service scale
+  > - Pattern: Kafka-proxy-as-platform is the natural successor to per-team Kafka client libraries when consumer count crosses ~100
 - [Automating RDS Postgres to Aurora Postgres Migration (Netflix)](https://netflixtechblog.com/automating-rds-postgres-to-aurora-postgres-migration-261ca045447f) -- Netflix's automated large-scale PostgreSQL migration to Aurora
 
   > **Key insights:**
@@ -95,6 +139,17 @@ Company engineering blogs, postmortems, architecture deep-dives.
 - [A 2.5x faster Postgres parser with Claude Code](https://multigres.com/blog/ai-parser-engineering) -- Multigres engineering a faster PostgreSQL parser
 
   > **Key insights:**
+  > - Pure Go implementation replaces pg_query_go's cgo wrapper: eliminates cross-compilation pain, platform-specific builds, cgo runtime overhead
+  > - Ports the real Postgres grammar verbatim, not a simplified variant — avoids perpetual catch-up with PG syntax updates
+  > - AI excels at translation (PG source → Go yacc) but errs on invention (deparsing logic without reference); discipline of using existing artifacts matters
+  > - Project state lived in markdown files (checklists, phase docs, session summaries) — Claude's own memory was insufficient for multi-week project
+  > - Speedup from 1 year → 8 weeks came from expert code review catching systematic AI errors (wrong type signatures, symptom-fixing, missing edge cases) — not autonomous generation
+  > - 71.2% coverage via porting PG's own regression suite (thousands of decade-spanning queries) — validates "Postgres-compatible grammar" claim
+  > - Benchmarks: 2-3× faster per query (1.6µs vs 3.1µs simple SELECT), 2.5× faster full suite (145ms vs 366ms)
+  > - Mechanical work (translation, test code, AST node generation) delegated to AI; architectural work (grammar debug, design) kept with humans
+  > - Lesson: "fast output means nothing if output is wrong" — every grammar rule manually compared to PG source, every test failure investigated
+
+  > **Key insights:**
   > - Pure Go PostgreSQL parser (no cgo) — rejected pg_query_go because cgo creates cross-compilation complexity, platform-specific builds, and per-call overhead on hot-path parsing
   > - Performance: simple SELECT 1.6μs vs 3.1μs (2×), complex SELECT 3.2μs vs 11.0μs (3.5×), CREATE TABLE 7.7μs vs 26.4μs (3.5×); full regression suite 145ms vs 366ms = 2.5× faster
   > - 287,786 lines across 304 files ported from PostgreSQL grammar to Go in 8 weeks (1 engineer + Claude); previous MySQL parser (Vitess) took over a year with a team
@@ -104,9 +159,39 @@ Company engineering blogs, postmortems, architecture deep-dives.
   > - Bottleneck shifted from implementation speed to decision quality and verification rigor
   > - Ported PostgreSQL's own regression tests (thousands of queries) for edge case validation
 - [VACUUM FULL Locked Our Database for 14 Hours on Black Friday](https://medium.com/lets-code-future/vacuum-full-locked-our-database-for-14-hours-on-black-friday-33daf7959c9b) -- Production incident: Postgres VACUUM FULL during peak traffic
+
+  > **Key insights:**
+  > - Trigger: 84% dead tuples in `orders` table; engineer ran `VACUUM FULL` at 2:14 AM on Black Friday; 14-hour lockout → ~$340K lost revenue
+  > - VACUUM FULL takes `ACCESS EXCLUSIVE` lock — blocks all SELECT/INSERT/UPDATE/DELETE; rewrites entire table row-by-row; ~4h on 180GB table
+  > - Key difference from regular VACUUM: regular VACUUM marks dead tuples reusable without locking; VACUUM FULL rewrites, reclaims disk at OS level
+  > - Cannot be cleanly cancelled (leaves partial rewrites); not transactional; `pg_cancel_backend()` ineffective
+  > - Duration is roughly constant regardless of bloat ratio — the test run's 4h estimate was misleading
+  > - Fix 1: tune autovacuum — 5% scale_factor instead of 20%, higher cost limits, naptime=10s
+  > - Fix 2: adopt `pg_repack` — rebuilds tables/indexes without `ACCESS EXCLUSIVE`, online operation
+  > - Fix 3: partition time-series data; drop old partitions instead of deleting rows
+  > - Process: require CTO approval for VACUUM FULL, prohibit during peak, add bloat monitoring
+  > - Design lesson: 10–20% bloat is acceptable; disk is cheaper than downtime
 - [Our Database Had 500 Million Rows, Deleting 100 Million Took 6 Days](https://medium.com/@devcommando/our-database-had-500-million-rows-deleting-100-million-took-6-days-cc45a67b8c01) -- Lessons on bulk delete performance in large production databases
+
+  > **Key insights:**
+  > - MVCC overhead: PostgreSQL marks rows deleted (dead tuples) rather than removing them immediately; dead tuples consume disk and degrade scans
+  > - Single DELETE: massive lock contention, WAL flood, all indexes updated per row — killed after 6h with zero rows removed
+  > - Batched DELETE degradation: batch 1 took 2s, batch 100 took 23s, batch 300 took 60+s — subquery re-scans increasingly bloated table
+  > - VACUUM after batches: found 5M dead tuples after partial deletion; regular VACUUM doesn't reclaim OS disk; VACUUM FULL causes outages
+  > - Index maintenance multiplies I/O: `created_at` and other indexes require update per row deleted
+  > - Winning approach: create new table with `PARTITION BY RANGE(created_at)`, insert only retained rows, atomic swap during maintenance window, drop old table — avoids fighting MVCC entirely
+  > - Design lesson: partition by time at schema design time; `pg_partman` for automation; then DROP PARTITION takes milliseconds vs days of DELETE
 - [When an Aurora PostgreSQL Major Upgrade Fails](https://medium.com/@dhiraj_db/when-an-aurora-postgresql-major-upgrade-fails-a-lesson-from-a-hidden-view-27cda5842bbe) -- Debugging a hidden view blocking Aurora PostgreSQL upgrade
+
+  > **Key insights:**
+  > - Aurora PG 15→17 in-place upgrade halted during `pg_restore` with: `ERROR: column reference 'query_id' is ambiguous`
+  > - Root cause: custom monitoring view `pg_stat_activityenric` built on `pg_stat_get_activity()` using explicit PG15 column list; PG16+ expanded the function's output columns, causing `query_id` name collision
+  > - The view existed across multiple databases — removing it from one DB wasn't enough; `pg_upgrade` hit identical incompatible definitions in others
+  > - Diagnosis: `SELECT * FROM pg_catalog.pg_views WHERE viewname = 'pg_stat_activityenric'` in every database
+  > - Fix: drop the view from every database before upgrade; recreate using PG16+-compatible column references post-upgrade
+  > - Lesson: custom views on internal PostgreSQL system functions (`pg_stat_*`) require compatibility audits before major version upgrades; avoid explicit column lists tied to system function output
 - [Unlocking 3x Write Performance: Cloud SQL MySQL Optimizations](https://medium.com/google-cloud/unlocking-3x-write-performance-a-deep-dive-into-cloud-sql-mysql-optimizations-69a504856170) -- Google Cloud tripling MySQL write throughput
+  > *(article unavailable — fetch failed)*
 - [How We Solved a Critical Race Condition in Banking Systems](https://souravkabiraj.medium.com/how-we-solved-a-critical-race-condition-in-banking-systems-623c140b796d) -- Debugging concurrency bugs in production banking
 
 ### Platform & Infrastructure
@@ -133,6 +218,17 @@ Company engineering blogs, postmortems, architecture deep-dives.
   > - Lacked pre-migration automated tests; discovered expected behaviors through service owner consultation
   > - Result: complete HAProxy replacement with zero customer impact; subsequently exceeded previous peak load with no issues
 - [How Dropbox Designed ATF: an Async Task Framework](https://dropbox.tech/infrastructure/asynchronous-task-scheduling-at-dropbox) -- Dropbox's distributed async task scheduling system
+
+  > **Key insights:**
+  > - Six components: Frontend (RPC) → Task Store (Edgestore) → Store Consumer → SQS → Controller → Executor + heartbeat status controller
+  > - At-least-once execution: tasks retry until Success or FatalFailure; pull-based polling (controllers/executors long-poll) reduces coupling vs push
+  > - Scale: 9000 async tasks/sec, 100+ use cases across 28 teams; 95% start within 5 s of schedule time
+  > - Tasks claim exclusive "Claimed" state to prevent overlap; HSC kills executors after 3 failed heartbeats — zombie protection
+  > - Per (lambda, priority) pair gets dedicated SQS queue (95 total); lambda owners control their own worker clusters and capacity
+  > - Idempotence mandatory in user lambdas — framework explicitly does not solve dedup; pushes correctness burden to callback authors
+  > - Exponential backoff for retriable failures; timeouts at enqueue/claim/heartbeat each trigger automatic retry independently
+  > - Isolation via dedicated clusters, queues, and quotas per lambda — prevents resource contention between independent task types
+  > - Edgestore (Dropbox's metadata DB) backs task state; SQS handles work distribution — clean split of state-of-truth vs work queue
 
   > **Key insights:**
   > - Six components: Frontend (RPC), Task Store (Edgestore metadata), Store Consumer (polling), Queue (AWS SQS), Controller (per-worker polling), Executor, Heartbeat/Status Controller
@@ -168,15 +264,53 @@ Company engineering blogs, postmortems, architecture deep-dives.
   > - Impact: bot CPU 4 cores → 2 cores (50% reduction) = over $1M annual AWS savings; scale context: 1TB video/second across infrastructure
 - [How Okta Scaled From 12 to 1,000 Kubernetes Clusters With Argo CD](https://thenewstack.io/how-okta-scaled-from-12-to-1000-kubernetes-clusters-with-argo-cd/) -- Okta's Kubernetes fleet scaling with GitOps
 - [Pinterest's Moka: Kubernetes Rewriting Rules of Big Data Processing](https://www.infoq.com/news/2026/01/pinterest-kubernetes-bigdata/) -- Pinterest migrating big data workloads to Kubernetes
+
+  > **Key insights:**
+  > - Moka = Pinterest's EKS-based unified big-data platform replacing Hadoop YARN clusters; runs Spark, Flink, Ray on Kubernetes with single control plane
+  > - YuniKorn scheduler used instead of stock kube-scheduler: hierarchical queues, gang scheduling, fair sharing — restores YARN-like multi-tenancy semantics
+  > - Fluent Bit + OpenTelemetry pipeline replaces YARN log aggregation; per-pod structured logging shipped to central store
+  > - ARM Graviton support adds ~20% cost reduction for batch workloads vs equivalent x86 instances
+  > - Karpenter for autoscaling: bin-packs jobs onto right-sized spot nodes; faster than Cluster Autoscaler's ASG-based provisioning
+  > - Migration approach: dual-write to YARN and Moka, validate parity, cut over per-workload; avoided big-bang switch
+  > - Container image caching critical at scale: pre-warmed Spark images on nodes eliminates pull latency during gang scheduling
+  > - Lesson: Kubernetes as big-data substrate is viable but requires non-default scheduler + dedicated logging/observability stack
 - [Reducing Onboarding from 48 Hours to 4: Amazon Key's Event-Driven Platform](https://www.infoq.com/news/2026/02/amazon-key-event-driven-platform/) -- Amazon Key's event-driven architecture redesign
+
+  > **Key insights:**
+  > - Migrated from synchronous REST orchestration to event-driven via single EventBridge bus shared across accounts; cross-account event routing replaces direct service calls
+  > - Onboarding time: 48 hours → 4 hours (12× reduction); driven by self-service event subscriptions instead of bespoke integration code per partner
+  > - CDK-based infrastructure automation: each consumer defines event filters declaratively; rules + targets + IAM provisioned in single deployment
+  > - Throughput: ~2000 events/sec sustained, P90 latency ~80ms end-to-end across multi-account hops, 99.99% delivery success
+  > - Schema registry enforces contract evolution; producers can't break consumers via uncoordinated payload changes
+  > - DLQ + replay tooling per consumer enables independent failure recovery without affecting peer subscribers
+  > - Tradeoff: debugging eventual-consistency flows harder than sync request/response; invested in distributed tracing (X-Ray) as compensation
+  > - Pattern reusable: single shared bus + cross-account access + schema registry is the production blueprint for EventBridge at scale
 - [How Slack Achieved Operational Excellence for Spark on Amazon EMR](https://aws.amazon.com/blogs/big-data/how-slack-achieved-operational-excellence-for-spark-on-amazon-emr-using-generative-ai/) -- Slack's Spark operational improvements on EMR
 - [We Moved from AWS to Hetzner, Cut Costs 89%](https://medium.com/lets-code-future/we-ran-go-rust-postgresql-and-kubernetes-in-production-for-two-years-heres-the-catch-961ea2b9237c) -- Real-world cost comparison: AWS to bare metal
+
+  > **Key insights:**
+  > - AWS monthly: 6× t3.medium ($1200) + RDS db.t3.large ($850) + LB ($180) + data transfer ($650) + S3 ($120) + CloudWatch ($380) + NAT Gateway ($220) + misc ($600) = **$4,200/month**
+  > - Hetzner monthly: 6× CAX11 equivalent ($280) + managed PG ($90) + LB ($15) + 1TB bandwidth included + 500GB storage ($25) = **$410/month** (+ Cloudflare $20) = **~$470/month**
+  > - **Savings: $45,600/year (89% reduction)**; Hetzner CAX11 has dedicated CPU + NVMe vs t3.medium's shared CPU
+  > - Zero-downtime migration: week 1 infra setup → week 2 DB migration (export/import + replication) → week 3 gradual DNS shift 10→50→100% → week 4 AWS shutdown
+  > - Problems hit: new Hetzner IPs flagged as spam (SPF/DKIM warmup needed), 100K req/s DDoS attack (required Cloudflare), manual backup scripting, self-managed Grafana+Prometheus
+  > - Lost: managed services (ElastiCache, SQS, Lambda, EventBridge), global regions (limited to DE/FI/US), auto-scaling, built-in DDoS protection, AWS support
+  > - Gained: predictable billing, dedicated CPU, included bandwidth, full control
 - [Migrating 40 Lambdas to Containers, AWS Bill Down 73%](https://medium.com/lets-code-future/i-migrated-40-lambdas-to-containers-aws-bill-went-down-73-6dc0c17de3fb) -- Cost and architecture tradeoffs: Lambda to containers
 
 ### Networking & Load Balancing
 
 - [Examining Load Balancing Algorithms with Envoy](https://blog.envoyproxy.io/examining-load-balancing-algorithms-with-envoy-1be643ea121c) -- Comparison of load balancing strategies (round-robin, least-request, ring hash, Maglev)
+  > *(article unavailable — SSL certificate error)*
 - [High Availability Load Balancers with Maglev (Cloudflare)](https://blog.cloudflare.com/high-availability-load-balancers-with-maglev/) -- Google's Maglev consistent hashing for L4 load balancing
+
+  > **Key insights:**
+  > - Maglev scheduler: consistent hashing on 5-tuple (protocol, src IP, src port, dst IP, dst port) → same backend selected by any LB without shared state
+  > - HA via statelessness: routers use BGP + ECMP hashing to distribute across multiple LB instances; all LBs apply identical Maglev hash → traffic always reaches correct backend even after LB failover
+  > - Graceful maintenance: operator withdraws BGP session, traffic transparently shifts to remaining LBs with zero disruption
+  > - Ungraceful failure: BGP keepalive timeout triggers router to terminate session; BFD could reduce delay but incompatible with L2 aggregation/VXLAN
+  > - Direct Server Return (DSR) via Foo-Over-UDP encapsulation: return traffic bypasses LBs entirely — LBs only process inbound
+  > - IPVS configured with Maglev scheduler at kernel level; stateless by design eliminates connection synchronization between LBs
 - [Andromeda: Performance, Isolation, and Velocity at Scale (Google, NSDI'18)](https://www.usenix.org/conference/nsdi18/presentation/dalton) -- Google's production network virtualization stack
 
 ### Serverless & Compute
@@ -207,6 +341,17 @@ Company engineering blogs, postmortems, architecture deep-dives.
 - [R2 SQL: A Deep Dive into Our New Distributed Query Engine (Cloudflare)](https://blog.cloudflare.com/r2-sql-deep-dive/) -- Distributed SQL engine on top of R2 object storage
 
   > **Key insights:**
+  > - Three-layer Iceberg metadata pruning: partition (manifest list) → file (manifest column stats) → row-group (Parquet footer stats) — eliminates data before any read
+  > - Streaming pipeline: planner emits work units as soon as available; executor consumes concurrently — no "plan complete then execute" barrier
+  > - ORDER BY-aware manifest ordering: planner walks files in user's sort order, enabling early termination when top-K heap's threshold exceeds remaining metadata high-water mark
+  > - Row group as primary work unit: 1 multi-GB Parquet file = N parallel partitions, each with own CPU cache locality
+  > - Built on DataFusion (Rust): vectorized execution, filter pushdown, row-group-level parallelization out of the box
+  > - Columnar projection: only referenced columns transferred from R2 → massive reduction in network egress and decompression cost
+  > - Arrow IPC over gRPC for worker→coordinator results; zero-copy on both ends inside the worker
+  > - Serverless: runs on Workers + R2, no provisioned cluster; coordinator selected per query via internal API; Argo Smart Routing handles connectivity
+  > - "Bite-sized pieces" model = power-of-two parallelism that adapts to query selectivity without explicit reshaping
+
+  > **Key insights:**
   > - Two-phase architecture: Query Planner (metadata-driven pruning) + distributed Query Execution across Cloudflare's global network
   > - Serverless: runs on Workers + R2, no provisioned clusters; coordinator-worker model
   > - Multi-layer filtering: partition-level (manifest list), file-level (column stats), row-group-level (Parquet footers)
@@ -216,6 +361,17 @@ Company engineering blogs, postmortems, architecture deep-dives.
   > - Arrow IPC format for inter-process communication between workers and coordinator via gRPC
   > - Columnar Parquet reading: only needed columns read, massively reducing data transfer from R2
 - [R2 SQL Aggregations (Cloudflare)](https://blog.cloudflare.com/r2-sql-aggregations/) -- Adding GROUP BY/SUM to R2's distributed SQL engine
+
+  > **Key insights:**
+  > - Workers emit partial-aggregate states, not raw rows; "multiple pre-aggregates can be merged" enables horizontal scaling
+  > - Scatter-gather works for simple aggregations (no HAVING/ORDER BY): coordinator receives small partial states, bounded memory regardless of input size
+  > - High-cardinality GROUP BY (IPs, user IDs) breaks scatter-gather → triggers hash-based shuffle on GROUP BY columns; deterministic partitioning needs no central coordinator
+  > - Synchronization barrier: workers buffer outbound shuffle data + await coordinator ACK before next stage — guarantees complete dataset per worker after shuffle
+  > - Post-shuffle workers hold full per-group data → apply HAVING + local ORDER BY independently; coordinator only does final k-way merge
+  > - LIMIT pushdown: coordinator merges streams until top-K found, then halts upstream; back-pressures workers to stop early
+  > - Memory boundedness: pushing HAVING and sort down to workers prevents coordinator from becoming bottleneck even at PB scale
+  > - Cardinality is the design dimension: low-card → scatter-gather (cheap), high-card → shuffle (correct); engine picks at plan time from stats
+  > - Pattern reusable in any object-store SQL engine: Iceberg metadata + DataFusion + Arrow IPC shuffle = scalable analytics without long-lived cluster
 - [The Principles of Extreme Fault Tolerance (PlanetScale)](https://planetscale.com/blog/the-principles-of-extreme-fault-tolerance) -- Design principles for highly fault-tolerant database infrastructure
 
   > **Key insights:**
@@ -227,20 +383,69 @@ Company engineering blogs, postmortems, architecture deep-dives.
   > - Critical query path has minimal dependencies; external failures (Docker registry, control plane outages) don't impact active queries
   > - Automated failover handling: instance, zonal, and regional failures trigger failover with query buffering to minimize disruption
 - [PlanetScale Postgres Operations Philosophy](https://planetscale.com/docs/postgres/operations-philosophy) -- Operational design principles for managed Postgres
+
+  > **Key insights:**
+  > - Three-node mandatory minimum (primary + 2 replicas) across AZs; no single-node deployments offered even at lowest tier — fault tolerance baseline non-negotiable
+  > - Synchronous replication via Postgres `synchronous_commit = remote_apply` to at least one replica; commit fence waits for replica apply (not just receive) before client ACK
+  > - 10-second target failover: orchestrator detects primary failure → promotes most-caught-up replica → updates routing → in-flight queries buffered
+  > - Dual connection paths: PgBouncer transaction pooler for high concurrency + direct unpooled for prepared statements / advisory locks / `SET LOCAL`
+  > - No CPU autoscaling: scaling triggers replica swap with larger instance — predictable cost, no thrash, but requires headroom planning
+  > - Vacuum and autovacuum tuning intentionally conservative: prevents wraparound emergencies on long-running multi-TB tenants
+  > - Backups: continuous WAL archiving to S3 + nightly base backups; PITR to any second within retention window
+  > - Philosophical bias: prefer "boring, predictable" operations over "elastic, dynamic" — fewer moving parts = fewer failure modes
 - [Aurora DSQL: Serverless, Scalable, Global OLTP (Marc Brooker, CMU)](https://db.cs.cmu.edu/events/pg-vs-world-aurora-dsql-marc-brooker/) -- Aurora DSQL architecture deep-dive
 
 ### Postmortems
 
 - [Supabase Incident on February 12, 2026](https://supabase.com/blog/supabase-incident-on-february-12-2026) -- Supabase production incident postmortem
+
+  > **Key insights:**
+  > - Root cause: deployment inadvertently enabled AWS VPC Block Public Access in "block-bidirectional" mode regionally — disabled all internet gateways across 20+ subnets in us-east-2
+  > - Total regional outage: all services (DB, Auth, APIs, Edge Functions, Storage, Realtime) down for 3h42m; VPC-peered customers unaffected
+  > - 14-minute detection lag: outage started 21:12 UTC, first alert at 21:26 — blind spot let cascading failures propagate
+  > - Investigation misdirected by elevated Management API errors → team chased AWS provider issue, not network; single CloudTrail `ModifyVpcBlockPublicAccessOptions` line "did not jump out"
+  > - Pre-prod environment lacked us-east-2 → week of test deploys revealed nothing; environment parity gap is the structural fault
+  > - Correlation breakthrough at 3h required matching deployment timestamp (21:12) with outage onset + cross-team infrastructure engagement
+  > - Access control gap: monitoring service deployment had no guardrails preventing account/region-scoped AWS resource modifications
+  > - Comms failures stacked: status page lagged, dashboard banners didn't appear, social channels silent for hours
+  > - Forward fix: non-customer services moved to separate AWS accounts, blocklist for problematic resource types, external connectivity probes, full pre-prod parity across all regions
 - [Post-mortem of Shai-Hulud Attack (PostHog)](https://posthog.com/blog/nov-24-shai-hulud-attack-post-mortem) -- PostHog production attack postmortem
 - [Railway: Diagnosing System Failure with Logs, Metrics, Traces, and Alerts](https://www.infoq.com/news/2026/01/railway-diagnosing-failure/) -- Postmortem-driven approach to observability
 
 ### Language Adoption
 
 - [WhatsApp Deploys Rust-Based Media Parser to Block Malware on 3B Devices](https://www.infoq.com/news/2026/02/whatsapp-rust-media-malware/) -- WhatsApp replacing C/C++ parsers with Rust at massive scale
+
+  > **Key insights:**
+  > - ~160K LOC of C++ media-parsing code replaced by ~90K LOC of Rust (~44% reduction); deployed to all 3B devices via WhatsApp client
+  > - "Kaleidoscope" = Rust-based malware/threat-detection engine running alongside parser; flags malicious media before decode reaches OS codecs
+  > - Memory-safety class of bugs (use-after-free, OOB read, double-free in image/video parsing) — historically the dominant exploit surface in messengers — eliminated by Rust ownership model at compile time
+  > - Binary-size overhead measured at ~200 KB on Android — explicitly judged acceptable for the safety guarantee; APK budget engineering required to stay within tolerance
+  > - Cross-platform: same Rust crate compiled for Android (NDK), iOS, Windows, macOS — reduces parser-divergence bugs across client platforms
+  > - Differential fuzzing harness ran Rust + C++ parsers on same inputs to validate bitwise-identical output before cutover
+  > - Pattern: pick the high-blast-radius security-critical layer (media parsing) as first Rust beachhead in a giant C++ codebase, not greenfield modules
+  > - Confirms Microsoft/Google trend: 70% of CVEs are memory-safety; Rust-at-parser-boundary is the highest-leverage mitigation
 - [Ladybird Adopts Rust](https://ladybird.org/posts/adopting-rust/) -- Ladybird browser project's strategy for incremental Rust adoption
+
+  > **Key insights:**
+  > - Phased coexistence, not rewrite: Rust modules live behind well-defined C++ interop boundaries; C++ stays primary language
+  > - LibJS chosen as first target: lexer + parser + AST + bytecode generator — self-contained, huge test coverage (test262), low coupling
+  > - Byte-for-byte compatibility required: 52,898 test262 + 12,461 Ladybird regression tests must produce identical output, zero perf regression
+  > - Translated Rust deliberately non-idiomatic: preserves C++ register-allocation patterns so both compilers emit identical bytecode opcodes
+  > - AI-assisted (Claude Code, Codex) but human-steered: "hundreds of small prompts" + adversarial review, not autonomous generation
+  > - 25,000 lines ported in ~2 weeks vs estimated months — productivity gain comes from AI as smart translator + human as architect/reviewer
+  > - Core team gatekeeps porting: contributors must coordinate before starting to prevent duplicate work and divergent design choices
+  > - Avoids the "rewrite trap": each ported module proves itself via test parity before next is started; never a half-Rust/half-C++ broken state
+  > - Pattern matches WhatsApp's Rust strategy: target security/perf-critical, self-contained modules first; don't try to convert the world
 - [Banned C++ in Chromium](https://medium.com/@build_break_learn/modern-c-is-a-lie-chromium-treats-half-the-standard-library-as-a-bug-42a9aa60a427) -- Why Chromium bans large portions of the C++ standard library
 - [We Trusted Rust With the 3 Components That Could Not Fail](https://medium.com/@Krishnajlathi/we-trusted-rust-with-the-3-components-that-could-not-fail-ad1554f41dda) -- Production Rust for mission-critical components
+
+  > **Key insights:**
+  > - Three components chosen for Rust: **parsing**, **routing**, **boundary** — selected not for language preference but because these were the parts "we could not afford to be wrong about"
+  > - Under +38% request surge: other components saw CPU plateau and P99 jump from 210ms → 4.8s; Rust components maintained identical latency, unchanged memory, 0.00% error rate
+  > - Key failure modes avoided: queue growth, allocator fragmentation, synchronized retry storms — all emerged in non-Rust components under pressure
+  > - Core insight: "Correct" architecturally ≠ "safe" under stress; Rust's compile-time guarantees caught failure modes that testing couldn't
+  > - Written alongside C++ differential fuzzing for parity validation before transition
 - [Apache Iggy's Migration to Thread-per-Core Architecture Powered by io_uring](https://iggy.apache.org/blogs/2026/02/27/thread-per-core-io_uring/) -- Thread-per-core + io_uring migration for high-throughput messaging
 
   > **Key insights:**
@@ -266,6 +471,17 @@ Algorithms, performance, OS internals, networking, compilers.
 - [Optimizing C++ (Agner Fog)](https://www.agner.org/optimize/optimizing_cpp.pdf) -- Comprehensive C++ performance optimization guide
 - [Abseil Performance Hints](https://abseil.io/fast/hints.html) -- Google's Abseil library tips for high-performance C++
 - [Optimizations Past Their Prime (Abseil)](https://abseil.io/fast/9) -- Which classic optimizations no longer help on modern hardware
+
+  > **Key insights:**
+  > - Runtime CPU feature dispatch is wasteful once an ISA extension is universal: checking for `popcnt` on every modern x86_64 burns cycles for an always-yes answer
+  > - Inline asm blocks compiler optimization: hand-written `popcnt` asm prevented LLVM from fixing a known false-dependency bug — the "fast" path stayed slow
+  > - `__builtin_popcount` overtook hand-tuned asm once compilers emit `popcnt` directly + constant-fold + inline aggressively
+  > - Redundant null checks (`CHECK_EQ` re-checking `str_ != nullptr`) can't be eliminated by optimizer once the abstraction stack hides the invariant
+  > - Wrapping `std::string*` in `CheckOpString` hid pointer relationships → optimizer lost the ability to reason about control flow
+  > - Debug builds sometimes outperformed release: layers of dead optimization had become counterproductive overhead
+  > - Idiomatic code ages better than clever code: clear portable C++ stays optimizer-friendly as hardware evolves; intrinsics rot
+  > - General rule: an optimization "valuable in 2010" deserves re-benchmarking; the cost-benefit can flip silently as compilers + CPUs improve
+  > - Counter-intuitive corollary: removing old optimizations is itself an optimization worth doing
 - [How Michael Abrash Doubled Quake Framerate](https://fabiensanglard.net/quake_asm_optimizations/index.html) -- Classic assembly-level optimization from Quake development
 - [I/O Is No Longer the Bottleneck](https://stoppels.ch/2022/11/27/io-is-no-longer-the-bottleneck.html) -- How NVMe SSDs shifted the bottleneck from I/O to CPU
 
@@ -284,6 +500,17 @@ Algorithms, performance, OS internals, networking, compilers.
 - [Perf Ninja: Low-Level Performance Analysis Course](https://github.com/dendibakh/perf-ninja) -- Hands-on CPU microarchitecture performance tuning course
 - [Inside High-Frequency Trading Systems: The Race to Zero Latency](https://levelup.gitconnected.com/inside-high-frequency-trading-systems-the-race-to-zero-latency-faa638d0c180) -- Architecture and latency optimization patterns in HFT
 - [I Made Zig Compute 33 Million Satellite Positions in 3 Seconds](https://atempleton.bearblog.dev/i-made-zig-compute-33-million-satellite-positions-in-3-seconds-no-gpu-required/) -- SIMD and cache-friendly optimization in Zig
+
+  > **Key insights:**
+  > - Zig's `@Vector(4, f64)` SIMD primitive is portable: LLVM backend picks AVX/NEON/etc. — no per-arch intrinsics in user code
+  > - Branchless hot path uses `@select` masked-selection: compute both branches, pick per-lane — avoids branch-mispredict cost in tight propagation loop
+  > - `comptime` precomputation bakes gravity/polynomial constants into the binary; no runtime init — gave scalar baseline 5.2M propagations/sec start
+  > - Cache-tiling at 64 time-points per satellite batch keeps time data hot in L1/L2 across 13,000 sats; opposite of naïve sat-major iteration
+  > - SoA layout: `ElementsV4` holds each orbital element as its own `@Vector(4, f64)` — "pre-splatting" eliminates broadcast ops inside hot loop
+  > - Custom polynomial atan2 (LLVM has no vectorized atan2): ~1e-7 rad accuracy = ~10mm at LEO, well below SGP4's km-scale error budget
+  > - Final perf: 11-13M propagations/sec native SIMD (2× scalar), 7M/sec via Python bindings, full 13,000-sat catalog in 3.3 s
+  > - Lesson: algorithmic parallelism (lane organization, cache tiling, SoA) dominates raw hardware — same chip, 2× from layout alone
+  > - Zig as systems language: comptime + native SIMD + no FFI overhead makes it competitive with hand-written C/Rust for numerics
 
 ### Concurrency & Parallelism
 
@@ -308,6 +535,16 @@ Algorithms, performance, OS internals, networking, compilers.
 - [Cache and TLB Flushing Under Linux](https://docs.kernel.org/core-api/cachetlb.html) -- Cache/TLB coherence APIs
 - [Memory Allocation Guide (Linux Kernel)](https://docs.kernel.org/core-api/memory-allocation.html) -- Slab allocator, kmalloc, vmalloc, GFP flags
 - [Announcing systing 1.0](https://josefbacik.github.io/kernel/systing/debugging/2026/02/23/systing-1.0.html) -- New Linux kernel tracing/debugging tool
+
+  > **Key insights:**
+  > - eBPF-based system tracer by Josef Bacik (btrfs maintainer); output writes directly to DuckDB Parquet for SQL post-analysis instead of bespoke trace formats
+  > - Timeline view: per-task scheduling state (running/runnable/blocked) overlaid with stack traces at sched_switch + sched_wakeup events
+  > - Stuck on networking issue → systing identified syscall-level blocker via kretprobe timing → cut 12 s tail latency to 2 s after fix
+  > - MCP integration: Claude (or any LLM client) can query the DuckDB trace via SQL, ask "which threads were blocked longest and on what" — natural-language perf forensics
+  > - Kretprobe-based regression detection: compares per-function latency distributions across runs; flags 99th-percentile shifts that average masks
+  > - Designed to replace ad-hoc combinations of perf + bpftrace + flamegraph + custom scripts for everyday kernel-side debugging
+  > - DuckDB choice deliberate: columnar Parquet trace files are durable, shareable, and analyzable offline without re-running workload
+  > - Positions DuckDB-backed traces as a general pattern for systems observability — same idea seen in eBPF profiler ecosystems
 - [AI Helped Uncover a 50-80x Improvement for Linux io_uring](https://www.phoronix.com/news/AI-50-80x-IO-uring) -- Major io_uring performance improvement
 - [All My Favorite Tracing Tools: eBPF, QEMU, Perfetto](https://thume.ca/2023/12/02/tracing-methods/) -- Survey of tracing/profiling tools for systems performance
 - [eBPF on Hard Mode](https://feyor.sh/blog/ebpf-on-hard-mode/) -- Advanced eBPF usage patterns and pitfalls
@@ -455,7 +692,29 @@ Databases, storage engines, file formats, replication, caching.
 - [PostgreSQL High-Availability Architectures](https://www.cybertec-postgresql.com/en/postgresql-high-availability-architectures/) -- Streaming replication, Patroni, PgBouncer patterns
 - [PostgreSQL Performance: Latency in Cloud and On Premise](https://www.cybertec-postgresql.com/en/postgresql-performance-latency-in-the-cloud-and-on-premise/) -- Benchmarking latency across deployment environments
 - [Unlocking High-Performance PostgreSQL: Key Memory Optimizations](https://stormatics.tech/blogs/unlocking-high-performance-postgresql-key-memory-optimizations) -- shared_buffers, work_mem, OS page cache tuning
+
+  > **Key insights:**
+  > - PG never reads directly from disk to client: data page → shared_buffers → caller; the buffer cache is the central perf knob
+  > - Default `shared_buffers = 128MB` is inadequate; production dedicated boxes want 20-25% of RAM, ceiling ~40% before OS page-cache competition hurts
+  > - `work_mem` is per-operation not per-session: 5 parallel workers × work_mem = 5× allocation; the dominant OOM trigger when tuned naively
+  > - `pg_stat_database` cache-hit-ratio + `EXPLAIN (ANALYZE, BUFFERS)` together pinpoint which queries spill — measure before tuning
+  > - Small system (< 64 GB) work_mem formula: ≈ 0.25% of RAM (~3 MB / GB) — aggressive enough to suppress sort spills
+  > - Large system (≥ 64 GB) safer formula: `max(162MB, 0.125% RAM + 80MB)` — prevents exponential growth under parallelism
+  > - `shared_buffers` requires restart; `work_mem` can be set per session/role/transaction — fine-grained tuning without downtime
+  > - Over-sizing `shared_buffers` competes with OS page cache and increases dirty-page flush volume per checkpoint — write spikes
+  > - Tuning order: measure cache hit ratio → fix shared_buffers → measure per-query spills → tune work_mem at session/role level, never globally aggressive
 - [Importance of Tuning Checkpoint in PostgreSQL](https://www.percona.com/blog/importance-of-tuning-checkpoint-in-postgresql/) -- Checkpoint tuning for write-heavy workloads
+
+  > **Key insights:**
+  > - Checkpoints guarantee heap + index files reflect all writes before that LSN — establish the REDO recovery point
+  > - Full-page images (FPI) on first modification after checkpoint create predictable I/O spike — protects against torn pages but hurts steady-state perf
+  > - Benchmark: 5-min → 60-min `checkpoint_timeout` cut WAL volume from 12 GB → 2 GB (6×) and FPI writes from 1.47M → 161K (9×)
+  > - Production rule: `checkpoint_timeout` ≥ 30 min; default 5 min is far too aggressive for write-heavy workloads
+  > - `max_wal_size` too small undoes timeout setting — triggers WAL-volume-driven checkpoints early, restoring the FPI cascade
+  > - `checkpoint_completion_target = 0.9` spreads dirty-page writes across 90% of interval — eliminates synchronous I/O cliff at boundary
+  > - Recovery-speed misconception: PG replays WAL at ≥64 MB/s; even hour-long checkpoints recover in minutes, not hours — long intervals are safe
+  > - Bgwriter complements checkpointer: continuously trickles dirty pages so checkpoints have less to flush
+  > - Trade-off: longer intervals = more WAL retained for recovery + larger replay window vs much lower steady-state write amplification
 - [Upgrading 200GB Postgres Within 10 Minutes in Heroku](https://rosenfeld.page/articles/2025_11_16_upgrading_200_gb_postgres_within_10_minutes_in_heroku) -- Fast major-version PostgreSQL upgrades
 - [Mastering Logical Replication in PostgreSQL](https://boringsql.com/guides/mastering-logical-replication/) -- Comprehensive logical replication guide
 - [Listen to Database Changes through the Postgres WAL](https://peterullrich.com/listen-to-database-changes-through-the-postgres-wal) -- WAL-based change data capture
@@ -566,6 +825,17 @@ Databases, storage engines, file formats, replication, caching.
 
 - [ScyllaDB Ring Architecture](https://opensource.docs.scylladb.com/stable/architecture/ringarchitecture/index.html) -- Consistent hashing ring, token ranges, data distribution
 - [LeasGuard: Raft Leases Done Right](https://muratbuffalo.blogspot.com/2025/12/leaseguard-raft-leases-done-right.html) -- Correctness analysis of Raft lease-based reads
+
+  > **Key insights:**
+  > - Core idea: "the log is the lease" — committing a log entry implicitly grants/extends a lease until timeout; no separate lease-management messages
+  > - Lame-duck failure mode of prior schemes: a leader that can't append entries can still send lease-extend pings, deadlocking writes; LeasGuard fixes by tying lease to write progress
+  > - Decouples elections from leases: followers no longer refuse election votes based on stale leader's lease — faster recovery after crash
+  > - Leverages Raft's Leader Completeness property: a newly elected leader's own log tells it when the predecessor's lease expired; minimal clock-sync requirement
+  > - Deferred-commit optimization: new leader accepts and replicates writes immediately, but defers committing until prior lease expires — eliminates write-queueing pause during transition
+  > - Inherited lease reads: both old and new leaders can serve consistent reads during transition by checking whether query results depend on "limbo" entries
+  > - Local timer with bounded drift suffices for most ops; only inherited-lease reads require synchronized clocks with known error bound
+  > - TLA+ specification verified Read-Your-Writes; the inherited-lease optimization itself emerged from the formal model
+  > - Pattern: making the safety invariant (write progress) drive the liveness mechanism (lease) eliminates an entire class of split-brain bugs
 - [pg_crdt: CRDTs in PostgreSQL (Supabase)](https://github.com/supabase/pg_crdt/blob/master/docs/automerge.md) -- Automerge-based CRDT extension for PostgreSQL
 - [Gossip, Paxos, Microservices in Go, and CRDTs at SoundCloud](https://www.infoq.com/podcasts/bourgon-paxos-go-crdts/) -- Distributed systems primitives in production
 - [Why Isn't "majority" the Default Read Concern in MongoDB?](https://dev.to/franckpachot/why-isnt-majority-the-default-read-concern-in-mongodb-2782/) -- MongoDB read concern tradeoffs and consistency
@@ -600,7 +870,29 @@ Databases, storage engines, file formats, replication, caching.
 
 - [Readings in Database Systems, 5th Edition (Red Book)](http://www.redbook.io/) -- Bailis, Hellerstein, Stonebraker's curated database readings
 - [Databases in 2025: A Year in Review (Andy Pavlo)](https://www.cs.cmu.edu/~pavlo/blog/2026/01/2025-databases-retrospective.html) -- Annual database industry trends
+
+  > **Key insights:**
+  > - PostgreSQL is now infrastructure, not differentiator: Databricks bought Neon ($1B), Snowflake bought CrunchyData ($250M), Microsoft launched HorizonDB — every cloud vendor sells managed PG
+  > - Three serious distributed-PG efforts launched in 2025: Multigres (Vitess co-creator Sugu), Neki (PlanetScale), PgDog — first credible attack on PG horizontal-scaling gap since Citus/PG-XL
+  > - Model Context Protocol became universal DB feature: every major DBMS shipped MCP support so LLMs can query without custom glue; security model still immature
+  > - Vector DB hype cycle peaked and declined: VC dollars rotated to LLM companies; vector search reverted to "feature inside Postgres/Mongo" rather than standalone product category
+  > - Five new columnar formats launched (Vortex, F3, FastLanes, Amudai, AnyBlox) but interop is broken: 94% of existing Parquet files use only 2013-era v1 features — legacy compat dominates innovation
+  > - MongoDB sued FerretDB over patent + trademark infringement of "drop-in replacement" claim — first major DB API litigation since Oracle/Java
+  > - Massive M&A: DataStax → IBM ($3B), Confluent → IBM (~$11B), Informatica → Salesforce ($8B), Fivetran + dbt merger
+  > - Notable deaths: Fauna, PostgresML, Hydra, Voltron Data ($110M funded) — GPU-accelerated DBs keep failing commercially despite repeated attempts
+  > - Pattern: commodity CPU + great optimizer beats specialized hardware; market consolidates around PG as the lingua franca
 - [Are Database Researchers Making Correct Assumptions? (Murat Demirbas)](https://muratbuffalo.blogspot.com/2026/01/are-database-system-researchers-making.html) -- Questioning OLTP benchmarking assumptions
+
+  > **Key insights:**
+  > - Interactive transactions are rarer than literature assumes: 39% of apps have none; in apps that do, only 9.6% of workload involves interactivity — validates deterministic-DB assumption
+  > - Strictly interactive (require mid-flight external input/side effect) is 0.5% — deterministic systems' expressivity loss touches almost nothing real
+  > - Read/write-set inferability holds for 90% of apps: ≥58% of transactions have statically determinable sets — supports deterministic locking premise
+  > - The 27% of transactions querying by secondary attribute (not PK) blocks static lock prediction; mostly simple single-statement cases though
+  > - Corpus bias: study covers Django + TypeORM ORMs only — heavily skewed toward web apps, excludes most enterprise systems (SAP, Oracle EBS, etc.)
+  > - DBA/analyst terminal transactions ignored: ad-hoc human-initiated queries are operationally critical but absent from any ORM corpus
+  > - "Convertible to one-shot with minimal code change" claim lacks empirical engineering-cost validation
+  > - Title overpromises: paper is really about deterministic DB research's narrow niche; classic MVCC/2PL systems never depended on these assumptions
+  > - Pattern for the reader: benchmark realism matters more than benchmark count — every workload study inherits the bias of its corpus
 - [Cloudspecs: Cloud Hardware Evolution](https://muratbuffalo.blogspot.com/2026/01/cloudspecs-cloud-hardware-evolution.html) -- How cloud hardware evolution impacts database design
 - [The Fastest Database You've Never Heard Of](https://www.amplifypartners.com/blog-posts/the-fastest-database-youve-never-heard-of) -- High-performance database architecture profile
 - [SIGMOD 2026 Accepted Papers](https://2026.sigmod.org/sigmod_papers.shtml) -- Full SIGMOD 2026 paper list
