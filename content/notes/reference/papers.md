@@ -19,19 +19,25 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 | Abadi, Madden, Hachem, "The Design and Implementation of Modern Column-Oriented Database Systems" | Foundations and Trends in Databases, 2013 | [Arrow Format](@/notes/database/arrow_format.md), [Arrow PG Integration](@/notes/database/arrow_postgresql_integration.md) |
 | Abadi, Madden, Hachem, "Column-Stores vs. Row-Stores: How Different Are They Really?" | SIGMOD 2008 | [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
 | Athanassoulis, Kester et al., "Designing Access Methods: The RUM Conjecture" | EDBT 2016 | [WAL & Torn Pages](@/notes/database/wal_torn_pages.md) |
+| Begoli, Camacho-Rodríguez, Hyde, Mior, Lemire, "Apache Calcite: A Foundational Framework for Optimized Query Processing Over Heterogeneous Data Sources" | SIGMOD 2018 | [Calcite Internals](@/notes/database/calcite_internals.md) |
+| Boncz, Zukowski, Nes, "MonetDB/X100: Hyper-Pipelining Query Execution" | CIDR 2005 | [Arrow PG Integration](@/notes/database/arrow_postgresql_integration.md), [DuckDB Internals](@/notes/database/duckdb_internals.md), [Velox Internals](@/notes/database/velox_internals.md) |
 | Berenson et al., "A Critique of ANSI SQL Isolation Levels" | SIGMOD 1995 | [MongoDB & WiredTiger](@/notes/database/mongodb_wiredtiger_internals.md) |
 | Bottcher, Leis, Neumann, Kemper, "Scalable Garbage Collection for In-Memory MVCC Systems" | VLDB 2019 | [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md) |
 | Budiu et al., "DBSP" (Database Stream Processor framework) | VLDB 2023 | [Database Systems](@/notes/database/database_systems.md) |
 | Cahill et al., Serializable Snapshot Isolation | 2008 | [Database Systems](@/notes/database/database_systems.md) |
 | Diaconu et al., "Hekaton: SQL Server's Memory-Optimized OLTP Engine" | SIGMOD 2013 | [WAL & Torn Pages](@/notes/database/wal_torn_pages.md) |
 | Freitag, Kemper, Neumann, "Memory-Optimized Multi-Version Concurrency Control for Disk-Based Database Systems" | VLDB 2022 | [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md) |
+| Goldstein, Larson, "Optimizing Queries Using Materialized Views: A Practical, Scalable Solution" | SIGMOD 2001 | [Calcite Internals](@/notes/database/calcite_internals.md) |
+| Graefe, "The Cascades Framework for Query Optimization" | IEEE Data Eng. Bull., 1995 | [Calcite Internals](@/notes/database/calcite_internals.md), [CockroachDB Optimizer Rules](@/notes/database/cockroachdb_optimizer_rules.md) |
+| Graefe, McKenna, "The Volcano Optimizer Generator: Extensibility and Efficient Search" | ICDE 1993 | [Calcite Internals](@/notes/database/calcite_internals.md) |
 | Graefe, "Modern B-Tree Techniques" | Foundations and Trends in Databases, 2011 | [MongoDB & WiredTiger](@/notes/database/mongodb_wiredtiger_internals.md), [Data Structures](@/notes/programming/data_structures.md) |
 | Graefe, "Query Evaluation Techniques for Large Databases" | ACM Computing Surveys, 1993 | [Join Algorithms](@/notes/database/join_algorithms.md) |
+| Harinarayan, Rajaraman, Ullman, "Implementing Data Cubes Efficiently" | SIGMOD 1996 | [Calcite Internals](@/notes/database/calcite_internals.md) |
 | Gray, Putzolu, "The Five-Minute Rule for Trading Memory for Disc Accesses" | SIGMOD 1987 | [WAL & Torn Pages](@/notes/database/wal_torn_pages.md) |
 | Gray, Reuter, "Transaction Processing: Concepts and Techniques" | Morgan Kaufmann, 1993 | [WAL & Torn Pages](@/notes/database/wal_torn_pages.md) |
 | Hellerstein, Stonebraker, Hamilton, "Architecture of a Database System" | Foundations and Trends in Databases, 2007 | [WAL & Torn Pages](@/notes/database/wal_torn_pages.md) |
 | Kersten, Leis, Neumann, "Tidy Tuples and Flying Start: Fast Compilation and Fast Execution of Relational Queries in Umbra" | VLDB Journal 2021 | [Database Systems](@/notes/database/database_systems.md), [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md) |
-| Kersten, Leis, Kemper, Neumann, Pavlo, Boncz, "Everything You Always Wanted to Know About Compiled and Vectorized Queries But Were Afraid to Ask" | VLDB 2018 | [Arrow PG Integration](@/notes/database/arrow_postgresql_integration.md), [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md), [Join Algorithms](@/notes/database/join_algorithms.md), [ISA Critical Instructions](@/notes/hardware/isa_critical_instructions.md) |
+| Kersten, Leis, Kemper, Neumann, Pavlo, Boncz, "Everything You Always Wanted to Know About Compiled and Vectorized Queries But Were Afraid to Ask" | VLDB 2018 | [Arrow PG Integration](@/notes/database/arrow_postgresql_integration.md), [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md), [Join Algorithms](@/notes/database/join_algorithms.md), [ISA Critical Instructions](@/notes/hardware/isa_critical_instructions.md), [Velox Internals](@/notes/database/velox_internals.md) |
 | Leis, Kemper, Neumann, "The Adaptive Radix Tree: ARTful Indexing for Main-Memory Databases" | ICDE 2013 | [Database Systems](@/notes/database/database_systems.md), [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md), [Data Structures](@/notes/programming/data_structures.md) |
 | Leis, Gubichev, Mirber, Olteanu, Kemper, Neumann, "How Good Are Query Optimizers, Really?" | VLDB 2015 | [Join Algorithms](@/notes/database/join_algorithms.md), [Database Statistics](@/notes/database/database_statistics.md), [DuckDB Internals](@/notes/database/duckdb_internals.md) |
 | Mohan, Haderle, Lindsay, Pirahesh, Schwarz, "ARIES: A Transaction Recovery Method Supporting Fine-Granularity Locking" | ACM TODS, 1992 | [WAL & Torn Pages](@/notes/database/wal_torn_pages.md) |
@@ -67,7 +73,8 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 | Kim, Sedlar, Chhugani et al., "Sort vs. Hash Revisited: Fast Join Implementation on Modern Multi-Core CPUs" | VLDB 2009 | [Join Algorithms](@/notes/database/join_algorithms.md) |
 | Kitsuregawa, Tanaka, Moto-oka, "Application of Hash to Database Machine and Its Architecture" (Grace hash join) | New Generation Computing, 1983 | [Join Algorithms](@/notes/database/join_algorithms.md) |
 | Kuiper, Gross, Boncz, Muhleisen, "Saving Private Hash Join" | VLDB 2025 | [Join Algorithms](@/notes/database/join_algorithms.md) |
-| Leis, Boncz, Kemper, Neumann, "Morsel-Driven Parallelism: A NUMA-Aware Query Evaluation Framework" | SIGMOD 2014 | [Database Systems](@/notes/database/database_systems.md), [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md), [Join Algorithms](@/notes/database/join_algorithms.md), [DuckDB Internals](@/notes/database/duckdb_internals.md) |
+| Leis, Boncz, Kemper, Neumann, "Morsel-Driven Parallelism: A NUMA-Aware Query Evaluation Framework" | SIGMOD 2014 | [Database Systems](@/notes/database/database_systems.md), [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md), [Join Algorithms](@/notes/database/join_algorithms.md), [DuckDB Internals](@/notes/database/duckdb_internals.md), [Velox Internals](@/notes/database/velox_internals.md) |
+| Pedreira, Erling, Basmanova, Wilfong, Sakka, Pai, He, Chattopadhyay, "Velox: Meta's Unified Execution Engine" | PVLDB 2022 | [Velox Internals](@/notes/database/velox_internals.md) |
 | Manegold, Boncz, Kersten, "Optimizing Main-Memory Join on Modern Hardware" | TKDE 2002 | [Join Algorithms](@/notes/database/join_algorithms.md) |
 | Moerkotte, Neumann, "Analysis of Two Existing and One New Dynamic Programming Algorithm" (DPccp) | VLDB 2006 | [Join Algorithms](@/notes/database/join_algorithms.md) |
 | Moerkotte, Neumann, "Dynamic Programming Strikes Back" (DPhyp) | SIGMOD 2008 | [Join Algorithms](@/notes/database/join_algorithms.md), [DuckDB Internals](@/notes/database/duckdb_internals.md) |
@@ -524,4 +531,4 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 
 ---
 
-*Last updated: 2026-05-26*
+*Last updated: 2026-05-30*
