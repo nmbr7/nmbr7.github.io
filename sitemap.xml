@@ -42,6 +42,9 @@
         <loc>https://nmbr7.github.io/notes/database/cache-algorithms/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/notes/database/calcite-internals/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/notes/database/clickhouse-internals/</loc>
         <lastmod>2026-05-29</lastmod>
     </url>
@@ -96,6 +99,9 @@
     <url>
         <loc>https://nmbr7.github.io/notes/database/text-and-vector-search/</loc>
         <lastmod>2026-05-20</lastmod>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/notes/database/velox-internals/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/notes/database/wal-incremental-conversion/</loc>
@@ -252,6 +258,9 @@
         <loc>https://nmbr7.github.io/tags/ann/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/apache/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/arc/</loc>
     </url>
     <url>
@@ -312,7 +321,13 @@
         <loc>https://nmbr7.github.io/tags/cache/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/calcite/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/cardinality-estimation/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/cascades/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/case-studies/</loc>
@@ -370,6 +385,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/cow/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/cpp/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/cpu/</loc>
@@ -480,6 +498,9 @@
         <loc>https://nmbr7.github.io/tags/glossary/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/gluten/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/gpu/</loc>
     </url>
     <url>
@@ -526,6 +547,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/ir/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/java/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/jit/</loc>
@@ -604,6 +628,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/message-broker/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/meta/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/microarchitecture/</loc>
@@ -714,16 +741,25 @@
         <loc>https://nmbr7.github.io/tags/prefetch/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/prestissimo/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/pwm/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/query-compilation/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/query-engine/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/query-optimization/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/query-optimizer/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/query-planning/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/quorum-queues/</loc>
@@ -876,6 +912,9 @@
         <loc>https://nmbr7.github.io/tags/vectorized/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/velox/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/version-control/</loc>
     </url>
     <url>
@@ -898,6 +937,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/vmx/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/volcano/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/wal/</loc>

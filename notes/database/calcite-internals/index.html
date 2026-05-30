@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<div class="note-layout">
+  <article class="note-page">
+    <h1 class="r-header">Calcite Internals</h1>
+    <h1 id="apache-calcite-query-planning-and-optimization-framework">Apache Calcite: Query Planning and Optimization Framework</h1>
+<p><strong>Key paper:</strong> Begoli, E., Camacho-Rodríguez, J., Hyde, J., Mior, M., Lemire, D. "Apache Calcite: A Foundational Framework for Optimized Query Processing Over Heterogeneous Data Sources." SIGMOD 2018. doi:10.1145/3183713.3190662.</p>
+<p>Apache Calcite is a Java query planning framework: SQL parser → AST → logical plan → physical plan, pluggable into any execution backend. Not an execution engine — it produces a <code>RelNode</code> tree that the backend executes. Used by Flink, Hive, Druid, Kylin, Storm, Samza, Calcite-Avatica (JDBC), Phoenix (HBase SQL), and many others.</p>
+<hr />
+<h2 id="architecture-pipeline">Architecture Pipeline</h2>
+<pre><code>SQL string
+    │
+    ▼ SqlParser (JavaCC/Fmpp grammar)
+SqlNode AST  (SqlCall, SqlIdentifier, SqlLiteral, ...)
+    │
+    ▼ SqlValidator (scope analysis, type inference, name resolution)
+Validated SqlNode
+    │
+    ▼ SqlToRelConverter
+RelNode tree (logical, Convention.NONE)
+    │
+    ├── HepPlanner (normalization rules: filter pushdown, project merge, decorrelation)
+    │
+    ▼ VolcanoPlanner (cost-based: join ordering, physical convention selection)
+Physical RelNode tree (Convention.ENUMERABLE or adapter-specific)
+    │
+    ▼ Backend executes (or EnumerableRel.implement() → Linq4j/Janino Java code)
+</code></pre>
+<hr />
+<h2 id="sql-parser">SQL Parser</h2>
+<h3 id="javacc-grammar-core-src-main-codegen-templates-parser-jj-generated-via-fmpp">JavaCC Grammar (core/src/main/codegen/templates/Parser.jj, generated via Fmpp)</h3>
+<p>The grammar is a Freemarker template (<code>Parser.jj.ftl</code>) processed by Fmpp into a JavaCC grammar file. JavaCC generates a recursive-descent parser from the grammar; no separate lexer/parser split — JavaCC interleaves token and grammar rules.</p>
+<p><strong>Extension mechanism:</strong> <code>config.fmpp</code> lets adapters inject additional tokens, keywords, and grammar productions into designated extension points (<code>SqlCreateFoo</code>, <code>SqlShowFoo</code>). Calcite uses this for <code>CREATE TABLE</code>, <code>CREATE VIEW</code>, <code>EXPLAIN</code>, <code>ALTER</code>, etc. Third-party dialects (Flink, Phoenix) extend the grammar this way, adding their syntax without forking the base grammar.</p>
+<h3 id="sqlnode-ast-hierarchy-org-apache-calcite-sql">SqlNode AST Hierarchy (org.apache.calcite.sql)</h3>
+<pre><code>SqlNode
+├── SqlCall               — any SQL construct with operands (select, join, function call, ...)
+│   ├── SqlSelect         — SELECT: selectList, from, where, groupBy, having, orderBy, fetch, offset
+│   ├── SqlJoin           — JOIN: left, right, joinType, conditionType, condition
+│   ├── SqlBasicCall      — generic n-ary call: operator (SqlOperator) + operands[]
+│   ├── SqlOrderBy        — wraps a query with ORDER BY + LIMIT
+│   └── ... (SqlInsert, SqlUpdate, SqlDelete, SqlCreateTable, ...)
+├── SqlIdentifier         — qualified name (parts[]: String[]; dot-separated)
+├── SqlLiteral            — typed literal: value + SqlTypeName
+├── SqlNodeList           — list of SqlNodes (e.g. SELECT list, GROUP BY list)
+├── SqlDataTypeSpec       — inline type reference (for CAST etc.)
+├── SqlIntervalQualifier  — INTERVAL unit (YEAR, MONTH, DAY, ...)
+└── SqlDynamicParam       — ? placeholder (index: int)
+</code></pre>
+<p><strong>SqlOperator</strong> is the operator attached to <code>SqlBasicCall</code>: <code>SqlBinaryOperator</code> (<code>+</code>, <code>-</code>, <code>AND</code>, <code>OR</code>, <code>=</code>), <code>SqlPrefixOperator</code> (<code>NOT</code>, unary <code>-</code>), <code>SqlFunction</code> (scalar functions), <code>SqlAggFunction</code> (<code>SUM</code>, <code>COUNT</code>, <code>MAX</code>), <code>SqlSpecialOperator</code> (<code>CASE</code>, <code>CAST</code>, <code>IN</code>). Each has <code>SqlSyntax</code> (BINARY, PREFIX, POSTFIX, FUNCTION, SPECIAL, FUNCTION_STAR) and <code>SqlKind</code> (AND, OR, EQUALS, LIKE, CASE, etc.).</p>
+<h3 id="sqlvalidator-org-apache-calcite-sql-validate-sqlvalidatorimpl">SqlValidator (org.apache.calcite.sql.validate.SqlValidatorImpl)</h3>
+<p>Pass over the AST that resolves names, infers types, validates semantics:</p>
+<ol>
+<li><strong>Scope analysis</strong>: builds nested <code>SqlValidatorScope</code> objects (SelectScope, JoinScope, AggregatingScope, etc.) mapping identifier names to <code>SqlValidatorNamespace</code> (the relational source: table, alias, subquery).</li>
+<li><strong>Name resolution</strong>: <code>SqlIdentifier</code> resolved against scope chain via <code>SqlValidatorScope.resolve()</code>.</li>
+<li><strong>Type inference</strong>: bottom-up; each <code>SqlNode.validate()</code> call propagates types upward. <code>SqlTypeFactory</code> (usually <code>JavaTypeFactoryImpl</code>) creates <code>RelDataType</code> instances.</li>
+<li><strong>Implicit casting</strong>: type coercion rules (<code>SqlTypeCoercionRule</code>) insert <code>CAST</code> nodes into the AST for implicit promotions (e.g., <code>INT + DOUBLE → DOUBLE</code>).</li>
+<li><strong>Aggregate validation</strong>: <code>AggregatingScope</code> checks that non-aggregated columns appear in GROUP BY.</li>
+<li><strong>Output</strong>: <code>SqlNode</code> tree with inferred <code>RelDataType</code> attached (accessible via <code>SqlValidator.getValidatedNodeType(node)</code>).</li>
+</ol>
+<hr />
+<h2 id="relnode-tree">RelNode Tree</h2>
+<h3 id="relnode-base-org-apache-calcite-rel-relnode">RelNode Base (org.apache.calcite.rel.RelNode)</h3>
+<pre><code data-lang="java">interface RelNode extends RelOptNode, Cloneable {
+  RelDataType    getRowType();          // output row type
+  RelTraitSet    getTraitSet();         // set of traits (convention, collation, distribution)
+  List&lt;RelNode&gt;  getInputs();           // child relations
+  RelNode        copy(RelTraitSet, List&lt;RelNode&gt;); // deep copy with new traits+inputs
+  RelOptCost     computeSelfCost(RelOptPlanner, RelMetadataQuery);
+  String         getDigest();           // canonical string for deduplication
+  RelNode        accept(RelShuttle);    // visitor
+  &lt;T&gt; T          accept(RexShuttle);   // expression visitor (rewrites RexNodes)
+}
+</code></pre>
+<p><code>getDigest()</code> is the hash key for <code>RelSet</code> deduplication in VolcanoPlanner's memo. Built from class name + row type + inputs' digests + operator-specific fields. Two <code>RelNode</code>s with the same digest are considered equivalent and merged.</p>
+<p><code>copy()</code> is called by the planner whenever it applies a transformation: produces a new <code>RelNode</code> with new trait set and/or new child nodes.</p>
+<h3 id="logical-relnodes-org-apache-calcite-rel-logical">Logical RelNodes (org.apache.calcite.rel.logical)</h3>
+<table><thead><tr><th>Class</th><th>SQL construct</th><th>Key fields</th></tr></thead><tbody>
+<tr><td><code>LogicalTableScan</code></td><td>FROM table</td><td><code>RelOptTable table</code></td></tr>
+<tr><td><code>LogicalFilter</code></td><td>WHERE / HAVING</td><td><code>RexNode condition</code></td></tr>
+<tr><td><code>LogicalProject</code></td><td>SELECT exprs</td><td><code>List&lt;RexNode&gt; projects, List&lt;String&gt; fieldNames</code></td></tr>
+<tr><td><code>LogicalJoin</code></td><td>JOIN</td><td><code>JoinRelType joinType, RexNode condition</code></td></tr>
+<tr><td><code>LogicalAggregate</code></td><td>GROUP BY / aggregates</td><td><code>ImmutableBitSet groupSet, List&lt;AggCall&gt; aggCalls</code></td></tr>
+<tr><td><code>LogicalSort</code></td><td>ORDER BY + LIMIT/OFFSET</td><td><code>RelCollation collation, RexNode fetch, RexNode offset</code></td></tr>
+<tr><td><code>LogicalUnion</code></td><td>UNION [ALL]</td><td><code>boolean all</code></td></tr>
+<tr><td><code>LogicalIntersect</code></td><td>INTERSECT</td><td><code>boolean all</code></td></tr>
+<tr><td><code>LogicalMinus</code></td><td>EXCEPT</td><td><code>boolean all</code></td></tr>
+<tr><td><code>LogicalValues</code></td><td>VALUES(...)</td><td><code>ImmutableList&lt;ImmutableList&lt;RexLiteral&gt;&gt; tuples</code></td></tr>
+<tr><td><code>LogicalTableFunctionScan</code></td><td>TABLE(func())</td><td><code>RexNode call, Type elementType</code></td></tr>
+<tr><td><code>LogicalCorrelate</code></td><td>correlated subquery</td><td><code>CorrelationId correlationId, ImmutableBitSet requiredColumns, JoinRelType joinType</code></td></tr>
+<tr><td><code>LogicalExchange</code></td><td>shuffle</td><td><code>RelDistribution distribution</code></td></tr>
+<tr><td><code>LogicalWindow</code></td><td>window functions</td><td><code>List&lt;Window.Group&gt; groups, List&lt;RexLiteral&gt; constants</code></td></tr>
+<tr><td><code>LogicalMatch</code></td><td>MATCH_RECOGNIZE</td><td>pattern matching fields</td></tr>
+<tr><td><code>LogicalTableModify</code></td><td>INSERT/UPDATE/DELETE</td><td><code>Operation operation, List&lt;String&gt; updateColumnList</code></td></tr>
+</tbody></table>
+<h3 id="abstract-core-relnodes-org-apache-calcite-rel-core">Abstract Core RelNodes (org.apache.calcite.rel.core)</h3>
+<p>Abstract superclasses used by both logical and physical nodes: <code>Aggregate</code>, <code>Filter</code>, <code>Join</code>, <code>Project</code>, <code>Sort</code>, <code>SetOp</code>, <code>TableScan</code>, <code>Calc</code> (combined filter+project). <code>Calc</code> contains a <code>RexProgram</code> — compact representation of project + filter as a list of <code>RexNode</code>s plus a condition; avoids separate <code>Filter</code> + <code>Project</code> nodes in the Enumerable backend.</p>
+<h3 id="aggcall">AggCall</h3>
+<pre><code data-lang="java">class AggCall {
+  SqlAggFunction     aggregation;   // SUM, COUNT, MIN, MAX, etc.
+  List&lt;Integer&gt;      argList;       // input column indices
+  boolean            distinct;      // COUNT(DISTINCT ...)
+  boolean            approximate;   // APPROX_COUNT_DISTINCT
+  RelFieldCollation[] orderKeys;    // ORDER BY inside aggregate (array_agg, first_value)
+  RexNode            filterArg;     // FILTER (WHERE ...) index
+  String             name;          // output field name
+}
+</code></pre>
+<h3 id="relinput-relwriter-serialization">RelInput / RelWriter (Serialization)</h3>
+<p><code>RelInput</code> and <code>RelWriter</code> provide JSON serialization for <code>RelNode</code> trees. Each <code>RelNode</code> calls <code>RelWriter.input(...)</code>, <code>.item(...)</code>, <code>.itemIf(...)</code> in its <code>explain()</code> method. <code>RelJsonWriter</code> implements <code>RelWriter</code> and writes a JSON array of nodes with <code>id</code>, <code>relOp</code>, and field map. <code>RelJsonReader</code> reconstructs from JSON. Used for plan caching and debugging.</p>
+<hr />
+<h2 id="rexnode-expression-tree">RexNode Expression Tree</h2>
+<p><code>RexNode</code> is the expression AST within a single <code>RelNode</code>. Pure value expressions — no subrelation references except through <code>RexSubQuery</code>.</p>
+<h3 id="full-rexnode-hierarchy-org-apache-calcite-rex">Full RexNode Hierarchy (org.apache.calcite.rex)</h3>
+<table><thead><tr><th>Class</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><code>RexCall</code></td><td>Function/operator call: <code>SqlOperator op + List&lt;RexNode&gt; operands</code>. Covers arithmetic, comparison, logical, string ops, CASE, CAST, ARRAY, MAP</td></tr>
+<tr><td><code>RexInputRef</code></td><td>Reference to input column by index: <code>int index, RelDataType type</code></td></tr>
+<tr><td><code>RexLiteral</code></td><td>Typed constant: <code>Comparable value, RelDataType type, SqlTypeName typeName</code></td></tr>
+<tr><td><code>RexFieldAccess</code></td><td>Field access on a struct: <code>RexNode expr, RelDataTypeField field</code></td></tr>
+<tr><td><code>RexOver</code></td><td>Window function: <code>SqlAggFunction op, List&lt;RexNode&gt; partitionKeys, List&lt;RexFieldCollation&gt; orderKeys, RexWindowBound lowerBound/upperBound, boolean distinct</code></td></tr>
+<tr><td><code>RexCorrelVariable</code></td><td>Outer reference in correlated subquery: <code>CorrelationId id, RelDataType type</code></td></tr>
+<tr><td><code>RexSubQuery</code></td><td>Scalar subquery / IN / EXISTS / UNIQUE: <code>SqlKind kind, RelNode rel, List&lt;RexNode&gt; operands</code></td></tr>
+<tr><td><code>RexDynamicParam</code></td><td>? parameter: <code>int index</code></td></tr>
+<tr><td><code>RexRangeRef</code></td><td>Reference to a range of input fields (used internally during SqlToRelConverter)</td></tr>
+<tr><td><code>RexPatternFieldRef</code></td><td>Reference to a field within a MATCH_RECOGNIZE pattern</td></tr>
+<tr><td><code>RexLocalRef</code></td><td>Reference to another expression in a <code>RexProgram</code> (used inside Calc nodes)</td></tr>
+</tbody></table>
+<h3 id="rexbuilder-org-apache-calcite-rex-rexbuilder">RexBuilder (org.apache.calcite.rex.RexBuilder)</h3>
+<p>Factory for constructing <code>RexNode</code>s. Always use <code>RexBuilder</code> — it enforces type consistency and interning:</p>
+<pre><code data-lang="java">rexBuilder.makeCall(SqlStdOperatorTable.PLUS, a, b);
+rexBuilder.makeInputRef(rowType, index);
+rexBuilder.makeLiteral(42, intType, SqlTypeName.INTEGER);
+rexBuilder.makeCast(targetType, expr);
+rexBuilder.makeFieldAccess(expr, fieldName, caseSensitive);
+rexBuilder.makeOver(type, aggOp, operands, partitionKeys, orderKeys,
+                    lowerBound, upperBound, physical, allowPartial, distinct, ignoreNulls);
+rexBuilder.makeCorrel(type, correlId);
+</code></pre>
+<h3 id="rexshuttle-rexvisitor">RexShuttle / RexVisitor</h3>
+<p><code>RexShuttle</code> is a rewriting visitor (returns new <code>RexNode</code>). <code>visitCall()</code> by default recurses and reconstructs. Used for: <code>RexInputRef</code> remapping (after project pushdown), <code>RexCorrelVariable</code> substitution (decorrelation), literal folding.</p>
+<p><code>RexVisitor&lt;R&gt;</code> is a pure visitor (no rewriting). <code>RexVisitorImpl</code> provides default no-op implementations.</p>
+<h3 id="rexutil">RexUtil</h3>
+<p><code>RexUtil.toCnf(rexBuilder, node)</code> — convert to conjunctive normal form (AND of ORs).
+<code>toDnf</code> — disjunctive normal form.
+<code>pullFactors</code> — factor AND out of OR.
+<code>composeConjunction(rexBuilder, exprs)</code> — AND together a list.
+<code>composeDisjunction(rexBuilder, exprs)</code> — OR together a list.
+<code>swapTableReferences</code> — remap column indices.
+<code>isLosslessCast</code> — whether a CAST loses information.</p>
+<h3 id="rexsimplify-org-apache-calcite-rex-rexsimplify">RexSimplify (org.apache.calcite.rex.RexSimplify)</h3>
+<p>Folds and simplifies expressions:</p>
+<ul>
+<li>Constant folding: <code>1 + 2 → 3</code>, <code>TRUE AND x → x</code>, <code>FALSE AND x → FALSE</code>.</li>
+<li>Null handling: <code>x + NULL → NULL</code> (for null-propagating ops).</li>
+<li>Range simplification: <code>x &gt; 3 AND x &gt; 5 → x &gt; 5</code>.</li>
+<li>Redundancy: <code>x = x → TRUE</code> (when x is not nullable).</li>
+<li><code>simplify(rex, unknownAs)</code> — <code>unknownAs</code> controls NULL semantics (for filter context vs. other contexts).</li>
+<li><code>SARG</code> (Search ARGument): IN-lists and OR-of-ranges are collapsed into a single <code>SARG</code> literal for efficient range evaluation.</li>
+</ul>
+<h3 id="rexover-window-functions">RexOver (Window Functions)</h3>
+<pre><code data-lang="java">class RexOver extends RexCall {
+  SqlAggFunction  aggOp;     // SUM, ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, ...
+  RexWindow       window;
+}
+
+class RexWindow {
+  ImmutableList&lt;RexNode&gt;           partitionKeys;
+  ImmutableList&lt;RexFieldCollation&gt; orderKeys;
+  RexWindowBound                   lowerBound;  // UNBOUNDED PRECEDING / CURRENT ROW / N PRECEDING
+  RexWindowBound                   upperBound;
+  boolean                          isRows;      // ROWS vs RANGE mode
+}
+</code></pre>
+<hr />
+<h2 id="type-system">Type System</h2>
+<h3 id="reldatatype-and-reldatatypefactory-org-apache-calcite-rel-type">RelDataType and RelDataTypeFactory (org.apache.calcite.rel.type)</h3>
+<pre><code>RelDataType
+├── BasicSqlType       — scalar SQL types (int, varchar, decimal, ...)
+├── ArraySqlType       — ARRAY&lt;elementType&gt;
+├── MapSqlType         — MAP&lt;keyType, valueType&gt;
+├── MultisetSqlType    — MULTISET&lt;elementType&gt;
+└── RelRecordType      — ROW(fields)  — field = (name, type) pair
+</code></pre>
+<p><code>RelDataTypeFactory</code> creates all types. <code>SqlTypeFactoryImpl</code> is the standard implementation; <code>JavaTypeFactoryImpl</code> extends it to also map Java classes to SQL types (for JDBC and Enumerable convention). <code>TypeSystem</code> (pluggable) sets coercion rules, max precision/scale for DECIMAL.</p>
+<p><strong>Nullability:</strong> every <code>RelDataType</code> carries <code>isNullable()</code>. Two types with same SqlTypeName but different nullability are distinct (<code>INT NOT NULL</code> ≠ <code>INT</code>). <code>RelDataTypeFactory.createTypeWithNullability(type, nullable)</code> wraps/unwraps. Validators infer nullability from: outer-join output columns (nullable), aggregate COUNT (NOT NULL), literal NULL (nullable).</p>
+<h3 id="sqltypename-enum">SqlTypeName Enum</h3>
+<pre><code>BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, DECIMAL, FLOAT, REAL, DOUBLE,
+DATE, TIME, TIME_WITH_LOCAL_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_LOCAL_TIME_ZONE,
+INTERVAL_YEAR, INTERVAL_YEAR_MONTH, INTERVAL_MONTH,
+INTERVAL_DAY, ..., INTERVAL_SECOND,
+CHAR, VARCHAR, BINARY, VARBINARY,
+NULL, ANY, SYMBOL, MULTISET, ARRAY, MAP, DISTINCT, STRUCTURED, ROW, OTHER,
+CURSOR, COLUMN_LIST, DYNAMIC_STAR, GEOMETRY, SARG
+</code></pre>
+<p><code>SARG</code> — "Search ARGument" compact form of OR-of-ranges created by <code>RexSimplify</code> for IN-list optimization.</p>
+<hr />
+<h2 id="trait-system">Trait System</h2>
+<p>Every <code>RelNode</code> carries a <code>RelTraitSet</code> — an ordered list of <code>RelTrait</code> values, one per <code>RelTraitDef</code>. Traits encode physical properties that the execution plan must satisfy.</p>
+<h3 id="conventiontraitdef-org-apache-calcite-plan-conventiontraitdef">ConventionTraitDef (org.apache.calcite.plan.ConventionTraitDef)</h3>
+<p>The "calling convention" — how data flows between operators:</p>
+<ul>
+<li><code>Convention.NONE</code> — logical plan (no physical convention; planners start here)</li>
+<li><code>EnumerableConvention.INSTANCE</code> — Java Iterable execution via Linq4j</li>
+<li><code>BindableConvention.INSTANCE</code> — runtime-interpreted execution (for testing)</li>
+<li>Adapter-specific: <code>JdbcConvention</code>, <code>DruidConvention</code>, <code>ElasticsearchConvention</code>, etc.</li>
+</ul>
+<p>Convention is the primary trait. The planner satisfies convention by applying converter rules that insert physical operators.</p>
+<h3 id="relcollationtraitdef-org-apache-calcite-rel-relcollations">RelCollationTraitDef (org.apache.calcite.rel.RelCollations)</h3>
+<p>Sort order. A <code>RelCollation</code> is an ordered list of <code>RelFieldCollation</code>:</p>
+<pre><code data-lang="java">class RelFieldCollation {
+  int            fieldIndex;    // column index
+  Direction      direction;     // ASCENDING, DESCENDING, STRICTLY_ASCENDING, STRICTLY_DESCENDING, CLUSTERED
+  NullDirection  nullDirection; // FIRST, LAST, UNSPECIFIED
+}
+</code></pre>
+<p><code>RelCollations.EMPTY</code> = unsorted. Collation is produced by <code>Sort</code> operators and consumed by <code>MergeJoin</code>, streaming aggregation, <code>TopN</code>.</p>
+<h3 id="reldistributiontraitdef-org-apache-calcite-rel-reldistributions">RelDistributionTraitDef (org.apache.calcite.rel.RelDistributions)</h3>
+<p>Data distribution across partitions:</p>
+<ul>
+<li><code>SINGLETON</code> — single partition</li>
+<li><code>BROADCAST_DISTRIBUTED</code> — full copy at each partition</li>
+<li><code>HASH_DISTRIBUTED(keys)</code> — hash-partitioned on key columns</li>
+<li><code>RANGE_DISTRIBUTED(keys)</code> — range-partitioned</li>
+<li><code>RANDOM_DISTRIBUTED</code> — random (no specific guarantee)</li>
+<li><code>ANY</code> — wildcard in matching</li>
+</ul>
+<p>Used by Flink and distributed engines to plan exchanges (repartitioning operators).</p>
+<h3 id="abstractconverter-and-enforcers">AbstractConverter and Enforcers</h3>
+<p>When a <code>RelSubset</code> must satisfy a trait it doesn't have, VolcanoPlanner inserts an <code>AbstractConverter</code>. Converter rules (<code>ConverterRule</code>) match <code>AbstractConverter</code> and replace it with a concrete operator (e.g., <code>Sort</code> to satisfy collation, <code>Exchange</code> to satisfy distribution, <code>ToEnumerableConverter</code> to satisfy <code>EnumerableConvention</code>).</p>
+<pre><code data-lang="java">class SortToEnumerableSortRule extends ConverterRule {
+  // matches: Sort with Convention.NONE
+  // produces: EnumerableSort with EnumerableConvention
+}
+</code></pre>
+<hr />
+<h2 id="volcanoplanner-cost-based-volcano-cascades-model">VolcanoPlanner (Cost-Based, Volcano/Cascades Model)</h2>
+<p><code>org.apache.calcite.plan.volcano.VolcanoPlanner</code></p>
+<p>Based on Graefe's Volcano optimizer (ICDE 1993) and Cascades (IEEE DE Bulletin 1995). Uses a <strong>memo</strong> of equivalence classes.</p>
+<h3 id="memo-relset-and-relsubset">Memo: RelSet and RelSubset</h3>
+<pre><code>RelSet          — equivalence class of logically equivalent RelNodes
+├── List&lt;RelNode&gt; rels              — all physical/logical alternatives found
+├── List&lt;RelSubset&gt; subsets         — one per (RelSet, RelTraitSet) combination
+└── RelNode best                    — cheapest physical plan found so far
+
+RelSubset       — (RelSet, RelTraitSet) pair
+├── RelSet set
+├── RelTraitSet traitSet            — required traits for this subset
+├── RelNode best                    — best plan satisfying these traits
+├── RelOptCost bestCost
+└── List&lt;AbstractConverter&gt; abstractConverters  — pending conversions
+</code></pre>
+<p>Each <code>RelNode</code> belongs to exactly one <code>RelSet</code>. When a new <code>RelNode</code> is registered (<code>VolcanoPlanner.register()</code>), Calcite computes its digest and merges into an existing <code>RelSet</code> if an equivalent already exists.</p>
+<h3 id="rule-application-and-rulequeue">Rule Application and RuleQueue</h3>
+<p><code>VolcanoPlanner</code> maintains a <code>RuleQueue</code> (priority queue of <code>VolcanoRuleMatch</code> records). A <code>VolcanoRuleMatch</code> is a (rule, binding of RelNodes to operands) pair. Planner loop:</p>
+<ol>
+<li>Dequeue highest-priority match.</li>
+<li>Call <code>RelOptRule.onMatch(VolcanoRuleCall)</code>.</li>
+<li><code>VolcanoRuleCall.transformTo(newRel)</code> registers the new RelNode.</li>
+<li>New RelNode triggers new rule matches via <code>VolcanoPlanner.fireRules()</code>.</li>
+<li>Loop until queue empty or cost converges.</li>
+</ol>
+<p><strong>Importance</strong> drives priority: subsets closer to the root (more important to query result) get rules fired first. Importance of a subset = max importance of its <code>AbstractConverter</code>s and parent subsets. This guides rule firing toward improving the critical path.</p>
+<h3 id="reloptrule-and-operand-patterns">RelOptRule and Operand Patterns</h3>
+<pre><code data-lang="java">class RelOptRule {
+  RelOptRuleOperand operand;        // pattern tree
+  abstract void onMatch(RelOptRuleCall call);
+}
+
+class RelOptRuleOperand {
+  Class&lt;? extends RelNode&gt; clazz;
+  RelTrait                 trait;       // optional trait filter
+  Predicate&lt;RelNode&gt;       predicate;
+  List&lt;RelOptRuleOperand&gt;  children;
+  // matching modes: UNORDERED, EXACT, PLUS, ANY
+}
+</code></pre>
+<p>Pattern construction examples:</p>
+<pre><code data-lang="java">// Filter on top of TableScan:
+operand(LogicalFilter.class, Convention.NONE,
+  operand(LogicalTableScan.class, none()))
+
+// Project on top of anything:
+operand(LogicalProject.class, Convention.NONE, any())
+
+// Join with two inputs:
+operand(LogicalJoin.class, Convention.NONE,
+  operand(RelNode.class, any()),
+  operand(RelNode.class, any()))
+</code></pre>
+<p><code>VolcanoRuleCall.rel(0)</code> gets root matched node; <code>rel(1)</code> gets first child; indices follow pre-order of operand tree.</p>
+<h3 id="cost-model">Cost Model</h3>
+<pre><code data-lang="java">interface RelOptCost {
+  double getRows();
+  double getCpu();
+  double getIo();
+  boolean isInfinite();
+  boolean isLe(RelOptCost other);   // ≤
+  boolean isLt(RelOptCost other);   // &lt;
+  RelOptCost plus(RelOptCost other);
+  RelOptCost multiplyBy(double factor);
+  double divideBy(RelOptCost other);
+}
+</code></pre>
+<p>Default <code>VolcanoCost</code> (triple of rows, cpu, io). <code>computeSelfCost()</code> returns operator's own cost excluding children. Total cost = selfCost + sum(childCosts). Best plan per subset = minimum total cost.</p>
+<h3 id="phase-control-and-composition">Phase Control and Composition</h3>
+<p><code>VolcanoPlanner.addRelTraitDef()</code> registers trait definitions. <code>addRule()</code> registers rules. Rule sets can be enabled/disabled per phase. Standard composition via <code>Programs.standard()</code>:</p>
+<ol>
+<li>HepPlanner for subquery decorrelation.</li>
+<li>HepPlanner for logical normalization (filter pushdown, project merge).</li>
+<li>VolcanoPlanner for physical convention selection and join ordering.</li>
+</ol>
+<h3 id="top-down-search-mode-cascades">Top-Down Search Mode (Cascades)</h3>
+<p><code>VolcanoPlanner.setTopDownOpt(true)</code> (added Calcite 1.27) switches to Cascades-style top-down search: starts from root, recurses into children only when needed for cost computation. Avoids exploring irrelevant subplans. Standard bottom-up search fires rules for all subplans regardless.</p>
+<h3 id="infinite-loop-prevention">Infinite Loop Prevention</h3>
+<p><code>VolcanoPlanner</code> limits rule firings via <code>ruleCallStack</code> depth and <code>AbstractConverter</code> cycle detection. <code>RuleQueue</code> tracks <code>VolcanoRuleMatch</code> objects by (rule + bindings) and won't re-fire the same match if it produced the same result.</p>
+<hr />
+<h2 id="hepplanner-heuristic-planner">HepPlanner (Heuristic Planner)</h2>
+<p><code>org.apache.calcite.plan.hep.HepPlanner</code></p>
+<p>Applies rules in a fixed sequence without cost model. Used for normalization passes where rule order matters. Simpler and faster than VolcanoPlanner for normalization.</p>
+<h3 id="hepprogram">HepProgram</h3>
+<pre><code data-lang="java">HepProgram program = HepProgram.builder()
+  .addRuleInstance(FilterJoinRule.FILTER_ON_JOIN)
+  .addRuleCollection(ImmutableList.of(
+    ProjectMergeRule.INSTANCE,
+    FilterMergeRule.INSTANCE))
+  .addMatchLimit(20)
+  .addMatchOrder(HepMatchOrder.BOTTOM_UP)
+  .build();
+</code></pre>
+<p><code>HepInstruction</code> types:</p>
+<ul>
+<li><code>RuleInstance</code> — apply one specific rule</li>
+<li><code>RuleCollection</code> — apply a set of rules (single pass or to fixpoint)</li>
+<li><code>RuleClass</code> — apply all rules of a given class</li>
+<li><code>MatchLimit</code> — cap total rule firings</li>
+<li><code>MatchOrder</code> — traversal: <code>ARBITRARY</code>, <code>BOTTOM_UP</code> (leaves first), <code>TOP_DOWN</code> (root first), <code>DEPTH_FIRST</code></li>
+<li><code>SubProgram</code> — nest a sub-program (runs to fixpoint before continuing)</li>
+<li><code>ConvergenceLoop</code> — repeat entire program until no more changes</li>
+</ul>
+<p>HepPlanner keeps a directed graph (<code>HepRelGraph</code>) of the current plan; <code>HepRelVertex</code> wraps each <code>RelNode</code>. When a rule fires and produces a new node, the old node is replaced. No memo — single canonical plan at any point.</p>
+<p><strong>HepPlanner vs VolcanoPlanner:</strong></p>
+<ul>
+<li>HepPlanner: normalization (filter pushdown, constant folding, decorrelation) where rule order matters, cost doesn't.</li>
+<li>VolcanoPlanner: join ordering, physical convention selection where exploring alternatives matters.</li>
+<li>Flink: HepPlanner for logical rewriting → VolcanoPlanner for physical planning.</li>
+</ul>
+<hr />
+<h2 id="rules-engine-built-in-rule-families">Rules Engine: Built-In Rule Families</h2>
+<h3 id="filter-rules">Filter Rules</h3>
+<table><thead><tr><th>Rule</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>FilterJoinRule</code></td><td>Push filter predicates through a join; predicates referencing only one side become that side's filter; join predicates become join conditions</td></tr>
+<tr><td><code>FilterProjectTransposeRule</code></td><td>Push filter below project when it references only simple input refs or deterministic project outputs</td></tr>
+<tr><td><code>FilterMergeRule</code></td><td>Merge two adjacent <code>Filter</code> nodes into one AND</td></tr>
+<tr><td><code>FilterAggregateTransposeRule</code></td><td>Push filter below aggregate when predicates reference only grouping columns</td></tr>
+<tr><td><code>FilterTableScanRule</code></td><td>Push filter into <code>TableScan</code> as a <code>SubfieldFilter</code> (adapter-specific)</td></tr>
+<tr><td><code>FilterCorrelateRule</code></td><td>Push filter below <code>Correlate</code> when safe</td></tr>
+</tbody></table>
+<h3 id="project-rules">Project Rules</h3>
+<table><thead><tr><th>Rule</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>ProjectMergeRule</code></td><td>Collapse two adjacent <code>Project</code> nodes by composing their expression lists</td></tr>
+<tr><td><code>ProjectFilterTransposeRule</code></td><td>Move project below filter when filter's expressions are covered by project outputs</td></tr>
+<tr><td><code>ProjectRemoveRule</code></td><td>Remove identity <code>Project</code> (all outputs = input refs in order)</td></tr>
+<tr><td><code>ProjectJoinTransposeRule</code></td><td>Push project through join, reducing each side's row width</td></tr>
+<tr><td><code>ProjectToCalcRule</code></td><td>Convert <code>Project</code> + optional <code>Filter</code> into <code>Calc</code> node (for Enumerable backend)</td></tr>
+<tr><td><code>ProjectSetOpTransposeRule</code></td><td>Push project through <code>UNION</code>/<code>INTERSECT</code>/<code>EXCEPT</code></td></tr>
+</tbody></table>
+<h3 id="join-rules">Join Rules</h3>
+<table><thead><tr><th>Rule</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>JoinCommuteRule</code></td><td>Swap left and right inputs (commutativity)</td></tr>
+<tr><td><code>JoinAssociateRule</code></td><td>Reorder ((A ⋈ B) ⋈ C) → (A ⋈ (B ⋈ C)) (associativity)</td></tr>
+<tr><td><code>JoinPushThroughJoinRule</code></td><td>Push one join through another (bushy plan exploration)</td></tr>
+<tr><td><code>JoinToMultiJoinRule</code></td><td>Collect adjacent inner joins into <code>MultiJoin</code> for join reordering</td></tr>
+<tr><td><code>LoptOptimizeJoinRule</code></td><td>Optimize <code>MultiJoin</code> using left-deep dynamic-programming algorithm</td></tr>
+<tr><td><code>MultiJoinOptimizeBushyRule</code></td><td>Optimize <code>MultiJoin</code> allowing bushy plans (Selinger-style DP)</td></tr>
+</tbody></table>
+<h3 id="aggregation-rules">Aggregation Rules</h3>
+<table><thead><tr><th>Rule</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>AggregateProjectMergeRule</code></td><td>Push <code>Aggregate</code> through <code>Project</code> when grouping key columns are simple refs</td></tr>
+<tr><td><code>AggregateJoinTransposeRule</code></td><td>Push aggregate below join when agg + grouping key touch only one join side</td></tr>
+<tr><td><code>AggregateMergeRule</code></td><td>Merge two adjacent <code>Aggregate</code> nodes</td></tr>
+<tr><td><code>AggregateRemoveRule</code></td><td>Remove <code>Aggregate</code> when grouping set = unique key (no aggregation needed)</td></tr>
+<tr><td><code>AggregateExpandDistinctAggregatesRule</code></td><td>Rewrite <code>COUNT(DISTINCT x)</code> into <code>GROUP BY</code> + <code>COUNT</code> subquery</td></tr>
+<tr><td><code>AggregateUnionTransposeRule</code></td><td>Push <code>Aggregate</code> through <code>Union</code> (partial aggs + merge agg)</td></tr>
+</tbody></table>
+<h3 id="subquery-decorrelation-rules">Subquery / Decorrelation Rules</h3>
+<p><code>SubQueryRemoveRule</code> rewrites scalar subqueries and <code>IN</code>/<code>EXISTS</code>/<code>NOT IN</code>/<code>NOT EXISTS</code> into joins + aggregations:</p>
+<ul>
+<li>Scalar subquery → <code>LogicalCorrelate</code> → <code>SINGLE_JOIN</code> (error if &gt; 1 row)</li>
+<li><code>IN (subquery)</code> → <code>LogicalCorrelate</code> → semi-join</li>
+<li><code>EXISTS (subquery)</code> → <code>LogicalCorrelate</code> → semi-join</li>
+<li><code>NOT IN</code> / <code>NOT EXISTS</code> → anti-join</li>
+</ul>
+<p><strong>Decorrelation</strong> (<code>RelDecorrelator.decorrelate(root)</code>): after <code>SubQueryRemoveRule</code> creates <code>LogicalCorrelate</code> nodes, <code>RelDecorrelator</code> rewrites them into standard joins:</p>
+<ol>
+<li>Identify all <code>LogicalCorrelate</code> nodes.</li>
+<li>For each: analyze what the inner side uses from the outer via <code>CorrelationId</code>.</li>
+<li>Rewrite inner side to accept those columns as regular inputs (append to inner row type).</li>
+<li>Replace <code>LogicalCorrelate</code> with <code>LogicalJoin</code> (correlated variables become join conditions).</li>
+</ol>
+<p>This is Galindo-Legaria &amp; Joshi's "Orthogonal Optimization of Subqueries and Aggregation" (SIGMOD 2001).</p>
+<hr />
+<h2 id="metadata-framework">Metadata Framework</h2>
+<p><code>RelMetadataQuery</code> (<code>org.apache.calcite.rel.metadata.RelMetadataQuery</code>) is the API for querying statistics from a plan node. Accessed via <code>rel.getCluster().getMetadataQuery()</code>.</p>
+<h3 id="key-metadata-handlers">Key Metadata Handlers</h3>
+<table><thead><tr><th>Handler</th><th>Method</th><th>Returns</th></tr></thead><tbody>
+<tr><td><code>RelMdRowCount</code></td><td><code>getRowCount(rel, mq)</code></td><td>Estimated output row count</td></tr>
+<tr><td><code>RelMdSelectivity</code></td><td><code>getSelectivity(rel, mq, predicate)</code></td><td>Fraction of rows matching predicate ∈ (0, 1]</td></tr>
+<tr><td><code>RelMdDistinctRowCount</code></td><td><code>getDistinctRowCount(rel, mq, groupKey, predicate)</code></td><td>NDV for a set of columns</td></tr>
+<tr><td><code>RelMdColumnUniqueness</code></td><td><code>areColumnsUnique(rel, mq, cols, ignoreNulls)</code></td><td>Whether cols form a unique key</td></tr>
+<tr><td><code>RelMdMaxRowCount</code></td><td><code>getMaxRowCount(rel, mq)</code></td><td>Upper bound on row count</td></tr>
+<tr><td><code>RelMdMinRowCount</code></td><td><code>getMinRowCount(rel, mq)</code></td><td>Lower bound</td></tr>
+<tr><td><code>RelMdSize</code></td><td><code>averageRowSize</code> / <code>averageColumnSizes</code></td><td>Byte widths</td></tr>
+<tr><td><code>RelMdCollation</code></td><td><code>collations(rel, mq)</code></td><td>Sort orders this operator preserves</td></tr>
+<tr><td><code>RelMdDistribution</code></td><td><code>distribution(rel, mq)</code></td><td>Data distribution</td></tr>
+<tr><td><code>RelMdPredicates</code></td><td><code>getPredicates(rel, mq)</code></td><td>Predicates known to hold on output</td></tr>
+</tbody></table>
+<h3 id="relmetadataprovider-and-handler-dispatch">RelMetadataProvider and Handler Dispatch</h3>
+<p><code>JaninoRelMetadataProvider</code> (the default) generates Java code at first use for each (RelNode class, metadata type) pair and compiles with Janino. Generated code dispatches to the correct <code>RelMdXxx</code> handler. Multiple providers chained via <code>ChainedRelMetadataProvider</code>.</p>
+<p>Third-party statistics plug in by implementing a <code>RelMdRowCount</code>-style handler for their specific <code>TableScan</code> subclass.</p>
+<h3 id="row-count-propagation">Row Count Propagation</h3>
+<ul>
+<li><code>LogicalTableScan</code>: asks <code>RelOptTable.getRowCount()</code> → from table statistics or user hint.</li>
+<li><code>LogicalFilter</code>: <code>getRowCount(input) * getSelectivity(filter, predicate)</code>.</li>
+<li><code>LogicalJoin</code> (inner): <code>getRowCount(left) * getRowCount(right) * getSelectivity(join, condition)</code>. Default selectivity for <code>=</code> on unique key → <code>1 / max(NDV(left.key), NDV(right.key))</code>; range → <code>0.5</code>; no stats → <code>0.25</code>.</li>
+<li><code>LogicalAggregate</code>: <code>getDistinctRowCount(input, groupSet)</code>.</li>
+<li><code>LogicalUnion ALL</code>: <code>sum(getRowCount(inputs))</code>. UNION: <code>0.5 * sum(...)</code>.</li>
+<li><code>LogicalSort</code> with <code>fetch</code>: <code>min(getRowCount(input), fetch)</code>.</li>
+</ul>
+<h3 id="relmdutil-default-selectivities">RelMdUtil Default Selectivities</h3>
+<p><code>RelMdUtil.guessSelectivity(predicate)</code> heuristics when statistics absent:</p>
+<ul>
+<li><code>=</code> → 0.15</li>
+<li><code>&lt;</code> / <code>&gt;</code> / <code>&lt;=</code> / <code>&gt;=</code> → 0.5</li>
+<li><code>!=</code> → 0.9</li>
+<li><code>IS NULL</code> → 0.1</li>
+<li><code>IN (k items)</code> → <code>min(0.5, k * 0.15)</code></li>
+<li><code>LIKE '%x%'</code> → 0.1</li>
+<li><code>LIKE 'x%'</code> → 0.2</li>
+<li><code>AND</code> → product; <code>OR</code> → inclusion-exclusion</li>
+</ul>
+<hr />
+<h2 id="enumerable-convention-and-code-generation">Enumerable Convention and Code Generation</h2>
+<h3 id="enumerablerel-interface-org-apache-calcite-adapter-enumerable">EnumerableRel Interface (org.apache.calcite.adapter.enumerable)</h3>
+<pre><code data-lang="java">interface EnumerableRel extends RelNode {
+  Result implement(EnumerableRelImplementor implementor, Prefer pref);
+}
+
+class Result {
+  Expression block;      // Java block expression (Linq4j Expression tree)
+  PhysType   physType;   // tuple format: ARRAY, CUSTOM, LIST, SCALAR
+}
+</code></pre>
+<p>Each <code>Enumerable*</code> node generates a Linq4j <code>Expression</code> tree representing its execution logic. The root node's <code>implement()</code> is called; it recursively calls children's <code>implement()</code>, composing the full Java code tree.</p>
+<h3 id="linq4j-org-apache-calcite-linq4j">Linq4j (org.apache.calcite.linq4j)</h3>
+<p>Java port of LINQ from C# (.NET). Provides:</p>
+<ul>
+<li><code>Enumerable&lt;T&gt;</code> — lazy sequence (extends <code>Iterable&lt;T&gt;</code>)</li>
+<li><code>Queryable&lt;T&gt;</code> — composable query (LINQ-style)</li>
+<li><code>Expression</code> — Java AST nodes (Calcite's own AST, not java.lang.reflect): <code>BlockStatement</code>, <code>MethodCallExpression</code>, <code>LambdaExpression</code>, <code>NewExpression</code>, <code>BinaryExpression</code>, etc.</li>
+<li><code>Expressions</code> factory: <code>Expressions.call(method, args)</code>, <code>Expressions.lambda(body, params)</code>, <code>Expressions.new_(clazz, args)</code>, etc.</li>
+</ul>
+<p>The generated <code>Expression</code> tree is converted to Java source via <code>Expressions.toString()</code> (pretty-printer) then compiled by Janino.</p>
+<p>Reference: Meijer, Beckman, Bierman, "LINQ: Reconciling Object, Relations and XML in the .NET Framework." SIGMOD Record 2006.</p>
+<h3 id="janino-runtime-compilation">Janino Runtime Compilation</h3>
+<p><code>ClassBodyDeclaration</code> → Janino <code>SimpleCompiler</code> → <code>Class&lt;?&gt;</code> loaded into JVM. Calcite compiles the entire query plan into a single Java class per query. Queries cached in <code>CalciteMetaImpl.prepareStatementCache</code> by SQL text + param types.</p>
+<h3 id="enumerablehashjoin-code-generation">EnumerableHashJoin Code Generation</h3>
+<p><code>EnumerableHashJoin.implement()</code> generates (pseudocode of generated Java):</p>
+<pre><code data-lang="java">Enumerable&lt;TLeft&gt; left = leftInput;
+Enumerable&lt;TRight&gt; right = rightInput;
+Lookup&lt;K, TRight&gt; lookup = right.toLookup(rightKeySelector);
+
+return left.join(
+  lookup,
+  leftKeySelector,
+  resultSelector);   // emits (leftRow, rightRow) pairs
+</code></pre>
+<p>Selectors are lambda expressions generated from the join key expressions.</p>
+<h3 id="enumerableaggregate">EnumerableAggregate</h3>
+<p>Groups via <code>Grouping.ofGroupSets(...)</code> (uses <code>HashMap&lt;K, Accumulator&gt;</code>). Generated code: iterate input, extract group key, find or create accumulator, call <code>accumulator.add(row)</code>, at end iterate map calling <code>accumulator.result()</code>.</p>
+<h3 id="enumerableproject-enumerablecalc">EnumerableProject / EnumerableCalc</h3>
+<p><code>EnumerableProject.implement()</code> generates a <code>select</code> (map) lambda over the input:</p>
+<pre><code data-lang="java">return input.select(row -&gt; new Object[] {
+  row[fieldIndex0],
+  row[fieldIndex0] + row[fieldIndex1],   // computed expression
+});
+</code></pre>
+<p><code>EnumerableCalc</code> (combined project+filter via <code>RexProgram</code>):</p>
+<pre><code data-lang="java">return input
+  .where(row -&gt; condition(row))   // filter
+  .select(row -&gt; project(row));   // project
+</code></pre>
+<h3 id="enumerableinterpreter">EnumerableInterpreter</h3>
+<p>For operators without <code>EnumerableRel</code> implementations, <code>EnumerableInterpreter</code> wraps a <code>BindableRel</code> subtree with a <code>Compiler</code>/<code>Interpreter</code> (row-at-a-time execution of a simple bytecode-like interpreter). Used as fallback and for testing.</p>
+<h3 id="enumerablemergejoin-enumerablenestedloopjoin">EnumerableMergeJoin / EnumerableNestedLoopJoin</h3>
+<p><code>EnumerableMergeJoin</code>: both inputs sorted on join keys; generates merge scan. <code>EnumerableNestedLoopJoin</code>: nested loops (for non-equi joins or small inputs).</p>
+<hr />
+<h2 id="adapter-convention-system">Adapter / Convention System</h2>
+<h3 id="writing-a-calcite-adapter">Writing a Calcite Adapter</h3>
+<ol>
+<li>Implement <code>Schema</code> → <code>Table</code> → <code>RelOptTable</code> → register in <code>SchemaPlus</code>.</li>
+<li>Implement <code>ScannableTable</code> (full scan), <code>FilterableTable</code> (scan + predicate), or <code>ProjectableFilterableTable</code> (scan + predicate + column pruning).</li>
+<li>Optionally implement <code>TranslatableTable</code> to return a custom <code>RelNode</code> from <code>toRel()</code> — allows the adapter to produce a convention-specific scan node.</li>
+<li>Register adapter-specific rules that convert <code>LogicalFilter</code>/<code>LogicalProject</code>/<code>LogicalAggregate</code> above the adapter's scan into a single combined adapter scan (pushdown).</li>
+</ol>
+<h3 id="jdbcadapter-org-apache-calcite-adapter-jdbc">JdbcAdapter (org.apache.calcite.adapter.jdbc)</h3>
+<p><code>JdbcSchema</code> wraps a JDBC <code>DataSource</code>. <code>JdbcTable</code> implements <code>TranslatableTable</code> → <code>JdbcTableScan</code>. <code>JdbcRules</code> convert logical nodes to <code>JdbcRel</code> nodes:</p>
+<ul>
+<li><code>JdbcProjectRule</code>, <code>JdbcFilterRule</code>, <code>JdbcJoinRule</code>, <code>JdbcAggregateRule</code>, <code>JdbcSortRule</code></li>
+</ul>
+<p><strong>SQL generation:</strong> <code>JdbcImplementor.visitRoot(root)</code> walks the <code>JdbcRel</code> tree. <code>RexToSqlNodeConverter</code> converts <code>RexNode</code> expressions back to <code>SqlNode</code> AST; <code>SqlDialect.unparse()</code> renders to SQL string. Dialects (<code>MySqlDialect</code>, <code>PostgresqlDialect</code>, <code>HiveSqlDialect</code>, etc.) override unparse for DB-specific syntax. Generated SQL sent to JDBC <code>DataSource</code> via <code>JdbcUtils.ObjectArrayStatementFactory</code>.</p>
+<h3 id="other-adapters">Other Adapters</h3>
+<table><thead><tr><th>Adapter</th><th>Key approach</th></tr></thead><tbody>
+<tr><td><code>DruidAdapter</code></td><td>Translates Filter+Project+Aggregate+Sort on a Druid table into Druid JSON query (GroupBy, TopN, Timeseries)</td></tr>
+<tr><td><code>ElasticsearchAdapter</code></td><td>Translates Filter+Project+Aggregate into ES Query DSL JSON</td></tr>
+<tr><td><code>FileAdapter</code></td><td>CSV/JSON/XLSX reading via <code>CsvTable</code>; schema inferred from headers</td></tr>
+<tr><td><code>CassandraAdapter</code></td><td>Pushes Filter+Sort into CQL; no aggregation pushdown</td></tr>
+<tr><td><code>ArrowAdapter</code></td><td>Reads Arrow files; produces <code>ArrowEnumerable</code></td></tr>
+</tbody></table>
+<hr />
+<h2 id="sqltorelconverter">SqlToRelConverter</h2>
+<p><code>org.apache.calcite.sql2rel.SqlToRelConverter</code> converts the validated <code>SqlNode</code> AST to a logical <code>RelNode</code> tree.</p>
+<p>Key conversions:</p>
+<ul>
+<li><code>convertSelect(SqlSelect)</code> → <code>LogicalProject(LogicalFilter(from, where), selectList)</code></li>
+<li><code>convertFrom(SqlNode from)</code> → <code>TableScan</code> / <code>Join</code> / subquery RelNode</li>
+<li><code>convertJoin(SqlJoin)</code> → <code>LogicalJoin</code> (condition becomes <code>RexCall</code>)</li>
+<li><code>convertGroupBy(...)</code> → <code>LogicalAggregate</code></li>
+<li><code>convertOrderBy(...)</code> → <code>LogicalSort</code></li>
+<li><code>convertSubQuery(SqlCall)</code> → <code>RexSubQuery</code> (later converted by <code>SubQueryRemoveRule</code>)</li>
+</ul>
+<p><strong>Correlated variables:</strong> when a subquery references an outer query column, <code>SqlToRelConverter</code> creates a <code>CorrelationId</code> and wraps the subquery in <code>LogicalCorrelate</code>.</p>
+<h3 id="relbuilder-org-apache-calcite-tools-relbuilder">RelBuilder (org.apache.calcite.tools.RelBuilder)</h3>
+<p>Higher-level fluent API for building <code>RelNode</code> trees programmatically:</p>
+<pre><code data-lang="java">RelBuilder builder = RelBuilder.create(config);
+RelNode plan = builder
+  .scan(&quot;ORDERS&quot;)
+  .filter(builder.call(SqlStdOperatorTable.EQUALS,
+                       builder.field(&quot;STATUS&quot;), builder.literal(&quot;OPEN&quot;)))
+  .aggregate(builder.groupKey(&quot;CUSTOMER_ID&quot;),
+             builder.sum(false, &quot;TOTAL&quot;, builder.field(&quot;AMOUNT&quot;)))
+  .build();
+</code></pre>
+<hr />
+<h2 id="materialized-view-rewriting">Materialized View Rewriting</h2>
+<h3 id="abstractmaterializedviewrule-org-apache-calcite-rel-rules-materialize">AbstractMaterializedViewRule (org.apache.calcite.rel.rules.materialize)</h3>
+<p>Two MV rewriting rule families:</p>
+<ol>
+<li><code>MaterializedViewProjectFilterRule</code> — Project+Filter queries.</li>
+<li><code>MaterializedViewAggregateRule</code> — Project+Filter+Aggregate queries.</li>
+</ol>
+<p><strong>Matching algorithm</strong> for <code>MaterializedViewAggregateRule.perform()</code>:</p>
+<ol>
+<li>Extract query's table references, filter predicates, grouping columns, aggregate calls.</li>
+<li>For each candidate MV:
+a. Check MV's tables ⊇ query's tables.
+b. Check MV's filter is implied by query's filter (or compensated with additional filter on MV scan).
+c. Check MV's grouping key ⊆ query's grouping key (query can re-aggregate over MV's pre-aggregated groups).
+d. Check MV provides all aggregate functions needed (or they can be computed from MV columns, e.g., <code>SUM</code> from a <code>SUM</code> MV column).</li>
+<li>If matching: build new plan → <code>MV scan → Filter (compensation) → Project → Aggregate (re-aggregation if needed)</code>.</li>
+</ol>
+<h3 id="lattice-and-tileoptimizer">Lattice and TileOptimizer</h3>
+<p>A <code>Lattice</code> (<code>org.apache.calcite.materialize.Lattice</code>) models a pre-aggregated star schema:</p>
+<ul>
+<li>Defines the join graph (fact table + dimension tables + join conditions).</li>
+<li>Each "tile" is a specific combination of (grouping set, aggregate functions).</li>
+<li><code>TileOptimizer</code> selects which tiles to materialize based on query workload (lattice covering / benefit analysis).</li>
+</ul>
+<p><code>MaterializationService</code> manages materialization lifecycle. <code>CalciteSchema</code> attaches <code>Materialization</code> objects to schemas.</p>
+<hr />
+<h2 id="streaming-and-flink-integration">Streaming and Flink Integration</h2>
+<h3 id="flink-sql-architecture">Flink SQL Architecture</h3>
+<p>Flink uses Calcite for all SQL. Maintains a fork of some Calcite internals but contributes heavily upstream.</p>
+<pre><code>Flink SQL string
+    │
+    ▼ FlinkSqlParserImpl (extends Calcite parser with Flink extensions)
+FlinkSqlNode AST
+    │
+    ▼ FlinkSqlValidator → PlannerContext → FlinkRelBuilder
+Logical RelNode (Convention.NONE)
+    │
+    ▼ HepPlanner (FlinkBatchPrograms.LOGICAL / FlinkStreamPrograms.LOGICAL)
+    │  Rules: subquery decorrelation, filter pushdown, join reordering
+    ▼ VolcanoPlanner (FlinkBatchPrograms.PHYSICAL / FlinkStreamPrograms.PHYSICAL)
+    │  Rules: FlinkLogicalXxx → FlinkPhysicalXxx
+    │         select ExecEdge shuffle types (HASH, BROADCAST, FORWARD, etc.)
+    ▼ ExecNode graph → ExecNodePlan
+    │
+    ▼ ExecNode.translateToPlan() → DataStream transformations
+Flink Job Graph
+</code></pre>
+<h3 id="streaming-specific-relnodes">Streaming-Specific RelNodes</h3>
+<p>Flink adds:</p>
+<ul>
+<li><code>StreamPhysicalCalc</code>, <code>StreamPhysicalJoin</code>, <code>StreamPhysicalGroupAggregate</code>, <code>StreamPhysicalWindowAggregate</code></li>
+<li><code>StreamPhysicalTemporalJoin</code> — joins a stream with a versioned table</li>
+<li><code>StreamPhysicalWindowTableFunction</code> — TUMBLE/HOP/CUMULATE/SESSION table-valued functions</li>
+<li><code>StreamPhysicalSort</code> with <code>inputChangelogMode</code></li>
+<li><code>StreamPhysicalExchange</code> — inserts shuffle with <code>InputProperty.DistributionType</code></li>
+</ul>
+<h3 id="temporal-table-joins-for-system-time-as-of">Temporal Table Joins (FOR SYSTEM_TIME AS OF)</h3>
+<pre><code data-lang="sql">SELECT * FROM orders o
+JOIN rates FOR SYSTEM_TIME AS OF o.event_time AS r
+  ON o.currency = r.currency
+</code></pre>
+<p>Calcite models this as <code>LogicalCorrelate</code> with a temporal <code>Snapshot</code> over the right side. Flink converts to <code>StreamPhysicalTemporalJoin</code> using a state backend lookup at the event time.</p>
+<h3 id="changelog-mode-retraction">Changelog Mode / Retraction</h3>
+<p>Streaming aggregation must handle retractions (row deletions from upstream changes). Flink's physical planner decides:</p>
+<ul>
+<li><code>StreamPhysicalGroupAggregate</code> (with retraction input → emit retractions downstream)</li>
+<li><code>StreamPhysicalWindowAggregate</code> (no retraction needed for closed windows)</li>
+</ul>
+<p>Tracked via <code>InputChangelogMode</code> (INSERT_ONLY, ALL: INSERT+UPDATE_BEFORE+UPDATE_AFTER+DELETE) propagated through the physical plan.</p>
+<hr />
+<h2 id="key-papers-and-references">Key Papers and References</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Year</th></tr></thead><tbody>
+<tr><td>Begoli, Camacho-Rodríguez, Hyde, Mior, Lemire, "Apache Calcite: A Foundational Framework for Optimized Query Processing Over Heterogeneous Data Sources"</td><td>SIGMOD</td><td>2018</td></tr>
+<tr><td>Graefe, "The Volcano Optimizer Generator: Extensibility and Efficient Search"</td><td>ICDE</td><td>1993</td></tr>
+<tr><td>Graefe, McKenna, "The Cascades Framework for Query Optimization"</td><td>IEEE DE Bulletin</td><td>1995</td></tr>
+<tr><td>Selinger, Astrahan, Chamberlin, Lorie, Price, "Access Path Selection in a Relational Database Management System"</td><td>SIGMOD</td><td>1979</td></tr>
+<tr><td>Galindo-Legaria, Joshi, "Orthogonal Optimization of Subqueries and Aggregation"</td><td>SIGMOD</td><td>2001</td></tr>
+<tr><td>Moerkotte, Neumann, "Analysis of Two Existing and One New Dynamic Programming Algorithm for the Generation of Optimal Bushy Join Trees Without Cross Products"</td><td>VLDB</td><td>2006</td></tr>
+<tr><td>Neumann, Radke, "Adaptive Optimization of Very Large Join Queries"</td><td>SIGMOD</td><td>2018</td></tr>
+<tr><td>Meijer, Beckman, Bierman, "LINQ: Reconciling Object, Relations and XML in the .NET Framework"</td><td>SIGMOD Record</td><td>2006</td></tr>
+<tr><td>Begoli et al., "One SQL to Rule Them All"</td><td>CIDR</td><td>2019</td></tr>
+</tbody></table>
+<p><strong>Online sources:</strong></p>
+<ul>
+<li>Calcite documentation: https://calcite.apache.org/docs/</li>
+<li>Calcite source: https://github.com/apache/calcite</li>
+<li>Flink SQL architecture: https://nightlies.apache.org/flink/flink-docs-stable/docs/dev/table/sql/</li>
+</ul>
+
+  </article>
+  <aside id="note-toc" class="note-toc hidden">
+    <div class="note-toc-inner">
+      <div class="note-toc-header">
+        <span>Contents</span>
+      </div>
+      <nav></nav>
+    </div>
+  </aside>
+</div>
+<button id="toc-toggle" aria-label="Toggle contents">‹</button>
+
+<script>
+  (function() {
+    var article = document.querySelector('.note-page');
+    var nav = document.querySelector('#note-toc nav');
+    if (!article || !nav) return;
+    var headings = article.querySelectorAll('h2, h3');
+    if (!headings.length) return;
+
+    var ul = document.createElement('ul');
+    headings.forEach(function(h) {
+      var li = document.createElement('li');
+      li.className = 'toc-' + h.tagName.toLowerCase();
+      var a = document.createElement('a');
+      a.href = '#' + h.id;
+      a.textContent = h.textContent.replace(/\s*#\s*$/, '');
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    nav.appendChild(ul);
+
+    // active heading highlight + scroll TOC to follow
+    var links = nav.querySelectorAll('a');
+    var tocEl = document.getElementById('note-toc');
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          links.forEach(function(l) { l.classList.remove('toc-active'); });
+          var active = nav.querySelector('a[href="#' + entry.target.id + '"]');
+          if (active) {
+            active.classList.add('toc-active');
+            var linkTop = active.offsetTop;
+            var tocMid = tocEl.clientHeight / 2;
+            tocEl.scrollTo({ top: linkTop - tocMid, behavior: 'smooth' });
+          }
+        }
+      });
+    }, { rootMargin: '-10% 0px -80% 0px' });
+    headings.forEach(function(h) { observer.observe(h); });
+
+    var toc = document.getElementById('note-toc');
+    var toggle = document.getElementById('toc-toggle');
+    function setToc(open) {
+      toc.classList.toggle('hidden', !open);
+      toggle.classList.toggle('toc-closed', !open);
+      toggle.textContent = open ? '›' : '‹';
+      localStorage.setItem('toc-open', String(open));
+    }
+
+    setToc(localStorage.getItem('toc-open') === 'true');
+
+    toggle.addEventListener('click', function() {
+      setToc(toc.classList.contains('hidden'));
+    });
+  })();
+</script>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

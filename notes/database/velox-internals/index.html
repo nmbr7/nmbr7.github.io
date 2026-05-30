@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<div class="note-layout">
+  <article class="note-page">
+    <h1 class="r-header">Velox Internals</h1>
+    <h1 id="velox-meta-s-unified-execution-engine">Velox: Meta's Unified Execution Engine</h1>
+<p><strong>Key paper:</strong> Pedreira, P., Erling, O., Basmanova, M., Wilfong, K., Sakka, L., Pai, K., He, W., Chattopadhyay, B. "Velox: Meta's Unified Execution Engine." PVLDB 15(12): 3372–3384, 2022. doi:10.14778/3554821.3554829.</p>
+<p>Velox is a C++ library of reusable vectorized execution building blocks. Not a standalone database — designed to be embedded into query engines. Presto (via Prestissimo), Spark (via Apache Gluten), and PyTorch data pipelines all embed it. Core insight: one high-quality vectorized kernel shared by multiple engines beats per-engine reimplementation.</p>
+<hr />
+<h2 id="architecture-overview">Architecture Overview</h2>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│              Query Engine (Presto / Spark / custom)          │
+│          plans, optimizes, distributes, schedules            │
+└───────────────────────────┬─────────────────────────────────┘
+                            │  PlanNode tree (Velox IR)
+┌───────────────────────────▼─────────────────────────────────┐
+│                        Velox Core                            │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
+│  │  Type System │  │ Vector Engine│  │ Expression Eval  │   │
+│  └──────────────┘  └──────────────┘  └──────────────────┘   │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
+│  │   Operators  │  │  Task/Driver │  │  Memory Manager  │   │
+│  └──────────────┘  └──────────────┘  └──────────────────┘   │
+│  ┌──────────────────────────────────────────────────────┐    │
+│  │   Connectors: HiveConnector · IcebergConnector       │    │
+│  └──────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<p>A query enters as a <code>PlanNode</code> tree. <code>LocalPlanner</code> converts it to a pipeline DAG of <code>Operator</code> instances. A <code>Task</code> owns execution state; <code>Driver</code> threads iterate operators in a pipeline. Data flows as columnar <code>RowVector</code> batches (default <code>kDefaultVectorSize = 1024</code> rows).</p>
+<hr />
+<h2 id="type-system">Type System</h2>
+<h3 id="typekind-enum-velox-type-type-h">TypeKind Enum (velox/type/Type.h)</h3>
+<p>Every value has a <code>Type</code> — a shared pointer to an immutable descriptor. Physical kinds:</p>
+<table><thead><tr><th>TypeKind</th><th>C++ backing</th><th>Width</th></tr></thead><tbody>
+<tr><td><code>BOOLEAN</code></td><td><code>bool</code></td><td>bit-packed in FlatVector</td></tr>
+<tr><td><code>TINYINT</code></td><td><code>int8_t</code></td><td>1</td></tr>
+<tr><td><code>SMALLINT</code></td><td><code>int16_t</code></td><td>2</td></tr>
+<tr><td><code>INTEGER</code></td><td><code>int32_t</code></td><td>4</td></tr>
+<tr><td><code>BIGINT</code></td><td><code>int64_t</code></td><td>8</td></tr>
+<tr><td><code>HUGEINT</code></td><td><code>int128_t</code></td><td>16</td></tr>
+<tr><td><code>REAL</code></td><td><code>float</code></td><td>4</td></tr>
+<tr><td><code>DOUBLE</code></td><td><code>double</code></td><td>8</td></tr>
+<tr><td><code>VARCHAR</code></td><td><code>StringView</code></td><td>16</td></tr>
+<tr><td><code>VARBINARY</code></td><td><code>StringView</code></td><td>16</td></tr>
+<tr><td><code>TIMESTAMP</code></td><td><code>struct Timestamp</code></td><td>16 (int64 seconds + uint64 nanos ∈ [0, 1e9))</td></tr>
+<tr><td><code>OPAQUE</code></td><td><code>std::shared_ptr&lt;void&gt;</code></td><td>16</td></tr>
+<tr><td><code>UNKNOWN</code></td><td><code>UnknownValue</code></td><td>0</td></tr>
+<tr><td><code>ARRAY</code>, <code>MAP</code>, <code>ROW</code>, <code>FUNCTION</code>, <code>INVALID</code></td><td>complex / sentinel</td><td>—</td></tr>
+</tbody></table>
+<p>Logical types layer semantics on top of physical kinds:</p>
+<ul>
+<li><code>DATE</code> → physical INTEGER (days since epoch)</li>
+<li><code>INTERVAL DAY TO SECOND</code> → BIGINT (milliseconds)</li>
+<li><code>INTERVAL YEAR TO MONTH</code> → INTEGER</li>
+<li><code>TIME</code> → BIGINT</li>
+<li><code>DECIMAL(p,s)</code> → BIGINT (p ≤ 18) or HUGEINT (p 19–38)</li>
+</ul>
+<h3 id="structural-types">Structural Types</h3>
+<pre><code>Type
+├── ScalarType&lt;Kind&gt;
+├── RowType          — names[]: string, types[]: TypePtr
+│                      field lookup: linear scan; lazy hash map only for wide rows
+├── ArrayType        — elementType: TypePtr
+├── MapType          — keyType: TypePtr, valueType: TypePtr
+├── DecimalType      — precision: uint8, scale: uint8
+│                      SHORT (p ≤ 18): physical BIGINT
+│                      LONG  (p 19–38): physical HUGEINT (int128_t)
+└── OpaqueType&lt;T&gt;    — type_index(typeid(T)), registered serializers
+</code></pre>
+<p><strong>RowType field lookup:</strong> stores parallel <code>std::vector&lt;std::string&gt; names_</code> and <code>std::vector&lt;TypePtr&gt; children_</code>. <code>getChildIdx(name)</code> / <code>containsChild()</code> are linear by default; a lazy hash map is built only for wide rows with frequent lookups.</p>
+<p><strong>DecimalType boundary:</strong> 10^18 &lt; 2^63 ≤ 10^19, so 18 digits is the largest fitting in int64_t. Physical representation is the raw int64_t / int128_t unscaled integer (e.g., 123.45 with scale 2 → unscaled 12345). The older wrapper classes <code>UnscaledShortDecimal</code>/<code>UnscaledLongDecimal</code>/<code>UnscaledInt128Decimal</code> were removed; helpers live in <code>DecimalUtil</code>.</p>
+<p><strong>OpaqueType:</strong> <code>OpaqueType::create&lt;T&gt;()</code> instantiates a type tagged with <code>std::type_index(typeid(T))</code>. On read, checks requested <code>type_index</code> before <code>static_pointer_cast&lt;T&gt;</code>. <code>registerSerialization&lt;T&gt;()</code> allows opaque payloads to cross spill/shuffle boundaries.</p>
+<p><strong>TypeCoercer</strong> (<code>velox/type/TypeCoercer.h</code>): planning-time concern. By <code>Task</code> creation, implicit casts are already materialized <code>CastExpr</code> nodes. <code>coercible(from, to)</code> is the structural predicate; dialect-specific coercers (e.g., <code>prestosql::typeCoercer()</code>) add rules like BIGINT→REAL.</p>
+<hr />
+<h2 id="vector-memory-layout">Vector Memory Layout</h2>
+<h3 id="basevector">BaseVector</h3>
+<pre><code data-lang="cpp">// velox/vector/BaseVector.h
+class BaseVector {
+  TypePtr        type_;
+  BufferPtr      nulls_;      // bit-packed: 1 = VALID (not null), 0 = null
+  vector_size_t  length_;     // int32_t
+  // encoding() → VectorEncoding::Simple
+};
+</code></pre>
+<p><strong>Null convention (critical):</strong> bit SET (1) = valid/not-null; bit CLEAR (0) = null. Same as Arrow validity bitmap. Absent <code>nulls_</code> buffer = no nulls at all.</p>
+<h3 id="vectorencoding-simple-velox-vector-typealiases-h">VectorEncoding::Simple (velox/vector/TypeAliases.h)</h3>
+<pre><code>FLAT, CONSTANT, DICTIONARY, BIASED, SEQUENCE, ROW, MAP, ARRAY, LAZY, FUNCTION
+</code></pre>
+<h3 id="flatvector-t-velox-vector-flatvector-h">FlatVector&lt;T&gt; (velox/vector/FlatVector.h)</h3>
+<pre><code>FlatVector&lt;T&gt; : BaseVector
+├── values_        : BufferPtr   — sizeof(T) * length_ bytes (bit-packed for bool)
+└── stringBuffers_ : vector&lt;BufferPtr&gt;   — only for VARCHAR/VARBINARY
+                     holds out-of-line bytes for non-inlined strings
+</code></pre>
+<h3 id="stringview-layout-velox-type-stringview-h">StringView Layout (velox/type/StringView.h)</h3>
+<p>16 bytes total:</p>
+<pre><code>Short strings (size ≤ 12):
+  [ size: 4 bytes ][ inline chars: 12 bytes ]
+
+Long strings (size &gt; 12):
+  [ size: 4 bytes ][ prefix: 4 bytes ][ raw pointer: 8 bytes ]
+</code></pre>
+<ul>
+<li>Short: entire string inlined, no heap deref.</li>
+<li>Long: 4-char prefix enables fail-fast comparison (short-circuit on prefix mismatch); pointer into one of <code>stringBuffers_</code>. Arrow Utf8View format uses (buffer-index, offset) instead of a raw pointer — export to pre-Arrow-15 Utf8 requires materialization (contiguous bytes); Arrow 15 Utf8View can share buffers zero-copy.</li>
+<li><code>trim()</code>/<code>substr()</code> mutate only the view — zero-copy for substrings.</li>
+</ul>
+<h3 id="dictionaryvector-t-velox-vector-dictionaryvector-h">DictionaryVector&lt;T&gt; (velox/vector/DictionaryVector.h)</h3>
+<pre><code>DictionaryVector&lt;T&gt; : BaseVector
+├── indices_          : BufferPtr   — int32_t per row
+└── dictionaryValues_ : VectorPtr   — shared base (usually FlatVector)
+</code></pre>
+<p>Own optional <code>nulls_</code> adds nulls without touching the base. Built via <code>BaseVector::wrapInDictionary(nulls, indices, size, base)</code>. Layers nest: <code>Dict(Dict(Flat))</code>. The key optimization: if all inputs to an expression share the same indices buffer, evaluate only on the dictionary (unique values) then re-wrap — compresses computation for low-cardinality columns.</p>
+<h3 id="constantvector-t-velox-vector-constantvector-h">ConstantVector&lt;T&gt; (velox/vector/ConstantVector.h)</h3>
+<p>Scalar form: <code>T value_</code> + <code>bool isNull_</code> (+ <code>stringBuffer_</code> for long strings). Complex form: <code>VectorPtr valueVector_</code> + <code>vector_size_t index_</code>. Never materializes — <code>valueAt(i)</code> ignores <code>i</code>. Materialization only happens if an operation explicitly calls <code>BaseVector::flatten()</code>.</p>
+<h3 id="biasvector-velox-vector-biasvector-h">BiasVector (velox/vector/BiasVector.h)</h3>
+<p>Integer compression: <code>int64_t bias_</code> + narrow delta buffer (e.g., int16). <code>valueAt(i) = bias_ + delta[i]</code>. Used when column's value range fits in fewer bytes than declared type. Produced mostly by readers; decoded transparently by <code>DecodedVector</code>.</p>
+<h3 id="sequencevector-velox-vector-sequencevector-h">SequenceVector (velox/vector/SequenceVector.h)</h3>
+<p>Run-length encoding: <code>sequenceValues_</code> (base vector of run values) + <code>sequenceLengths_</code> buffer (length per run). <code>valueAt(i)</code> binary-searches <code>offsets_</code> (cumulative run-length) to find the run. Analog of Arrow 15's Run-End-Encoding (REE); Arrow stores run-end offsets for O(log n) random access; Velox stores lengths.</p>
+<h3 id="lazyvector-velox-vector-lazyvector-h">LazyVector (velox/vector/LazyVector.h)</h3>
+<p>Wraps a <code>VectorLoader</code> callback. Materialized only when <code>loadedVector()</code> is called or <code>load(rows, hook)</code>. Operators force evaluation; filters can push a <code>ValueHook</code> so the loader applies the filter during decode (late materialization). Columns never accessed are never decoded.</p>
+<h3 id="selectivityvector-velox-vector-selectivityvector-h">SelectivityVector (velox/vector/SelectivityVector.h)</h3>
+<pre><code data-lang="cpp">std::vector&lt;uint64_t&gt; bits_;   // 64 rows per word
+vector_size_t begin_, end_;    // cached range of set bits
+</code></pre>
+<ul>
+<li><code>setValid(i, bool)</code>, <code>updateBounds()</code> recomputes range.</li>
+<li><code>applyToSelected(lambda)</code>: word-at-a-time iteration via <code>__builtin_ctzll</code>.</li>
+<li><code>findFirst()</code> / <code>findLast()</code>: scan words.</li>
+<li>Set algebra: <code>deselect(other)</code> (AND-NOT), <code>select(other)</code> (OR), <code>intersect</code>.</li>
+<li><code>ConjunctExpr</code> progressively deselects rows as conjuncts fail — no intermediate vector materialization.</li>
+</ul>
+<h3 id="bufferptr-copy-on-write-velox-buffer-buffer-h">BufferPtr / Copy-on-Write (velox/buffer/Buffer.h)</h3>
+<p><code>Buffer</code> is intrusively reference-counted (<code>BufferPtr = boost::intrusive_ptr&lt;Buffer&gt;</code>). <code>Buffer::unique()</code> checks refcount. Mutable access (<code>mutableRawValues&lt;T&gt;()</code>, <code>BaseVector::mutableNulls()</code>) reallocates-and-copies if the buffer is shared — this is the COW point. <code>AlignedBuffer::allocate&lt;T&gt;(size, pool)</code> allocates from <code>MemoryPool</code> with 64-byte alignment for SIMD.</p>
+<h3 id="resize-behavior">resize() behavior</h3>
+<p>Grows <code>length_</code>; if <code>nulls_</code> exists and new size exceeds capacity: reallocates (rounds up to whole uint64_t words via <code>bits::nbytes</code>), on unique buffer sets newly added bits to valid (1), on shared buffer allocates fresh copy (COW). FlatVector also resizes <code>values_</code>.</p>
+<hr />
+<h2 id="memory-management">Memory Management</h2>
+<h3 id="memorypool-hierarchy-velox-common-memory-memorypool-h">MemoryPool Hierarchy (velox/common/memory/MemoryPool.h)</h3>
+<pre><code>MemoryManager (singleton)
+└── Root pool         kAggregate  enforces maxCapacity_   [per query, QueryCtx]
+    └── Task pool     kAggregate
+        └── Node pool kAggregate
+            └── Op pool kLeaf   ← only kind that allocates
+</code></pre>
+<p>Only <code>kLeaf</code> pools allocate; <code>kAggregate</code> pools sum children and forbid direct allocation. Only the query root pool enforces the per-query memory limit.</p>
+<p><strong>Quantized reservation</strong> (avoids per-allocation root traffic): leaf pools keep <code>usedReservationBytes_</code> (actual) vs <code>reservationBytes_</code> (reserved from root). Growth rounds up:</p>
+<ul>
+<li>&lt; 16 MB: +1 MB steps</li>
+<li>16–64 MB: +4 MB steps</li>
+<li>≥ 64 MB: +8 MB steps</li>
+</ul>
+<p>The slack between reserved and used absorbs small allocations without hitting the arbitrator.</p>
+<h3 id="memoryallocator-implementations-velox-common-memory-memoryallocator-h">MemoryAllocator Implementations (velox/common/memory/MemoryAllocator.h)</h3>
+<p><strong>MallocAllocator:</strong> forwards to <code>std::malloc</code>/<code>free</code>. Simple; fragmentation-prone; no RSS cap.</p>
+<p><strong>MmapAllocator:</strong> manages physical pages via <code>mmap</code> for explicit RSS control. Nine <code>SizeClass</code> objects for pages from 4 KB to 1 MB. Per SizeClass bitmaps:</p>
+<ul>
+<li><code>pageAllocated_</code> — allocated pages</li>
+<li><code>pageMapped_</code> — mapped (not returned to OS)</li>
+<li><code>mappedFreeLookup_</code> — coarse bitmap (1 bit summarizes 512 bits of <code>pageAllocated_</code>) for fast free-page search</li>
+</ul>
+<p><code>SizeMix</code> (built by <code>allocationSize()</code>) names which classes and counts to satisfy a request. Three paths:</p>
+<ol>
+<li>Small (&lt; <code>maxMallocBytes</code>) → <code>std::malloc</code></li>
+<li>Medium (≤ 1 MB) → SizeClass</li>
+<li>Large (&gt; 1 MB) → direct contiguous <code>mmap</code></li>
+</ol>
+<p>Freed class pages stay mapped (lazy reclaim); unmapped only when total mapped pages hit system limit. Contiguous <code>mmap</code> regions can be <code>MADV_HUGEPAGE</code>.</p>
+<h3 id="hashstringallocator-arena-velox-common-memory-hashstringallocator-h">HashStringAllocator / Arena (velox/common/memory/HashStringAllocator.h)</h3>
+<p>Arena over <code>memory::Allocation</code> runs (min 16 KB). Used heavily inside hash tables and aggregation to avoid per-element <code>malloc</code>.</p>
+<p><strong>Block layout:</strong></p>
+<pre><code>[ Header: 4 bytes ][ data: N bytes ]
+</code></pre>
+<p>Header packs size with three flag bits:</p>
+<ul>
+<li><code>kFree</code> — block on free list</li>
+<li><code>kContinued</code> — block is one segment of a non-contiguous multi-part allocation (last 8 bytes = continuation pointer)</li>
+<li><code>kPreviousFree</code> — immediately preceding block is free (enables backward coalescing)</li>
+</ul>
+<p>Free blocks form a circular doubly-linked list (<code>CompactDoubleList</code>) using 6-byte pointers stored in the block's first 12 data bytes; block size duplicated in the last 4 bytes for backward merge.</p>
+<p>Streaming write API: <code>newWrite()</code> / <code>extendWrite()</code> / <code>finishWrite()</code> via <code>ByteOutputStream</code>. Read: <code>prepareRead()</code> via <code>ByteInputStream</code>. <code>StlAllocator</code> adapts STL containers onto it.</p>
+<p><strong>Common accumulators built on it:</strong></p>
+<ul>
+<li><code>SingleValueAccumulator</code> (min/max/arbitrary string): one allocation rewritten via <code>extendWrite()</code>.</li>
+<li><code>ValueList</code> (array_agg/map_agg): chain of blocks (linked-list segments) appended via <code>finishWrite()</code>; fixed part holds head/tail positions.</li>
+</ul>
+<h3 id="memoryarbitrator-implementations-velox-common-memory-memoryarbitrator-h">MemoryArbitrator Implementations (velox/common/memory/MemoryArbitrator.h)</h3>
+<p><strong>NoopArbitrator:</strong> no reclamation; growth fails immediately on cap.</p>
+<p><strong>SharedArbitrator</strong> (<code>velox/common/memory/SharedArbitrator.h</code>): global fair sharing across queries. Serializes arbitration (one request at a time for consistent snapshot).</p>
+<p><strong>Reclaim / reclaimable-task selection algorithm</strong> — on <code>growPool(requestor, bytes)</code>:</p>
+<ol>
+<li>
+<p><strong>Local arbitration first</strong> (if requestor would exceed its own <code>maxCapacity_</code>): reclaim from the requestor's own pools — shrink free capacity (fast, no spill), then invoke spillable operators' <code>reclaim()</code>.</p>
+</li>
+<li>
+<p><strong>Global arbitration</strong> over candidate pools, three sorted passes:</p>
+<ul>
+<li>Pass 1: sort by <strong>free capacity</strong> (largest first); shrink unused reservation — no spill, fast.</li>
+<li>Pass 2: if still short, sort by <strong>memory usage</strong> (largest first); invoke <code>reclaim()</code> (disk spill / TableWriter flush). Skip candidates whose reclaimable used capacity is below threshold (avoid tiny-yield churn).</li>
+<li>Pass 3: if still short, sort by <strong>memory capacity</strong>; <code>handleOOM()</code> aborts the candidate with the largest capacity as victim.</li>
+</ul>
+</li>
+</ol>
+<p><strong>Reclaim safety:</strong> arbitrator calls <code>Task::requestPause()</code> before reclaiming. Operators expose <code>nonReclaimableSection_</code> (set by default inside Driver loop; cleared at safe points before <code>maybeReserve</code>). Arbitrator skips operators inside non-reclaimable sections.</p>
+<p><strong>Spillable operators</strong> that override <code>Operator::reclaim()</code>: <code>OrderBy</code>, <code>HashBuild</code>, <code>HashAggregation</code>, <code>RowNumber</code>, <code>TopNRowNumber</code>, <code>MarkDistinct</code>, <code>Window</code>, <code>TableWriter</code>.</p>
+<h3 id="spilling-velox-exec-spill">Spilling (velox/exec/Spill*)</h3>
+<p><strong>Spill file format:</strong> <code>VectorStreamGroup</code> serializes <code>RowVector</code> batches (same format as shuffle pages — encoding-preserving). <code>SpillFileList</code> writes; <code>SpillPartition::createReader()</code> / <code>createOrderedReader()</code> restore. Classes: <code>Spiller</code>, <code>SpillState</code>, <code>SpillPartition</code>, <code>SpillFile</code>/<code>SpillFileList</code>, <code>SpillWriter</code>/<code>SpillReader</code>.</p>
+<hr />
+<h2 id="task-driver-pipeline-execution">Task / Driver / Pipeline Execution</h2>
+<h3 id="plannode-pipeline">PlanNode → Pipeline</h3>
+<p><code>LocalPlanner::plan()</code> walks the <code>PlanNode</code> tree bottom-up, emitting pipelines. A <strong>pipeline</strong> is a linear chain of operators with no repartition. Pipeline breaks occur at <code>LocalExchangeNode</code>, <code>MergeExchangeNode</code>, and <code>HashJoinNode</code> (build side becomes a separate pipeline).</p>
+<pre><code>PlanNode tree:            → Pipeline 0:
+  AggregationNode            [TableScanOp] → [FilterOp] → [AggregationOp]
+    └─ FilterNode
+         └─ TableScanNode
+</code></pre>
+<h3 id="task">Task</h3>
+<p><code>Task</code> owns:</p>
+<ul>
+<li>PlanNode tree + <code>QueryCtx</code></li>
+<li><code>DriverFactory</code> per pipeline</li>
+<li><code>std::vector&lt;std::shared_ptr&lt;Driver&gt;&gt;</code> — one per pipeline × parallelism degree</li>
+<li>Split queue: <code>BlockingQueue&lt;Split&gt;</code> per source operator</li>
+<li>Synchronization: <code>std::mutex</code>, <code>std::condition_variable</code> for driver state transitions</li>
+</ul>
+<h3 id="driver-runinternal-loop-velox-exec-driver-cpp">Driver::runInternal() Loop (velox/exec/Driver.cpp)</h3>
+<pre><code>while (true) {
+  check for blocked operators → return ContinueFuture if any blocked
+  
+  op = findNextReady();
+  output = op-&gt;getOutput();
+  if (output) { nextOp-&gt;addInput(output) }
+  
+  if (op-&gt;isFinished()) { propagate noMoreInput downstream }
+  if (shouldYield()) { re-enqueue driver, yield thread }
+}
+</code></pre>
+<p>Blocking I/O uses <code>folly::SemiFuture</code> (alias <code>ContinueFuture</code>): blocked operator returns future from <code>isBlocked()</code>, driver yields thread back to <code>folly::Executor</code> thread pool, driver re-queued when future completes. No thread parking.</p>
+<p><code>BlockingReason</code> values: <code>kWaitForConsumer</code>, <code>kWaitForSplit</code>, <code>kWaitForExchange</code>, <code>kWaitForJoinBuild</code>, <code>kWaitForMemory</code>, <code>kYield</code>.</p>
+<h3 id="operator-interface">Operator Interface</h3>
+<pre><code data-lang="cpp">class Operator {
+  virtual void       addInput(RowVectorPtr input)   = 0;
+  virtual RowVectorPtr getOutput()                  = 0;
+  virtual bool       needsInput() const             = 0;
+  virtual void       noMoreInput()                  = 0;
+  virtual bool       isFinished()                   = 0;
+  virtual BlockingReason isBlocked(ContinueFuture*) = 0;
+};
+</code></pre>
+<h3 id="filterproject-fusion-velox-exec-filterproject-cpp">FilterProject Fusion (velox/exec/FilterProject.cpp)</h3>
+<p><code>FilterNode</code> directly feeding <code>ProjectNode</code> collapses into one <code>FilterProject</code> operator with a single <code>ExprSet</code> containing both filter predicate and projection expressions. Filter evaluates first → <code>SelectivityVector</code> active rows → passed directly to projection ExprSet. No intermediate <code>RowVector</code> materialized between filter and project. <code>hasFilter_</code> bool selects the path.</p>
+<h3 id="tablescanoperator-lazyvector">TableScanOperator + LazyVector</h3>
+<p>Scan produces columns as <code>LazyVector</code>s wrapping a <code>VectorLoader</code>. Downstream evaluation forces materialization via <code>loadedVector()</code>. Filters and <code>ValueHook</code>s can be pushed so the loader decodes+filters in one pass. Columns projected away or pruned are never loaded.</p>
+<hr />
+<h2 id="expression-evaluation">Expression Evaluation</h2>
+<h3 id="exprset-compilation-velox-expr-exprcompiler-cpp">ExprSet Compilation (velox/expr/ExprCompiler.cpp)</h3>
+<p>Converts <code>core::ITypedExpr</code> tree to executable <code>exec::Expr</code> DAG:</p>
+<ol>
+<li><strong>Type mapping</strong>: <code>FieldAccessTypedExpr</code>→<code>FieldReference</code>, <code>ConstantTypedExpr</code>→<code>ConstantExpr</code>, <code>CallTypedExpr</code>→special form / <code>VectorFunction</code> / <code>SimpleFunction</code> (resolution order: special form name → VectorFunction signature → SimpleFunction).</li>
+<li><strong>Flattening</strong>: adjacent AND/OR merge into n-ary <code>ConjunctExpr</code>; associative calls like <code>concat(a,concat(b,c))</code> → <code>concat(a,b,c)</code>.</li>
+<li><strong>CSE detection</strong>: identical deterministic subexpressions become a shared <code>Expr</code> (<code>isMultiplyReferenced_</code>), evaluated once, results cached.</li>
+<li><strong>Constant folding</strong>: deterministic subexpressions with no column dependency evaluated at compile time → <code>ConstantExpr</code>.</li>
+<li><code>computeMetadata()</code> populates <code>distinctFields_</code>, <code>multiplyReferencedFields_</code>, <code>propagatesNulls_</code>, <code>deterministic_</code>, <code>hasConditionals_</code>.</li>
+</ol>
+<h3 id="evaluation-pipeline-per-expr-eval">Evaluation Pipeline per Expr::eval</h3>
+<pre><code>CSE cache check
+→ evalEncodings()        (peeling: strip shared dict/const wrappers)
+→ evalWithNulls()        (remove null-input rows for null-propagating exprs)
+→ evalAll() / evalSpecialForm()
+→ finalize              (restore nulls, re-wrap peeled encoding, cache if CSE)
+</code></pre>
+<p>Fast path: <code>evalFlatNoNulls()</code> when inputs are flat/constant non-null and <code>supportsFlatNoNullsFastPath() == true</code>.</p>
+<h3 id="encoding-peeling-algorithm-velox-expr-expr-cpp-peeledencoding">Encoding Peeling Algorithm (velox/expr/Expr.cpp, PeeledEncoding)</h3>
+<p>Strips common wrappers before calling scalar functions:</p>
+<ol>
+<li>All inputs <code>ConstantVector</code> → evaluate on 1 row, wrap result as constant.</li>
+<li>Inputs share the <strong>same</strong> <code>DictionaryVector</code> indices/base → evaluate only on dictionary (unique) values, re-wrap with original indices. Big win for low-cardinality columns.</li>
+<li><code>Expr::evalWithMemo()</code> memoizes per-base-dictionary results across batches reusing the same base vector (<code>baseOfDictionaryRepeats_</code>), re-wrapping with new indices only.</li>
+</ol>
+<p><strong>Fallback / give-up:</strong> peeling abandoned when wrappers are incompatible (different indices buffers, mixed encodings), nulls in wrapper can't be cleanly composed, or peeling wouldn't reduce row count. <code>PeeledEncoding::peel()</code> returns bool success; on failure, <code>DecodedVector</code> produces flat base + indices and proceeds row-wise on SelectivityVector.</p>
+<h3 id="conjunctexpr-short-circuit-adaptive-reorder-velox-expr-conjunctexpr-cpp">ConjunctExpr Short-Circuit + Adaptive Reorder (velox/expr/ConjunctExpr.cpp)</h3>
+<ul>
+<li>AND: evaluates conjuncts left-to-right; after each, rows where conjunct returned false (or null per three-valued logic) are <strong>deselected</strong> from the active <code>SelectivityVector</code>. Next conjunct only runs on survivors.</li>
+<li>OR: dual — deselect true rows.</li>
+<li><strong>Error suppression</strong>: for rows already decided (AND: returned false; OR: returned true), exceptions from subsequent conjuncts are suppressed — correct SQL short-circuit semantics.</li>
+<li><strong>Adaptive reordering</strong>: per-conjunct selectivity + wall time tracked each batch; conjuncts reordered to run cheapest/most-selective first (<code>selectivity_</code> updated dynamically).</li>
+</ul>
+<h3 id="errorvector-per-row-exception-capture">ErrorVector / Per-Row Exception Capture</h3>
+<p>Under <code>TRY</code>, <code>EvalCtx::throwOnError_</code> = false. <code>EvalCtx::setError(row, exceptionPtr)</code> records into an <code>EvalErrors</code> vector (indexed by row). Rows with errors excluded downstream; <code>TRY</code> sets those output rows to null. Without TRY, first error rethrows.</p>
+<h3 id="lambdaexpr-velox-expr-lambdaexpr-cpp">LambdaExpr (velox/expr/LambdaExpr.cpp)</h3>
+<p>For <code>transform</code>/<code>filter</code>/<code>reduce</code>/<code>array_sort</code>. Produces a <code>FunctionVector</code> whose <code>Callable</code> captures outer context: captured (non-argument) fields bound into a row of captures; lambda formal arguments supplied per-invocation by the higher-order function. HOF builds a flattened element <code>RowVector</code> + <code>SelectivityVector</code> over all elements, calls the captured <code>ExprSet</code> once — vectorized across all elements in one batch call, not per-element.</p>
+<h3 id="vectorfunction-vs-simplefunction">VectorFunction vs SimpleFunction</h3>
+<p><strong>SimpleFunction (template-based):</strong></p>
+<pre><code data-lang="cpp">template&lt;typename TExec&gt;
+struct MyFunc {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+  bool call(int64_t&amp; result, const int64_t&amp; a, const int64_t&amp; b) {
+    result = a + b;
+    return true;  // non-null
+  }
+};
+VELOX_REGISTER_FUNCTION(MyFunc, myFunc);
+</code></pre>
+<p>Velox generates vectorized loop, null handling, encoding normalization via template metaprogramming.</p>
+<p><strong>VectorFunction:</strong> direct vector access for functions needing it (e.g., <code>cardinality</code>, <code>map_keys</code>):</p>
+<pre><code data-lang="cpp">class MyVectorFunc : public exec::VectorFunction {
+  void apply(const SelectivityVector&amp; rows,
+             std::vector&lt;VectorPtr&gt;&amp; args,
+             const TypePtr&amp; outputType,
+             EvalCtx&amp; context,
+             VectorPtr&amp; result) const override;
+};
+</code></pre>
+<h3 id="codegen-llvm-xsimd">Codegen (LLVM / xsimd)</h3>
+<p>Optional expression codegen (<code>velox/experimental/codegen</code>): after expression compilation, a codegen pass emits LLVM IR for hot inner loops (arithmetic chains, cast chains), replacing the interpreted DAG walk with native machine code for the batch.</p>
+<p><strong>xsimd</strong> (header-only SIMD abstraction): used in hash table probing, string comparison, null checking. Explicit AVX2/AVX-512 paths in <code>Hashtable.cpp</code>, <code>VectorHasher.cpp</code>.</p>
+<hr />
+<h2 id="aggregation">Aggregation</h2>
+<h3 id="operators">Operators</h3>
+<ul>
+<li><code>HashAggregation</code> — arbitrary cardinality GROUP BY</li>
+<li><code>StreamingAggregation</code> — pre-sorted input, single pass</li>
+</ul>
+<h3 id="aggregate-interface-velox-exec-aggregate-h">Aggregate Interface (velox/exec/Aggregate.h)</h3>
+<pre><code data-lang="cpp">class Aggregate {
+  // Placement-construct accumulators for new groups
+  virtual void initializeNewGroups(char** groups,
+                                   folly::Range&lt;const int32_t*&gt; indices) = 0;
+  // Partial/single-stage ingest
+  virtual void addRawInput(char** groups, const SelectivityVector&amp; rows,
+                           const std::vector&lt;VectorPtr&gt;&amp; args, bool mayPushdown) = 0;
+  // Final-stage merge
+  virtual void addIntermediateResults(char** groups, const SelectivityVector&amp; rows,
+                                      const std::vector&lt;VectorPtr&gt;&amp; args, bool mayPushdown) = 0;
+  // Output
+  virtual void extractValues(char** groups, int32_t numGroups, VectorPtr* result) = 0;
+  // Serialize intermediate state
+  virtual void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result) = 0;
+  // Fixed bytes per group in RowContainer
+  virtual int32_t accumulatorFixedWidthSize() const = 0;
+};
+</code></pre>
+<h3 id="hash-table-layout-velox-exec-hashtable-h">Hash Table Layout (velox/exec/HashTable.h)</h3>
+<p><strong>128-byte buckets, 16 slots each:</strong></p>
+<pre><code>[ 16 tag bytes (7-bit hash tags, 1 per slot) ]
+[ 16 × 6-byte row pointers → RowContainer ]
+[ 16 bytes unused padding ]
+= 128 bytes total
+</code></pre>
+<p><strong>SIMD probe:</strong> all 16 tags loaded into one 128-bit register; <code>_mm_cmpeq_epi8</code> (SSE2) compares against broadcast probe tag — 16 slots checked in 1 instruction → 16-bit match mask. Matching slots' 6-byte pointers followed into <code>RowContainer</code> for full key comparison. Linear probing across buckets on no-match.</p>
+<p><strong>Hash modes:</strong></p>
+<ul>
+<li><code>kArray</code> — key range small enough to index directly (no hashing)</li>
+<li><code>kNormalizedKey</code> — keys packed into 64-bit normalized key for direct compare + <code>AdaptivePrefetch</code></li>
+<li><code>kHash</code> — full key comparison via RowContainer pointer follow</li>
+</ul>
+<p><strong>Interleaving / prefetch:</strong> multiple probe keys interleaved so multiple cache misses are in-flight simultaneously (memory-level parallelism). <code>ProbeState</code> carries per-row probe progress for the vectorized loop.</p>
+<h3 id="rowcontainer-row-layout-velox-exec-rowcontainer-h">RowContainer Row Layout (velox/exec/RowContainer.h)</h3>
+<p>Per-row layout (row-major slab):</p>
+<pre><code>1. Normalized key word (optional, kNormalizedKey mode only)
+2. Null flags: 1 bit per nullable column, packed (1 = null)
+3. Fixed-width data: 8 bytes per column
+   - Scalars ≤ 8 bytes: inline
+   - Strings/complex/&gt; 8 bytes: pointer/StringView into variable-width section
+4. Variable-width section: bytes in HashStringAllocator, referenced from fixed part
+5. Accumulators (aggregation mode only)
+6. Flag bits:
+   - free flag (row on free list)
+   - probed flag (build row matched; used for outer/anti/semi join result generation)
+</code></pre>
+<p>Free rows threaded on a free list using the row's own space.</p>
+<h3 id="accumulator-layouts">Accumulator Layouts</h3>
+<table><thead><tr><th>Function</th><th>Layout</th></tr></thead><tbody>
+<tr><td><code>min</code>/<code>max</code> (numeric)</td><td>inline value + valid bit in fixed-width slot</td></tr>
+<tr><td><code>min</code>/<code>max</code>/<code>arbitrary</code> (string)</td><td><code>SingleValueAccumulator</code> — one HashStringAllocator alloc</td></tr>
+<tr><td><code>sum</code>/<code>count</code></td><td>inline fixed-width</td></tr>
+<tr><td><code>avg</code></td><td>inline (sum: double, count: int64)</td></tr>
+<tr><td><code>array_agg</code>/<code>map_agg</code></td><td><code>ValueList</code> — chain of HashStringAllocator blocks; fixed part holds head/tail positions</td></tr>
+<tr><td><code>approx_distinct</code></td><td>HyperLogLog bytes in HashStringAllocator (sparse then dense), serialized to VARBINARY on extract</td></tr>
+<tr><td><code>approx_percentile</code></td><td>KLL sketch bytes in HashStringAllocator</td></tr>
+</tbody></table>
+<h3 id="partial-final-serialization">Partial→Final Serialization</h3>
+<p>Partial agg calls <code>extractAccumulators()</code> → intermediate <code>RowVector</code> (e.g., avg → <code>ROW(sum DOUBLE, count BIGINT)</code>, approx_distinct → VARBINARY HLL bytes). Final agg reads via <code>addIntermediateResults()</code> and merges. <strong>Scan pushdown</strong> for <code>sum</code>/<code>min</code>/<code>max</code>/<code>bitwise_and_agg</code>/<code>bitwise_or_agg</code>/<code>bool_and</code>/<code>bool_or</code> when reading raw columns with no transform — aggregate applied during decode via <code>ValueHook</code>.</p>
+<h3 id="hashaggregation-spilling">HashAggregation Spilling</h3>
+<ol>
+<li>Select partitions (by hash bits) holding most data that meet spill target.</li>
+<li>Reuse same partition set across rounds.</li>
+<li>Remove spilled rows from table; serialize via <code>VectorStreamGroup</code>.</li>
+<li>On restore: sort-merge in-memory + on-disk runs keyed by grouping columns.</li>
+</ol>
+<hr />
+<h2 id="hash-join">Hash Join</h2>
+<p>Operators <code>HashBuild</code> and <code>HashProbe</code> (velox/exec/HashBuild.cpp, HashProbe.cpp), two pipelines bridged by <code>HashJoinBridge</code>.</p>
+<h3 id="joinbridge-promise-future-velox-exec-hashjoinbridge-h">JoinBridge Promise/Future (velox/exec/HashJoinBridge.h)</h3>
+<p><code>HashBuild</code> operators across drivers build partial tables; the last finisher merges them (parallel build) and sets a <code>folly::Promise</code> with the completed <code>HashTable</code> + spill partition info. <code>HashProbe::isBlocked()</code> returns the bridge's <code>folly::SemiFuture</code> (<code>BlockingReason::kWaitForJoinBuild</code>). Driver yields until build completes. Bridge also carries dynamic filter info.</p>
+<h3 id="dynamic-filter-pushdown">Dynamic Filter Pushdown</h3>
+<p>For join keys with few distinct build-side values, <code>VectorHasher</code> builds an in-list filter pushed to probe-side <code>TableScan</code> for file/row-group pruning and row filtering during decode.</p>
+<h3 id="join-types-handled">Join Types Handled</h3>
+<p><code>INNER</code>, <code>LEFT</code>, <code>RIGHT</code>, <code>FULL OUTER</code>, <code>LEFT SEMI (filter)</code>, <code>LEFT SEMI (project)</code>, <code>RIGHT SEMI (filter)</code>, <code>RIGHT SEMI (project)</code>, <code>LEFT ANTI</code>, <code>RIGHT ANTI</code>, <code>NULL-AWARE ANTI</code>, counting joins.</p>
+<p><strong>NULL-aware anti join:</strong> build side tracks whether any build key is null (<code>hasNullKeys</code>). If true → every probe row filtered (NOT IN with null = false for all). If false → probe rows with no match pass through; probe row with null key fails.</p>
+<h3 id="spillable-hash-join">Spillable Hash Join</h3>
+<p>Build operators coordinate: all spill the same partition set (hash bits; recursive bit ranges, e.g., parent bits [29,31] → child [32,35] for 8-way recursion). Probe routes input rows belonging to spilled partitions to matching probe spill files. Replay per partition: rebuild from build spill file, re-probe from probe spill file.</p>
+<h3 id="other-join-types">Other Join Types</h3>
+<p><strong>MergeJoin:</strong> ordered inputs; merge-scan both sides, emit matches. Used when upstream sort order aligns with join keys.</p>
+<p><strong>NestedLoopJoin:</strong> cross join or non-equi predicates. <code>NestedLoopJoinBuild</code> stores right side in memory as list of <code>RowVector</code> batches. Probe iterates probe rows × build batches, applies filter expression.</p>
+<hr />
+<h2 id="shuffle-exchange">Shuffle / Exchange</h2>
+<h3 id="partitionedoutput-operator">PartitionedOutput Operator</h3>
+<p>Terminates a pipeline sending data to another node or pipeline. Routes each row to a partition bucket by hash of partition keys. Serializes batches using <strong>Presto page format</strong> (column-by-column: type tag + encoding + data).</p>
+<h3 id="exchange-operator">Exchange Operator</h3>
+<p><code>ExchangeOperator</code> (source) pulls <code>SerializedPage</code> objects from <code>ExchangeClient</code>, which holds multiple <code>ExchangeSource</code>s. <code>PrestoExchangeSource</code> issues HTTP requests returning <code>folly::SemiFuture</code>. <code>ExchangeOperator::isBlocked()</code> returns that future; driver yields until pages arrive.</p>
+<p><strong>Local exchange</strong> (same node, different threads): <code>LocalExchange</code> — lock-free multi-producer multi-consumer queue of <code>RowVector</code> pointers. No serialization.</p>
+<h3 id="serializedpage">SerializedPage</h3>
+<pre><code>SerializedPage {
+  codec:            CompressionKind  (NONE, LZ4, ZSTD, SNAPPY)
+  uncompressedSize: int32
+  data:             byte[]           // Presto page wire format
+}
+</code></pre>
+<hr />
+<h2 id="connector-split-system">Connector / Split System</h2>
+<h3 id="hiveconnectorsplit-velox-connectors-hive">HiveConnectorSplit (velox/connectors/hive/)</h3>
+<pre><code data-lang="cpp">struct HiveConnectorSplit {
+  string    filePath;        // s3://bucket/path/part-00000.parquet
+  FileFormat fileFormat;     // PARQUET, DWRF, ORC, TEXT, Nimble
+  long      start;           // byte offset
+  long      length;          // byte length
+  map&lt;string,string&gt; partitionKeys;
+  optional&lt;TableBucketNumber&gt; tableBucketNumber;
+};
+</code></pre>
+<p><code>Task::addSplit()</code> enqueues splits; <code>TableScanOperator</code> dequeues and calls <code>HiveDataSource::addSplit()</code>, which constructs the reader, applies column pruning (<code>outputType</code>), and pushes <code>SubfieldFilters</code>.</p>
+<h3 id="dwioreader-interface-velox-dwio-common-reader-h">DwioReader Interface (velox/dwio/common/Reader.h)</h3>
+<p>Abstract <code>Reader</code>/<code>RowReader</code> (<code>createRowReader</code>, <code>next(size, result)</code>). <code>ParquetReader</code> implements it: reads footer/schema, iterates row groups, builds column readers, decodes pages, wraps as <code>FlatVector</code> or <code>DictionaryVector</code> (for DICT-encoded pages). DWRF/ORC implement the same interface → HiveDataSource is format-agnostic.</p>
+<h3 id="parquet-filter-pushdown">Parquet Filter Pushdown</h3>
+<p><code>SubfieldFilter</code> types pushed to reader (<code>velox/type/Filter.h</code>):</p>
+<table><thead><tr><th>Filter type</th><th>Velox class</th></tr></thead><tbody>
+<tr><td>Equality</td><td><code>BigintRange</code> (degenerate) / <code>BytesValues</code> (singleton)</td></tr>
+<tr><td>Range</td><td><code>BigintRange</code>, <code>DoubleRange</code>, <code>BytesRange</code></td></tr>
+<tr><td>In-list</td><td><code>BigintValuesUsingHashTable</code>, <code>BytesValues</code></td></tr>
+<tr><td>IS NULL</td><td><code>IsNull</code></td></tr>
+<tr><td>IS NOT NULL</td><td><code>IsNotNull</code></td></tr>
+<tr><td>Boolean</td><td><code>BoolValue</code></td></tr>
+</tbody></table>
+<p>Evaluated against row-group min/max/null-count stats → skip whole row groups. Remaining rows filtered during page decode.</p>
+<h3 id="arrowbridge-velox-vector-arrow-bridge-cpp">ArrowBridge (velox/vector/arrow/Bridge.cpp)</h3>
+<p><code>exportToArrow(VectorPtr, ArrowArray&amp;, pool)</code> / <code>exportToArrow(..., ArrowSchema&amp;)</code> and <code>importFromArrow(ArrowSchema&amp;, ArrowArray&amp;, pool)</code> over Arrow C Data Interface.</p>
+<p><strong>Zero-copy cases:</strong></p>
+<ul>
+<li>Flat fixed-width primitives (int, float, double, bool)</li>
+<li>With Arrow 15: <code>StringView</code> ↔ <code>Utf8View</code>/<code>BinaryView</code>, <code>ArrayVector</code> ↔ <code>ListView</code>, <code>ConstantVector</code> ↔ Arrow constant encoding, <code>SequenceVector</code> ↔ Run-End-Encoding</li>
+<li><code>DictionaryVector</code> ↔ Arrow dictionary array (indices + dictionary)</li>
+<li>Buffers shared with refcount transferred through C interface <code>release</code> callback</li>
+</ul>
+<p><strong>Requires copy:</strong></p>
+<ul>
+<li>Pre-Arrow-15 string export to Utf8 (offset-based, needs contiguous bytes materialization)</li>
+<li><code>BiasVector</code> (must decode)</li>
+<li>Nested encodings Arrow can't represent in one layer</li>
+<li>Null representation incompatibilities</li>
+</ul>
+<hr />
+<h2 id="prestissimo-velox-in-presto">Prestissimo (Velox in Presto)</h2>
+<p>C++ Presto worker embedding Velox. <code>PrestoServer</code> boots on Proxygen HTTP; <code>TaskManager</code> owns one <code>velox::Task</code> per fragment.</p>
+<h3 id="http-endpoints-taskresource-cpp">HTTP Endpoints (TaskResource.cpp)</h3>
+<table><thead><tr><th>Method</th><th>Path</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><code>POST</code></td><td><code>/v1/task/{taskId}</code></td><td>Create/update task (plan fragment + splits + output buffer config)</td></tr>
+<tr><td><code>GET</code></td><td><code>/v1/task/{taskId}</code></td><td>Full <code>TaskInfo</code> (metrics)</td></tr>
+<tr><td><code>GET</code></td><td><code>/v1/task/{taskId}/status</code></td><td>Lightweight <code>TaskStatus</code> (progress)</td></tr>
+<tr><td><code>GET</code></td><td><code>/v1/task/{taskId}/results/{bufferId}/{token}</code></td><td>Fetch shuffle output pages (long-poll)</td></tr>
+<tr><td><code>GET</code></td><td><code>/v1/task/{taskId}/results/{bufferId}/{token}/acknowledge</code></td><td>Ack received pages; producer frees buffers</td></tr>
+<tr><td><code>DELETE</code></td><td><code>/v1/task/{taskId}</code></td><td>Abort/cleanup</td></tr>
+<tr><td><code>DELETE</code></td><td><code>/v1/task/{taskId}/results/{bufferId}</code></td><td>Destroy a buffer</td></tr>
+</tbody></table>
+<p><strong>PrestoExchangeSource:</strong> HTTP <strong>long-polling</strong> (not streaming). Issues <code>GET .../results/{bufferId}/{token}</code>; producer holds request open until pages available or timeout, returns serialized pages with next token in headers. Consumer acknowledges token → <code>OutputBufferManager</code> releases buffers → re-issues next long-poll. Backpressure via output buffer max size.</p>
+<h3 id="plan-json-deserialization-presto-cpp-main-types-prestotoveloxqueryplan-cpp">Plan JSON Deserialization (presto_cpp/main/types/PrestoToVeloxQueryPlan.cpp)</h3>
+<p><code>@type</code> discriminator in JSON selects <code>PlanNode</code> class:</p>
+<table><thead><tr><th>Presto JSON type</th><th>Velox PlanNode</th></tr></thead><tbody>
+<tr><td><code>TableScanNode</code></td><td><code>TableScanNode</code> (HiveConnector)</td></tr>
+<tr><td><code>ProjectNode</code></td><td><code>ProjectNode</code></td></tr>
+<tr><td><code>FilterNode</code></td><td><code>FilterNode</code></td></tr>
+<tr><td><code>AggregationNode</code></td><td><code>AggregationNode</code> (Step: PARTIAL/FINAL/INTERMEDIATE/SINGLE)</td></tr>
+<tr><td><code>JoinNode</code></td><td><code>HashJoinNode</code></td></tr>
+<tr><td><code>RemoteSourceNode</code></td><td><code>ExchangeNode</code> / <code>MergeExchangeNode</code></td></tr>
+<tr><td><code>OutputNode</code></td><td><code>PartitionedOutputNode</code></td></tr>
+<tr><td><code>TopNNode</code></td><td><code>TopNNode</code></td></tr>
+<tr><td><code>WindowNode</code></td><td><code>WindowNode</code></td></tr>
+</tbody></table>
+<p>Expressions arrive as <code>RowExpression</code> JSON → Velox <code>ITypedExpr</code>. Types via <code>TypeParser::toVeloxType()</code>.</p>
+<h3 id="presto-velox-type-mapping">Presto→Velox Type Mapping</h3>
+<table><thead><tr><th>Presto type</th><th>Velox physical</th></tr></thead><tbody>
+<tr><td><code>VARCHAR</code>, <code>BIGINT</code>, <code>INTEGER</code>, <code>SMALLINT</code>, <code>TINYINT</code>, <code>DOUBLE</code>, <code>REAL</code>, <code>BOOLEAN</code>, <code>TIMESTAMP</code>, <code>DATE</code></td><td>same</td></tr>
+<tr><td><code>ROW(...)</code></td><td>RowType</td></tr>
+<tr><td><code>ARRAY(x)</code></td><td>ArrayType</td></tr>
+<tr><td><code>MAP(k,v)</code></td><td>MapType</td></tr>
+<tr><td><code>DECIMAL(p,s)</code></td><td>BIGINT (p ≤ 18) / HUGEINT (p 19–38)</td></tr>
+<tr><td><code>HYPERLOGLOG</code> / <code>P4HYPERLOGLOG</code></td><td>VARBINARY-backed custom type</td></tr>
+<tr><td><code>JSON</code></td><td>VARCHAR-backed</td></tr>
+<tr><td><code>IPADDRESS</code></td><td>HUGEINT-backed</td></tr>
+<tr><td><code>TIMESTAMP WITH TIME ZONE</code></td><td>BIGINT-backed (52 bits ms UTC + 12 bits tz id)</td></tr>
+</tbody></table>
+<hr />
+<h2 id="velox-in-spark-apache-gluten">Velox in Spark: Apache Gluten</h2>
+<p><strong>Apache Gluten</strong> (now an Apache TLP) offloads Spark SQL to Velox via Substrait.</p>
+<h3 id="execution-flow">Execution Flow</h3>
+<pre><code>Spark Driver (JVM)
+  Spark physical plan → Substrait plan (protobuf)
+         │
+         │ JNI: nativeCreateKernelWithIterator(substraitBytes)
+         ▼
+Velox Native (C++, loaded via JNI)
+  SubstraitToVeloxPlanConverter → PlanNode tree → velox::Task
+  Results returned as ColumnarBatch (Arrow C Data Interface)
+         │
+         ▼
+Spark Executor (JVM)
+  ColumnarBatch consumed by downstream Spark operators
+</code></pre>
+<h3 id="substrait-velox-node-mapping">Substrait → Velox Node Mapping</h3>
+<table><thead><tr><th>Substrait RelType</th><th>Velox PlanNode</th></tr></thead><tbody>
+<tr><td><code>ReadRel</code></td><td><code>TableScanNode</code> / <code>ValuesNode</code></td></tr>
+<tr><td><code>FilterRel</code></td><td><code>FilterNode</code></td></tr>
+<tr><td><code>ProjectRel</code></td><td><code>ProjectNode</code></td></tr>
+<tr><td><code>AggregateRel</code></td><td><code>AggregationNode</code></td></tr>
+<tr><td><code>JoinRel</code></td><td><code>HashJoinNode</code> / <code>MergeJoinNode</code></td></tr>
+<tr><td><code>SortRel</code></td><td><code>OrderByNode</code></td></tr>
+<tr><td><code>FetchRel</code></td><td><code>LimitNode</code> / <code>TopNNode</code></td></tr>
+<tr><td><code>ExpandRel</code></td><td><code>ExpandNode</code></td></tr>
+<tr><td><code>ExchangeRel</code></td><td><code>PartitionedOutputNode</code> / <code>ExchangeNode</code></td></tr>
+</tbody></table>
+<p>Functions map by Substrait reference → Velox function name (Spark dialect: <code>sparksql::</code> namespace).</p>
+<h3 id="jni-columnar-boundary">JNI Columnar Boundary</h3>
+<p>Batches cross JVM↔C++ as Arrow C Data Interface (<code>ArrowArray</code>/<code>ArrowSchema</code>) or Gluten <code>ColumnarBatch</code> handles (off-heap pointers). Shuffle uses native columnar shuffle writer/reader.</p>
+<h3 id="offload-vs-fallback">Offload vs Fallback</h3>
+<p>Supported operators (scan, filter, project, hash agg, hash/sort-merge join, sort, window, union, expand, limit, shuffle) run native Velox. Unsupported operators or runtime failures fall back to JVM Spark, inserting <code>ColumnarToRow</code>/<code>RowToColumnar</code> transitions. Gluten's planner validates each operator/expression for native support before offloading; unvalidated subtrees stay on JVM.</p>
+<hr />
+<h2 id="fuzzing-and-testing">Fuzzing and Testing</h2>
+<p><code>velox/expression/fuzzer/</code> contains an expression fuzzer:</p>
+<ol>
+<li>Generates random <code>TypePtr</code> trees.</li>
+<li>Generates random expression trees.</li>
+<li>Evaluates with interpreted engine and (optionally) codegen engine.</li>
+<li>Compares results row-by-row; mismatches = bugs.</li>
+</ol>
+<p>Similarly: <code>RowContainerFuzzer</code>, <code>AggregationFuzzer</code>, <code>JoinFuzzer</code>.</p>
+<hr />
+<h2 id="key-papers-and-references">Key Papers and References</h2>
+<table><thead><tr><th>Paper</th><th>Venue</th><th>Year</th></tr></thead><tbody>
+<tr><td>Pedreira et al., "Velox: Meta's Unified Execution Engine"</td><td>PVLDB</td><td>2022</td></tr>
+<tr><td>Leis et al., "Morsel-Driven Parallelism: A NUMA-Aware Query Evaluation Framework for the Many-Core Age"</td><td>SIGMOD</td><td>2014</td></tr>
+<tr><td>Kersten et al., "Everything You Always Wanted to Know About Compiled and Vectorized Queries But Were Afraid to Ask"</td><td>PVLDB</td><td>2018</td></tr>
+<tr><td>Boncz, Zukowski, Nes, "MonetDB/X100: Hyper-Pipelining Query Execution"</td><td>CIDR</td><td>2005</td></tr>
+<tr><td>Neumann, "Efficiently Compiling Efficient Query Plans for Modern Hardware"</td><td>PVLDB</td><td>2011</td></tr>
+<tr><td>Blanas et al., "A Comparison of Join Algorithms for Log Records and Hierarchical Data in a Web Warehouse"</td><td>SIGMOD</td><td>2010</td></tr>
+</tbody></table>
+<p><strong>Online sources:</strong></p>
+<ul>
+<li>Velox docs: https://facebookincubator.github.io/velox/develop/</li>
+<li>Engineering at Meta — Velox: https://engineering.fb.com/2023/03/09/open-source/velox-open-source-execution-engine/</li>
+<li>Engineering at Meta — Arrow 15 alignment: https://engineering.fb.com/2024/02/20/developer-tools/velox-apache-arrow-15-composable-data-management/</li>
+<li>Presto C++ docs: https://prestodb.io/docs/current/presto-cpp.html</li>
+<li>Apache Gluten: https://gluten.apache.org/</li>
+</ul>
+
+  </article>
+  <aside id="note-toc" class="note-toc hidden">
+    <div class="note-toc-inner">
+      <div class="note-toc-header">
+        <span>Contents</span>
+      </div>
+      <nav></nav>
+    </div>
+  </aside>
+</div>
+<button id="toc-toggle" aria-label="Toggle contents">‹</button>
+
+<script>
+  (function() {
+    var article = document.querySelector('.note-page');
+    var nav = document.querySelector('#note-toc nav');
+    if (!article || !nav) return;
+    var headings = article.querySelectorAll('h2, h3');
+    if (!headings.length) return;
+
+    var ul = document.createElement('ul');
+    headings.forEach(function(h) {
+      var li = document.createElement('li');
+      li.className = 'toc-' + h.tagName.toLowerCase();
+      var a = document.createElement('a');
+      a.href = '#' + h.id;
+      a.textContent = h.textContent.replace(/\s*#\s*$/, '');
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    nav.appendChild(ul);
+
+    // active heading highlight + scroll TOC to follow
+    var links = nav.querySelectorAll('a');
+    var tocEl = document.getElementById('note-toc');
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          links.forEach(function(l) { l.classList.remove('toc-active'); });
+          var active = nav.querySelector('a[href="#' + entry.target.id + '"]');
+          if (active) {
+            active.classList.add('toc-active');
+            var linkTop = active.offsetTop;
+            var tocMid = tocEl.clientHeight / 2;
+            tocEl.scrollTo({ top: linkTop - tocMid, behavior: 'smooth' });
+          }
+        }
+      });
+    }, { rootMargin: '-10% 0px -80% 0px' });
+    headings.forEach(function(h) { observer.observe(h); });
+
+    var toc = document.getElementById('note-toc');
+    var toggle = document.getElementById('toc-toggle');
+    function setToc(open) {
+      toc.classList.toggle('hidden', !open);
+      toggle.classList.toggle('toc-closed', !open);
+      toggle.textContent = open ? '›' : '‹';
+      localStorage.setItem('toc-open', String(open));
+    }
+
+    setToc(localStorage.getItem('toc-open') === 'true');
+
+    toggle.addEventListener('click', function() {
+      setToc(toc.classList.contains('hidden'));
+    });
+  })();
+</script>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>
