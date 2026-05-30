@@ -17,6 +17,7 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 | Paper | Venue | Cited In |
 |---|---|---|
 | Abadi, Madden, Hachem, "The Design and Implementation of Modern Column-Oriented Database Systems" | Foundations and Trends in Databases, 2013 | [Arrow Format](@/notes/database/arrow_format.md), [Arrow PG Integration](@/notes/database/arrow_postgresql_integration.md) |
+| Abadi, Madden, Hachem, "Column-Stores vs. Row-Stores: How Different Are They Really?" | SIGMOD 2008 | [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
 | Athanassoulis, Kester et al., "Designing Access Methods: The RUM Conjecture" | EDBT 2016 | [WAL & Torn Pages](@/notes/database/wal_torn_pages.md) |
 | Berenson et al., "A Critique of ANSI SQL Isolation Levels" | SIGMOD 1995 | [MongoDB & WiredTiger](@/notes/database/mongodb_wiredtiger_internals.md) |
 | Bottcher, Leis, Neumann, Kemper, "Scalable Garbage Collection for In-Memory MVCC Systems" | VLDB 2019 | [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md) |
@@ -32,13 +33,18 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 | Kersten, Leis, Neumann, "Tidy Tuples and Flying Start: Fast Compilation and Fast Execution of Relational Queries in Umbra" | VLDB Journal 2021 | [Database Systems](@/notes/database/database_systems.md), [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md) |
 | Kersten, Leis, Kemper, Neumann, Pavlo, Boncz, "Everything You Always Wanted to Know About Compiled and Vectorized Queries But Were Afraid to Ask" | VLDB 2018 | [Arrow PG Integration](@/notes/database/arrow_postgresql_integration.md), [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md), [Join Algorithms](@/notes/database/join_algorithms.md), [ISA Critical Instructions](@/notes/hardware/isa_critical_instructions.md) |
 | Leis, Kemper, Neumann, "The Adaptive Radix Tree: ARTful Indexing for Main-Memory Databases" | ICDE 2013 | [Database Systems](@/notes/database/database_systems.md), [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md), [Data Structures](@/notes/programming/data_structures.md) |
-| Leis, Gubichev, Mirber, Olteanu, Kemper, Neumann, "How Good Are Query Optimizers, Really?" | VLDB 2015 | [Join Algorithms](@/notes/database/join_algorithms.md), [Database Statistics](@/notes/database/database_statistics.md) |
+| Leis, Gubichev, Mirber, Olteanu, Kemper, Neumann, "How Good Are Query Optimizers, Really?" | VLDB 2015 | [Join Algorithms](@/notes/database/join_algorithms.md), [Database Statistics](@/notes/database/database_statistics.md), [DuckDB Internals](@/notes/database/duckdb_internals.md) |
 | Mohan, Haderle, Lindsay, Pirahesh, Schwarz, "ARIES: A Transaction Recovery Method Supporting Fine-Granularity Locking" | ACM TODS, 1992 | [WAL & Torn Pages](@/notes/database/wal_torn_pages.md) |
-| Muhlbauer, Rodiger, Kemper, Neumann, "Fast Serializable Multi-Version Concurrency Control for Main-Memory Database Systems" | SIGMOD 2015 | [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md) |
-| Neumann, "Efficiently Compiling Efficient Query Plans for Modern Hardware" | VLDB 2011 | [Arrow Format](@/notes/database/arrow_format.md), [Database Systems](@/notes/database/database_systems.md), [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md) |
-| Neumann, Freitag, "Umbra: A Disk-Based System with In-Memory Performance" | CIDR 2020 | [Database Systems](@/notes/database/database_systems.md), [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md) |
+| Muhlbauer, Rodiger, Kemper, Neumann, "Fast Serializable Multi-Version Concurrency Control for Main-Memory Database Systems" | SIGMOD 2015 | [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md), [DuckDB Internals](@/notes/database/duckdb_internals.md) |
+| Neumann, "Efficiently Compiling Efficient Query Plans for Modern Hardware" | VLDB 2011 | [Arrow Format](@/notes/database/arrow_format.md), [Database Systems](@/notes/database/database_systems.md), [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md), [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
+| Neumann, Freitag, "Umbra: A Disk-Based System with In-Memory Performance" | CIDR 2020 | [Database Systems](@/notes/database/database_systems.md), [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md), [DuckDB Internals](@/notes/database/duckdb_internals.md) |
+| Raasveldt, Muhleisen, "DuckDB: an Embeddable Analytical Database" | SIGMOD 2019 (demo) | [DuckDB Internals](@/notes/database/duckdb_internals.md) |
+| Raasveldt, Muhleisen, "Don't Hold My Data Hostage – A Case for Client Protocol Redesign" | VLDB 2017 | [DuckDB Internals](@/notes/database/duckdb_internals.md) |
+| Pelkonen, Franklin, Cavallaro, Huang, Meza, Teller, Veeraraghavan, "Gorilla: A Fast, Scalable, In-Memory Time Series Database" | VLDB 2015 | [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
 | Selinger et al., "Access Path Selection in a Relational Database Management System" | SIGMOD 1979 | [Join Algorithms](@/notes/database/join_algorithms.md) |
+| Stonebraker et al., "C-Store: A Column-oriented DBMS" | VLDB 2005 | [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
 | Stonebraker, "The Design of POSTGRES Storage System" | 1987 | [WAL Incremental Conversion](@/notes/database/wal_incremental_conversion.md) |
+| Zukowski, Heman, Nes, Boncz, "Super-Scalar RAM-CPU Cache Compression" | ICDE 2006 | [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
 
 ## Join Algorithms
 
@@ -53,7 +59,7 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 | Birler, Schmidt, Fent, Neumann, "Simple, Efficient, and Robust Hash Tables for Join Processing" | DaMoN 2024 (Best Paper) | [Join Algorithms](@/notes/database/join_algorithms.md) |
 | Blanas, Li, Hellerstein, Patel, "Design and Evaluation of Main Memory Hash Join Algorithms for Multi-Core CPUs" | SIGMOD 2011 | [Join Algorithms](@/notes/database/join_algorithms.md) |
 | Blanas, Patel, Ercegovac, Rao, Shekita, Tian, "A Comparison of Join Algorithms for Log Processing in MapReduce" | SIGMOD 2010 | [Join Algorithms](@/notes/database/join_algorithms.md) |
-| Boncz et al., "MonetDB/X100: Hyper-Pipelining Query Execution" | CIDR 2005 | [Arrow Format](@/notes/database/arrow_format.md), [Arrow PG Integration](@/notes/database/arrow_postgresql_integration.md) |
+| Boncz et al., "MonetDB/X100: Hyper-Pipelining Query Execution" | CIDR 2005 | [Arrow Format](@/notes/database/arrow_format.md), [Arrow PG Integration](@/notes/database/arrow_postgresql_integration.md), [DuckDB Internals](@/notes/database/duckdb_internals.md) |
 | DeWitt, Gerber, "Multiprocessor Hash-Based Join Algorithms" (Hybrid hash join) | VLDB 1985 | [Join Algorithms](@/notes/database/join_algorithms.md) |
 | DeWitt, Katz, Olken, Shapiro, Stonebraker, Wood, "Implementation Techniques for Main Memory Database Systems" | SIGMOD 1984 | [Join Algorithms](@/notes/database/join_algorithms.md) |
 | Gross, ten Wolde, Boncz, "Adaptive Factorization Using Linear-Chained Hash Tables" | CIDR 2025 | [Join Algorithms](@/notes/database/join_algorithms.md) |
@@ -61,10 +67,10 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 | Kim, Sedlar, Chhugani et al., "Sort vs. Hash Revisited: Fast Join Implementation on Modern Multi-Core CPUs" | VLDB 2009 | [Join Algorithms](@/notes/database/join_algorithms.md) |
 | Kitsuregawa, Tanaka, Moto-oka, "Application of Hash to Database Machine and Its Architecture" (Grace hash join) | New Generation Computing, 1983 | [Join Algorithms](@/notes/database/join_algorithms.md) |
 | Kuiper, Gross, Boncz, Muhleisen, "Saving Private Hash Join" | VLDB 2025 | [Join Algorithms](@/notes/database/join_algorithms.md) |
-| Leis, Boncz, Kemper, Neumann, "Morsel-Driven Parallelism: A NUMA-Aware Query Evaluation Framework" | SIGMOD 2014 | [Database Systems](@/notes/database/database_systems.md), [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md), [Join Algorithms](@/notes/database/join_algorithms.md) |
+| Leis, Boncz, Kemper, Neumann, "Morsel-Driven Parallelism: A NUMA-Aware Query Evaluation Framework" | SIGMOD 2014 | [Database Systems](@/notes/database/database_systems.md), [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md), [Join Algorithms](@/notes/database/join_algorithms.md), [DuckDB Internals](@/notes/database/duckdb_internals.md) |
 | Manegold, Boncz, Kersten, "Optimizing Main-Memory Join on Modern Hardware" | TKDE 2002 | [Join Algorithms](@/notes/database/join_algorithms.md) |
 | Moerkotte, Neumann, "Analysis of Two Existing and One New Dynamic Programming Algorithm" (DPccp) | VLDB 2006 | [Join Algorithms](@/notes/database/join_algorithms.md) |
-| Moerkotte, Neumann, "Dynamic Programming Strikes Back" (DPhyp) | SIGMOD 2008 | [Join Algorithms](@/notes/database/join_algorithms.md) |
+| Moerkotte, Neumann, "Dynamic Programming Strikes Back" (DPhyp) | SIGMOD 2008 | [Join Algorithms](@/notes/database/join_algorithms.md), [DuckDB Internals](@/notes/database/duckdb_internals.md) |
 | Ngo, Porat, Re, Rudra, "Worst-Case Optimal Join Algorithms" | PODS 2012 | [Join Algorithms](@/notes/database/join_algorithms.md) |
 | Ngo, Re, Rudra, "Skew Strikes Back: New Developments in the Theory of Join Algorithms" | SIGMOD Record 2013 | [Join Algorithms](@/notes/database/join_algorithms.md) |
 | Okcan, Riedewald, "Processing Theta-Joins using MapReduce" | SIGMOD 2011 | [Join Algorithms](@/notes/database/join_algorithms.md) |
@@ -88,6 +94,9 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 | Leis et al., "Virtual-Memory Assisted Buffer Management" (vmcache) | SIGMOD 2023 | [Buffer Management](@/notes/database/buffer_management_predictive_translation.md) |
 | Vohringer, Leis, "Write-Aware Timestamp Tracking" (WATT eviction) | VLDB 2023 | [Buffer Management](@/notes/database/buffer_management_predictive_translation.md) |
 | Zinsmeister, Nguyen, Leis, Neumann, "Predictive Translation: High-Performance Buffer Management Without the Trade-Offs" | SIGMOD 2026 | [Buffer Management](@/notes/database/buffer_management_predictive_translation.md) |
+| Boncz, Neumann, Leis, "FSST: Fast Random Access String Compression" | VLDB 2020 | [DuckDB Internals](@/notes/database/duckdb_internals.md) |
+| Liakos, Papakonstantinopoulou, Kotidis, "Chimp: Efficient Lossless Floating Point Compression for Time Series Databases" | VLDB 2022 | [DuckDB Internals](@/notes/database/duckdb_internals.md) |
+| Afroozeh, Kuffo, Boncz, "ALP: Adaptive Lossless floating-Point Compression" | SIGMOD 2024 | [DuckDB Internals](@/notes/database/duckdb_internals.md) |
 
 ## LSM Trees & Write-Optimized Storage
 
@@ -104,7 +113,7 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 | Kaiyrakhmet et al., "SLM-DB: Single-Level Key-Value Store with Persistent Memory" | FAST 2019 | [LSM Trees](@/notes/database/lsm_trees.md) |
 | Lu, Pillai et al., "WiscKey: Separating Keys from Values in SSD-Conscious Storage" | FAST 2016 | [WAL & Torn Pages](@/notes/database/wal_torn_pages.md), [LSM Trees](@/notes/database/lsm_trees.md) |
 | Luo, Carey, "LSM-based Storage Techniques: A Survey" | VLDB Journal 2020 | [LSM Trees](@/notes/database/lsm_trees.md), [Data Structures](@/notes/programming/data_structures.md) |
-| O'Neil, Cheng, Gawlick, O'Neil, "The Log-Structured Merge-Tree (LSM-Tree)" | Acta Informatica, 1996 | [WAL & Torn Pages](@/notes/database/wal_torn_pages.md), [LSM Trees](@/notes/database/lsm_trees.md), [MongoDB & WiredTiger](@/notes/database/mongodb_wiredtiger_internals.md) |
+| O'Neil, Cheng, Gawlick, O'Neil, "The Log-Structured Merge-Tree (LSM-Tree)" | Acta Informatica, 1996 | [WAL & Torn Pages](@/notes/database/wal_torn_pages.md), [LSM Trees](@/notes/database/lsm_trees.md), [MongoDB & WiredTiger](@/notes/database/mongodb_wiredtiger_internals.md), [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
 | Yao et al., "MatrixKV: Reducing Write Stalls and Write Amplification in LSM-tree Based KV Stores" | USENIX ATC 2020 | [LSM Trees](@/notes/database/lsm_trees.md) |
 | Zhong et al., "REMIX: Efficient Range Query for LSM-trees" | FAST 2021 | [LSM Trees](@/notes/database/lsm_trees.md) |
 
@@ -116,6 +125,7 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 | Armbrust et al., "Delta Lake: High-Performance ACID Table Storage over Cloud Object Stores" | VLDB 2020 | [Disaggregated Storage](@/notes/database/disaggregated_storage.md) |
 | Bacon et al., "Spanner: Becoming a SQL System" | SIGMOD 2017 | [Disaggregated Storage](@/notes/database/disaggregated_storage.md), [Distributed Consensus](@/notes/distributed/distributed_consensus.md) |
 | Cao et al., "PolarFS: An Ultra-low Latency and Failure Resilient Distributed File System" | VLDB 2018 | [LSM Trees](@/notes/database/lsm_trees.md), [Disaggregated Storage](@/notes/database/disaggregated_storage.md) |
+| Shvachko, Kuang, Radia, Chansler, "The Hadoop Distributed File System" | MSST 2010 | [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
 | Corbett et al., "Spanner: Google's Globally-Distributed Database" | OSDI 2012 | [WAL & Torn Pages](@/notes/database/wal_torn_pages.md), [Disaggregated Storage](@/notes/database/disaggregated_storage.md), [Distributed Consensus](@/notes/distributed/distributed_consensus.md) |
 | Dageville et al., "The Snowflake Elastic Data Warehouse" | SIGMOD 2016 | [Disaggregated Storage](@/notes/database/disaggregated_storage.md) |
 | Depoutovitch et al., "Taurus Database: How to Be Fast, Available, and Frugal in the Cloud" | SIGMOD 2020 | [Disaggregated Storage](@/notes/database/disaggregated_storage.md) |

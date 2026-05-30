@@ -45,7 +45,7 @@ Acronyms and technical terms used across research docs.
 | DMA | Direct Memory Access — hardware capability for devices to read/write main memory without CPU involvement | [VFIO Internals](@/notes/os/vfio_internals.md) |
 | DMB | Data Memory Barrier — ARM instruction ordering memory accesses without stalling execution | [ISA Critical Instructions](@/notes/hardware/isa_critical_instructions.md) |
 | DPccp | Dynamic Programming connected complement pairs — join enumeration algorithm for bushy plans | [Join Algorithms](@/notes/database/join_algorithms.md) |
-| DPhyp | Dynamic Programming on hypergraphs — join enumeration supporting multi-relation predicates | [Join Algorithms](@/notes/database/join_algorithms.md) |
+| DPhyp | Dynamic Programming on hypergraphs — join enumeration supporting multi-relation predicates | [Join Algorithms](@/notes/database/join_algorithms.md), [DuckDB Internals](@/notes/database/duckdb_internals.md) |
 | DPDK | Data Plane Development Kit — userspace networking framework using VFIO for kernel-bypass packet processing (~30-40 Mpps) | [VFIO Internals](@/notes/os/vfio_internals.md) |
 | DSB | Data Synchronization Barrier — ARM instruction that stalls execution until all prior memory accesses complete | [ISA Critical Instructions](@/notes/hardware/isa_critical_instructions.md) |
 | DST | Deterministic Simulation Testing — technique running distributed systems in a single-threaded deterministic simulator | [Deterministic Simulation Testing](@/notes/distributed/deterministic_simulation_testing.md) |
@@ -55,6 +55,8 @@ Acronyms and technical terms used across research docs.
 | FDW | Foreign Data Wrapper — PostgreSQL mechanism for querying external data sources as local tables | [Database Systems](@/notes/database/database_systems.md) |
 | FLP | Fischer-Lynch-Paterson impossibility — proof that deterministic asynchronous consensus is impossible with even one crash | [Distributed Consensus](@/notes/distributed/distributed_consensus.md) |
 | FMA | Fused Multiply-Add — single instruction computing a*b+c with one rounding; used in Tensor Cores and CPU SIMD | [GPU/TPU Accelerator Design](@/notes/hardware/gpu_tpu_accelerator_design.md) |
+| FOR | Frame-of-Reference — lightweight compression storing a per-segment base (min) and bitpacked offsets; common for dates/timestamps | [DuckDB Internals](@/notes/database/duckdb_internals.md) |
+| FSST | Fast Static Symbol Table — string compression assigning 1-byte codes to frequent substrings, allowing random access without full decompression | [DuckDB Internals](@/notes/database/duckdb_internals.md) |
 | FP8 | 8-bit floating point — low-precision format (E4M3/E5M2) for LLM training/inference on Hopper+ GPUs | [GPU/TPU Accelerator Design](@/notes/hardware/gpu_tpu_accelerator_design.md) |
 | FPW | Full Page Writes — PostgreSQL technique writing complete page images to WAL after checkpoint to prevent torn pages | [WAL & Torn Pages](@/notes/database/wal_torn_pages.md) |
 | FTL | Flash Translation Layer — SSD firmware mapping logical block addresses to physical NAND pages | [WAL & Torn Pages](@/notes/database/wal_torn_pages.md) |
@@ -97,6 +99,16 @@ Acronyms and technical terms used across research docs.
 | LSE | Large System Extensions — ARMv8.1 atomic instructions (CAS, LDADD, SWP) replacing LL/SC for better scalability | [ISA Critical Instructions](@/notes/hardware/isa_critical_instructions.md) |
 | LSM | Log-Structured Merge tree — write-optimized structure converting random writes to sequential via leveled compaction | [LSM Trees](@/notes/database/lsm_trees.md) |
 | LSN | Log Sequence Number — monotonically increasing identifier for WAL records, used for recovery and page versioning | [WAL & Torn Pages](@/notes/database/wal_torn_pages.md) |
+| MergeTree | ClickHouse's core storage engine family: each INSERT writes an immutable PK-sorted part; background merges fold parts together (LSM-like) | [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
+| Granule | ClickHouse unit of index addressing — default 8192 rows (capped by index_granularity_bytes); the smallest data block the sparse index can select | [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
+| Mark | ClickHouse mark (.mrk3/.cmrk3) — 24-byte record mapping a granule to (offset_in_compressed_file, offset_in_decompressed_block, rows_in_granule) | [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
+| Sparse primary index | Index storing the PK tuple only at each granule boundary (primary.idx) — lossy zone-map-style pruning, not per-row | [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
+| DoubleDelta | Codec storing second-order differences (delta-of-deltas) with Gorilla varint framing; near-free for fixed-stride sequences like timestamps | [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
+| T64 | ClickHouse codec transposing 64 integers into bit-planes after range subtraction, storing only the needed planes; for low-range/low-cardinality ints | [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
+| Gorilla | XOR-based float compression encoding leading/trailing zero runs of consecutive-value XORs (Pelkonen VLDB 2015); a ClickHouse codec | [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
+| Volnitsky | Bigram-hash substring search algorithm (Boyer-Moore-Horspool variant) used in ClickHouse string/LIKE matching | [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
+| NuRaft | C++ Raft consensus library underpinning ClickHouse Keeper, the ZooKeeper-compatible coordination service | [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
+| Projection | ClickHouse alternate physical layout stored inside each part (different sort order and/or pre-aggregation), auto-maintained through merges | [ClickHouse Internals](@/notes/database/clickhouse_internals.md) |
 | MESIF | Modified/Exclusive/Shared/Invalid/Forward — Intel's extension of MESI with a Forward state for peer-to-peer cache supply | [Superscalar OoO CPU](@/notes/hardware/superscalar_ooo_cpu.md) |
 | MESI | Modified/Exclusive/Shared/Invalid — CPU cache coherence protocol tracking cache line states across cores | [ISA Critical Instructions](@/notes/hardware/isa_critical_instructions.md) |
 | MCV | Most Common Values — per-column list of (value, frequency) pairs stored in pg_statistic stakind=1; used for exact selectivity on high-frequency values | [Database Statistics](@/notes/database/database_statistics.md) |
@@ -107,10 +119,11 @@ Acronyms and technical terms used across research docs.
 | MSHR | Miss Status Holding Register — tracks outstanding cache misses and coalesces accesses to the same line; count ≈ MLP | [Superscalar OoO CPU](@/notes/hardware/superscalar_ooo_cpu.md) |
 | MMA | Matrix Multiply-Accumulate — Tensor Core operation computing D = A * B + C on small matrix tiles | [GPU/TPU Accelerator Design](@/notes/hardware/gpu_tpu_accelerator_design.md) |
 | MMIO | Memory-Mapped I/O — mapping device registers into CPU address space for direct read/write access | [VFIO Internals](@/notes/os/vfio_internals.md) |
+| Morsel | A small chunk of a source operator's input handed to a worker thread; unit of morsel-driven parallelism and work stealing | [DuckDB Internals](@/notes/database/duckdb_internals.md) |
 | MPSM | Massively Parallel Sort-Merge — NUMA-aware join algorithm with local sort + parallel merge across nodes | [Join Algorithms](@/notes/database/join_algorithms.md) |
 | MSI-X | Message Signaled Interrupts Extended — PCIe interrupt delivery via memory writes, supporting per-queue interrupt vectors | [VFIO Internals](@/notes/os/vfio_internals.md) |
 | MTE | Memory Tagging Extension — ARM hardware feature for detecting memory safety bugs (use-after-free, buffer overflow) | [Linux Expert Syscalls](@/notes/os/linux_expert_syscalls.md) |
-| MVCC | Multi-Version Concurrency Control — concurrency scheme where readers see snapshots and writers create new versions | [Database Systems](@/notes/database/database_systems.md) |
+| MVCC | Multi-Version Concurrency Control — concurrency scheme where readers see snapshots and writers create new versions | [Database Systems](@/notes/database/database_systems.md), [DuckDB Internals](@/notes/database/duckdb_internals.md) |
 | NoC | Network-on-Chip — on-die interconnect (ring/mesh/torus) routing traffic between cores, caches, and memory controllers | [Superscalar OoO CPU](@/notes/hardware/superscalar_ooo_cpu.md), [GPU/TPU Accelerator Design](@/notes/hardware/gpu_tpu_accelerator_design.md) |
 | NLJ | Nested Loop Join — simplest join algorithm scanning inner relation for each outer tuple; O(\|R\| * B(S)) I/O | [Join Algorithms](@/notes/database/join_algorithms.md) |
 | NUMA | Non-Uniform Memory Access — multi-socket architecture where memory access latency depends on which socket owns the memory | [HyPer/Umbra/CedarDB](@/notes/database/hyper_umbra_cedardb.md) |
@@ -130,6 +143,7 @@ Acronyms and technical terms used across research docs.
 | PRF | Physical Register File — centralized storage for all in-flight register values; separate INT and FP files sized at ROB + arch_regs | [Superscalar OoO CPU](@/notes/hardware/superscalar_ooo_cpu.md) |
 | PG | Protection Group — Aurora's 10 GB storage segment replicated 6 ways across 3 AZs | [Disaggregated Storage](@/notes/database/disaggregated_storage.md) |
 | PID | Page ID — logical identifier for a database page, translated to a buffer frame address by the buffer manager | [Buffer Management](@/notes/database/buffer_management_predictive_translation.md) |
+| Pipeline Breaker | Operator that must fully consume its input before producing output (hash-join build, aggregate, sort); materializes into pipeline-local state and acts as the source of a downstream pipeline | [DuckDB Internals](@/notes/database/duckdb_internals.md) |
 | PITR | Point-In-Time Recovery — restoring a database to any past moment by replaying WAL to a target LSN/timestamp | [Database Systems](@/notes/database/database_systems.md) |
 | PLL | Phase-Locked Loop — clock generation circuit multiplying a reference crystal frequency for the system clock | [Timer Interrupts STM32](@/notes/os/timer_interrupts_stm32.md) |
 | PMU | Performance Monitoring Unit — hardware counters (cycles, cache misses, branch mispredictions) for CPU profiling | [Cycle Counters & Energy](@/notes/hardware/cycle_counters_and_energy.md) |
@@ -150,6 +164,7 @@ Acronyms and technical terms used across research docs.
 | SQ | Store Queue — buffer holding committed stores until they drain to the L1D cache; used for STLF and memory ordering | [Superscalar OoO CPU](@/notes/hardware/superscalar_ooo_cpu.md) |
 | SCL | Segment Complete LSN — per-Protection-Group completeness tracker in Aurora's storage layer | [Disaggregated Storage](@/notes/database/disaggregated_storage.md) |
 | seccomp | Secure Computing Mode — Linux syscall filtering mechanism using BPF programs for sandboxing (used in Neon WAL redo) | [Linux Expert Syscalls](@/notes/os/linux_expert_syscalls.md) |
+| Selection Vector | Array of indices into a vector selecting surviving rows after a filter; threaded downstream so filtered data is not compacted until materialization (DuckDB vectorized engine) | [DuckDB Internals](@/notes/database/duckdb_internals.md) |
 | SFU | Special Function Unit — GPU hardware computing transcendentals (sin, cos, rsqrt, log) at reduced throughput | [GPU/TPU Accelerator Design](@/notes/hardware/gpu_tpu_accelerator_design.md) |
 | SIMT | Single Instruction, Multiple Thread — GPU execution model where warps of 32 threads execute in lockstep | [GPU/TPU Accelerator Design](@/notes/hardware/gpu_tpu_accelerator_design.md) |
 | SM | Streaming Multiprocessor — fundamental GPU compute unit containing CUDA cores, Tensor Cores, register file, and shared memory | [GPU/TPU Accelerator Design](@/notes/hardware/gpu_tpu_accelerator_design.md) |
