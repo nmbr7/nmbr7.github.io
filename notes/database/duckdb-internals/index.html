@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<div class="note-layout">
+  <article class="note-page">
+    <h1 class="r-header">Duckdb Internals</h1>
+    <h1 id="duckdb-internals">DuckDB Internals</h1>
+<h2 id="overview">Overview</h2>
+<p>DuckDB is an in-process analytical (OLAP) database, sometimes called "SQLite for analytics." It runs embedded in the host process (no client/server), stores a database in a single file, and is built around a <strong>vectorized, push-based, morsel-driven</strong> execution engine over a <strong>columnar, block-compressed</strong> storage format. The architecture descends from the MonetDB lineage: vectorized execution from MonetDB/X100 (Boncz, Zukowski, Nes, "MonetDB/X100: Hyper-Pipelining Query Execution", CIDR 2005) and morsel-driven parallelism from HyPer/Umbra (Leis et al., "Morsel-Driven Parallelism", SIGMOD 2014; Neumann &amp; Freitag, "Umbra: A Disk-Based System with In-Memory Performance", CIDR 2020).</p>
+<p>The foundational system paper is Raasveldt &amp; Mühleisen, "DuckDB: an Embeddable Analytical Database" (SIGMOD 2019 demo). The result-serialization work that motivated the column-at-a-time client protocol is Raasveldt &amp; Mühleisen, "Don't Hold My Data Hostage – A Case for Client Protocol Redesign" (VLDB 2017).</p>
+<pre><code>   SQL ──▶ Parser ──▶ Binder ──▶ Logical Plan ──▶ Optimizer (DPhyp, pushdown,
+                                                              filter injection)
+                                                        │
+                                                        ▼
+   Result ◀── Vectorized Engine ◀── Physical Plan ──▶ Scheduler (morsels, tasks)
+                    │                                        │
+                    ▼                                        ▼
+            Buffer Manager ◀────────────────────▶ Single-File Storage (blocks)
+</code></pre>
+<hr />
+<h2 id="1-storage-format">1. Storage Format</h2>
+<p>DuckDB stores a database as a single file divided into fixed-size <strong>blocks</strong>. Source: <code>src/storage/</code>, esp. <code>single_file_block_manager.cpp</code>, <code>block.cpp</code>, <code>storage_info.cpp</code>. The format is described in Mark Raasveldt's storage blog posts (2022) and the official storage docs.</p>
+<h3 id="1-1-file-and-block-layout">1.1 File and block layout</h3>
+<p>The file begins with three headers, each occupying one "header block" region (4096 bytes each), followed by data blocks.</p>
+<pre><code> offset 0           4096            8192            12288        12288 + N*262144
+ ┌───────────────┬───────────────┬───────────────┬───────────────────────────┐
+ │ Main Header   │ Database      │ Database      │  Data blocks (262144 each) │
+ │ (magic+ver)   │ Header  H0    │ Header  H1    │  blk0 blk1 blk2 ...        │
+ └───────────────┴───────────────┴───────────────┴───────────────────────────┘
+</code></pre>
+<p><strong>Main header</strong> (<code>MainHeader</code>):</p>
+<table><thead><tr><th>Field</th><th>Size</th><th>Encoding</th></tr></thead><tbody>
+<tr><td>checksum</td><td>8 bytes</td><td>uint64 xxHash of header body</td></tr>
+<tr><td>magic</td><td>4 bytes</td><td>ASCII <code>"DUCK"</code></td></tr>
+<tr><td>version_number</td><td>8 bytes</td><td>uint64 storage format version</td></tr>
+<tr><td>flags[4]</td><td>32 bytes</td><td>4 × uint64 reserved/feature flags</td></tr>
+<tr><td>(library version / source id strings follow in later formats)</td><td></td><td></td></tr>
+</tbody></table>
+<p><strong>Database header</strong> (<code>DatabaseHeader</code>, two copies H0/H1, alternated for crash safety):</p>
+<table><thead><tr><th>Field</th><th>Size</th><th>Meaning</th></tr></thead><tbody>
+<tr><td>checksum</td><td>8 bytes</td><td>xxHash of header body</td></tr>
+<tr><td>iteration</td><td>8 bytes</td><td>uint64 monotonic write counter</td></tr>
+<tr><td>meta_block</td><td>8 bytes</td><td>block id of metadata catalog root</td></tr>
+<tr><td>free_list</td><td>8 bytes</td><td>block id of free-list block chain</td></tr>
+<tr><td>block_count</td><td>8 bytes</td><td>total blocks allocated in file</td></tr>
+<tr><td>block_alloc_size</td><td>8 bytes</td><td>the block size used (default 262144)</td></tr>
+<tr><td>vector_size</td><td>8 bytes</td><td>STANDARD_VECTOR_SIZE persisted (2048)</td></tr>
+</tbody></table>
+<p><strong>Safe writes via header alternation.</strong> A checkpoint writes a <em>new</em> <code>DatabaseHeader</code> into whichever of H0/H1 is <em>not</em> currently active, then fsyncs, then the reader on next open picks the header with the <strong>highest valid <code>iteration</code></strong> whose checksum verifies. A torn write to one header leaves the other intact — this is the ping-pong / shadow-paging discipline that gives atomic checkpoint commit without a separate double-write buffer.</p>
+<p><strong>Block size</strong>: <code>DEFAULT_BLOCK_ALLOC_SIZE = 262144</code> (256 KiB). Each block on disk is <code>block_alloc_size</code>; the usable payload is <code>block_size = block_alloc_size − sizeof(checksum)</code> (8 bytes), with a per-block xxHash64 checksum stored in the block header for torn-page / bit-rot detection.</p>
+<p><strong>Free list.</strong> Freed blocks are recorded in a free-list block chain referenced by <code>free_list</code>. On allocation the manager pops a free block id; on truncate the trailing free blocks are released and <code>block_count</code> shrinks. This is a classic free-space map, not an LSM-style append log.</p>
+<p><strong>Metadata blocks.</strong> The catalog (schemas, tables, view definitions) and per-table storage metadata (row group pointers, column segment trees, statistics) are serialized into <strong>metadata blocks</strong>, a separate allocation that packs many small metadata entries into 256 KiB blocks via <code>MetadataManager</code> to avoid wasting a full block per tiny object.</p>
+<h3 id="1-2-row-groups-and-column-segments">1.2 Row groups and column segments</h3>
+<p>A table is stored as a list of <strong>row groups</strong>, each holding up to <code>ROW_GROUP_SIZE = 122880</code> rows (= 60 × 2048 vectors). Each row group stores one <strong>ColumnData</strong> per column; a column's data is a tree of <strong>column segments</strong>, each segment ≈ one block's worth of compressed values plus per-segment statistics (min, max, null count, distinct estimate).</p>
+<pre><code>Table
+ ├─ RowGroup[0]  (rows 0 .. 122879)
+ │    ├─ Column &quot;id&quot;   : Segment(min,max,...) → block 17
+ │    ├─ Column &quot;name&quot; : Segment(...)         → block 18..20 (overflow for strings)
+ │    └─ row versions / validity
+ ├─ RowGroup[1]  (rows 122880 ..)
+ └─ ...
+</code></pre>
+<p>Row-group-level and segment-level statistics drive <strong>zone-map skipping</strong>: a scan with predicate <code>WHERE x &gt; 100</code> skips any segment whose <code>max &lt;= 100</code>.</p>
+<h3 id="1-3-compression">1.3 Compression</h3>
+<p>Compression is chosen <strong>per column segment</strong> by a two-phase scheme (no sampling — DuckDB scans the whole segment, which usually fits in cache): an <strong>Analyze</strong> pass asks every applicable compression function to estimate the final compressed size for that segment, then the cheapest wins, then a <strong>Compress</strong> pass writes it. Each function exposes <code>init_analyze / analyze / final_analyze / init_compression / compress / compress_finalize</code> and a matching scan/decompress path (<code>src/storage/compression/</code>).</p>
+<table><thead><tr><th>Scheme</th><th>Applies to</th><th>Mechanism</th></tr></thead><tbody>
+<tr><td>Constant</td><td>any</td><td>all values identical → store one value</td></tr>
+<tr><td>Uncompressed</td><td>any</td><td>flat array, fallback</td></tr>
+<tr><td>RLE</td><td>runs</td><td>(value, run_length) pairs</td></tr>
+<tr><td>Bitpacking</td><td>integers</td><td>pack to <code>ceil(log2(max−min+1))</code> bits per value, grouped per 1024 values</td></tr>
+<tr><td>FOR</td><td>dates/timestamps</td><td>frame = min; bitpack <code>value − min</code></td></tr>
+<tr><td>Dictionary</td><td>low-cardinality strings</td><td>dictionary of distinct strings + bitpacked codes</td></tr>
+<tr><td>FSST</td><td>high-card strings</td><td>Fast Static Symbol Table: 1–8 byte symbol codes for frequent substrings (Boncz, Neumann, Leis, "FSST", VLDB 2020)</td></tr>
+<tr><td>Chimp / Patas</td><td>floats</td><td>XOR successive doubles, encode leading/trailing zero runs (Liakos et al., "Chimp", VLDB 2022); Patas is a faster DuckDB variant</td></tr>
+<tr><td>ALP</td><td>floats</td><td>Adaptive Lossless floating-Point; decompose to int+exponent when decimal-representable (Afroozeh, Kuffo, Boncz, "ALP", SIGMOD 2024)</td></tr>
+</tbody></table>
+<p>Bitpacking, FOR, and dictionary are the workhorses for integer/string analytics; ALP largely supersedes Chimp/Patas for real-valued data in modern DuckDB.</p>
+<h3 id="1-4-wal-and-recovery">1.4 WAL and recovery</h3>
+<p>Between checkpoints, transactions append to a <strong>write-ahead log</strong> (<code>src/storage/write_ahead_log.cpp</code>). WAL entries are typed records: <code>INSERT_TUPLE</code>, <code>DELETE_TUPLE</code>, <code>UPDATE_TUPLE</code>, DDL (<code>CREATE_TABLE</code>, <code>ALTER</code>), and <code>CHECKPOINT</code>. On commit the WAL is flushed/fsynced (durability); recovery replays the WAL from the last checkpoint marker. A <strong>checkpoint</strong> materializes WAL contents into compressed column segments in the main file, writes a fresh alternating <code>DatabaseHeader</code>, then truncates the WAL. The single-file format thus provides ACID via WAL (durability/atomicity of small txns) + header ping-pong (atomic checkpoint).</p>
+<hr />
+<h2 id="2-buffer-manager">2. Buffer Manager</h2>
+<p><code>src/storage/buffer_manager.cpp</code>, <code>standard_buffer_manager.cpp</code>.</p>
+<p>The buffer pool manages fixed-size <strong>blocks</strong> as <strong>BufferHandle</strong> frames. A block is referenced by a <code>BlockHandle</code>; pinning (<code>Pin()</code>) loads it into memory and increments a pin count, returning a <code>BufferHandle</code> whose lifetime keeps the page resident. Unpinned blocks become eviction candidates. Dirty blocks (modified, e.g. during a checkpoint write) are tracked and flushed to the block manager.</p>
+<p><strong>Replacement policy.</strong> DuckDB uses a <strong>clock / second-chance</strong> approximation of LRU implemented as a queue with a reference bit (<code>EvictionQueue</code>). On eviction the sweep skips pinned blocks and gives recently-touched blocks a second chance, which avoids the per-access list surgery of strict LRU under high concurrency.</p>
+<p><strong>Out-of-core execution.</strong> When the buffer pool is full, <em>temporary</em> buffers (operator state, not persistent table data) are spilled to a temp directory as <code>.tmp</code> files via the same <code>BlockManager</code> abstraction. Operators are written to be spill-aware:</p>
+<ul>
+<li><strong>External hash join</strong>: the build-side hash table is partitioned by hash; if memory is exceeded, partitions are spilled to disk and the join runs partition-by-partition (Grace hash join), re-reading probe rows per partition.</li>
+<li><strong>External sort</strong>: runs are sorted in memory, spilled as sorted runs, then k-way merged.</li>
+<li><strong>External aggregation</strong>: partitioned hash table; overflowing partitions spill and are finalized in a later pass.</li>
+</ul>
+<p><strong>Memory pressure.</strong> A global <code>memory_limit</code> (default ~80% RAM) is enforced; allocations request reservation from the buffer manager, which evicts unpinned blocks or triggers operator spilling when the limit would be exceeded. Spilling is graceful degradation, not OOM failure.</p>
+<hr />
+<h2 id="3-vectorized-execution-engine">3. Vectorized Execution Engine</h2>
+<p><code>src/execution/</code>, <code>src/common/types/vector.cpp</code>. Vectorized execution amortizes per-tuple interpreter overhead across <code>STANDARD_VECTOR_SIZE = 2048</code> values processed per call (MonetDB/X100, CIDR 2005).</p>
+<h3 id="3-1-vector-representations">3.1 Vector representations</h3>
+<p>A <code>Vector</code> is a typed container of up to 2048 values with a <strong>physical type</strong> plus a <code>VectorType</code>:</p>
+<pre><code>Vector { type, VectorType, data ptr, validity_mask (bitset), aux (string heap / child) }
+</code></pre>
+<table><thead><tr><th>VectorType</th><th>Layout</th><th>Use</th></tr></thead><tbody>
+<tr><td>FLAT</td><td>contiguous array of N values + validity bitmask</td><td>default materialized form</td></tr>
+<tr><td>CONSTANT</td><td>single value, logically broadcast to all N rows</td><td>scalar / literal</td></tr>
+<tr><td>DICTIONARY</td><td>a child Vector (dict) + a <strong>selection vector</strong> of indices into it</td><td>output of filters, dict scans</td></tr>
+<tr><td>SEQUENCE</td><td>(start, increment): value[i] = start + i·increment</td><td>rowids, <code>range()</code></td></tr>
+</tbody></table>
+<p>CONSTANT and SEQUENCE store O(1) data for N rows; DICTIONARY shares one physical child across many logical positions — the basis for <strong>zero-copy</strong> transforms.</p>
+<h3 id="3-2-selection-vectors">3.2 Selection vectors</h3>
+<p>Filters do not compact data; they produce a <strong>SelectionVector</strong> — an array of indices (<code>sel_t</code>) into the underlying vector picking surviving rows. Operators thread the selection vector downstream, so a filtered vector of 2048 rows down to 30 survivors costs no memcpy until materialization forces a flatten. This is the vectorized analogue of late materialization.</p>
+<pre><code>data:  [a b c d e f g h ...]   (2048 flat)
+sel :  [1 3 6]                 → logical view = [b d g]   (3 rows)
+</code></pre>
+<h3 id="3-3-push-based-pipelines">3.3 Push-based pipelines</h3>
+<p>DuckDB uses a <strong>push</strong> model (not Volcano pull). A query plan is split into <strong>pipelines</strong>; each pipeline is a chain <code>Source → Operator* → Sink</code>. The source produces chunks and <em>pushes</em> them through operators into the sink:</p>
+<pre><code>class Source   { GetData(chunk)  -&gt; produces DataChunk }   // scan, read-group
+class Operator { Execute(in,out) -&gt; transforms chunk   }   // filter, project
+class Sink      { Sink(chunk); Combine(); Finalize();  }   // HT build, agg, sort
+</code></pre>
+<p>A <strong>pipeline breaker</strong> is an operator that must consume its entire input before producing output — it is a <code>Sink</code>. The hash-join build side, the aggregate, and the sort are breakers: they materialize into <strong>pipeline-local sink state</strong> during <code>Sink</code>, merge thread-local states in <code>Combine</code>, finish in <code>Finalize</code>, and then act as the <strong>Source</strong> of a <em>downstream</em> pipeline. This is how a join splits into a build pipeline (breaker) and a probe pipeline.</p>
+<pre><code>Pipeline 1 (build):  Scan(B) ─▶ HashJoin.Sink  (builds HT)   [breaker]
+Pipeline 2 (probe):  Scan(A) ─▶ HashJoin.Operator(probe HT) ─▶ Aggregate.Sink
+</code></pre>
+<h3 id="3-4-key-physical-operators">3.4 Key physical operators</h3>
+<p><strong>Hash join</strong> (<code>physical_hash_join.cpp</code>). Build side fills a <code>JoinHashTable</code>: rows are serialized into a row-layout (fixed-width columns inline, variable-width into a string heap) in partitioned blocks; each entry carries a hash and a chain pointer. The HT is a pointer array; collisions chain. A <strong>Bloom filter</strong> (perfect-hash / small filter) is built over build-side keys and pushed to the probe scan so non-matching probe rows are discarded early (and the filter can be injected as a runtime predicate at the scan — see §5).</p>
+<pre><code>JoinHashTable entry (row layout):
+ ┌──────────┬──────────────┬───────────────┬─────────────┐
+ │ hash (8) │ next_ptr (8) │ key cols ...  │ payload ... │
+ └──────────┴──────────────┴───────────────┴─────────────┘
+</code></pre>
+<p><strong>Aggregate</strong> (<code>physical_hashaggregate.cpp</code>). Grouped aggregation uses a <strong>partitioned</strong> hash table: the group key is hashed, the high bits select one of P radix partitions, each with its own hash table. Thread-local partitioned HTs are merged partition-wise in <code>Combine</code> (no global lock), and partitions can be finalized/spilled independently. Aggregate states (sum, count, sketches) live inline in the HT row.</p>
+<p><strong>Sort</strong> (<code>physical_order.cpp</code>). DuckDB sorts on a <strong>normalized key</strong> (radix-comparable encoding of all ORDER BY columns into a single comparable byte string, NULLs and DESC handled by bit-flips), then runs an <strong>LSD radix sort</strong> on the key within each thread, spills sorted runs if needed, and <strong>k-way merges</strong> runs. Normalized keys make comparison a memcmp, eliminating per-column branchy comparators.</p>
+<hr />
+<h2 id="4-morsel-driven-parallelism">4. Morsel-Driven Parallelism</h2>
+<p><code>src/parallel/</code>, esp. <code>executor.cpp</code>, <code>pipeline_executor.cpp</code>, <code>task_scheduler.cpp</code>. Model from Leis et al., SIGMOD 2014.</p>
+<p>A <strong>morsel</strong> is a small chunk of the source's input range (e.g. a contiguous slice of a row group / a set of vectors). The source operator hands out morsels on demand. The executor runs a fixed pool of worker threads; each thread repeatedly <strong>pulls a task</strong>, where a task is "run this pipeline on the next morsel."</p>
+<pre><code>Source range:  [────────── row groups ──────────]
+                 m0   m1   m2   m3   m4   m5  ...      (morsels)
+Threads:        T0   T1   T2   T0   T1   T2  ...      (dynamic assignment)
+</code></pre>
+<p><strong>Pipeline parallelism.</strong> A pipeline is run by N parallel <code>PipelineExecutor</code> instances — one per thread. Each instance owns <strong>thread-local operator state and a thread-local sink state</strong>, but they <strong>share read-only state</strong> such as the join's already-built hash table. Each thread independently grabs morsels, pushes them through its operator chain, and accumulates into its local sink state; <code>Combine</code> then merges local states. Because morsels are handed out dynamically, a thread that finishes its work simply requests the next morsel — this is <strong>work stealing</strong> at morsel granularity, giving automatic load balancing across skew without static partitioning.</p>
+<p><strong>Tasks and finish tasks.</strong> The scheduler distinguishes regular pipeline tasks from a <strong>finish task</strong> that runs once after all morsels of a pipeline are consumed (it triggers <code>Combine</code>/<code>Finalize</code> and readies the dependent pipeline).</p>
+<p><strong>Dependencies.</strong> Pipelines form a DAG via the <code>MetaPipeline</code>: a breaker's build pipeline must <code>Finalize</code> before its probe pipeline starts. The executor schedules pipelines respecting these edges; independent pipelines (e.g. two build sides of different joins) run concurrently. Scheduling order is a topological order of the pipeline dependency graph, with all leaves runnable immediately.</p>
+<hr />
+<h2 id="5-query-optimizer">5. Query Optimizer</h2>
+<p><code>src/optimizer/</code>. Cost-based, operating on the logical plan after binding.</p>
+<p><strong>Join ordering — DPhyp.</strong> DuckDB enumerates join orders with <strong>DPhyp</strong> (Moerkotte &amp; Neumann, "Analysis of Two Existing and One New Dynamic Programming Algorithm for the Generation of Optimal Bushy Join Trees", VLDB 2006). DPhyp models the query as a <strong>hypergraph</strong> (hyperedges capture non-inner / multi-relation predicates) and enumerates <strong>connected subgraph complement pairs (csg-cmp-pairs)</strong> via <code>EmitCsg</code>/<code>EnumerateCmp</code>, building optimal <strong>bushy</strong> trees by dynamic programming over connected subsets. It avoids generating cross products unless forced, and its complexity tracks the number of connected subgraphs rather than <code>n!</code>. For very large join graphs DuckDB falls back to a greedy / IKKBZ-style heuristic.</p>
+<p><strong>Cardinality estimation.</strong> Per Leis et al., "How Good Are Query Optimizers, Really?" (VLDB 2015), cardinality estimation is the dominant source of plan error. DuckDB uses per-column statistics — <strong>min, max, NDV (distinct count, via HyperLogLog), null count</strong>, and (for base tables) zone maps — and estimates join selectivity from NDV (the classic <code>|R⋈S| ≈ |R||S| / max(NDV_R, NDV_S)</code>). It also samples base tables to seed statistics. These feed the DPhyp cost model (cost ≈ sum of intermediate cardinalities).</p>
+<p><strong>Rewrite rules.</strong> Filter pushdown (push predicates below joins/projections, down to the scan as zone-map filters), projection pushdown (read only referenced columns), predicate simplification / constant folding, common-subexpression elimination, expression rewriting (e.g. <code>x IN (...)</code> → mark join / hash set), and unnesting of correlated subqueries (apply → join decorrelation).</p>
+<p><strong>Dynamic Bloom-filter / runtime-filter injection.</strong> After the build side of a hash join is materialized, DuckDB can inject a Bloom filter (or a min/max range filter) derived from the build keys as a <strong>runtime predicate</strong> on the probe-side scan. This prunes probe row groups/segments via zone maps and discards rows before the probe — a sideways-information-passing optimization that bridges the two pipelines.</p>
+<p><strong>Adaptive ordering.</strong> DuckDB performs some <strong>runtime adaptivity</strong>: the order in which conjunctive scan filters are applied is reordered by observed selectivity, and join build/probe sides can be swapped based on observed (vs estimated) cardinalities, correcting estimation errors during execution.</p>
+<hr />
+<h2 id="6-parquet-integration">6. Parquet Integration</h2>
+<p><code>extension/parquet/</code>. Parquet is read via late-bound table functions, with pushdown driven by Parquet's own metadata.</p>
+<ul>
+<li><strong>Row group skipping</strong>: each Parquet row group carries column statistics (min/max/null_count) in its footer; DuckDB evaluates table filters against these and skips entire row groups whose stats cannot satisfy the predicate.</li>
+<li><strong>Column projection</strong>: only the column chunks for referenced columns are fetched (the columnar layout means unreferenced columns are never read from disk/object store).</li>
+<li><strong>Predicate pushdown to page level</strong>: with a Parquet <strong>page index</strong> (column index / offset index), DuckDB prunes individual data pages within a row group using per-page min/max, narrowing reads further than row-group granularity.</li>
+<li><strong>Late materialization</strong>: DuckDB reads filter columns first, evaluates the predicate to produce a selection vector, and only then materializes the remaining projected columns for surviving rows — avoiding decompression of values that get filtered out. This dovetails with §3.2's selection vectors.</li>
+</ul>
+<p>Over <code>httpfs</code>, these combine to issue <strong>ranged HTTP GETs</strong> for just the needed column-chunk byte ranges of surviving row groups, making remote Parquet scans I/O-frugal.</p>
+<hr />
+<h2 id="7-mvcc-and-transactions">7. MVCC and Transactions</h2>
+<p><code>src/transaction/</code>. DuckDB implements <strong>snapshot isolation</strong> with in-memory multi-versioning, in the HyPer style (Neumann, Mühlbauer, Kemper, "Fast Serializable Multi-Version Concurrency Control for Main-Memory Database Systems", SIGMOD 2015).</p>
+<p><strong>Version storage.</strong> Tables are updated <strong>in place</strong>; the <em>previous</em> versions of modified tuples are kept in per-transaction <strong>undo buffers</strong> forming a <strong>version chain</strong>. Each transaction has a <code>transaction_id</code> (above a high-water mark while running) and, on commit, a monotonically increasing <code>commit_id</code> (timestamp). A row stores the id of the writer; readers compare against their snapshot to decide whether to see the current value or walk the undo chain to the version valid as of their start timestamp.</p>
+<pre><code>current tuple (in column store)  ──▶  UndoBuffer entry (prev value, txn ts)
+                                          └─▶ older entry ...
+Reader with snapshot T sees newest version with commit_id ≤ T,
+else follows the chain.
+</code></pre>
+<p><strong>Isolation.</strong> Snapshot isolation: each transaction reads a consistent snapshot fixed at start; writes are buffered and made visible atomically at commit by stamping <code>commit_id</code>. Write-write conflicts (two txns updating the same row) are detected and the later committer aborts. Inserts/deletes are tracked similarly via version info on row groups (<code>RowVersionManager</code>).</p>
+<p><strong>Durability / recovery.</strong> Commits append to the WAL and fsync (§1.4). Recovery replays WAL since the last checkpoint; checkpointing folds committed data into the columnar file and garbage-collects undo buffers whose versions are no longer visible to any active transaction. ACID in the single-file format = WAL (A, D) + snapshot MVCC (I) + checkpoint header ping-pong (atomic, durable consistency point).</p>
+<hr />
+<h2 id="8-extensions">8. Extensions</h2>
+<p><code>src/main/extension/</code>. Extensions are dynamically loaded shared libraries that register capabilities through the same internal APIs the core uses, via the <code>ExtensionLoader</code> / <code>DatabaseInstance</code> registries:</p>
+<ul>
+<li><strong>Scalar / aggregate / table functions</strong> — register a <code>CreateScalarFunctionInfo</code>, <code>AggregateFunction</code>, or <code>TableFunction</code> (with bind, init-global, init-local, and the vectorized <code>function</code> callback).</li>
+<li><strong>Types</strong> — register custom <code>LogicalType</code>s and casts.</li>
+<li><strong>File systems / replacement scans</strong> — register a <code>FileSystem</code> (e.g. <code>httpfs</code> adds <code>s3://</code>, <code>https://</code>) or a <strong>replacement scan</strong> so <code>SELECT * FROM 'file.parquet'</code> resolves to a table function.</li>
+<li><strong>Optimizer extensions</strong> — register an <code>OptimizerExtension</code> callback that rewrites the logical plan.</li>
+<li><strong>Storage extensions</strong> — register a custom catalog/transaction manager (<code>StorageExtension</code>), enabling foreign databases to appear as attached catalogs.</li>
+</ul>
+<p>Notable extensions:</p>
+<table><thead><tr><th>Extension</th><th>Provides</th></tr></thead><tbody>
+<tr><td><code>httpfs</code></td><td>HTTP/S3/GCS/Azure filesystems; ranged GETs for remote Parquet/CSV</td></tr>
+<tr><td><code>iceberg</code></td><td>Read Apache Iceberg tables (manifest/snapshot resolution → Parquet scans)</td></tr>
+<tr><td><code>delta</code></td><td>Read Delta Lake tables via the delta-kernel-rs library</td></tr>
+<tr><td><code>postgres_scanner</code></td><td>Query live PostgreSQL over the wire as attached tables (binary COPY, pushdown of filters/projection) — the analogue of DuckDB's own Postgres scanner work</td></tr>
+</tbody></table>
+<p>The <code>postgres_scanner</code> and <code>delta</code>/<code>iceberg</code> extensions exemplify the storage-extension pattern: a foreign system is attached as a catalog, its tables surface as table functions, and filter/projection pushdown is forwarded to the source (Postgres <code>WHERE</code>/column lists; Iceberg/Delta row-group stats), so DuckDB's vectorized engine consumes only the needed data.</p>
+<hr />
+<h2 id="key-papers-resources">Key Papers &amp; Resources</h2>
+<ul>
+<li>Raasveldt, Mühleisen, "DuckDB: an Embeddable Analytical Database", SIGMOD 2019 (demo).</li>
+<li>Raasveldt, Mühleisen, "Don't Hold My Data Hostage – A Case for Client Protocol Redesign", VLDB 2017.</li>
+<li>Boncz, Zukowski, Nes, "MonetDB/X100: Hyper-Pipelining Query Execution", CIDR 2005.</li>
+<li>Leis, Boncz, Kemper, Neumann, "Morsel-Driven Parallelism: A NUMA-Aware Query Evaluation Framework for the Many-Core Age", SIGMOD 2014.</li>
+<li>Moerkotte, Neumann, "Analysis of Two Existing and One New Dynamic Programming Algorithm for the Generation of Optimal Bushy Join Trees" (DPhyp), VLDB 2006.</li>
+<li>Leis, Gubichev, Mirchev, Boncz, Kemper, Neumann, "How Good Are Query Optimizers, Really?", VLDB 2015.</li>
+<li>Neumann, Mühlbauer, Kemper, "Fast Serializable Multi-Version Concurrency Control for Main-Memory Database Systems", SIGMOD 2015.</li>
+<li>Neumann, Freitag, "Umbra: A Disk-Based System with In-Memory Performance", CIDR 2020.</li>
+<li>Boncz, Neumann, Leis, "FSST: Fast Random Access String Compression", VLDB 2020.</li>
+<li>Liakos, Papakonstantinopoulou, Kotidis, "Chimp: Efficient Lossless Floating Point Compression for Time Series Databases", VLDB 2022.</li>
+<li>Afroozeh, Kuffo, Boncz, "ALP: Adaptive Lossless floating-Point Compression", SIGMOD 2024.</li>
+<li>Mark Raasveldt, "Lightweight Compression in DuckDB", duckdb.org blog, 2022-10-28.</li>
+<li>DuckDB source: <code>src/storage/</code> (single_file_block_manager, compression/), <code>src/execution/</code> (physical_hash_join, physical_hashaggregate, physical_order), <code>src/parallel/</code> (executor, task_scheduler), <code>src/optimizer/</code> (join_order/, filter_pushdown), <code>src/transaction/</code>.</li>
+</ul>
+
+  </article>
+  <aside id="note-toc" class="note-toc hidden">
+    <div class="note-toc-inner">
+      <div class="note-toc-header">
+        <span>Contents</span>
+      </div>
+      <nav></nav>
+    </div>
+  </aside>
+</div>
+<button id="toc-toggle" aria-label="Toggle contents">‹</button>
+
+<script>
+  (function() {
+    var article = document.querySelector('.note-page');
+    var nav = document.querySelector('#note-toc nav');
+    if (!article || !nav) return;
+    var headings = article.querySelectorAll('h2, h3');
+    if (!headings.length) return;
+
+    var ul = document.createElement('ul');
+    headings.forEach(function(h) {
+      var li = document.createElement('li');
+      li.className = 'toc-' + h.tagName.toLowerCase();
+      var a = document.createElement('a');
+      a.href = '#' + h.id;
+      a.textContent = h.textContent.replace(/\s*#\s*$/, '');
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    nav.appendChild(ul);
+
+    // active heading highlight + scroll TOC to follow
+    var links = nav.querySelectorAll('a');
+    var tocEl = document.getElementById('note-toc');
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          links.forEach(function(l) { l.classList.remove('toc-active'); });
+          var active = nav.querySelector('a[href="#' + entry.target.id + '"]');
+          if (active) {
+            active.classList.add('toc-active');
+            var linkTop = active.offsetTop;
+            var tocMid = tocEl.clientHeight / 2;
+            tocEl.scrollTo({ top: linkTop - tocMid, behavior: 'smooth' });
+          }
+        }
+      });
+    }, { rootMargin: '-10% 0px -80% 0px' });
+    headings.forEach(function(h) { observer.observe(h); });
+
+    var toc = document.getElementById('note-toc');
+    var toggle = document.getElementById('toc-toggle');
+    function setToc(open) {
+      toc.classList.toggle('hidden', !open);
+      toggle.classList.toggle('toc-closed', !open);
+      toggle.textContent = open ? '›' : '‹';
+      localStorage.setItem('toc-open', String(open));
+    }
+
+    setToc(localStorage.getItem('toc-open') === 'true');
+
+    toggle.addEventListener('click', function() {
+      setToc(toc.classList.contains('hidden'));
+    });
+  })();
+</script>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

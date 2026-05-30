@@ -42,6 +42,10 @@
         <loc>https://nmbr7.github.io/notes/database/cache-algorithms/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/notes/database/clickhouse-internals/</loc>
+        <lastmod>2026-05-29</lastmod>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/notes/database/cloudnativepg/</loc>
         <lastmod>2026-05-20</lastmod>
     </url>
@@ -60,6 +64,10 @@
     <url>
         <loc>https://nmbr7.github.io/notes/database/disaggregated-storage/</loc>
         <lastmod>2026-02-11</lastmod>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/notes/database/duckdb-internals/</loc>
+        <lastmod>2026-05-29</lastmod>
     </url>
     <url>
         <loc>https://nmbr7.github.io/notes/database/hyper-umbra-cedardb/</loc>
@@ -379,6 +387,9 @@
         <loc>https://nmbr7.github.io/tags/data-structures/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/database/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/dcs/</loc>
     </url>
     <url>
@@ -392,6 +403,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/distributed-systems/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/distributed/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/dma/</loc>
@@ -586,6 +600,9 @@
         <loc>https://nmbr7.github.io/tags/memory-ordering/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/mergetree/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/message-broker/</loc>
     </url>
     <url>
@@ -623,6 +640,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/nvme/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/olap/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/ooo/</loc>
@@ -851,6 +871,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/vectorized-execution/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/vectorized/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/version-control/</loc>

@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' || (!stored && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+        localStorage.setItem('theme', dark ? 'light' : 'dark');
+      });
+
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<div class="note-layout">
+  <article class="note-page">
+    <h1 class="r-header">Clickhouse Internals</h1>
+    <h1 id="clickhouse-internals">ClickHouse Internals</h1>
+<h2 id="overview">Overview</h2>
+<p>ClickHouse is a column-oriented OLAP DBMS built around the <strong>MergeTree</strong> family of
+storage engines. Its design is an aggressive application of three ideas: (1) columnar
+on-disk storage with per-column compression codecs, (2) a <em>sparse</em> primary index that
+indexes one row per ~8192-row granule rather than every row, and (3) an LSM-like
+"merge" discipline in which every <code>INSERT</code> produces an immutable sorted <em>part</em> and a
+background process merge-sorts parts together. Reads are vectorized over blocks of
+columns (typically 65536 rows) through a pull-based processor pipeline.</p>
+<p>The architecture is closest in spirit to C-Store / Vertica (Stonebraker et al., VLDB
+2005) and the column-store analysis in Abadi, Madden, Hachem, "Column-Stores vs.
+Row-Stores: How Different Are They Really?" (SIGMOD 2008), with lightweight codecs in
+the lineage of Zukowski et al., "Super-Scalar RAM-CPU Cache Compression" (ICDE 2006).
+Replication uses a replicated log over ZooKeeper or the Raft-based ClickHouse Keeper.</p>
+<pre><code>INSERT ──► [in-memory block sorted by PK] ──► write immutable PART to disk
+                                                   │
+parts:  all_1_1_0  all_2_2_0  all_3_3_0 ...        ▼
+                              SimpleMergeSelector picks a run
+                                       │
+                              merge-sort by PK ──► all_1_3_1 (new part)
+                                       │
+                              old parts marked outdated, GC&#39;d
+
+SELECT ─► parse ─► AST ─► QueryPlan ─► QueryPipeline (IProcessor DAG) ─► PipelineExecutor
+                              │
+                  MergeTree reader: PK index → granule ranges → marks → decompress .bin
+</code></pre>
+<p>Source layout references: <code>src/Storages/MergeTree/</code>, <code>src/Processors/</code>, <code>src/Columns/</code>,
+<code>src/Compression/</code>, <code>src/Coordination/</code>.</p>
+<hr />
+<h2 id="1-mergetree-part-structure-on-disk-layout">1. MergeTree Part Structure (On-Disk Layout)</h2>
+<p>A <em>part</em> is an immutable directory. Its name encodes its lineage:</p>
+<pre><code>{partition_id}_{min_block}_{max_block}_{level}[_{mutation_version}]
+   all          _   1      _    3       _   1
+</code></pre>
+<ul>
+<li><code>partition_id</code>: from <code>PARTITION BY</code> (e.g. <code>202605</code> for <code>toYYYYMM(date)</code>), or literal
+<code>all</code> when no partition key.</li>
+<li><code>min_block</code> / <code>max_block</code>: range of monotonically increasing block numbers (from a
+ZooKeeper/Keeper counter for replicated tables, local counter otherwise). A fresh
+insert gets <code>N_N</code>; a merge of <code>1_1</code> and <code>2_2</code> yields <code>1_2</code>.</li>
+<li><code>level</code>: number of merges that produced it (raw inserts are level 0).</li>
+<li><code>mutation_version</code>: appended after an <code>ALTER ... UPDATE/DELETE</code> mutation.</li>
+</ul>
+<h3 id="files-in-a-part">Files in a part</h3>
+<table><thead><tr><th>File</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><code>{column}.bin</code></td><td>Compressed column data (one per column, or per stream for complex types)</td></tr>
+<tr><td><code>{column}.cmrk3</code> / <code>.mrk3</code></td><td>Marks: granule → byte offsets into <code>.bin</code></td></tr>
+<tr><td><code>primary.idx</code> (or <code>primary.cidx</code>)</td><td>Sparse PK index: PK tuple at each granule boundary</td></tr>
+<tr><td><code>minmax_{col}.idx</code></td><td>Min/max of each partition-key column for the whole part (partition pruning)</td></tr>
+<tr><td><code>partition.dat</code></td><td>Serialized partition key value for the part</td></tr>
+<tr><td><code>skp_idx_{name}.idx</code> / <code>.mrk3</code></td><td>Data-skipping secondary indexes</td></tr>
+<tr><td><code>checksums.txt</code></td><td>Size + hash (CityHash128) of every file; integrity + replication</td></tr>
+<tr><td><code>count.txt</code></td><td>Exact row count of the part (avoids reading data for <code>count(*)</code>)</td></tr>
+<tr><td><code>columns.txt</code></td><td>Ordered list of columns and their types</td></tr>
+<tr><td><code>serialization.json</code></td><td>Per-column serialization kind (Default vs <strong>Sparse</strong>)</td></tr>
+<tr><td><code>default_compression_codec.txt</code></td><td>Codec to apply to columns without explicit codec</td></tr>
+<tr><td><code>metadata_version.txt</code></td><td>Schema version the part was written under</td></tr>
+</tbody></table>
+<p>A part can be <code>Wide</code> (one <code>.bin</code> per column, the default for large parts) or <code>Compact</code>
+(all columns in a single <code>data.bin</code> + <code>data.mrk3</code>, chosen for tiny parts under
+<code>min_bytes_for_wide_part</code> / <code>min_rows_for_wide_part</code>, default 10 MB / 1M rows). In-memory
+parts (<code>InMemory</code>) existed in older versions but are deprecated.</p>
+<h3 id="bin-data-file-format"><code>.bin</code> data file format</h3>
+<p>A <code>.bin</code> file is a concatenation of independently-decompressable <strong>compressed blocks</strong>.
+Each block header is 25 bytes (not 16 — the checksum is 128-bit):</p>
+<table><thead><tr><th>Field</th><th>Size</th><th>Encoding</th></tr></thead><tbody>
+<tr><td>checksum</td><td>16 B</td><td>CityHash128 of (method byte + sizes + compressed payload)</td></tr>
+<tr><td>method</td><td>1 B</td><td>codec id: <code>0x82</code>=LZ4, <code>0x90</code>=ZSTD, <code>0x02</code>=none</td></tr>
+<tr><td>compressed_size</td><td>4 B</td><td>little-endian; includes the 9-byte (method+sizes) header</td></tr>
+<tr><td>uncompressed_size</td><td>4 B</td><td>little-endian, size after decompression</td></tr>
+<tr><td>compressed_data</td><td>var</td><td>the codec payload</td></tr>
+</tbody></table>
+<p>A block holds roughly <code>min_compress_block_size</code> (65536) to <code>max_compress_block_size</code>
+(1 MiB) bytes of uncompressed column data, and a block boundary is always forced at a
+granule boundary so that any granule can be decompressed without crossing into an
+unrelated block. The 16-byte checksum lets ClickHouse verify each block on read
+independently of any part-level checksum.</p>
+<h3 id="mark-files-mrk3-cmrk3">Mark files (<code>.mrk3</code> / <code>.cmrk3</code>)</h3>
+<p>Marks map a granule index to where its data begins. With <strong>adaptive granularity</strong> each
+mark is 24 bytes:</p>
+<table><thead><tr><th>Field</th><th>Size</th><th>Meaning</th></tr></thead><tbody>
+<tr><td>offset_in_compressed_file</td><td>8 B</td><td>byte offset of the compressed block in <code>.bin</code></td></tr>
+<tr><td>offset_in_decompressed_block</td><td>8 B</td><td>byte offset of the granule inside that block</td></tr>
+<tr><td>rows_in_granule</td><td>8 B</td><td>how many rows this granule contains</td></tr>
+</tbody></table>
+<p>Older non-adaptive marks (<code>.mrk</code>) were 16 bytes (no <code>rows_in_granule</code>, fixed 8192).
+<code>.cmrk3</code> is the <em>compressed</em> mark file (marks themselves are LZ4-compressed) used by
+default since v22.x. To read granule <em>g</em> of a column: take <code>marks[g]</code>, seek to
+<code>offset_in_compressed_file</code>, decompress that block, skip <code>offset_in_decompressed_block</code>
+bytes, read <code>rows_in_granule</code> values.</p>
+<h3 id="granules">Granules</h3>
+<p>The default granule is 8192 rows (<code>index_granularity</code>). With <strong>adaptive granularity</strong>
+(<code>index_granularity_bytes</code>, default 10 MiB) ClickHouse caps a granule so its
+uncompressed footprint stays under ~10 MiB; for very wide rows a granule may hold far
+fewer than 8192 rows. This keeps the I/O cost of "read one granule" roughly constant
+regardless of row width — important because the index addresses granules, not rows.</p>
+<hr />
+<h2 id="2-sparse-primary-index-deep-dive">2. Sparse Primary Index Deep Dive</h2>
+<p>The PK index is <em>sparse</em>: <code>primary.idx</code> stores the PK tuple of the <strong>first row of each
+granule</strong> only. For a part of <code>R</code> rows and granule size <code>g</code>, the index has <code>ceil(R/g)</code>
+entries — for 1 billion rows and <code>g=8192</code> that is ~122k entries, small enough to keep
+in memory (loaded once, cached in the mark/index cache).</p>
+<pre><code>primary.idx (PK = (toDate(ts), user_id)):
+  entry 0 → granule 0 first row → (2026-05-01, 42)
+  entry 1 → granule 1 first row → (2026-05-01, 991)
+  entry 2 → granule 2 first row → (2026-05-02, 17)
+  ...
+
+WHERE user_id = 991 AND date = &#39;2026-05-01&#39;
+  binary search entries → matching granule range [1, 2)
+  read marks[1] → seek .bin → decompress → scan 8192 rows
+</code></pre>
+<h3 id="lookup-algorithm">Lookup algorithm</h3>
+<pre><code>function selectGranules(condition, index, marks):
+    # index entries are sorted ascending by the composite PK (lexicographic)
+    ranges = []
+    # KeyCondition turns the WHERE clause into a hyperrectangle test in PK space
+    for each contiguous run of granules g where
+        KeyCondition.mayBeTrueInRange(index[g], index[g+1]) is true:
+            ranges.append( MarkRange(g, g_end) )
+    # binary search is used when the condition is a prefix-bounded range
+    return ranges        # then read only marks/.bin for these ranges
+</code></pre>
+<p><code>KeyCondition</code> (<code>src/Storages/MergeTree/KeyCondition.h</code>) evaluates whether a granule's
+<code>[low, high)</code> PK interval <em>can</em> satisfy the predicate. Because the index is sparse it is
+<em>lossy</em>: a granule is read whenever it <em>might</em> contain a match, then rows are filtered
+exactly during scan. This is the same "zone-map" idea as PostgreSQL BRIN, applied at
+granule granularity.</p>
+<h3 id="composite-keys">Composite keys</h3>
+<p>Multiple PK columns form one tuple sorted lexicographically. Pruning is only effective
+on a <strong>prefix</strong>: with <code>ORDER BY (a, b, c)</code>, a predicate on <code>a</code> prunes well, on <code>b</code> alone
+prunes poorly (every <code>a</code>-group repeats the full <code>b</code> range). Rule of thumb: put
+low-cardinality, frequently-filtered columns first. ClickHouse blog "How ClickHouse Keeps
+Data in Order to Enable Fast Queries" covers this in detail.</p>
+<h3 id="cost-index-scan-vs-full-scan">Cost: index scan vs full scan</h3>
+<ul>
+<li><strong>Full scan</strong>: read every granule of every column referenced → bounded by total
+compressed column bytes.</li>
+<li><strong>Index scan</strong>: read only granules in the selected <code>MarkRange</code>s. For a selective
+prefix predicate this can be orders of magnitude less I/O. The minimum unit read is one
+granule (~8192 rows), so a single-row point lookup still decompresses a whole granule —
+ClickHouse is not a point-lookup store.</li>
+</ul>
+<p><code>ORDER BY</code> and <code>PRIMARY KEY</code> may differ: <code>PRIMARY KEY</code> can be a <em>prefix</em> of <code>ORDER BY</code>,
+letting the on-disk sort be finer than the indexed prefix (smaller index, same sort).</p>
+<hr />
+<h2 id="3-data-skipping-indexes">3. Data-Skipping Indexes</h2>
+<p>Secondary indexes summarize blocks of <code>GRANULARITY N</code> granules and let the planner skip
+reading them. They are stored as <code>skp_idx_{name}.idx</code> + <code>.mrk3</code> inside each part and are
+consulted <em>after</em> PK pruning, <em>before</em> reading column data.</p>
+<table><thead><tr><th>Type</th><th>Stores per block</th><th>Helps when</th></tr></thead><tbody>
+<tr><td><code>minmax</code></td><td>(min, max) of the expression</td><td>column correlated with PK / monotone-ish</td></tr>
+<tr><td><code>set(max_rows)</code></td><td>up to <code>max_rows</code> distinct values (drops to "all" if exceeded)</td><td>low-cardinality column, equality/IN</td></tr>
+<tr><td><code>bloom_filter(p)</code></td><td>classic Bloom filter over values, false-positive rate <code>p</code></td><td>high-cardinality equality / IN</td></tr>
+<tr><td><code>ngrambf_v1(n, size, hashes, seed)</code></td><td>Bloom filter over n-grams</td><td>substring <code>LIKE '%x%'</code>, <code>hasToken</code>-style</td></tr>
+<tr><td><code>tokenbf_v1(size, hashes, seed)</code></td><td>Bloom filter over whitespace/punct tokens</td><td>word search in text</td></tr>
+</tbody></table>
+<pre><code>DDL:  INDEX idx_url url TYPE bloom_filter(0.01) GRANULARITY 4
+                                                   │
+each index granule summarizes 4 data granules (4×8192 = 32768 rows).
+WHERE url = &#39;x&#39; → test bloom filter per index-granule → skip blocks that
+                  definitely lack &#39;x&#39;; read the rest and filter exactly.
+</code></pre>
+<p><strong>When they help</strong>: the indexed column must be <em>physically clustered</em> enough that whole
+blocks can be excluded. A <code>minmax</code> on a column uncorrelated with the sort order is
+useless (every block spans the full range). Bloom filters help equality on
+high-cardinality columns but add write + storage cost and only ever <em>exclude</em> blocks —
+they never accelerate a scan that must read the block anyway. <code>EXPLAIN indexes = 1</code>
+reports granules dropped per index, the only reliable way to confirm an index earns its
+keep.</p>
+<hr />
+<h2 id="4-compression-and-codec-internals">4. Compression and Codec Internals</h2>
+<p>ClickHouse separates <strong>codecs</strong> (per-column, semantic, applied first) from the <strong>generic
+compressor</strong> (LZ4 or ZSTD, applied last). The pipeline is: raw values → codec chain →
+generic compression → compressed block in <code>.bin</code>. Codecs are declared per column:
+<code>CODEC(Delta, ZSTD(3))</code>.</p>
+<table><thead><tr><th>Codec</th><th>Mechanism</th><th>Best for</th></tr></thead><tbody>
+<tr><td><code>LZ4</code> (default)</td><td>byte-level LZ77 with 64 KB window; very fast</td><td>general columns; default whole-file codec</td></tr>
+<tr><td><code>ZSTD(level)</code></td><td>entropy-coded LZ with larger window</td><td>cold/archival data, better ratio, slower</td></tr>
+<tr><td><code>Delta(n)</code></td><td>store <code>v[i]-v[i-1]</code> over width-<code>n</code> ints</td><td>timestamps, monotone counters</td></tr>
+<tr><td><code>DoubleDelta</code></td><td>second-order delta + varint, Gorilla-style</td><td>near-constant-stride sequences</td></tr>
+<tr><td><code>Gorilla</code></td><td>XOR consecutive floats, encode leading/trailing zero runs</td><td>slowly-changing gauges/metrics</td></tr>
+<tr><td><code>T64</code></td><td>transpose 64 values into bit-planes, strip unused high bits</td><td>low-range / low-cardinality ints</td></tr>
+<tr><td><code>FPC</code>, <code>ZSTD_QAT</code>, <code>GCD</code></td><td>specialized (floats / hardware-offload / common divisor)</td><td>niche</td></tr>
+</tbody></table>
+<h3 id="delta-and-doubledelta">Delta and DoubleDelta</h3>
+<p><code>Delta(n)</code>: first value stored raw, subsequent stored as <code>v[i]-v[i-1]</code> in the same
+width. Turns a monotone counter into a stream of small (often constant) values that LZ4
+crushes. <code>DoubleDelta</code> stores the delta-of-deltas; for a fixed-stride series (timestamps
+every 15 s) the second-order differences are zero and encode to a single bit each. The
+varint framing follows the Gorilla paper.</p>
+<pre><code>DoubleDelta encode (per Pelkonen et al., VLDB 2015 timestamp scheme):
+  write v[0] raw; write d1 = v[1]-v[0] raw
+  for i &gt;= 2:
+    dod = (v[i]-v[i-1]) - (v[i-1]-v[i-2])
+    if dod == 0:                 emit &#39;0&#39;
+    elif dod in [-63,64]:        emit &#39;10&#39;  + 7  bits
+    elif dod in [-255,256]:      emit &#39;110&#39; + 9  bits
+    elif dod in [-2047,2048]:    emit &#39;1110&#39;+ 12 bits
+    else:                        emit &#39;1111&#39;+ 32/64 bits
+</code></pre>
+<h3 id="gorilla-float-xor">Gorilla (float XOR)</h3>
+<p>From Pelkonen et al., "Gorilla: A Fast, Scalable, In-Memory Time Series Database"
+(VLDB 2015). XOR each float with the previous; if equal, emit one <code>0</code> bit. Otherwise
+emit <code>1</code> plus a control bit choosing whether to reuse the previous (leading-zeros,
+trailing-zeros) window or store a fresh one, then the meaningful XOR bits between.
+Excellent for gauges that change slowly; poor for high-entropy floats.</p>
+<pre><code>Gorilla value encode:
+  xor = bits(v[i]) ^ bits(v[i-1])
+  if xor == 0: emit &#39;0&#39;
+  else:
+    lz = clz(xor); tz = ctz(xor)
+    if can reuse prev (lz,tz) window: emit &#39;10&#39; + meaningful_bits
+    else: emit &#39;11&#39; + lz(5b) + len(6b) + meaningful_bits
+</code></pre>
+<h3 id="t64">T64</h3>
+<p>Takes 64 consecutive integers, computes the active value range, subtracts the min, then
+<strong>transposes</strong> the 64 values × <code>b</code> significant bits into <code>b</code> 64-bit bit-planes — storing
+only as many planes as the range needs. A column of values in <code>[0,15]</code> needs 4 planes
+instead of 64 full ints. The transposed bit-planes are then LZ4/ZSTD-compressed. This is
+ClickHouse's analog of the bit-packing in Zukowski et al. (ICDE 2006).</p>
+<h3 id="codec-chaining-zstd-dictionaries">Codec chaining &amp; ZSTD dictionaries</h3>
+<p><code>CODEC(Delta, ZSTD(3))</code> runs Delta then ZSTD; <code>CODEC(DoubleDelta, LZ4)</code> is common for
+timestamps. Order matters: the semantic codec must precede the generic compressor.
+<code>LowCardinality(T)</code> is not a codec but a <em>type wrapper</em> — it dictionary-encodes the
+column (a shared dictionary of distinct values + an index column), which is the most
+impactful "compression" for low-cardinality strings and composes with the codecs above.</p>
+<hr />
+<h2 id="5-merge-process">5. Merge Process</h2>
+<h3 id="simplemergeselector">SimpleMergeSelector</h3>
+<p>Background merges keep part count bounded (too many parts slows reads and risks the
+"too many parts" error). <code>SimpleMergeSelector</code> (<code>src/Storages/MergeTree/</code>) scans the
+sorted list of active parts and scores every contiguous <em>range</em> of adjacent parts,
+preferring ranges that are balanced in size, not too large in total, and weighting in
+part age so small parts left behind get merged eventually. The high-level scoring:</p>
+<pre><code>for each contiguous range [i..j] of active parts:
+    sum   = Σ size(parts)
+    max   = max size(parts);  cnt = j-i+1
+    if sum &gt; max_total_size_to_merge: skip          # don&#39;t build giant parts
+    # prefer ranges where no single part dominates and that aren&#39;t too few/many parts
+    score = sum / (max + ε)                          # ~cnt when balanced
+    # heuristic boost for ranges containing old small parts (base_for_age)
+    score *= ageBoost(min_age_in_range)
+pick range with best score; if best score good enough, schedule a merge
+</code></pre>
+<p>The effect approximates a tiered LSM compaction: many small parts repeatedly fold into
+fewer larger parts, with merged-part size bounded by <code>max_bytes_to_merge_at_max_space_in_pool</code>.</p>
+<h3 id="merge-steps">Merge steps</h3>
+<pre><code>1. select range of parts (SimpleMergeSelector)
+2. open a sorted reader over each part (each is internally PK-sorted)
+3. k-way merge by PK using a heap (MergingSortedAlgorithm)
+   - engine-specific &quot;merge algorithm&quot; transforms the stream (see below)
+4. stream merged rows through column writers → new part directory (temp name)
+5. write primary.idx, marks, skip indexes, checksums.txt, count.txt
+6. atomically rename temp → final part; mark source parts Outdated
+7. source parts removed after old_parts_lifetime once no query references them
+</code></pre>
+<p>Merges run on the background pool (<code>background_pool_size</code>, default 16) with a separate
+pool for large merges; selection respects available pool space so a giant merge cannot
+starve small ones.</p>
+<h3 id="engine-specific-merge-transforms">Engine-specific merge transforms</h3>
+<table><thead><tr><th>Engine</th><th>What the merge does</th></tr></thead><tbody>
+<tr><td><code>MergeTree</code></td><td>plain k-way sort merge, no row collapsing</td></tr>
+<tr><td><code>ReplacingMergeTree</code></td><td>among rows with equal sort key, keep the one with max <code>version</code> (or last)</td></tr>
+<tr><td><code>AggregatingMergeTree</code></td><td>combine <code>AggregateFunction</code> <em>states</em> of equal-key rows via the function's <code>merge</code></td></tr>
+<tr><td><code>SummingMergeTree</code></td><td>sum numeric columns for equal-key rows</td></tr>
+<tr><td><code>CollapsingMergeTree</code></td><td>cancel a <code>Sign=-1</code> row against a preceding <code>Sign=+1</code> row</td></tr>
+<tr><td><code>VersionedCollapsingMergeTree</code></td><td>same, but uses an explicit version column to order pairs</td></tr>
+</tbody></table>
+<p>Crucially these guarantees are <strong>eventual</strong>: collapsing/replacing only happens <em>during a
+merge</em>, so queries must use <code>FINAL</code>, <code>argMax</code>, or <code>-If</code>/<code>-Merge</code> combinators to get fully
+reconciled results before merges complete.</p>
+<h3 id="ttl-merges">TTL merges</h3>
+<p><code>TTL</code> expressions (<code>TTL ts + INTERVAL 30 DAY</code>) are evaluated during merges: expired rows
+are dropped, or moved (<code>TO DISK</code>/<code>TO VOLUME</code>), or aggregated (<code>GROUP BY ... SET</code>). Column
+TTLs reset a column to its default past the TTL. A dedicated TTL-merge schedule ensures
+expiry happens even without size-driven merges.</p>
+<h3 id="aggregate-state-binary-format">Aggregate state binary format</h3>
+<p><code>AggregatingMergeTree</code> stores <code>AggregateFunction(func, types)</code> columns as the function's
+serialized <em>intermediate state</em> (e.g. <code>uniqExact</code> → a hash set; <code>avg</code> → (sum, count);
+<code>quantileTDigest</code> → a t-digest). The merge calls the function's <code>merge(state_a, state_b)</code>
+and <code>serialize</code>; readers must use <code>-Merge</code> combinators (<code>avgMerge</code>, <code>uniqMerge</code>) to
+finalize. This is what powers incrementally-maintained rollups via materialized views.</p>
+<hr />
+<h2 id="6-vectorized-execution-column-block-model">6. Vectorized Execution (Column Block Model)</h2>
+<p>ClickHouse processes data in <strong>Chunks</strong>: a <code>Chunk</code> is a vector of <code>IColumn</code> pointers plus
+a row count (<code>src/Processors/Chunk.h</code>). Default block size is 65536 rows
+(<code>max_block_size</code>). Operating on whole columns amortizes virtual dispatch and exposes
+SIMD — the core argument of the column-store literature.</p>
+<h3 id="icolumn-hierarchy">IColumn hierarchy</h3>
+<pre><code>IColumn
+ ├─ ColumnVector&lt;T&gt;     contiguous PODArray&lt;T&gt; (UInt8..Float64, dates)
+ ├─ ColumnString        chars: PODArray&lt;UInt8&gt; + offsets: PODArray&lt;UInt64&gt;
+ ├─ ColumnFixedString   fixed-width contiguous bytes
+ ├─ ColumnArray         data: IColumn + offsets: PODArray&lt;UInt64&gt;
+ ├─ ColumnNullable      nested: IColumn + null_map: ColumnVector&lt;UInt8&gt;
+ ├─ ColumnLowCardinality dictionary: IColumn + indexes: IColumn
+ ├─ ColumnConst         single value + size (avoids materializing constants)
+ └─ ColumnTuple / ColumnMap / ColumnSparse ...
+</code></pre>
+<p><code>ColumnSparse</code> stores only non-default values plus their positions — chosen per part via
+<code>serialization.json</code> when a column is mostly default (e.g. mostly-zero metrics), and
+arithmetic on it stays sparse.</p>
+<h3 id="function-dispatch">Function dispatch</h3>
+<p><code>IFunction::executeImpl(arguments, result_type, input_rows_count)</code> takes input columns
+and returns a result column. The hot loop typically does:</p>
+<pre><code>ColumnPtr executeImpl(cols, n):
+    a = cols[0]; b = cols[1]
+    if isColumnConst(b): return executeConstRHS(a, constval(b), n)  # specialize
+    res = ColumnVector&lt;R&gt;::create(n)
+    for i in 0..n:                       # auto-vectorized by the compiler
+        res[i] = op(a[i], b[i])          # AVX2/AVX-512 on the contiguous arrays
+    return res
+</code></pre>
+<p>Specialized template instantiations per numeric type give the autovectorizer tight,
+branch-free loops.</p>
+<h3 id="simd-usage">SIMD usage</h3>
+<ul>
+<li>Arithmetic / comparison kernels compile to AVX2/AVX-512 over <code>PODArray</code>.</li>
+<li>String search uses the <strong>Volnitsky algorithm</strong> (a bigram-hash variant of
+Boyer-Moore-Horspool) for substring/<code>LIKE</code>, with SIMD-accelerated scanning of the
+haystack.</li>
+<li><code>position</code>, <code>hasToken</code>, <code>multiSearchAny</code> have dedicated SIMD paths.</li>
+</ul>
+<h3 id="expression-dag-short-circuit">Expression DAG &amp; short-circuit</h3>
+<p><code>ExpressionActions</code> (<code>src/Interpreters/ActionsDAG</code>) compiles a scalar expression into a
+DAG of <code>IFunction</code> nodes; common subexpressions are computed once and reused. ClickHouse
+also has an <strong>LLVM JIT</strong> that fuses chains of arithmetic functions into a single compiled
+kernel when <code>compile_expressions</code> is enabled, cutting per-column dispatch (data-centric
+codegen in the spirit of Neumann, VLDB 2011). Lazy/short-circuit evaluation
+(<code>short_circuit_function_evaluation</code>) skips evaluating expensive arguments on rows masked
+out by <code>if</code>/<code>and</code>/<code>or</code>, important for nullable and <code>throwIf</code>-style functions.</p>
+<hr />
+<h2 id="7-query-pipeline-iprocessor-model">7. Query Pipeline (IProcessor Model)</h2>
+<p>Execution is a <strong>pull-based dataflow graph</strong> of <code>IProcessor</code> nodes connected by ports
+(<code>src/Processors/</code>). Each processor declares <code>InputPort</code>s and <code>OutputPort</code>s and a
+<code>prepare()</code>/<code>work()</code> protocol: <code>prepare()</code> inspects port states and returns a status
+(<code>NeedData</code>, <code>PortFull</code>, <code>Ready</code>, <code>Async</code>, <code>Finished</code>); <code>work()</code> does the actual CPU
+work when <code>Ready</code>.</p>
+<pre><code>   ┌──────────┐   ┌────────────────┐   ┌───────────────┐   ┌──────────┐
+   │  Source  │──►│ FilterTransform│──►│ExpressionTrans │──►│ ... Sink │
+   │(MergeTree│   │  (WHERE)       │   │ (SELECT exprs) │   └──────────┘
+   │  reader) │   └────────────────┘   └───────────────┘
+   └──────────┘
+        ▲   resize/merge ports fan-in/out for parallel lanes
+        │
+   ┌────┴─────┬──────────┐
+ stream0    stream1    stream2     (one lane per thread; granule ranges split)
+</code></pre>
+<p>Node families:</p>
+<ul>
+<li><strong>ISource</strong>: <code>MergeTreeSource</code> (reads granule ranges), <code>RemoteSource</code> (reads from a
+shard over native protocol), <code>NullSource</code>, generators.</li>
+<li><strong>ISink / IOutputFormat</strong>: <code>MergeTreeSink</code> (writes parts), result-format writers.</li>
+<li><strong>ITransform</strong>: <code>FilterTransform</code>, <code>ExpressionTransform</code>, <code>AggregatingTransform</code>,
+<code>MergingAggregatedTransform</code>, <code>SortingTransform</code>, <code>MergeSortingTransform</code>,
+<code>LimitTransform</code>, <code>JoiningTransform</code>, plus <code>ResizeProcessor</code> to repartition lanes.</li>
+</ul>
+<h3 id="execution">Execution</h3>
+<p><code>QueryPipelineBuilder</code> builds the DAG from the <code>QueryPlan</code>; <code>PipelineExecutor</code> runs it.
+The executor treats <code>work()</code>-ready processors as tasks in a graph, dispatching them
+across <code>max_threads</code> worker threads, expanding parallel lanes where the plan allows
+(e.g. many <code>MergeTreeSource</code>s feeding a parallel <code>AggregatingTransform</code>, then a single
+<code>MergingAggregatedTransform</code>). It is a <em>push of readiness, pull of data</em> model — no
+thread blocks on I/O if other processors are runnable.</p>
+<h3 id="async-i-o-prefetch">Async I/O &amp; prefetch</h3>
+<p>For object-store / remote disks, <code>ReadBufferFromRemoteFS</code> issues <strong>asynchronous
+prefetch</strong> for the next granules' compressed blocks while the current granule is being
+decompressed and filtered, overlapping network latency with CPU. Local reads use the
+page cache plus ClickHouse's own mark cache and uncompressed-block cache.</p>
+<hr />
+<h2 id="8-distributed-query-execution">8. Distributed Query Execution</h2>
+<p>The <code>Distributed</code> table engine is a <em>view</em> over a <code>cluster</code> of shards (each shard a
+local <code>MergeTree</code>-family table, possibly replicated). It does no storage of its own.</p>
+<pre><code>        client
+          │ SELECT ... FROM distributed_t GROUP BY k
+          ▼
+     ┌─────────┐   initiator rewrites query for shards (push down WHERE,
+     │initiator│   partial GROUP BY), then fans out the remote query
+     └─────────┘
+       │     │     │
+       ▼     ▼     ▼        per-shard: local read + partial aggregation
+   shard0  shard1  shard2
+       │     │     │        RemoteBlockInputStream / RemoteSource pulls
+       └─────┴─────┘        partial blocks back over the native protocol
+          │
+     initiator MergingAggregatedTransform → final result
+</code></pre>
+<h3 id="planning">Planning</h3>
+<p>The initiator splits the query into an <strong>initiator part</strong> and a <strong>remote part</strong>. The
+remote part (sent verbatim as SQL plus a "stage" hint) runs on each shard up to
+<code>WithMergeableState</code> — i.e. it does the local scan, filter, and a <em>partial</em> aggregation,
+returning aggregate states rather than final values. The initiator then merges.</p>
+<h3 id="data-exchange-two-level-aggregation">Data exchange &amp; two-level aggregation</h3>
+<p>Inter-shard transport is the <strong>native protocol</strong> (length-prefixed columnar blocks) over
+the TCP port. Aggregation uses a <strong>two-level</strong> hash table when the group count is large:
+groups are bucketed by a hash prefix (256 buckets) so the merge step on the initiator can
+proceed bucket-by-bucket in parallel and shards can stream buckets independently. This is
+the classic partition-then-merge scheme that bounds initiator memory.</p>
+<h3 id="parallel-replicas">Parallel replicas</h3>
+<p><code>parallel_replicas</code> lets a <em>single</em> shard's replicas cooperate on one query: the
+coordinator hands out disjoint <strong>granule (mark) ranges</strong> to each replica as a work queue
+(<code>allow_experimental_parallel_reading_from_replicas</code>), so replicas scan different parts of
+the same data in parallel and stream partial results back. This turns replicas (normally
+just for HA) into read-scaling units, task-stealing style, with the coordinator balancing
+ranges dynamically rather than statically splitting by <code>parallel_replicas_count</code>.</p>
+<hr />
+<h2 id="9-replicatedmergetree-and-clickhouse-keeper">9. ReplicatedMergeTree and ClickHouse Keeper</h2>
+<p><code>ReplicatedMergeTree</code> replicates via a <strong>shared replicated log</strong> in ZooKeeper or
+ClickHouse Keeper. There is no leader for writes in the Raft sense — any replica accepts
+inserts and appends log entries; replicas converge by replaying the log.</p>
+<h3 id="keeper-paths">Keeper paths</h3>
+<pre><code>/clickhouse/tables/{shard}/{table}/
+   ├─ log/                  sequence of replication tasks (log-0000000001, ...)
+   ├─ replicas/{replica}/
+   │     ├─ log_pointer     last log entry this replica has copied to its queue
+   │     ├─ queue/          this replica&#39;s pending tasks
+   │     ├─ parts/          parts this replica currently has
+   │     └─ is_active       ephemeral node = replica is alive
+   ├─ block_numbers/        per-partition block-number allocator
+   ├─ blocks/               insert dedup hashes (idempotent retries)
+   ├─ mutations/            ALTER UPDATE/DELETE definitions
+   └─ columns / metadata    current schema + version
+</code></pre>
+<h3 id="log-entry-types">Log entry types</h3>
+<table><thead><tr><th>Type</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>GET_PART</code></td><td>fetch a part another replica produced (e.g. a fresh insert)</td></tr>
+<tr><td><code>MERGE_PARTS</code></td><td>merge a named set of source parts into a result part</td></tr>
+<tr><td><code>MUTATE_PART</code></td><td>apply a mutation (UPDATE/DELETE/materialize) to a part</td></tr>
+<tr><td><code>DROP_RANGE</code> / <code>DROP_PART</code></td><td>remove parts in a block range (partition drop, dedup)</td></tr>
+<tr><td><code>ALTER_METADATA</code></td><td>apply a schema change</td></tr>
+</tbody></table>
+<h3 id="replica-lifecycle">Replica lifecycle</h3>
+<pre><code>loop:
+  if /log has entries beyond my log_pointer:
+      copy them into my queue/ ; advance log_pointer
+  pick an executable queue task (deps satisfied, parts present):
+      GET_PART   → download part from a replica that has it (interserver HTTP)
+      MERGE_PARTS→ run the merge locally (deterministic: all replicas get same bytes)
+      MUTATE_PART→ apply mutation locally
+  on success: register result in replicas/{me}/parts ; remove queue node
+</code></pre>
+<p>Merges are <em>assigned via the log</em>, not run independently, so every replica produces
+byte-identical merged parts (deterministic merge). A replica can instead <code>GET_PART</code> the
+merged result if it falls behind. Inserts are deduplicated by a hash stored under
+<code>blocks/</code>, making retries idempotent.</p>
+<h3 id="part-fetch-protocol">Part fetch protocol</h3>
+<p><code>GET_PART</code> downloads the part's files (<code>*.bin</code>, <code>*.mrk3</code>, <code>primary.idx</code>, <code>checksums.txt</code>,
+...) from a healthy replica over the <strong>interserver HTTP port</strong> (default 9009), validating
+each file against <code>checksums.txt</code>. With <code>zero_copy_replication</code> on shared object storage,
+only metadata is fetched and the data blobs are referenced in place.</p>
+<h3 id="clickhouse-keeper">ClickHouse Keeper</h3>
+<p>ClickHouse Keeper (<code>src/Coordination/</code>) is a drop-in ZooKeeper replacement built on the
+<strong>NuRaft</strong> Raft library. It speaks the ZooKeeper client protocol and stores the same
+znode tree, but uses Raft for linearizable consensus (leader election + replicated log +
+snapshots) instead of ZAB. It is typically co-deployed with ClickHouse, lowering
+operational overhead and improving write latency/throughput for the coordination
+workload (many small <code>create</code>/<code>set</code>/<code>multi</code> ops). Compaction-style log + periodic
+snapshot keep its on-disk state bounded.</p>
+<hr />
+<h2 id="10-materialized-views-and-projections">10. Materialized Views and Projections</h2>
+<h3 id="materialized-views">Materialized Views</h3>
+<p>A ClickHouse MV is an <strong>insert trigger</strong>, not a maintained cache. After a block is
+inserted into the <em>source</em> table, ClickHouse runs the MV's <code>SELECT</code> over <strong>just that
+block</strong> and inserts the result into the MV's target table:</p>
+<pre><code>INSERT INTO source (block B)
+      │
+      ├─► write B to source&#39;s MergeTree
+      └─► for each attached MV:
+              result = MV.SELECT applied to B          # block-at-a-time
+              INSERT result INTO MV.target_table
+</code></pre>
+<p>The target is usually an <code>AggregatingMergeTree</code> / <code>SummingMergeTree</code> holding partial
+states, so rollups are maintained incrementally and finalized at read time with <code>-Merge</code>
+combinators. The MV never re-reads history — it only ever sees newly-inserted blocks,
+which is why backfills require <code>POPULATE</code> or manual inserts and why joins inside MVs only
+see the freshly inserted side. The <code>to</code>-table can be shared by multiple MVs.</p>
+<h3 id="projections">Projections</h3>
+<p>A <strong>projection</strong> is an alternate physical representation stored <em>inside the same part
+directory</em> (<code>projections/{name}/</code>), giving each part a second sort order and/or a
+pre-aggregation:</p>
+<pre><code>part all_1_3_1/
+  ├─ {column}.bin ...            (base data, ORDER BY a)
+  └─ projections/by_b/
+        ├─ {column}.bin ...      (same rows re-sorted by b, or pre-aggregated)
+        └─ primary.idx
+</code></pre>
+<p>Because the projection lives in the part, it is always consistent with base data and is
+maintained automatically through merges (no separate refresh). Two kinds:</p>
+<ul>
+<li><strong>Normal projection</strong>: same rows, different <code>ORDER BY</code> — accelerates predicates on a
+non-PK column.</li>
+<li><strong>Aggregate projection</strong>: <code>SELECT ... GROUP BY</code> stored as aggregate states — answers
+rollup queries by reading far fewer rows.</li>
+</ul>
+<h3 id="projection-selection">Projection selection</h3>
+<p>During planning the optimizer checks each projection: it is usable iff it <strong>covers all
+columns the query needs</strong> (or all needed aggregates) and is expected to read less data.
+If multiple qualify, the one minimizing estimated granules read wins; otherwise the query
+falls back to base data. <code>EXPLAIN projections = 1</code> shows which projection was chosen and
+why. The tradeoff is write amplification and storage: every projection is rebuilt on
+every merge.</p>
+<hr />
+<h2 id="key-papers-sources">Key Papers &amp; Sources</h2>
+<ul>
+<li>Pelkonen, Franklin, Teller, Cavallaro, Huang, Meza, Veeraraghavan, "Gorilla: A Fast,
+Scalable, In-Memory Time Series Database," <strong>VLDB 2015</strong> — DoubleDelta + Gorilla codecs.</li>
+<li>Zukowski, Heman, Nes, Boncz, "Super-Scalar RAM-CPU Cache Compression," <strong>ICDE 2006</strong> —
+lightweight bit-packing / FOR codecs underlying T64.</li>
+<li>Abadi, Madden, Hachem, "Column-Stores vs. Row-Stores: How Different Are They Really?,"
+<strong>SIGMOD 2008</strong> — late materialization, vectorized columnar execution rationale.</li>
+<li>Stonebraker et al., "C-Store: A Column-oriented DBMS," <strong>VLDB 2005</strong> — architectural
+ancestor (read-optimized + writable store + merges).</li>
+<li>Neumann, "Efficiently Compiling Efficient Query Plans for Modern Hardware," <strong>VLDB
+2011</strong> — data-centric codegen, relevant to ClickHouse's LLVM expression JIT.</li>
+<li>Shvachko, Kuang, Radia, Chansler, "The Hadoop Distributed File System," <strong>MSST 2010</strong> —
+context for distributed columnar storage at scale.</li>
+<li>O'Neil, Cheng, Gawlick, O'Neil, "The Log-Structured Merge-Tree (LSM-Tree)," <strong>Acta
+Informatica 1996</strong> — the merge discipline MergeTree adapts.</li>
+<li>ClickHouse blog, "How ClickHouse Keeps Data in Order to Enable Fast Queries" — sparse
+primary index walkthrough.</li>
+<li>ClickHouse technical posts by Alexey Milovidov (architecture, codecs, Keeper).</li>
+<li>ClickHouse source: <code>src/Storages/MergeTree/</code>, <code>src/Processors/</code>, <code>src/Columns/</code>,
+<code>src/Compression/</code>, <code>src/Coordination/</code>.</li>
+</ul>
+
+  </article>
+  <aside id="note-toc" class="note-toc hidden">
+    <div class="note-toc-inner">
+      <div class="note-toc-header">
+        <span>Contents</span>
+      </div>
+      <nav></nav>
+    </div>
+  </aside>
+</div>
+<button id="toc-toggle" aria-label="Toggle contents">‹</button>
+
+<script>
+  (function() {
+    var article = document.querySelector('.note-page');
+    var nav = document.querySelector('#note-toc nav');
+    if (!article || !nav) return;
+    var headings = article.querySelectorAll('h2, h3');
+    if (!headings.length) return;
+
+    var ul = document.createElement('ul');
+    headings.forEach(function(h) {
+      var li = document.createElement('li');
+      li.className = 'toc-' + h.tagName.toLowerCase();
+      var a = document.createElement('a');
+      a.href = '#' + h.id;
+      a.textContent = h.textContent.replace(/\s*#\s*$/, '');
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    nav.appendChild(ul);
+
+    // active heading highlight + scroll TOC to follow
+    var links = nav.querySelectorAll('a');
+    var tocEl = document.getElementById('note-toc');
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          links.forEach(function(l) { l.classList.remove('toc-active'); });
+          var active = nav.querySelector('a[href="#' + entry.target.id + '"]');
+          if (active) {
+            active.classList.add('toc-active');
+            var linkTop = active.offsetTop;
+            var tocMid = tocEl.clientHeight / 2;
+            tocEl.scrollTo({ top: linkTop - tocMid, behavior: 'smooth' });
+          }
+        }
+      });
+    }, { rootMargin: '-10% 0px -80% 0px' });
+    headings.forEach(function(h) { observer.observe(h); });
+
+    var toc = document.getElementById('note-toc');
+    var toggle = document.getElementById('toc-toggle');
+    function setToc(open) {
+      toc.classList.toggle('hidden', !open);
+      toggle.classList.toggle('toc-closed', !open);
+      toggle.textContent = open ? '›' : '‹';
+      localStorage.setItem('toc-open', String(open));
+    }
+
+    setToc(localStorage.getItem('toc-open') === 'true');
+
+    toggle.addEventListener('click', function() {
+      setToc(toc.classList.contains('hidden'));
+    });
+  })();
+</script>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

@@ -5,8 +5,770 @@
     <link rel="self" type="application/atom+xml" href="https://nmbr7.github.io/atom.xml"/>
     <link rel="alternate" type="text/html" href="https://nmbr7.github.io"/>
     <generator uri="https://www.getzola.org/">Zola</generator>
-    <updated>2026-05-20T00:00:00+00:00</updated>
+    <updated>2026-05-29T00:00:00+00:00</updated>
     <id>https://nmbr7.github.io/atom.xml</id>
+    <entry xml:lang="en">
+        <title>Clickhouse Internals</title>
+        <published>2026-05-29T00:00:00+00:00</published>
+        <updated>2026-05-29T00:00:00+00:00</updated>
+        
+        <author>
+          <name>
+            
+              Unknown
+            
+          </name>
+        </author>
+        
+        <link rel="alternate" type="text/html" href="https://nmbr7.github.io/notes/database/clickhouse-internals/"/>
+        <id>https://nmbr7.github.io/notes/database/clickhouse-internals/</id>
+        
+        <content type="html" xml:base="https://nmbr7.github.io/notes/database/clickhouse-internals/">&lt;h1 id=&quot;clickhouse-internals&quot;&gt;ClickHouse Internals&lt;&#x2F;h1&gt;
+&lt;h2 id=&quot;overview&quot;&gt;Overview&lt;&#x2F;h2&gt;
+&lt;p&gt;ClickHouse is a column-oriented OLAP DBMS built around the &lt;strong&gt;MergeTree&lt;&#x2F;strong&gt; family of
+storage engines. Its design is an aggressive application of three ideas: (1) columnar
+on-disk storage with per-column compression codecs, (2) a &lt;em&gt;sparse&lt;&#x2F;em&gt; primary index that
+indexes one row per ~8192-row granule rather than every row, and (3) an LSM-like
+&quot;merge&quot; discipline in which every &lt;code&gt;INSERT&lt;&#x2F;code&gt; produces an immutable sorted &lt;em&gt;part&lt;&#x2F;em&gt; and a
+background process merge-sorts parts together. Reads are vectorized over blocks of
+columns (typically 65536 rows) through a pull-based processor pipeline.&lt;&#x2F;p&gt;
+&lt;p&gt;The architecture is closest in spirit to C-Store &#x2F; Vertica (Stonebraker et al., VLDB
+2005) and the column-store analysis in Abadi, Madden, Hachem, &quot;Column-Stores vs.
+Row-Stores: How Different Are They Really?&quot; (SIGMOD 2008), with lightweight codecs in
+the lineage of Zukowski et al., &quot;Super-Scalar RAM-CPU Cache Compression&quot; (ICDE 2006).
+Replication uses a replicated log over ZooKeeper or the Raft-based ClickHouse Keeper.&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;INSERT ──► [in-memory block sorted by PK] ──► write immutable PART to disk
+                                                   │
+parts:  all_1_1_0  all_2_2_0  all_3_3_0 ...        ▼
+                              SimpleMergeSelector picks a run
+                                       │
+                              merge-sort by PK ──► all_1_3_1 (new part)
+                                       │
+                              old parts marked outdated, GC&amp;#39;d
+
+SELECT ─► parse ─► AST ─► QueryPlan ─► QueryPipeline (IProcessor DAG) ─► PipelineExecutor
+                              │
+                  MergeTree reader: PK index → granule ranges → marks → decompress .bin
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Source layout references: &lt;code&gt;src&#x2F;Storages&#x2F;MergeTree&#x2F;&lt;&#x2F;code&gt;, &lt;code&gt;src&#x2F;Processors&#x2F;&lt;&#x2F;code&gt;, &lt;code&gt;src&#x2F;Columns&#x2F;&lt;&#x2F;code&gt;,
+&lt;code&gt;src&#x2F;Compression&#x2F;&lt;&#x2F;code&gt;, &lt;code&gt;src&#x2F;Coordination&#x2F;&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;1-mergetree-part-structure-on-disk-layout&quot;&gt;1. MergeTree Part Structure (On-Disk Layout)&lt;&#x2F;h2&gt;
+&lt;p&gt;A &lt;em&gt;part&lt;&#x2F;em&gt; is an immutable directory. Its name encodes its lineage:&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;{partition_id}_{min_block}_{max_block}_{level}[_{mutation_version}]
+   all          _   1      _    3       _   1
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;partition_id&lt;&#x2F;code&gt;: from &lt;code&gt;PARTITION BY&lt;&#x2F;code&gt; (e.g. &lt;code&gt;202605&lt;&#x2F;code&gt; for &lt;code&gt;toYYYYMM(date)&lt;&#x2F;code&gt;), or literal
+&lt;code&gt;all&lt;&#x2F;code&gt; when no partition key.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;code&gt;min_block&lt;&#x2F;code&gt; &#x2F; &lt;code&gt;max_block&lt;&#x2F;code&gt;: range of monotonically increasing block numbers (from a
+ZooKeeper&#x2F;Keeper counter for replicated tables, local counter otherwise). A fresh
+insert gets &lt;code&gt;N_N&lt;&#x2F;code&gt;; a merge of &lt;code&gt;1_1&lt;&#x2F;code&gt; and &lt;code&gt;2_2&lt;&#x2F;code&gt; yields &lt;code&gt;1_2&lt;&#x2F;code&gt;.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;code&gt;level&lt;&#x2F;code&gt;: number of merges that produced it (raw inserts are level 0).&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;code&gt;mutation_version&lt;&#x2F;code&gt;: appended after an &lt;code&gt;ALTER ... UPDATE&#x2F;DELETE&lt;&#x2F;code&gt; mutation.&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h3 id=&quot;files-in-a-part&quot;&gt;Files in a part&lt;&#x2F;h3&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;File&lt;&#x2F;th&gt;&lt;th&gt;Purpose&lt;&#x2F;th&gt;&lt;&#x2F;tr&gt;&lt;&#x2F;thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;{column}.bin&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;Compressed column data (one per column, or per stream for complex types)&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;{column}.cmrk3&lt;&#x2F;code&gt; &#x2F; &lt;code&gt;.mrk3&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;Marks: granule → byte offsets into &lt;code&gt;.bin&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;primary.idx&lt;&#x2F;code&gt; (or &lt;code&gt;primary.cidx&lt;&#x2F;code&gt;)&lt;&#x2F;td&gt;&lt;td&gt;Sparse PK index: PK tuple at each granule boundary&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;minmax_{col}.idx&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;Min&#x2F;max of each partition-key column for the whole part (partition pruning)&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;partition.dat&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;Serialized partition key value for the part&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;skp_idx_{name}.idx&lt;&#x2F;code&gt; &#x2F; &lt;code&gt;.mrk3&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;Data-skipping secondary indexes&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;checksums.txt&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;Size + hash (CityHash128) of every file; integrity + replication&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;count.txt&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;Exact row count of the part (avoids reading data for &lt;code&gt;count(*)&lt;&#x2F;code&gt;)&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;columns.txt&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;Ordered list of columns and their types&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;serialization.json&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;Per-column serialization kind (Default vs &lt;strong&gt;Sparse&lt;&#x2F;strong&gt;)&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;default_compression_codec.txt&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;Codec to apply to columns without explicit codec&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;metadata_version.txt&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;Schema version the part was written under&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;&#x2F;tbody&gt;&lt;&#x2F;table&gt;
+&lt;p&gt;A part can be &lt;code&gt;Wide&lt;&#x2F;code&gt; (one &lt;code&gt;.bin&lt;&#x2F;code&gt; per column, the default for large parts) or &lt;code&gt;Compact&lt;&#x2F;code&gt;
+(all columns in a single &lt;code&gt;data.bin&lt;&#x2F;code&gt; + &lt;code&gt;data.mrk3&lt;&#x2F;code&gt;, chosen for tiny parts under
+&lt;code&gt;min_bytes_for_wide_part&lt;&#x2F;code&gt; &#x2F; &lt;code&gt;min_rows_for_wide_part&lt;&#x2F;code&gt;, default 10 MB &#x2F; 1M rows). In-memory
+parts (&lt;code&gt;InMemory&lt;&#x2F;code&gt;) existed in older versions but are deprecated.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;bin-data-file-format&quot;&gt;&lt;code&gt;.bin&lt;&#x2F;code&gt; data file format&lt;&#x2F;h3&gt;
+&lt;p&gt;A &lt;code&gt;.bin&lt;&#x2F;code&gt; file is a concatenation of independently-decompressable &lt;strong&gt;compressed blocks&lt;&#x2F;strong&gt;.
+Each block header is 25 bytes (not 16 — the checksum is 128-bit):&lt;&#x2F;p&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Field&lt;&#x2F;th&gt;&lt;th&gt;Size&lt;&#x2F;th&gt;&lt;th&gt;Encoding&lt;&#x2F;th&gt;&lt;&#x2F;tr&gt;&lt;&#x2F;thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;checksum&lt;&#x2F;td&gt;&lt;td&gt;16 B&lt;&#x2F;td&gt;&lt;td&gt;CityHash128 of (method byte + sizes + compressed payload)&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;method&lt;&#x2F;td&gt;&lt;td&gt;1 B&lt;&#x2F;td&gt;&lt;td&gt;codec id: &lt;code&gt;0x82&lt;&#x2F;code&gt;=LZ4, &lt;code&gt;0x90&lt;&#x2F;code&gt;=ZSTD, &lt;code&gt;0x02&lt;&#x2F;code&gt;=none&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;compressed_size&lt;&#x2F;td&gt;&lt;td&gt;4 B&lt;&#x2F;td&gt;&lt;td&gt;little-endian; includes the 9-byte (method+sizes) header&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;uncompressed_size&lt;&#x2F;td&gt;&lt;td&gt;4 B&lt;&#x2F;td&gt;&lt;td&gt;little-endian, size after decompression&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;compressed_data&lt;&#x2F;td&gt;&lt;td&gt;var&lt;&#x2F;td&gt;&lt;td&gt;the codec payload&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;&#x2F;tbody&gt;&lt;&#x2F;table&gt;
+&lt;p&gt;A block holds roughly &lt;code&gt;min_compress_block_size&lt;&#x2F;code&gt; (65536) to &lt;code&gt;max_compress_block_size&lt;&#x2F;code&gt;
+(1 MiB) bytes of uncompressed column data, and a block boundary is always forced at a
+granule boundary so that any granule can be decompressed without crossing into an
+unrelated block. The 16-byte checksum lets ClickHouse verify each block on read
+independently of any part-level checksum.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;mark-files-mrk3-cmrk3&quot;&gt;Mark files (&lt;code&gt;.mrk3&lt;&#x2F;code&gt; &#x2F; &lt;code&gt;.cmrk3&lt;&#x2F;code&gt;)&lt;&#x2F;h3&gt;
+&lt;p&gt;Marks map a granule index to where its data begins. With &lt;strong&gt;adaptive granularity&lt;&#x2F;strong&gt; each
+mark is 24 bytes:&lt;&#x2F;p&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Field&lt;&#x2F;th&gt;&lt;th&gt;Size&lt;&#x2F;th&gt;&lt;th&gt;Meaning&lt;&#x2F;th&gt;&lt;&#x2F;tr&gt;&lt;&#x2F;thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;offset_in_compressed_file&lt;&#x2F;td&gt;&lt;td&gt;8 B&lt;&#x2F;td&gt;&lt;td&gt;byte offset of the compressed block in &lt;code&gt;.bin&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;offset_in_decompressed_block&lt;&#x2F;td&gt;&lt;td&gt;8 B&lt;&#x2F;td&gt;&lt;td&gt;byte offset of the granule inside that block&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;rows_in_granule&lt;&#x2F;td&gt;&lt;td&gt;8 B&lt;&#x2F;td&gt;&lt;td&gt;how many rows this granule contains&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;&#x2F;tbody&gt;&lt;&#x2F;table&gt;
+&lt;p&gt;Older non-adaptive marks (&lt;code&gt;.mrk&lt;&#x2F;code&gt;) were 16 bytes (no &lt;code&gt;rows_in_granule&lt;&#x2F;code&gt;, fixed 8192).
+&lt;code&gt;.cmrk3&lt;&#x2F;code&gt; is the &lt;em&gt;compressed&lt;&#x2F;em&gt; mark file (marks themselves are LZ4-compressed) used by
+default since v22.x. To read granule &lt;em&gt;g&lt;&#x2F;em&gt; of a column: take &lt;code&gt;marks[g]&lt;&#x2F;code&gt;, seek to
+&lt;code&gt;offset_in_compressed_file&lt;&#x2F;code&gt;, decompress that block, skip &lt;code&gt;offset_in_decompressed_block&lt;&#x2F;code&gt;
+bytes, read &lt;code&gt;rows_in_granule&lt;&#x2F;code&gt; values.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;granules&quot;&gt;Granules&lt;&#x2F;h3&gt;
+&lt;p&gt;The default granule is 8192 rows (&lt;code&gt;index_granularity&lt;&#x2F;code&gt;). With &lt;strong&gt;adaptive granularity&lt;&#x2F;strong&gt;
+(&lt;code&gt;index_granularity_bytes&lt;&#x2F;code&gt;, default 10 MiB) ClickHouse caps a granule so its
+uncompressed footprint stays under ~10 MiB; for very wide rows a granule may hold far
+fewer than 8192 rows. This keeps the I&#x2F;O cost of &quot;read one granule&quot; roughly constant
+regardless of row width — important because the index addresses granules, not rows.&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;2-sparse-primary-index-deep-dive&quot;&gt;2. Sparse Primary Index Deep Dive&lt;&#x2F;h2&gt;
+&lt;p&gt;The PK index is &lt;em&gt;sparse&lt;&#x2F;em&gt;: &lt;code&gt;primary.idx&lt;&#x2F;code&gt; stores the PK tuple of the &lt;strong&gt;first row of each
+granule&lt;&#x2F;strong&gt; only. For a part of &lt;code&gt;R&lt;&#x2F;code&gt; rows and granule size &lt;code&gt;g&lt;&#x2F;code&gt;, the index has &lt;code&gt;ceil(R&#x2F;g)&lt;&#x2F;code&gt;
+entries — for 1 billion rows and &lt;code&gt;g=8192&lt;&#x2F;code&gt; that is ~122k entries, small enough to keep
+in memory (loaded once, cached in the mark&#x2F;index cache).&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;primary.idx (PK = (toDate(ts), user_id)):
+  entry 0 → granule 0 first row → (2026-05-01, 42)
+  entry 1 → granule 1 first row → (2026-05-01, 991)
+  entry 2 → granule 2 first row → (2026-05-02, 17)
+  ...
+
+WHERE user_id = 991 AND date = &amp;#39;2026-05-01&amp;#39;
+  binary search entries → matching granule range [1, 2)
+  read marks[1] → seek .bin → decompress → scan 8192 rows
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h3 id=&quot;lookup-algorithm&quot;&gt;Lookup algorithm&lt;&#x2F;h3&gt;
+&lt;pre&gt;&lt;code&gt;function selectGranules(condition, index, marks):
+    # index entries are sorted ascending by the composite PK (lexicographic)
+    ranges = []
+    # KeyCondition turns the WHERE clause into a hyperrectangle test in PK space
+    for each contiguous run of granules g where
+        KeyCondition.mayBeTrueInRange(index[g], index[g+1]) is true:
+            ranges.append( MarkRange(g, g_end) )
+    # binary search is used when the condition is a prefix-bounded range
+    return ranges        # then read only marks&#x2F;.bin for these ranges
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;&lt;code&gt;KeyCondition&lt;&#x2F;code&gt; (&lt;code&gt;src&#x2F;Storages&#x2F;MergeTree&#x2F;KeyCondition.h&lt;&#x2F;code&gt;) evaluates whether a granule&#x27;s
+&lt;code&gt;[low, high)&lt;&#x2F;code&gt; PK interval &lt;em&gt;can&lt;&#x2F;em&gt; satisfy the predicate. Because the index is sparse it is
+&lt;em&gt;lossy&lt;&#x2F;em&gt;: a granule is read whenever it &lt;em&gt;might&lt;&#x2F;em&gt; contain a match, then rows are filtered
+exactly during scan. This is the same &quot;zone-map&quot; idea as PostgreSQL BRIN, applied at
+granule granularity.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;composite-keys&quot;&gt;Composite keys&lt;&#x2F;h3&gt;
+&lt;p&gt;Multiple PK columns form one tuple sorted lexicographically. Pruning is only effective
+on a &lt;strong&gt;prefix&lt;&#x2F;strong&gt;: with &lt;code&gt;ORDER BY (a, b, c)&lt;&#x2F;code&gt;, a predicate on &lt;code&gt;a&lt;&#x2F;code&gt; prunes well, on &lt;code&gt;b&lt;&#x2F;code&gt; alone
+prunes poorly (every &lt;code&gt;a&lt;&#x2F;code&gt;-group repeats the full &lt;code&gt;b&lt;&#x2F;code&gt; range). Rule of thumb: put
+low-cardinality, frequently-filtered columns first. ClickHouse blog &quot;How ClickHouse Keeps
+Data in Order to Enable Fast Queries&quot; covers this in detail.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;cost-index-scan-vs-full-scan&quot;&gt;Cost: index scan vs full scan&lt;&#x2F;h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Full scan&lt;&#x2F;strong&gt;: read every granule of every column referenced → bounded by total
+compressed column bytes.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;strong&gt;Index scan&lt;&#x2F;strong&gt;: read only granules in the selected &lt;code&gt;MarkRange&lt;&#x2F;code&gt;s. For a selective
+prefix predicate this can be orders of magnitude less I&#x2F;O. The minimum unit read is one
+granule (~8192 rows), so a single-row point lookup still decompresses a whole granule —
+ClickHouse is not a point-lookup store.&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;&lt;code&gt;ORDER BY&lt;&#x2F;code&gt; and &lt;code&gt;PRIMARY KEY&lt;&#x2F;code&gt; may differ: &lt;code&gt;PRIMARY KEY&lt;&#x2F;code&gt; can be a &lt;em&gt;prefix&lt;&#x2F;em&gt; of &lt;code&gt;ORDER BY&lt;&#x2F;code&gt;,
+letting the on-disk sort be finer than the indexed prefix (smaller index, same sort).&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;3-data-skipping-indexes&quot;&gt;3. Data-Skipping Indexes&lt;&#x2F;h2&gt;
+&lt;p&gt;Secondary indexes summarize blocks of &lt;code&gt;GRANULARITY N&lt;&#x2F;code&gt; granules and let the planner skip
+reading them. They are stored as &lt;code&gt;skp_idx_{name}.idx&lt;&#x2F;code&gt; + &lt;code&gt;.mrk3&lt;&#x2F;code&gt; inside each part and are
+consulted &lt;em&gt;after&lt;&#x2F;em&gt; PK pruning, &lt;em&gt;before&lt;&#x2F;em&gt; reading column data.&lt;&#x2F;p&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Type&lt;&#x2F;th&gt;&lt;th&gt;Stores per block&lt;&#x2F;th&gt;&lt;th&gt;Helps when&lt;&#x2F;th&gt;&lt;&#x2F;tr&gt;&lt;&#x2F;thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;minmax&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;(min, max) of the expression&lt;&#x2F;td&gt;&lt;td&gt;column correlated with PK &#x2F; monotone-ish&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;set(max_rows)&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;up to &lt;code&gt;max_rows&lt;&#x2F;code&gt; distinct values (drops to &quot;all&quot; if exceeded)&lt;&#x2F;td&gt;&lt;td&gt;low-cardinality column, equality&#x2F;IN&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;bloom_filter(p)&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;classic Bloom filter over values, false-positive rate &lt;code&gt;p&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;high-cardinality equality &#x2F; IN&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;ngrambf_v1(n, size, hashes, seed)&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;Bloom filter over n-grams&lt;&#x2F;td&gt;&lt;td&gt;substring &lt;code&gt;LIKE &#x27;%x%&#x27;&lt;&#x2F;code&gt;, &lt;code&gt;hasToken&lt;&#x2F;code&gt;-style&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;tokenbf_v1(size, hashes, seed)&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;Bloom filter over whitespace&#x2F;punct tokens&lt;&#x2F;td&gt;&lt;td&gt;word search in text&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;&#x2F;tbody&gt;&lt;&#x2F;table&gt;
+&lt;pre&gt;&lt;code&gt;DDL:  INDEX idx_url url TYPE bloom_filter(0.01) GRANULARITY 4
+                                                   │
+each index granule summarizes 4 data granules (4×8192 = 32768 rows).
+WHERE url = &amp;#39;x&amp;#39; → test bloom filter per index-granule → skip blocks that
+                  definitely lack &amp;#39;x&amp;#39;; read the rest and filter exactly.
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;&lt;strong&gt;When they help&lt;&#x2F;strong&gt;: the indexed column must be &lt;em&gt;physically clustered&lt;&#x2F;em&gt; enough that whole
+blocks can be excluded. A &lt;code&gt;minmax&lt;&#x2F;code&gt; on a column uncorrelated with the sort order is
+useless (every block spans the full range). Bloom filters help equality on
+high-cardinality columns but add write + storage cost and only ever &lt;em&gt;exclude&lt;&#x2F;em&gt; blocks —
+they never accelerate a scan that must read the block anyway. &lt;code&gt;EXPLAIN indexes = 1&lt;&#x2F;code&gt;
+reports granules dropped per index, the only reliable way to confirm an index earns its
+keep.&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;4-compression-and-codec-internals&quot;&gt;4. Compression and Codec Internals&lt;&#x2F;h2&gt;
+&lt;p&gt;ClickHouse separates &lt;strong&gt;codecs&lt;&#x2F;strong&gt; (per-column, semantic, applied first) from the &lt;strong&gt;generic
+compressor&lt;&#x2F;strong&gt; (LZ4 or ZSTD, applied last). The pipeline is: raw values → codec chain →
+generic compression → compressed block in &lt;code&gt;.bin&lt;&#x2F;code&gt;. Codecs are declared per column:
+&lt;code&gt;CODEC(Delta, ZSTD(3))&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Codec&lt;&#x2F;th&gt;&lt;th&gt;Mechanism&lt;&#x2F;th&gt;&lt;th&gt;Best for&lt;&#x2F;th&gt;&lt;&#x2F;tr&gt;&lt;&#x2F;thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;LZ4&lt;&#x2F;code&gt; (default)&lt;&#x2F;td&gt;&lt;td&gt;byte-level LZ77 with 64 KB window; very fast&lt;&#x2F;td&gt;&lt;td&gt;general columns; default whole-file codec&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;ZSTD(level)&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;entropy-coded LZ with larger window&lt;&#x2F;td&gt;&lt;td&gt;cold&#x2F;archival data, better ratio, slower&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;Delta(n)&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;store &lt;code&gt;v[i]-v[i-1]&lt;&#x2F;code&gt; over width-&lt;code&gt;n&lt;&#x2F;code&gt; ints&lt;&#x2F;td&gt;&lt;td&gt;timestamps, monotone counters&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;DoubleDelta&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;second-order delta + varint, Gorilla-style&lt;&#x2F;td&gt;&lt;td&gt;near-constant-stride sequences&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;Gorilla&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;XOR consecutive floats, encode leading&#x2F;trailing zero runs&lt;&#x2F;td&gt;&lt;td&gt;slowly-changing gauges&#x2F;metrics&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;T64&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;transpose 64 values into bit-planes, strip unused high bits&lt;&#x2F;td&gt;&lt;td&gt;low-range &#x2F; low-cardinality ints&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;FPC&lt;&#x2F;code&gt;, &lt;code&gt;ZSTD_QAT&lt;&#x2F;code&gt;, &lt;code&gt;GCD&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;specialized (floats &#x2F; hardware-offload &#x2F; common divisor)&lt;&#x2F;td&gt;&lt;td&gt;niche&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;&#x2F;tbody&gt;&lt;&#x2F;table&gt;
+&lt;h3 id=&quot;delta-and-doubledelta&quot;&gt;Delta and DoubleDelta&lt;&#x2F;h3&gt;
+&lt;p&gt;&lt;code&gt;Delta(n)&lt;&#x2F;code&gt;: first value stored raw, subsequent stored as &lt;code&gt;v[i]-v[i-1]&lt;&#x2F;code&gt; in the same
+width. Turns a monotone counter into a stream of small (often constant) values that LZ4
+crushes. &lt;code&gt;DoubleDelta&lt;&#x2F;code&gt; stores the delta-of-deltas; for a fixed-stride series (timestamps
+every 15 s) the second-order differences are zero and encode to a single bit each. The
+varint framing follows the Gorilla paper.&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;DoubleDelta encode (per Pelkonen et al., VLDB 2015 timestamp scheme):
+  write v[0] raw; write d1 = v[1]-v[0] raw
+  for i &amp;gt;= 2:
+    dod = (v[i]-v[i-1]) - (v[i-1]-v[i-2])
+    if dod == 0:                 emit &amp;#39;0&amp;#39;
+    elif dod in [-63,64]:        emit &amp;#39;10&amp;#39;  + 7  bits
+    elif dod in [-255,256]:      emit &amp;#39;110&amp;#39; + 9  bits
+    elif dod in [-2047,2048]:    emit &amp;#39;1110&amp;#39;+ 12 bits
+    else:                        emit &amp;#39;1111&amp;#39;+ 32&#x2F;64 bits
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h3 id=&quot;gorilla-float-xor&quot;&gt;Gorilla (float XOR)&lt;&#x2F;h3&gt;
+&lt;p&gt;From Pelkonen et al., &quot;Gorilla: A Fast, Scalable, In-Memory Time Series Database&quot;
+(VLDB 2015). XOR each float with the previous; if equal, emit one &lt;code&gt;0&lt;&#x2F;code&gt; bit. Otherwise
+emit &lt;code&gt;1&lt;&#x2F;code&gt; plus a control bit choosing whether to reuse the previous (leading-zeros,
+trailing-zeros) window or store a fresh one, then the meaningful XOR bits between.
+Excellent for gauges that change slowly; poor for high-entropy floats.&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;Gorilla value encode:
+  xor = bits(v[i]) ^ bits(v[i-1])
+  if xor == 0: emit &amp;#39;0&amp;#39;
+  else:
+    lz = clz(xor); tz = ctz(xor)
+    if can reuse prev (lz,tz) window: emit &amp;#39;10&amp;#39; + meaningful_bits
+    else: emit &amp;#39;11&amp;#39; + lz(5b) + len(6b) + meaningful_bits
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h3 id=&quot;t64&quot;&gt;T64&lt;&#x2F;h3&gt;
+&lt;p&gt;Takes 64 consecutive integers, computes the active value range, subtracts the min, then
+&lt;strong&gt;transposes&lt;&#x2F;strong&gt; the 64 values × &lt;code&gt;b&lt;&#x2F;code&gt; significant bits into &lt;code&gt;b&lt;&#x2F;code&gt; 64-bit bit-planes — storing
+only as many planes as the range needs. A column of values in &lt;code&gt;[0,15]&lt;&#x2F;code&gt; needs 4 planes
+instead of 64 full ints. The transposed bit-planes are then LZ4&#x2F;ZSTD-compressed. This is
+ClickHouse&#x27;s analog of the bit-packing in Zukowski et al. (ICDE 2006).&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;codec-chaining-zstd-dictionaries&quot;&gt;Codec chaining &amp;amp; ZSTD dictionaries&lt;&#x2F;h3&gt;
+&lt;p&gt;&lt;code&gt;CODEC(Delta, ZSTD(3))&lt;&#x2F;code&gt; runs Delta then ZSTD; &lt;code&gt;CODEC(DoubleDelta, LZ4)&lt;&#x2F;code&gt; is common for
+timestamps. Order matters: the semantic codec must precede the generic compressor.
+&lt;code&gt;LowCardinality(T)&lt;&#x2F;code&gt; is not a codec but a &lt;em&gt;type wrapper&lt;&#x2F;em&gt; — it dictionary-encodes the
+column (a shared dictionary of distinct values + an index column), which is the most
+impactful &quot;compression&quot; for low-cardinality strings and composes with the codecs above.&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;5-merge-process&quot;&gt;5. Merge Process&lt;&#x2F;h2&gt;
+&lt;h3 id=&quot;simplemergeselector&quot;&gt;SimpleMergeSelector&lt;&#x2F;h3&gt;
+&lt;p&gt;Background merges keep part count bounded (too many parts slows reads and risks the
+&quot;too many parts&quot; error). &lt;code&gt;SimpleMergeSelector&lt;&#x2F;code&gt; (&lt;code&gt;src&#x2F;Storages&#x2F;MergeTree&#x2F;&lt;&#x2F;code&gt;) scans the
+sorted list of active parts and scores every contiguous &lt;em&gt;range&lt;&#x2F;em&gt; of adjacent parts,
+preferring ranges that are balanced in size, not too large in total, and weighting in
+part age so small parts left behind get merged eventually. The high-level scoring:&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;for each contiguous range [i..j] of active parts:
+    sum   = Σ size(parts)
+    max   = max size(parts);  cnt = j-i+1
+    if sum &amp;gt; max_total_size_to_merge: skip          # don&amp;#39;t build giant parts
+    # prefer ranges where no single part dominates and that aren&amp;#39;t too few&#x2F;many parts
+    score = sum &#x2F; (max + ε)                          # ~cnt when balanced
+    # heuristic boost for ranges containing old small parts (base_for_age)
+    score *= ageBoost(min_age_in_range)
+pick range with best score; if best score good enough, schedule a merge
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The effect approximates a tiered LSM compaction: many small parts repeatedly fold into
+fewer larger parts, with merged-part size bounded by &lt;code&gt;max_bytes_to_merge_at_max_space_in_pool&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;merge-steps&quot;&gt;Merge steps&lt;&#x2F;h3&gt;
+&lt;pre&gt;&lt;code&gt;1. select range of parts (SimpleMergeSelector)
+2. open a sorted reader over each part (each is internally PK-sorted)
+3. k-way merge by PK using a heap (MergingSortedAlgorithm)
+   - engine-specific &amp;quot;merge algorithm&amp;quot; transforms the stream (see below)
+4. stream merged rows through column writers → new part directory (temp name)
+5. write primary.idx, marks, skip indexes, checksums.txt, count.txt
+6. atomically rename temp → final part; mark source parts Outdated
+7. source parts removed after old_parts_lifetime once no query references them
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Merges run on the background pool (&lt;code&gt;background_pool_size&lt;&#x2F;code&gt;, default 16) with a separate
+pool for large merges; selection respects available pool space so a giant merge cannot
+starve small ones.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;engine-specific-merge-transforms&quot;&gt;Engine-specific merge transforms&lt;&#x2F;h3&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Engine&lt;&#x2F;th&gt;&lt;th&gt;What the merge does&lt;&#x2F;th&gt;&lt;&#x2F;tr&gt;&lt;&#x2F;thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;MergeTree&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;plain k-way sort merge, no row collapsing&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;ReplacingMergeTree&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;among rows with equal sort key, keep the one with max &lt;code&gt;version&lt;&#x2F;code&gt; (or last)&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;AggregatingMergeTree&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;combine &lt;code&gt;AggregateFunction&lt;&#x2F;code&gt; &lt;em&gt;states&lt;&#x2F;em&gt; of equal-key rows via the function&#x27;s &lt;code&gt;merge&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;SummingMergeTree&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;sum numeric columns for equal-key rows&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;CollapsingMergeTree&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;cancel a &lt;code&gt;Sign=-1&lt;&#x2F;code&gt; row against a preceding &lt;code&gt;Sign=+1&lt;&#x2F;code&gt; row&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;VersionedCollapsingMergeTree&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;same, but uses an explicit version column to order pairs&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;&#x2F;tbody&gt;&lt;&#x2F;table&gt;
+&lt;p&gt;Crucially these guarantees are &lt;strong&gt;eventual&lt;&#x2F;strong&gt;: collapsing&#x2F;replacing only happens &lt;em&gt;during a
+merge&lt;&#x2F;em&gt;, so queries must use &lt;code&gt;FINAL&lt;&#x2F;code&gt;, &lt;code&gt;argMax&lt;&#x2F;code&gt;, or &lt;code&gt;-If&lt;&#x2F;code&gt;&#x2F;&lt;code&gt;-Merge&lt;&#x2F;code&gt; combinators to get fully
+reconciled results before merges complete.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;ttl-merges&quot;&gt;TTL merges&lt;&#x2F;h3&gt;
+&lt;p&gt;&lt;code&gt;TTL&lt;&#x2F;code&gt; expressions (&lt;code&gt;TTL ts + INTERVAL 30 DAY&lt;&#x2F;code&gt;) are evaluated during merges: expired rows
+are dropped, or moved (&lt;code&gt;TO DISK&lt;&#x2F;code&gt;&#x2F;&lt;code&gt;TO VOLUME&lt;&#x2F;code&gt;), or aggregated (&lt;code&gt;GROUP BY ... SET&lt;&#x2F;code&gt;). Column
+TTLs reset a column to its default past the TTL. A dedicated TTL-merge schedule ensures
+expiry happens even without size-driven merges.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;aggregate-state-binary-format&quot;&gt;Aggregate state binary format&lt;&#x2F;h3&gt;
+&lt;p&gt;&lt;code&gt;AggregatingMergeTree&lt;&#x2F;code&gt; stores &lt;code&gt;AggregateFunction(func, types)&lt;&#x2F;code&gt; columns as the function&#x27;s
+serialized &lt;em&gt;intermediate state&lt;&#x2F;em&gt; (e.g. &lt;code&gt;uniqExact&lt;&#x2F;code&gt; → a hash set; &lt;code&gt;avg&lt;&#x2F;code&gt; → (sum, count);
+&lt;code&gt;quantileTDigest&lt;&#x2F;code&gt; → a t-digest). The merge calls the function&#x27;s &lt;code&gt;merge(state_a, state_b)&lt;&#x2F;code&gt;
+and &lt;code&gt;serialize&lt;&#x2F;code&gt;; readers must use &lt;code&gt;-Merge&lt;&#x2F;code&gt; combinators (&lt;code&gt;avgMerge&lt;&#x2F;code&gt;, &lt;code&gt;uniqMerge&lt;&#x2F;code&gt;) to
+finalize. This is what powers incrementally-maintained rollups via materialized views.&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;6-vectorized-execution-column-block-model&quot;&gt;6. Vectorized Execution (Column Block Model)&lt;&#x2F;h2&gt;
+&lt;p&gt;ClickHouse processes data in &lt;strong&gt;Chunks&lt;&#x2F;strong&gt;: a &lt;code&gt;Chunk&lt;&#x2F;code&gt; is a vector of &lt;code&gt;IColumn&lt;&#x2F;code&gt; pointers plus
+a row count (&lt;code&gt;src&#x2F;Processors&#x2F;Chunk.h&lt;&#x2F;code&gt;). Default block size is 65536 rows
+(&lt;code&gt;max_block_size&lt;&#x2F;code&gt;). Operating on whole columns amortizes virtual dispatch and exposes
+SIMD — the core argument of the column-store literature.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;icolumn-hierarchy&quot;&gt;IColumn hierarchy&lt;&#x2F;h3&gt;
+&lt;pre&gt;&lt;code&gt;IColumn
+ ├─ ColumnVector&amp;lt;T&amp;gt;     contiguous PODArray&amp;lt;T&amp;gt; (UInt8..Float64, dates)
+ ├─ ColumnString        chars: PODArray&amp;lt;UInt8&amp;gt; + offsets: PODArray&amp;lt;UInt64&amp;gt;
+ ├─ ColumnFixedString   fixed-width contiguous bytes
+ ├─ ColumnArray         data: IColumn + offsets: PODArray&amp;lt;UInt64&amp;gt;
+ ├─ ColumnNullable      nested: IColumn + null_map: ColumnVector&amp;lt;UInt8&amp;gt;
+ ├─ ColumnLowCardinality dictionary: IColumn + indexes: IColumn
+ ├─ ColumnConst         single value + size (avoids materializing constants)
+ └─ ColumnTuple &#x2F; ColumnMap &#x2F; ColumnSparse ...
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;&lt;code&gt;ColumnSparse&lt;&#x2F;code&gt; stores only non-default values plus their positions — chosen per part via
+&lt;code&gt;serialization.json&lt;&#x2F;code&gt; when a column is mostly default (e.g. mostly-zero metrics), and
+arithmetic on it stays sparse.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;function-dispatch&quot;&gt;Function dispatch&lt;&#x2F;h3&gt;
+&lt;p&gt;&lt;code&gt;IFunction::executeImpl(arguments, result_type, input_rows_count)&lt;&#x2F;code&gt; takes input columns
+and returns a result column. The hot loop typically does:&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;ColumnPtr executeImpl(cols, n):
+    a = cols[0]; b = cols[1]
+    if isColumnConst(b): return executeConstRHS(a, constval(b), n)  # specialize
+    res = ColumnVector&amp;lt;R&amp;gt;::create(n)
+    for i in 0..n:                       # auto-vectorized by the compiler
+        res[i] = op(a[i], b[i])          # AVX2&#x2F;AVX-512 on the contiguous arrays
+    return res
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Specialized template instantiations per numeric type give the autovectorizer tight,
+branch-free loops.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;simd-usage&quot;&gt;SIMD usage&lt;&#x2F;h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Arithmetic &#x2F; comparison kernels compile to AVX2&#x2F;AVX-512 over &lt;code&gt;PODArray&lt;&#x2F;code&gt;.&lt;&#x2F;li&gt;
+&lt;li&gt;String search uses the &lt;strong&gt;Volnitsky algorithm&lt;&#x2F;strong&gt; (a bigram-hash variant of
+Boyer-Moore-Horspool) for substring&#x2F;&lt;code&gt;LIKE&lt;&#x2F;code&gt;, with SIMD-accelerated scanning of the
+haystack.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;code&gt;position&lt;&#x2F;code&gt;, &lt;code&gt;hasToken&lt;&#x2F;code&gt;, &lt;code&gt;multiSearchAny&lt;&#x2F;code&gt; have dedicated SIMD paths.&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h3 id=&quot;expression-dag-short-circuit&quot;&gt;Expression DAG &amp;amp; short-circuit&lt;&#x2F;h3&gt;
+&lt;p&gt;&lt;code&gt;ExpressionActions&lt;&#x2F;code&gt; (&lt;code&gt;src&#x2F;Interpreters&#x2F;ActionsDAG&lt;&#x2F;code&gt;) compiles a scalar expression into a
+DAG of &lt;code&gt;IFunction&lt;&#x2F;code&gt; nodes; common subexpressions are computed once and reused. ClickHouse
+also has an &lt;strong&gt;LLVM JIT&lt;&#x2F;strong&gt; that fuses chains of arithmetic functions into a single compiled
+kernel when &lt;code&gt;compile_expressions&lt;&#x2F;code&gt; is enabled, cutting per-column dispatch (data-centric
+codegen in the spirit of Neumann, VLDB 2011). Lazy&#x2F;short-circuit evaluation
+(&lt;code&gt;short_circuit_function_evaluation&lt;&#x2F;code&gt;) skips evaluating expensive arguments on rows masked
+out by &lt;code&gt;if&lt;&#x2F;code&gt;&#x2F;&lt;code&gt;and&lt;&#x2F;code&gt;&#x2F;&lt;code&gt;or&lt;&#x2F;code&gt;, important for nullable and &lt;code&gt;throwIf&lt;&#x2F;code&gt;-style functions.&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;7-query-pipeline-iprocessor-model&quot;&gt;7. Query Pipeline (IProcessor Model)&lt;&#x2F;h2&gt;
+&lt;p&gt;Execution is a &lt;strong&gt;pull-based dataflow graph&lt;&#x2F;strong&gt; of &lt;code&gt;IProcessor&lt;&#x2F;code&gt; nodes connected by ports
+(&lt;code&gt;src&#x2F;Processors&#x2F;&lt;&#x2F;code&gt;). Each processor declares &lt;code&gt;InputPort&lt;&#x2F;code&gt;s and &lt;code&gt;OutputPort&lt;&#x2F;code&gt;s and a
+&lt;code&gt;prepare()&lt;&#x2F;code&gt;&#x2F;&lt;code&gt;work()&lt;&#x2F;code&gt; protocol: &lt;code&gt;prepare()&lt;&#x2F;code&gt; inspects port states and returns a status
+(&lt;code&gt;NeedData&lt;&#x2F;code&gt;, &lt;code&gt;PortFull&lt;&#x2F;code&gt;, &lt;code&gt;Ready&lt;&#x2F;code&gt;, &lt;code&gt;Async&lt;&#x2F;code&gt;, &lt;code&gt;Finished&lt;&#x2F;code&gt;); &lt;code&gt;work()&lt;&#x2F;code&gt; does the actual CPU
+work when &lt;code&gt;Ready&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;   ┌──────────┐   ┌────────────────┐   ┌───────────────┐   ┌──────────┐
+   │  Source  │──►│ FilterTransform│──►│ExpressionTrans │──►│ ... Sink │
+   │(MergeTree│   │  (WHERE)       │   │ (SELECT exprs) │   └──────────┘
+   │  reader) │   └────────────────┘   └───────────────┘
+   └──────────┘
+        ▲   resize&#x2F;merge ports fan-in&#x2F;out for parallel lanes
+        │
+   ┌────┴─────┬──────────┐
+ stream0    stream1    stream2     (one lane per thread; granule ranges split)
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Node families:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;ISource&lt;&#x2F;strong&gt;: &lt;code&gt;MergeTreeSource&lt;&#x2F;code&gt; (reads granule ranges), &lt;code&gt;RemoteSource&lt;&#x2F;code&gt; (reads from a
+shard over native protocol), &lt;code&gt;NullSource&lt;&#x2F;code&gt;, generators.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;strong&gt;ISink &#x2F; IOutputFormat&lt;&#x2F;strong&gt;: &lt;code&gt;MergeTreeSink&lt;&#x2F;code&gt; (writes parts), result-format writers.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;strong&gt;ITransform&lt;&#x2F;strong&gt;: &lt;code&gt;FilterTransform&lt;&#x2F;code&gt;, &lt;code&gt;ExpressionTransform&lt;&#x2F;code&gt;, &lt;code&gt;AggregatingTransform&lt;&#x2F;code&gt;,
+&lt;code&gt;MergingAggregatedTransform&lt;&#x2F;code&gt;, &lt;code&gt;SortingTransform&lt;&#x2F;code&gt;, &lt;code&gt;MergeSortingTransform&lt;&#x2F;code&gt;,
+&lt;code&gt;LimitTransform&lt;&#x2F;code&gt;, &lt;code&gt;JoiningTransform&lt;&#x2F;code&gt;, plus &lt;code&gt;ResizeProcessor&lt;&#x2F;code&gt; to repartition lanes.&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h3 id=&quot;execution&quot;&gt;Execution&lt;&#x2F;h3&gt;
+&lt;p&gt;&lt;code&gt;QueryPipelineBuilder&lt;&#x2F;code&gt; builds the DAG from the &lt;code&gt;QueryPlan&lt;&#x2F;code&gt;; &lt;code&gt;PipelineExecutor&lt;&#x2F;code&gt; runs it.
+The executor treats &lt;code&gt;work()&lt;&#x2F;code&gt;-ready processors as tasks in a graph, dispatching them
+across &lt;code&gt;max_threads&lt;&#x2F;code&gt; worker threads, expanding parallel lanes where the plan allows
+(e.g. many &lt;code&gt;MergeTreeSource&lt;&#x2F;code&gt;s feeding a parallel &lt;code&gt;AggregatingTransform&lt;&#x2F;code&gt;, then a single
+&lt;code&gt;MergingAggregatedTransform&lt;&#x2F;code&gt;). It is a &lt;em&gt;push of readiness, pull of data&lt;&#x2F;em&gt; model — no
+thread blocks on I&#x2F;O if other processors are runnable.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;async-i-o-prefetch&quot;&gt;Async I&#x2F;O &amp;amp; prefetch&lt;&#x2F;h3&gt;
+&lt;p&gt;For object-store &#x2F; remote disks, &lt;code&gt;ReadBufferFromRemoteFS&lt;&#x2F;code&gt; issues &lt;strong&gt;asynchronous
+prefetch&lt;&#x2F;strong&gt; for the next granules&#x27; compressed blocks while the current granule is being
+decompressed and filtered, overlapping network latency with CPU. Local reads use the
+page cache plus ClickHouse&#x27;s own mark cache and uncompressed-block cache.&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;8-distributed-query-execution&quot;&gt;8. Distributed Query Execution&lt;&#x2F;h2&gt;
+&lt;p&gt;The &lt;code&gt;Distributed&lt;&#x2F;code&gt; table engine is a &lt;em&gt;view&lt;&#x2F;em&gt; over a &lt;code&gt;cluster&lt;&#x2F;code&gt; of shards (each shard a
+local &lt;code&gt;MergeTree&lt;&#x2F;code&gt;-family table, possibly replicated). It does no storage of its own.&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;        client
+          │ SELECT ... FROM distributed_t GROUP BY k
+          ▼
+     ┌─────────┐   initiator rewrites query for shards (push down WHERE,
+     │initiator│   partial GROUP BY), then fans out the remote query
+     └─────────┘
+       │     │     │
+       ▼     ▼     ▼        per-shard: local read + partial aggregation
+   shard0  shard1  shard2
+       │     │     │        RemoteBlockInputStream &#x2F; RemoteSource pulls
+       └─────┴─────┘        partial blocks back over the native protocol
+          │
+     initiator MergingAggregatedTransform → final result
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h3 id=&quot;planning&quot;&gt;Planning&lt;&#x2F;h3&gt;
+&lt;p&gt;The initiator splits the query into an &lt;strong&gt;initiator part&lt;&#x2F;strong&gt; and a &lt;strong&gt;remote part&lt;&#x2F;strong&gt;. The
+remote part (sent verbatim as SQL plus a &quot;stage&quot; hint) runs on each shard up to
+&lt;code&gt;WithMergeableState&lt;&#x2F;code&gt; — i.e. it does the local scan, filter, and a &lt;em&gt;partial&lt;&#x2F;em&gt; aggregation,
+returning aggregate states rather than final values. The initiator then merges.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;data-exchange-two-level-aggregation&quot;&gt;Data exchange &amp;amp; two-level aggregation&lt;&#x2F;h3&gt;
+&lt;p&gt;Inter-shard transport is the &lt;strong&gt;native protocol&lt;&#x2F;strong&gt; (length-prefixed columnar blocks) over
+the TCP port. Aggregation uses a &lt;strong&gt;two-level&lt;&#x2F;strong&gt; hash table when the group count is large:
+groups are bucketed by a hash prefix (256 buckets) so the merge step on the initiator can
+proceed bucket-by-bucket in parallel and shards can stream buckets independently. This is
+the classic partition-then-merge scheme that bounds initiator memory.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;parallel-replicas&quot;&gt;Parallel replicas&lt;&#x2F;h3&gt;
+&lt;p&gt;&lt;code&gt;parallel_replicas&lt;&#x2F;code&gt; lets a &lt;em&gt;single&lt;&#x2F;em&gt; shard&#x27;s replicas cooperate on one query: the
+coordinator hands out disjoint &lt;strong&gt;granule (mark) ranges&lt;&#x2F;strong&gt; to each replica as a work queue
+(&lt;code&gt;allow_experimental_parallel_reading_from_replicas&lt;&#x2F;code&gt;), so replicas scan different parts of
+the same data in parallel and stream partial results back. This turns replicas (normally
+just for HA) into read-scaling units, task-stealing style, with the coordinator balancing
+ranges dynamically rather than statically splitting by &lt;code&gt;parallel_replicas_count&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;9-replicatedmergetree-and-clickhouse-keeper&quot;&gt;9. ReplicatedMergeTree and ClickHouse Keeper&lt;&#x2F;h2&gt;
+&lt;p&gt;&lt;code&gt;ReplicatedMergeTree&lt;&#x2F;code&gt; replicates via a &lt;strong&gt;shared replicated log&lt;&#x2F;strong&gt; in ZooKeeper or
+ClickHouse Keeper. There is no leader for writes in the Raft sense — any replica accepts
+inserts and appends log entries; replicas converge by replaying the log.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;keeper-paths&quot;&gt;Keeper paths&lt;&#x2F;h3&gt;
+&lt;pre&gt;&lt;code&gt;&#x2F;clickhouse&#x2F;tables&#x2F;{shard}&#x2F;{table}&#x2F;
+   ├─ log&#x2F;                  sequence of replication tasks (log-0000000001, ...)
+   ├─ replicas&#x2F;{replica}&#x2F;
+   │     ├─ log_pointer     last log entry this replica has copied to its queue
+   │     ├─ queue&#x2F;          this replica&amp;#39;s pending tasks
+   │     ├─ parts&#x2F;          parts this replica currently has
+   │     └─ is_active       ephemeral node = replica is alive
+   ├─ block_numbers&#x2F;        per-partition block-number allocator
+   ├─ blocks&#x2F;               insert dedup hashes (idempotent retries)
+   ├─ mutations&#x2F;            ALTER UPDATE&#x2F;DELETE definitions
+   └─ columns &#x2F; metadata    current schema + version
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h3 id=&quot;log-entry-types&quot;&gt;Log entry types&lt;&#x2F;h3&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Type&lt;&#x2F;th&gt;&lt;th&gt;Meaning&lt;&#x2F;th&gt;&lt;&#x2F;tr&gt;&lt;&#x2F;thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;GET_PART&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;fetch a part another replica produced (e.g. a fresh insert)&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;MERGE_PARTS&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;merge a named set of source parts into a result part&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;MUTATE_PART&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;apply a mutation (UPDATE&#x2F;DELETE&#x2F;materialize) to a part&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;DROP_RANGE&lt;&#x2F;code&gt; &#x2F; &lt;code&gt;DROP_PART&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;remove parts in a block range (partition drop, dedup)&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;ALTER_METADATA&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;apply a schema change&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;&#x2F;tbody&gt;&lt;&#x2F;table&gt;
+&lt;h3 id=&quot;replica-lifecycle&quot;&gt;Replica lifecycle&lt;&#x2F;h3&gt;
+&lt;pre&gt;&lt;code&gt;loop:
+  if &#x2F;log has entries beyond my log_pointer:
+      copy them into my queue&#x2F; ; advance log_pointer
+  pick an executable queue task (deps satisfied, parts present):
+      GET_PART   → download part from a replica that has it (interserver HTTP)
+      MERGE_PARTS→ run the merge locally (deterministic: all replicas get same bytes)
+      MUTATE_PART→ apply mutation locally
+  on success: register result in replicas&#x2F;{me}&#x2F;parts ; remove queue node
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Merges are &lt;em&gt;assigned via the log&lt;&#x2F;em&gt;, not run independently, so every replica produces
+byte-identical merged parts (deterministic merge). A replica can instead &lt;code&gt;GET_PART&lt;&#x2F;code&gt; the
+merged result if it falls behind. Inserts are deduplicated by a hash stored under
+&lt;code&gt;blocks&#x2F;&lt;&#x2F;code&gt;, making retries idempotent.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;part-fetch-protocol&quot;&gt;Part fetch protocol&lt;&#x2F;h3&gt;
+&lt;p&gt;&lt;code&gt;GET_PART&lt;&#x2F;code&gt; downloads the part&#x27;s files (&lt;code&gt;*.bin&lt;&#x2F;code&gt;, &lt;code&gt;*.mrk3&lt;&#x2F;code&gt;, &lt;code&gt;primary.idx&lt;&#x2F;code&gt;, &lt;code&gt;checksums.txt&lt;&#x2F;code&gt;,
+...) from a healthy replica over the &lt;strong&gt;interserver HTTP port&lt;&#x2F;strong&gt; (default 9009), validating
+each file against &lt;code&gt;checksums.txt&lt;&#x2F;code&gt;. With &lt;code&gt;zero_copy_replication&lt;&#x2F;code&gt; on shared object storage,
+only metadata is fetched and the data blobs are referenced in place.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;clickhouse-keeper&quot;&gt;ClickHouse Keeper&lt;&#x2F;h3&gt;
+&lt;p&gt;ClickHouse Keeper (&lt;code&gt;src&#x2F;Coordination&#x2F;&lt;&#x2F;code&gt;) is a drop-in ZooKeeper replacement built on the
+&lt;strong&gt;NuRaft&lt;&#x2F;strong&gt; Raft library. It speaks the ZooKeeper client protocol and stores the same
+znode tree, but uses Raft for linearizable consensus (leader election + replicated log +
+snapshots) instead of ZAB. It is typically co-deployed with ClickHouse, lowering
+operational overhead and improving write latency&#x2F;throughput for the coordination
+workload (many small &lt;code&gt;create&lt;&#x2F;code&gt;&#x2F;&lt;code&gt;set&lt;&#x2F;code&gt;&#x2F;&lt;code&gt;multi&lt;&#x2F;code&gt; ops). Compaction-style log + periodic
+snapshot keep its on-disk state bounded.&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;10-materialized-views-and-projections&quot;&gt;10. Materialized Views and Projections&lt;&#x2F;h2&gt;
+&lt;h3 id=&quot;materialized-views&quot;&gt;Materialized Views&lt;&#x2F;h3&gt;
+&lt;p&gt;A ClickHouse MV is an &lt;strong&gt;insert trigger&lt;&#x2F;strong&gt;, not a maintained cache. After a block is
+inserted into the &lt;em&gt;source&lt;&#x2F;em&gt; table, ClickHouse runs the MV&#x27;s &lt;code&gt;SELECT&lt;&#x2F;code&gt; over &lt;strong&gt;just that
+block&lt;&#x2F;strong&gt; and inserts the result into the MV&#x27;s target table:&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;INSERT INTO source (block B)
+      │
+      ├─► write B to source&amp;#39;s MergeTree
+      └─► for each attached MV:
+              result = MV.SELECT applied to B          # block-at-a-time
+              INSERT result INTO MV.target_table
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The target is usually an &lt;code&gt;AggregatingMergeTree&lt;&#x2F;code&gt; &#x2F; &lt;code&gt;SummingMergeTree&lt;&#x2F;code&gt; holding partial
+states, so rollups are maintained incrementally and finalized at read time with &lt;code&gt;-Merge&lt;&#x2F;code&gt;
+combinators. The MV never re-reads history — it only ever sees newly-inserted blocks,
+which is why backfills require &lt;code&gt;POPULATE&lt;&#x2F;code&gt; or manual inserts and why joins inside MVs only
+see the freshly inserted side. The &lt;code&gt;to&lt;&#x2F;code&gt;-table can be shared by multiple MVs.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;projections&quot;&gt;Projections&lt;&#x2F;h3&gt;
+&lt;p&gt;A &lt;strong&gt;projection&lt;&#x2F;strong&gt; is an alternate physical representation stored &lt;em&gt;inside the same part
+directory&lt;&#x2F;em&gt; (&lt;code&gt;projections&#x2F;{name}&#x2F;&lt;&#x2F;code&gt;), giving each part a second sort order and&#x2F;or a
+pre-aggregation:&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;part all_1_3_1&#x2F;
+  ├─ {column}.bin ...            (base data, ORDER BY a)
+  └─ projections&#x2F;by_b&#x2F;
+        ├─ {column}.bin ...      (same rows re-sorted by b, or pre-aggregated)
+        └─ primary.idx
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Because the projection lives in the part, it is always consistent with base data and is
+maintained automatically through merges (no separate refresh). Two kinds:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Normal projection&lt;&#x2F;strong&gt;: same rows, different &lt;code&gt;ORDER BY&lt;&#x2F;code&gt; — accelerates predicates on a
+non-PK column.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;strong&gt;Aggregate projection&lt;&#x2F;strong&gt;: &lt;code&gt;SELECT ... GROUP BY&lt;&#x2F;code&gt; stored as aggregate states — answers
+rollup queries by reading far fewer rows.&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h3 id=&quot;projection-selection&quot;&gt;Projection selection&lt;&#x2F;h3&gt;
+&lt;p&gt;During planning the optimizer checks each projection: it is usable iff it &lt;strong&gt;covers all
+columns the query needs&lt;&#x2F;strong&gt; (or all needed aggregates) and is expected to read less data.
+If multiple qualify, the one minimizing estimated granules read wins; otherwise the query
+falls back to base data. &lt;code&gt;EXPLAIN projections = 1&lt;&#x2F;code&gt; shows which projection was chosen and
+why. The tradeoff is write amplification and storage: every projection is rebuilt on
+every merge.&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;key-papers-sources&quot;&gt;Key Papers &amp;amp; Sources&lt;&#x2F;h2&gt;
+&lt;ul&gt;
+&lt;li&gt;Pelkonen, Franklin, Teller, Cavallaro, Huang, Meza, Veeraraghavan, &quot;Gorilla: A Fast,
+Scalable, In-Memory Time Series Database,&quot; &lt;strong&gt;VLDB 2015&lt;&#x2F;strong&gt; — DoubleDelta + Gorilla codecs.&lt;&#x2F;li&gt;
+&lt;li&gt;Zukowski, Heman, Nes, Boncz, &quot;Super-Scalar RAM-CPU Cache Compression,&quot; &lt;strong&gt;ICDE 2006&lt;&#x2F;strong&gt; —
+lightweight bit-packing &#x2F; FOR codecs underlying T64.&lt;&#x2F;li&gt;
+&lt;li&gt;Abadi, Madden, Hachem, &quot;Column-Stores vs. Row-Stores: How Different Are They Really?,&quot;
+&lt;strong&gt;SIGMOD 2008&lt;&#x2F;strong&gt; — late materialization, vectorized columnar execution rationale.&lt;&#x2F;li&gt;
+&lt;li&gt;Stonebraker et al., &quot;C-Store: A Column-oriented DBMS,&quot; &lt;strong&gt;VLDB 2005&lt;&#x2F;strong&gt; — architectural
+ancestor (read-optimized + writable store + merges).&lt;&#x2F;li&gt;
+&lt;li&gt;Neumann, &quot;Efficiently Compiling Efficient Query Plans for Modern Hardware,&quot; &lt;strong&gt;VLDB
+2011&lt;&#x2F;strong&gt; — data-centric codegen, relevant to ClickHouse&#x27;s LLVM expression JIT.&lt;&#x2F;li&gt;
+&lt;li&gt;Shvachko, Kuang, Radia, Chansler, &quot;The Hadoop Distributed File System,&quot; &lt;strong&gt;MSST 2010&lt;&#x2F;strong&gt; —
+context for distributed columnar storage at scale.&lt;&#x2F;li&gt;
+&lt;li&gt;O&#x27;Neil, Cheng, Gawlick, O&#x27;Neil, &quot;The Log-Structured Merge-Tree (LSM-Tree),&quot; &lt;strong&gt;Acta
+Informatica 1996&lt;&#x2F;strong&gt; — the merge discipline MergeTree adapts.&lt;&#x2F;li&gt;
+&lt;li&gt;ClickHouse blog, &quot;How ClickHouse Keeps Data in Order to Enable Fast Queries&quot; — sparse
+primary index walkthrough.&lt;&#x2F;li&gt;
+&lt;li&gt;ClickHouse technical posts by Alexey Milovidov (architecture, codecs, Keeper).&lt;&#x2F;li&gt;
+&lt;li&gt;ClickHouse source: &lt;code&gt;src&#x2F;Storages&#x2F;MergeTree&#x2F;&lt;&#x2F;code&gt;, &lt;code&gt;src&#x2F;Processors&#x2F;&lt;&#x2F;code&gt;, &lt;code&gt;src&#x2F;Columns&#x2F;&lt;&#x2F;code&gt;,
+&lt;code&gt;src&#x2F;Compression&#x2F;&lt;&#x2F;code&gt;, &lt;code&gt;src&#x2F;Coordination&#x2F;&lt;&#x2F;code&gt;.&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+</content>
+        
+    </entry>
+    <entry xml:lang="en">
+        <title>Duckdb Internals</title>
+        <published>2026-05-29T00:00:00+00:00</published>
+        <updated>2026-05-29T00:00:00+00:00</updated>
+        
+        <author>
+          <name>
+            
+              Unknown
+            
+          </name>
+        </author>
+        
+        <link rel="alternate" type="text/html" href="https://nmbr7.github.io/notes/database/duckdb-internals/"/>
+        <id>https://nmbr7.github.io/notes/database/duckdb-internals/</id>
+        
+        <content type="html" xml:base="https://nmbr7.github.io/notes/database/duckdb-internals/">&lt;h1 id=&quot;duckdb-internals&quot;&gt;DuckDB Internals&lt;&#x2F;h1&gt;
+&lt;h2 id=&quot;overview&quot;&gt;Overview&lt;&#x2F;h2&gt;
+&lt;p&gt;DuckDB is an in-process analytical (OLAP) database, sometimes called &quot;SQLite for analytics.&quot; It runs embedded in the host process (no client&#x2F;server), stores a database in a single file, and is built around a &lt;strong&gt;vectorized, push-based, morsel-driven&lt;&#x2F;strong&gt; execution engine over a &lt;strong&gt;columnar, block-compressed&lt;&#x2F;strong&gt; storage format. The architecture descends from the MonetDB lineage: vectorized execution from MonetDB&#x2F;X100 (Boncz, Zukowski, Nes, &quot;MonetDB&#x2F;X100: Hyper-Pipelining Query Execution&quot;, CIDR 2005) and morsel-driven parallelism from HyPer&#x2F;Umbra (Leis et al., &quot;Morsel-Driven Parallelism&quot;, SIGMOD 2014; Neumann &amp;amp; Freitag, &quot;Umbra: A Disk-Based System with In-Memory Performance&quot;, CIDR 2020).&lt;&#x2F;p&gt;
+&lt;p&gt;The foundational system paper is Raasveldt &amp;amp; Mühleisen, &quot;DuckDB: an Embeddable Analytical Database&quot; (SIGMOD 2019 demo). The result-serialization work that motivated the column-at-a-time client protocol is Raasveldt &amp;amp; Mühleisen, &quot;Don&#x27;t Hold My Data Hostage – A Case for Client Protocol Redesign&quot; (VLDB 2017).&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;   SQL ──▶ Parser ──▶ Binder ──▶ Logical Plan ──▶ Optimizer (DPhyp, pushdown,
+                                                              filter injection)
+                                                        │
+                                                        ▼
+   Result ◀── Vectorized Engine ◀── Physical Plan ──▶ Scheduler (morsels, tasks)
+                    │                                        │
+                    ▼                                        ▼
+            Buffer Manager ◀────────────────────▶ Single-File Storage (blocks)
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;1-storage-format&quot;&gt;1. Storage Format&lt;&#x2F;h2&gt;
+&lt;p&gt;DuckDB stores a database as a single file divided into fixed-size &lt;strong&gt;blocks&lt;&#x2F;strong&gt;. Source: &lt;code&gt;src&#x2F;storage&#x2F;&lt;&#x2F;code&gt;, esp. &lt;code&gt;single_file_block_manager.cpp&lt;&#x2F;code&gt;, &lt;code&gt;block.cpp&lt;&#x2F;code&gt;, &lt;code&gt;storage_info.cpp&lt;&#x2F;code&gt;. The format is described in Mark Raasveldt&#x27;s storage blog posts (2022) and the official storage docs.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;1-1-file-and-block-layout&quot;&gt;1.1 File and block layout&lt;&#x2F;h3&gt;
+&lt;p&gt;The file begins with three headers, each occupying one &quot;header block&quot; region (4096 bytes each), followed by data blocks.&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt; offset 0           4096            8192            12288        12288 + N*262144
+ ┌───────────────┬───────────────┬───────────────┬───────────────────────────┐
+ │ Main Header   │ Database      │ Database      │  Data blocks (262144 each) │
+ │ (magic+ver)   │ Header  H0    │ Header  H1    │  blk0 blk1 blk2 ...        │
+ └───────────────┴───────────────┴───────────────┴───────────────────────────┘
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;&lt;strong&gt;Main header&lt;&#x2F;strong&gt; (&lt;code&gt;MainHeader&lt;&#x2F;code&gt;):&lt;&#x2F;p&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Field&lt;&#x2F;th&gt;&lt;th&gt;Size&lt;&#x2F;th&gt;&lt;th&gt;Encoding&lt;&#x2F;th&gt;&lt;&#x2F;tr&gt;&lt;&#x2F;thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;checksum&lt;&#x2F;td&gt;&lt;td&gt;8 bytes&lt;&#x2F;td&gt;&lt;td&gt;uint64 xxHash of header body&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;magic&lt;&#x2F;td&gt;&lt;td&gt;4 bytes&lt;&#x2F;td&gt;&lt;td&gt;ASCII &lt;code&gt;&quot;DUCK&quot;&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;version_number&lt;&#x2F;td&gt;&lt;td&gt;8 bytes&lt;&#x2F;td&gt;&lt;td&gt;uint64 storage format version&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;flags[4]&lt;&#x2F;td&gt;&lt;td&gt;32 bytes&lt;&#x2F;td&gt;&lt;td&gt;4 × uint64 reserved&#x2F;feature flags&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;(library version &#x2F; source id strings follow in later formats)&lt;&#x2F;td&gt;&lt;td&gt;&lt;&#x2F;td&gt;&lt;td&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;&#x2F;tbody&gt;&lt;&#x2F;table&gt;
+&lt;p&gt;&lt;strong&gt;Database header&lt;&#x2F;strong&gt; (&lt;code&gt;DatabaseHeader&lt;&#x2F;code&gt;, two copies H0&#x2F;H1, alternated for crash safety):&lt;&#x2F;p&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Field&lt;&#x2F;th&gt;&lt;th&gt;Size&lt;&#x2F;th&gt;&lt;th&gt;Meaning&lt;&#x2F;th&gt;&lt;&#x2F;tr&gt;&lt;&#x2F;thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;checksum&lt;&#x2F;td&gt;&lt;td&gt;8 bytes&lt;&#x2F;td&gt;&lt;td&gt;xxHash of header body&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;iteration&lt;&#x2F;td&gt;&lt;td&gt;8 bytes&lt;&#x2F;td&gt;&lt;td&gt;uint64 monotonic write counter&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;meta_block&lt;&#x2F;td&gt;&lt;td&gt;8 bytes&lt;&#x2F;td&gt;&lt;td&gt;block id of metadata catalog root&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;free_list&lt;&#x2F;td&gt;&lt;td&gt;8 bytes&lt;&#x2F;td&gt;&lt;td&gt;block id of free-list block chain&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;block_count&lt;&#x2F;td&gt;&lt;td&gt;8 bytes&lt;&#x2F;td&gt;&lt;td&gt;total blocks allocated in file&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;block_alloc_size&lt;&#x2F;td&gt;&lt;td&gt;8 bytes&lt;&#x2F;td&gt;&lt;td&gt;the block size used (default 262144)&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;vector_size&lt;&#x2F;td&gt;&lt;td&gt;8 bytes&lt;&#x2F;td&gt;&lt;td&gt;STANDARD_VECTOR_SIZE persisted (2048)&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;&#x2F;tbody&gt;&lt;&#x2F;table&gt;
+&lt;p&gt;&lt;strong&gt;Safe writes via header alternation.&lt;&#x2F;strong&gt; A checkpoint writes a &lt;em&gt;new&lt;&#x2F;em&gt; &lt;code&gt;DatabaseHeader&lt;&#x2F;code&gt; into whichever of H0&#x2F;H1 is &lt;em&gt;not&lt;&#x2F;em&gt; currently active, then fsyncs, then the reader on next open picks the header with the &lt;strong&gt;highest valid &lt;code&gt;iteration&lt;&#x2F;code&gt;&lt;&#x2F;strong&gt; whose checksum verifies. A torn write to one header leaves the other intact — this is the ping-pong &#x2F; shadow-paging discipline that gives atomic checkpoint commit without a separate double-write buffer.&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;Block size&lt;&#x2F;strong&gt;: &lt;code&gt;DEFAULT_BLOCK_ALLOC_SIZE = 262144&lt;&#x2F;code&gt; (256 KiB). Each block on disk is &lt;code&gt;block_alloc_size&lt;&#x2F;code&gt;; the usable payload is &lt;code&gt;block_size = block_alloc_size − sizeof(checksum)&lt;&#x2F;code&gt; (8 bytes), with a per-block xxHash64 checksum stored in the block header for torn-page &#x2F; bit-rot detection.&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;Free list.&lt;&#x2F;strong&gt; Freed blocks are recorded in a free-list block chain referenced by &lt;code&gt;free_list&lt;&#x2F;code&gt;. On allocation the manager pops a free block id; on truncate the trailing free blocks are released and &lt;code&gt;block_count&lt;&#x2F;code&gt; shrinks. This is a classic free-space map, not an LSM-style append log.&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;Metadata blocks.&lt;&#x2F;strong&gt; The catalog (schemas, tables, view definitions) and per-table storage metadata (row group pointers, column segment trees, statistics) are serialized into &lt;strong&gt;metadata blocks&lt;&#x2F;strong&gt;, a separate allocation that packs many small metadata entries into 256 KiB blocks via &lt;code&gt;MetadataManager&lt;&#x2F;code&gt; to avoid wasting a full block per tiny object.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;1-2-row-groups-and-column-segments&quot;&gt;1.2 Row groups and column segments&lt;&#x2F;h3&gt;
+&lt;p&gt;A table is stored as a list of &lt;strong&gt;row groups&lt;&#x2F;strong&gt;, each holding up to &lt;code&gt;ROW_GROUP_SIZE = 122880&lt;&#x2F;code&gt; rows (= 60 × 2048 vectors). Each row group stores one &lt;strong&gt;ColumnData&lt;&#x2F;strong&gt; per column; a column&#x27;s data is a tree of &lt;strong&gt;column segments&lt;&#x2F;strong&gt;, each segment ≈ one block&#x27;s worth of compressed values plus per-segment statistics (min, max, null count, distinct estimate).&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;Table
+ ├─ RowGroup[0]  (rows 0 .. 122879)
+ │    ├─ Column &amp;quot;id&amp;quot;   : Segment(min,max,...) → block 17
+ │    ├─ Column &amp;quot;name&amp;quot; : Segment(...)         → block 18..20 (overflow for strings)
+ │    └─ row versions &#x2F; validity
+ ├─ RowGroup[1]  (rows 122880 ..)
+ └─ ...
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Row-group-level and segment-level statistics drive &lt;strong&gt;zone-map skipping&lt;&#x2F;strong&gt;: a scan with predicate &lt;code&gt;WHERE x &amp;gt; 100&lt;&#x2F;code&gt; skips any segment whose &lt;code&gt;max &amp;lt;= 100&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;1-3-compression&quot;&gt;1.3 Compression&lt;&#x2F;h3&gt;
+&lt;p&gt;Compression is chosen &lt;strong&gt;per column segment&lt;&#x2F;strong&gt; by a two-phase scheme (no sampling — DuckDB scans the whole segment, which usually fits in cache): an &lt;strong&gt;Analyze&lt;&#x2F;strong&gt; pass asks every applicable compression function to estimate the final compressed size for that segment, then the cheapest wins, then a &lt;strong&gt;Compress&lt;&#x2F;strong&gt; pass writes it. Each function exposes &lt;code&gt;init_analyze &#x2F; analyze &#x2F; final_analyze &#x2F; init_compression &#x2F; compress &#x2F; compress_finalize&lt;&#x2F;code&gt; and a matching scan&#x2F;decompress path (&lt;code&gt;src&#x2F;storage&#x2F;compression&#x2F;&lt;&#x2F;code&gt;).&lt;&#x2F;p&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Scheme&lt;&#x2F;th&gt;&lt;th&gt;Applies to&lt;&#x2F;th&gt;&lt;th&gt;Mechanism&lt;&#x2F;th&gt;&lt;&#x2F;tr&gt;&lt;&#x2F;thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;Constant&lt;&#x2F;td&gt;&lt;td&gt;any&lt;&#x2F;td&gt;&lt;td&gt;all values identical → store one value&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Uncompressed&lt;&#x2F;td&gt;&lt;td&gt;any&lt;&#x2F;td&gt;&lt;td&gt;flat array, fallback&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;RLE&lt;&#x2F;td&gt;&lt;td&gt;runs&lt;&#x2F;td&gt;&lt;td&gt;(value, run_length) pairs&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Bitpacking&lt;&#x2F;td&gt;&lt;td&gt;integers&lt;&#x2F;td&gt;&lt;td&gt;pack to &lt;code&gt;ceil(log2(max−min+1))&lt;&#x2F;code&gt; bits per value, grouped per 1024 values&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;FOR&lt;&#x2F;td&gt;&lt;td&gt;dates&#x2F;timestamps&lt;&#x2F;td&gt;&lt;td&gt;frame = min; bitpack &lt;code&gt;value − min&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Dictionary&lt;&#x2F;td&gt;&lt;td&gt;low-cardinality strings&lt;&#x2F;td&gt;&lt;td&gt;dictionary of distinct strings + bitpacked codes&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;FSST&lt;&#x2F;td&gt;&lt;td&gt;high-card strings&lt;&#x2F;td&gt;&lt;td&gt;Fast Static Symbol Table: 1–8 byte symbol codes for frequent substrings (Boncz, Neumann, Leis, &quot;FSST&quot;, VLDB 2020)&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Chimp &#x2F; Patas&lt;&#x2F;td&gt;&lt;td&gt;floats&lt;&#x2F;td&gt;&lt;td&gt;XOR successive doubles, encode leading&#x2F;trailing zero runs (Liakos et al., &quot;Chimp&quot;, VLDB 2022); Patas is a faster DuckDB variant&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;ALP&lt;&#x2F;td&gt;&lt;td&gt;floats&lt;&#x2F;td&gt;&lt;td&gt;Adaptive Lossless floating-Point; decompose to int+exponent when decimal-representable (Afroozeh, Kuffo, Boncz, &quot;ALP&quot;, SIGMOD 2024)&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;&#x2F;tbody&gt;&lt;&#x2F;table&gt;
+&lt;p&gt;Bitpacking, FOR, and dictionary are the workhorses for integer&#x2F;string analytics; ALP largely supersedes Chimp&#x2F;Patas for real-valued data in modern DuckDB.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;1-4-wal-and-recovery&quot;&gt;1.4 WAL and recovery&lt;&#x2F;h3&gt;
+&lt;p&gt;Between checkpoints, transactions append to a &lt;strong&gt;write-ahead log&lt;&#x2F;strong&gt; (&lt;code&gt;src&#x2F;storage&#x2F;write_ahead_log.cpp&lt;&#x2F;code&gt;). WAL entries are typed records: &lt;code&gt;INSERT_TUPLE&lt;&#x2F;code&gt;, &lt;code&gt;DELETE_TUPLE&lt;&#x2F;code&gt;, &lt;code&gt;UPDATE_TUPLE&lt;&#x2F;code&gt;, DDL (&lt;code&gt;CREATE_TABLE&lt;&#x2F;code&gt;, &lt;code&gt;ALTER&lt;&#x2F;code&gt;), and &lt;code&gt;CHECKPOINT&lt;&#x2F;code&gt;. On commit the WAL is flushed&#x2F;fsynced (durability); recovery replays the WAL from the last checkpoint marker. A &lt;strong&gt;checkpoint&lt;&#x2F;strong&gt; materializes WAL contents into compressed column segments in the main file, writes a fresh alternating &lt;code&gt;DatabaseHeader&lt;&#x2F;code&gt;, then truncates the WAL. The single-file format thus provides ACID via WAL (durability&#x2F;atomicity of small txns) + header ping-pong (atomic checkpoint).&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;2-buffer-manager&quot;&gt;2. Buffer Manager&lt;&#x2F;h2&gt;
+&lt;p&gt;&lt;code&gt;src&#x2F;storage&#x2F;buffer_manager.cpp&lt;&#x2F;code&gt;, &lt;code&gt;standard_buffer_manager.cpp&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;The buffer pool manages fixed-size &lt;strong&gt;blocks&lt;&#x2F;strong&gt; as &lt;strong&gt;BufferHandle&lt;&#x2F;strong&gt; frames. A block is referenced by a &lt;code&gt;BlockHandle&lt;&#x2F;code&gt;; pinning (&lt;code&gt;Pin()&lt;&#x2F;code&gt;) loads it into memory and increments a pin count, returning a &lt;code&gt;BufferHandle&lt;&#x2F;code&gt; whose lifetime keeps the page resident. Unpinned blocks become eviction candidates. Dirty blocks (modified, e.g. during a checkpoint write) are tracked and flushed to the block manager.&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;Replacement policy.&lt;&#x2F;strong&gt; DuckDB uses a &lt;strong&gt;clock &#x2F; second-chance&lt;&#x2F;strong&gt; approximation of LRU implemented as a queue with a reference bit (&lt;code&gt;EvictionQueue&lt;&#x2F;code&gt;). On eviction the sweep skips pinned blocks and gives recently-touched blocks a second chance, which avoids the per-access list surgery of strict LRU under high concurrency.&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;Out-of-core execution.&lt;&#x2F;strong&gt; When the buffer pool is full, &lt;em&gt;temporary&lt;&#x2F;em&gt; buffers (operator state, not persistent table data) are spilled to a temp directory as &lt;code&gt;.tmp&lt;&#x2F;code&gt; files via the same &lt;code&gt;BlockManager&lt;&#x2F;code&gt; abstraction. Operators are written to be spill-aware:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;External hash join&lt;&#x2F;strong&gt;: the build-side hash table is partitioned by hash; if memory is exceeded, partitions are spilled to disk and the join runs partition-by-partition (Grace hash join), re-reading probe rows per partition.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;strong&gt;External sort&lt;&#x2F;strong&gt;: runs are sorted in memory, spilled as sorted runs, then k-way merged.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;strong&gt;External aggregation&lt;&#x2F;strong&gt;: partitioned hash table; overflowing partitions spill and are finalized in a later pass.&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;&lt;strong&gt;Memory pressure.&lt;&#x2F;strong&gt; A global &lt;code&gt;memory_limit&lt;&#x2F;code&gt; (default ~80% RAM) is enforced; allocations request reservation from the buffer manager, which evicts unpinned blocks or triggers operator spilling when the limit would be exceeded. Spilling is graceful degradation, not OOM failure.&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;3-vectorized-execution-engine&quot;&gt;3. Vectorized Execution Engine&lt;&#x2F;h2&gt;
+&lt;p&gt;&lt;code&gt;src&#x2F;execution&#x2F;&lt;&#x2F;code&gt;, &lt;code&gt;src&#x2F;common&#x2F;types&#x2F;vector.cpp&lt;&#x2F;code&gt;. Vectorized execution amortizes per-tuple interpreter overhead across &lt;code&gt;STANDARD_VECTOR_SIZE = 2048&lt;&#x2F;code&gt; values processed per call (MonetDB&#x2F;X100, CIDR 2005).&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;3-1-vector-representations&quot;&gt;3.1 Vector representations&lt;&#x2F;h3&gt;
+&lt;p&gt;A &lt;code&gt;Vector&lt;&#x2F;code&gt; is a typed container of up to 2048 values with a &lt;strong&gt;physical type&lt;&#x2F;strong&gt; plus a &lt;code&gt;VectorType&lt;&#x2F;code&gt;:&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;Vector { type, VectorType, data ptr, validity_mask (bitset), aux (string heap &#x2F; child) }
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;VectorType&lt;&#x2F;th&gt;&lt;th&gt;Layout&lt;&#x2F;th&gt;&lt;th&gt;Use&lt;&#x2F;th&gt;&lt;&#x2F;tr&gt;&lt;&#x2F;thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;FLAT&lt;&#x2F;td&gt;&lt;td&gt;contiguous array of N values + validity bitmask&lt;&#x2F;td&gt;&lt;td&gt;default materialized form&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;CONSTANT&lt;&#x2F;td&gt;&lt;td&gt;single value, logically broadcast to all N rows&lt;&#x2F;td&gt;&lt;td&gt;scalar &#x2F; literal&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;DICTIONARY&lt;&#x2F;td&gt;&lt;td&gt;a child Vector (dict) + a &lt;strong&gt;selection vector&lt;&#x2F;strong&gt; of indices into it&lt;&#x2F;td&gt;&lt;td&gt;output of filters, dict scans&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;SEQUENCE&lt;&#x2F;td&gt;&lt;td&gt;(start, increment): value[i] = start + i·increment&lt;&#x2F;td&gt;&lt;td&gt;rowids, &lt;code&gt;range()&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;&#x2F;tbody&gt;&lt;&#x2F;table&gt;
+&lt;p&gt;CONSTANT and SEQUENCE store O(1) data for N rows; DICTIONARY shares one physical child across many logical positions — the basis for &lt;strong&gt;zero-copy&lt;&#x2F;strong&gt; transforms.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;3-2-selection-vectors&quot;&gt;3.2 Selection vectors&lt;&#x2F;h3&gt;
+&lt;p&gt;Filters do not compact data; they produce a &lt;strong&gt;SelectionVector&lt;&#x2F;strong&gt; — an array of indices (&lt;code&gt;sel_t&lt;&#x2F;code&gt;) into the underlying vector picking surviving rows. Operators thread the selection vector downstream, so a filtered vector of 2048 rows down to 30 survivors costs no memcpy until materialization forces a flatten. This is the vectorized analogue of late materialization.&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;data:  [a b c d e f g h ...]   (2048 flat)
+sel :  [1 3 6]                 → logical view = [b d g]   (3 rows)
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h3 id=&quot;3-3-push-based-pipelines&quot;&gt;3.3 Push-based pipelines&lt;&#x2F;h3&gt;
+&lt;p&gt;DuckDB uses a &lt;strong&gt;push&lt;&#x2F;strong&gt; model (not Volcano pull). A query plan is split into &lt;strong&gt;pipelines&lt;&#x2F;strong&gt;; each pipeline is a chain &lt;code&gt;Source → Operator* → Sink&lt;&#x2F;code&gt;. The source produces chunks and &lt;em&gt;pushes&lt;&#x2F;em&gt; them through operators into the sink:&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;class Source   { GetData(chunk)  -&amp;gt; produces DataChunk }   &#x2F;&#x2F; scan, read-group
+class Operator { Execute(in,out) -&amp;gt; transforms chunk   }   &#x2F;&#x2F; filter, project
+class Sink      { Sink(chunk); Combine(); Finalize();  }   &#x2F;&#x2F; HT build, agg, sort
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;A &lt;strong&gt;pipeline breaker&lt;&#x2F;strong&gt; is an operator that must consume its entire input before producing output — it is a &lt;code&gt;Sink&lt;&#x2F;code&gt;. The hash-join build side, the aggregate, and the sort are breakers: they materialize into &lt;strong&gt;pipeline-local sink state&lt;&#x2F;strong&gt; during &lt;code&gt;Sink&lt;&#x2F;code&gt;, merge thread-local states in &lt;code&gt;Combine&lt;&#x2F;code&gt;, finish in &lt;code&gt;Finalize&lt;&#x2F;code&gt;, and then act as the &lt;strong&gt;Source&lt;&#x2F;strong&gt; of a &lt;em&gt;downstream&lt;&#x2F;em&gt; pipeline. This is how a join splits into a build pipeline (breaker) and a probe pipeline.&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;Pipeline 1 (build):  Scan(B) ─▶ HashJoin.Sink  (builds HT)   [breaker]
+Pipeline 2 (probe):  Scan(A) ─▶ HashJoin.Operator(probe HT) ─▶ Aggregate.Sink
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h3 id=&quot;3-4-key-physical-operators&quot;&gt;3.4 Key physical operators&lt;&#x2F;h3&gt;
+&lt;p&gt;&lt;strong&gt;Hash join&lt;&#x2F;strong&gt; (&lt;code&gt;physical_hash_join.cpp&lt;&#x2F;code&gt;). Build side fills a &lt;code&gt;JoinHashTable&lt;&#x2F;code&gt;: rows are serialized into a row-layout (fixed-width columns inline, variable-width into a string heap) in partitioned blocks; each entry carries a hash and a chain pointer. The HT is a pointer array; collisions chain. A &lt;strong&gt;Bloom filter&lt;&#x2F;strong&gt; (perfect-hash &#x2F; small filter) is built over build-side keys and pushed to the probe scan so non-matching probe rows are discarded early (and the filter can be injected as a runtime predicate at the scan — see §5).&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;JoinHashTable entry (row layout):
+ ┌──────────┬──────────────┬───────────────┬─────────────┐
+ │ hash (8) │ next_ptr (8) │ key cols ...  │ payload ... │
+ └──────────┴──────────────┴───────────────┴─────────────┘
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;&lt;strong&gt;Aggregate&lt;&#x2F;strong&gt; (&lt;code&gt;physical_hashaggregate.cpp&lt;&#x2F;code&gt;). Grouped aggregation uses a &lt;strong&gt;partitioned&lt;&#x2F;strong&gt; hash table: the group key is hashed, the high bits select one of P radix partitions, each with its own hash table. Thread-local partitioned HTs are merged partition-wise in &lt;code&gt;Combine&lt;&#x2F;code&gt; (no global lock), and partitions can be finalized&#x2F;spilled independently. Aggregate states (sum, count, sketches) live inline in the HT row.&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;Sort&lt;&#x2F;strong&gt; (&lt;code&gt;physical_order.cpp&lt;&#x2F;code&gt;). DuckDB sorts on a &lt;strong&gt;normalized key&lt;&#x2F;strong&gt; (radix-comparable encoding of all ORDER BY columns into a single comparable byte string, NULLs and DESC handled by bit-flips), then runs an &lt;strong&gt;LSD radix sort&lt;&#x2F;strong&gt; on the key within each thread, spills sorted runs if needed, and &lt;strong&gt;k-way merges&lt;&#x2F;strong&gt; runs. Normalized keys make comparison a memcmp, eliminating per-column branchy comparators.&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;4-morsel-driven-parallelism&quot;&gt;4. Morsel-Driven Parallelism&lt;&#x2F;h2&gt;
+&lt;p&gt;&lt;code&gt;src&#x2F;parallel&#x2F;&lt;&#x2F;code&gt;, esp. &lt;code&gt;executor.cpp&lt;&#x2F;code&gt;, &lt;code&gt;pipeline_executor.cpp&lt;&#x2F;code&gt;, &lt;code&gt;task_scheduler.cpp&lt;&#x2F;code&gt;. Model from Leis et al., SIGMOD 2014.&lt;&#x2F;p&gt;
+&lt;p&gt;A &lt;strong&gt;morsel&lt;&#x2F;strong&gt; is a small chunk of the source&#x27;s input range (e.g. a contiguous slice of a row group &#x2F; a set of vectors). The source operator hands out morsels on demand. The executor runs a fixed pool of worker threads; each thread repeatedly &lt;strong&gt;pulls a task&lt;&#x2F;strong&gt;, where a task is &quot;run this pipeline on the next morsel.&quot;&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;Source range:  [────────── row groups ──────────]
+                 m0   m1   m2   m3   m4   m5  ...      (morsels)
+Threads:        T0   T1   T2   T0   T1   T2  ...      (dynamic assignment)
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;&lt;strong&gt;Pipeline parallelism.&lt;&#x2F;strong&gt; A pipeline is run by N parallel &lt;code&gt;PipelineExecutor&lt;&#x2F;code&gt; instances — one per thread. Each instance owns &lt;strong&gt;thread-local operator state and a thread-local sink state&lt;&#x2F;strong&gt;, but they &lt;strong&gt;share read-only state&lt;&#x2F;strong&gt; such as the join&#x27;s already-built hash table. Each thread independently grabs morsels, pushes them through its operator chain, and accumulates into its local sink state; &lt;code&gt;Combine&lt;&#x2F;code&gt; then merges local states. Because morsels are handed out dynamically, a thread that finishes its work simply requests the next morsel — this is &lt;strong&gt;work stealing&lt;&#x2F;strong&gt; at morsel granularity, giving automatic load balancing across skew without static partitioning.&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;Tasks and finish tasks.&lt;&#x2F;strong&gt; The scheduler distinguishes regular pipeline tasks from a &lt;strong&gt;finish task&lt;&#x2F;strong&gt; that runs once after all morsels of a pipeline are consumed (it triggers &lt;code&gt;Combine&lt;&#x2F;code&gt;&#x2F;&lt;code&gt;Finalize&lt;&#x2F;code&gt; and readies the dependent pipeline).&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;Dependencies.&lt;&#x2F;strong&gt; Pipelines form a DAG via the &lt;code&gt;MetaPipeline&lt;&#x2F;code&gt;: a breaker&#x27;s build pipeline must &lt;code&gt;Finalize&lt;&#x2F;code&gt; before its probe pipeline starts. The executor schedules pipelines respecting these edges; independent pipelines (e.g. two build sides of different joins) run concurrently. Scheduling order is a topological order of the pipeline dependency graph, with all leaves runnable immediately.&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;5-query-optimizer&quot;&gt;5. Query Optimizer&lt;&#x2F;h2&gt;
+&lt;p&gt;&lt;code&gt;src&#x2F;optimizer&#x2F;&lt;&#x2F;code&gt;. Cost-based, operating on the logical plan after binding.&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;Join ordering — DPhyp.&lt;&#x2F;strong&gt; DuckDB enumerates join orders with &lt;strong&gt;DPhyp&lt;&#x2F;strong&gt; (Moerkotte &amp;amp; Neumann, &quot;Analysis of Two Existing and One New Dynamic Programming Algorithm for the Generation of Optimal Bushy Join Trees&quot;, VLDB 2006). DPhyp models the query as a &lt;strong&gt;hypergraph&lt;&#x2F;strong&gt; (hyperedges capture non-inner &#x2F; multi-relation predicates) and enumerates &lt;strong&gt;connected subgraph complement pairs (csg-cmp-pairs)&lt;&#x2F;strong&gt; via &lt;code&gt;EmitCsg&lt;&#x2F;code&gt;&#x2F;&lt;code&gt;EnumerateCmp&lt;&#x2F;code&gt;, building optimal &lt;strong&gt;bushy&lt;&#x2F;strong&gt; trees by dynamic programming over connected subsets. It avoids generating cross products unless forced, and its complexity tracks the number of connected subgraphs rather than &lt;code&gt;n!&lt;&#x2F;code&gt;. For very large join graphs DuckDB falls back to a greedy &#x2F; IKKBZ-style heuristic.&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;Cardinality estimation.&lt;&#x2F;strong&gt; Per Leis et al., &quot;How Good Are Query Optimizers, Really?&quot; (VLDB 2015), cardinality estimation is the dominant source of plan error. DuckDB uses per-column statistics — &lt;strong&gt;min, max, NDV (distinct count, via HyperLogLog), null count&lt;&#x2F;strong&gt;, and (for base tables) zone maps — and estimates join selectivity from NDV (the classic &lt;code&gt;|R⋈S| ≈ |R||S| &#x2F; max(NDV_R, NDV_S)&lt;&#x2F;code&gt;). It also samples base tables to seed statistics. These feed the DPhyp cost model (cost ≈ sum of intermediate cardinalities).&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;Rewrite rules.&lt;&#x2F;strong&gt; Filter pushdown (push predicates below joins&#x2F;projections, down to the scan as zone-map filters), projection pushdown (read only referenced columns), predicate simplification &#x2F; constant folding, common-subexpression elimination, expression rewriting (e.g. &lt;code&gt;x IN (...)&lt;&#x2F;code&gt; → mark join &#x2F; hash set), and unnesting of correlated subqueries (apply → join decorrelation).&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;Dynamic Bloom-filter &#x2F; runtime-filter injection.&lt;&#x2F;strong&gt; After the build side of a hash join is materialized, DuckDB can inject a Bloom filter (or a min&#x2F;max range filter) derived from the build keys as a &lt;strong&gt;runtime predicate&lt;&#x2F;strong&gt; on the probe-side scan. This prunes probe row groups&#x2F;segments via zone maps and discards rows before the probe — a sideways-information-passing optimization that bridges the two pipelines.&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;Adaptive ordering.&lt;&#x2F;strong&gt; DuckDB performs some &lt;strong&gt;runtime adaptivity&lt;&#x2F;strong&gt;: the order in which conjunctive scan filters are applied is reordered by observed selectivity, and join build&#x2F;probe sides can be swapped based on observed (vs estimated) cardinalities, correcting estimation errors during execution.&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;6-parquet-integration&quot;&gt;6. Parquet Integration&lt;&#x2F;h2&gt;
+&lt;p&gt;&lt;code&gt;extension&#x2F;parquet&#x2F;&lt;&#x2F;code&gt;. Parquet is read via late-bound table functions, with pushdown driven by Parquet&#x27;s own metadata.&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Row group skipping&lt;&#x2F;strong&gt;: each Parquet row group carries column statistics (min&#x2F;max&#x2F;null_count) in its footer; DuckDB evaluates table filters against these and skips entire row groups whose stats cannot satisfy the predicate.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;strong&gt;Column projection&lt;&#x2F;strong&gt;: only the column chunks for referenced columns are fetched (the columnar layout means unreferenced columns are never read from disk&#x2F;object store).&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;strong&gt;Predicate pushdown to page level&lt;&#x2F;strong&gt;: with a Parquet &lt;strong&gt;page index&lt;&#x2F;strong&gt; (column index &#x2F; offset index), DuckDB prunes individual data pages within a row group using per-page min&#x2F;max, narrowing reads further than row-group granularity.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;strong&gt;Late materialization&lt;&#x2F;strong&gt;: DuckDB reads filter columns first, evaluates the predicate to produce a selection vector, and only then materializes the remaining projected columns for surviving rows — avoiding decompression of values that get filtered out. This dovetails with §3.2&#x27;s selection vectors.&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;Over &lt;code&gt;httpfs&lt;&#x2F;code&gt;, these combine to issue &lt;strong&gt;ranged HTTP GETs&lt;&#x2F;strong&gt; for just the needed column-chunk byte ranges of surviving row groups, making remote Parquet scans I&#x2F;O-frugal.&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;7-mvcc-and-transactions&quot;&gt;7. MVCC and Transactions&lt;&#x2F;h2&gt;
+&lt;p&gt;&lt;code&gt;src&#x2F;transaction&#x2F;&lt;&#x2F;code&gt;. DuckDB implements &lt;strong&gt;snapshot isolation&lt;&#x2F;strong&gt; with in-memory multi-versioning, in the HyPer style (Neumann, Mühlbauer, Kemper, &quot;Fast Serializable Multi-Version Concurrency Control for Main-Memory Database Systems&quot;, SIGMOD 2015).&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;Version storage.&lt;&#x2F;strong&gt; Tables are updated &lt;strong&gt;in place&lt;&#x2F;strong&gt;; the &lt;em&gt;previous&lt;&#x2F;em&gt; versions of modified tuples are kept in per-transaction &lt;strong&gt;undo buffers&lt;&#x2F;strong&gt; forming a &lt;strong&gt;version chain&lt;&#x2F;strong&gt;. Each transaction has a &lt;code&gt;transaction_id&lt;&#x2F;code&gt; (above a high-water mark while running) and, on commit, a monotonically increasing &lt;code&gt;commit_id&lt;&#x2F;code&gt; (timestamp). A row stores the id of the writer; readers compare against their snapshot to decide whether to see the current value or walk the undo chain to the version valid as of their start timestamp.&lt;&#x2F;p&gt;
+&lt;pre&gt;&lt;code&gt;current tuple (in column store)  ──▶  UndoBuffer entry (prev value, txn ts)
+                                          └─▶ older entry ...
+Reader with snapshot T sees newest version with commit_id ≤ T,
+else follows the chain.
+&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;&lt;strong&gt;Isolation.&lt;&#x2F;strong&gt; Snapshot isolation: each transaction reads a consistent snapshot fixed at start; writes are buffered and made visible atomically at commit by stamping &lt;code&gt;commit_id&lt;&#x2F;code&gt;. Write-write conflicts (two txns updating the same row) are detected and the later committer aborts. Inserts&#x2F;deletes are tracked similarly via version info on row groups (&lt;code&gt;RowVersionManager&lt;&#x2F;code&gt;).&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;Durability &#x2F; recovery.&lt;&#x2F;strong&gt; Commits append to the WAL and fsync (§1.4). Recovery replays WAL since the last checkpoint; checkpointing folds committed data into the columnar file and garbage-collects undo buffers whose versions are no longer visible to any active transaction. ACID in the single-file format = WAL (A, D) + snapshot MVCC (I) + checkpoint header ping-pong (atomic, durable consistency point).&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;8-extensions&quot;&gt;8. Extensions&lt;&#x2F;h2&gt;
+&lt;p&gt;&lt;code&gt;src&#x2F;main&#x2F;extension&#x2F;&lt;&#x2F;code&gt;. Extensions are dynamically loaded shared libraries that register capabilities through the same internal APIs the core uses, via the &lt;code&gt;ExtensionLoader&lt;&#x2F;code&gt; &#x2F; &lt;code&gt;DatabaseInstance&lt;&#x2F;code&gt; registries:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Scalar &#x2F; aggregate &#x2F; table functions&lt;&#x2F;strong&gt; — register a &lt;code&gt;CreateScalarFunctionInfo&lt;&#x2F;code&gt;, &lt;code&gt;AggregateFunction&lt;&#x2F;code&gt;, or &lt;code&gt;TableFunction&lt;&#x2F;code&gt; (with bind, init-global, init-local, and the vectorized &lt;code&gt;function&lt;&#x2F;code&gt; callback).&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;strong&gt;Types&lt;&#x2F;strong&gt; — register custom &lt;code&gt;LogicalType&lt;&#x2F;code&gt;s and casts.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;strong&gt;File systems &#x2F; replacement scans&lt;&#x2F;strong&gt; — register a &lt;code&gt;FileSystem&lt;&#x2F;code&gt; (e.g. &lt;code&gt;httpfs&lt;&#x2F;code&gt; adds &lt;code&gt;s3:&#x2F;&#x2F;&lt;&#x2F;code&gt;, &lt;code&gt;https:&#x2F;&#x2F;&lt;&#x2F;code&gt;) or a &lt;strong&gt;replacement scan&lt;&#x2F;strong&gt; so &lt;code&gt;SELECT * FROM &#x27;file.parquet&#x27;&lt;&#x2F;code&gt; resolves to a table function.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;strong&gt;Optimizer extensions&lt;&#x2F;strong&gt; — register an &lt;code&gt;OptimizerExtension&lt;&#x2F;code&gt; callback that rewrites the logical plan.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;strong&gt;Storage extensions&lt;&#x2F;strong&gt; — register a custom catalog&#x2F;transaction manager (&lt;code&gt;StorageExtension&lt;&#x2F;code&gt;), enabling foreign databases to appear as attached catalogs.&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;Notable extensions:&lt;&#x2F;p&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Extension&lt;&#x2F;th&gt;&lt;th&gt;Provides&lt;&#x2F;th&gt;&lt;&#x2F;tr&gt;&lt;&#x2F;thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;httpfs&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;HTTP&#x2F;S3&#x2F;GCS&#x2F;Azure filesystems; ranged GETs for remote Parquet&#x2F;CSV&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;iceberg&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;Read Apache Iceberg tables (manifest&#x2F;snapshot resolution → Parquet scans)&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;delta&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;Read Delta Lake tables via the delta-kernel-rs library&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;code&gt;postgres_scanner&lt;&#x2F;code&gt;&lt;&#x2F;td&gt;&lt;td&gt;Query live PostgreSQL over the wire as attached tables (binary COPY, pushdown of filters&#x2F;projection) — the analogue of DuckDB&#x27;s own Postgres scanner work&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;&#x2F;tbody&gt;&lt;&#x2F;table&gt;
+&lt;p&gt;The &lt;code&gt;postgres_scanner&lt;&#x2F;code&gt; and &lt;code&gt;delta&lt;&#x2F;code&gt;&#x2F;&lt;code&gt;iceberg&lt;&#x2F;code&gt; extensions exemplify the storage-extension pattern: a foreign system is attached as a catalog, its tables surface as table functions, and filter&#x2F;projection pushdown is forwarded to the source (Postgres &lt;code&gt;WHERE&lt;&#x2F;code&gt;&#x2F;column lists; Iceberg&#x2F;Delta row-group stats), so DuckDB&#x27;s vectorized engine consumes only the needed data.&lt;&#x2F;p&gt;
+&lt;hr &#x2F;&gt;
+&lt;h2 id=&quot;key-papers-resources&quot;&gt;Key Papers &amp;amp; Resources&lt;&#x2F;h2&gt;
+&lt;ul&gt;
+&lt;li&gt;Raasveldt, Mühleisen, &quot;DuckDB: an Embeddable Analytical Database&quot;, SIGMOD 2019 (demo).&lt;&#x2F;li&gt;
+&lt;li&gt;Raasveldt, Mühleisen, &quot;Don&#x27;t Hold My Data Hostage – A Case for Client Protocol Redesign&quot;, VLDB 2017.&lt;&#x2F;li&gt;
+&lt;li&gt;Boncz, Zukowski, Nes, &quot;MonetDB&#x2F;X100: Hyper-Pipelining Query Execution&quot;, CIDR 2005.&lt;&#x2F;li&gt;
+&lt;li&gt;Leis, Boncz, Kemper, Neumann, &quot;Morsel-Driven Parallelism: A NUMA-Aware Query Evaluation Framework for the Many-Core Age&quot;, SIGMOD 2014.&lt;&#x2F;li&gt;
+&lt;li&gt;Moerkotte, Neumann, &quot;Analysis of Two Existing and One New Dynamic Programming Algorithm for the Generation of Optimal Bushy Join Trees&quot; (DPhyp), VLDB 2006.&lt;&#x2F;li&gt;
+&lt;li&gt;Leis, Gubichev, Mirchev, Boncz, Kemper, Neumann, &quot;How Good Are Query Optimizers, Really?&quot;, VLDB 2015.&lt;&#x2F;li&gt;
+&lt;li&gt;Neumann, Mühlbauer, Kemper, &quot;Fast Serializable Multi-Version Concurrency Control for Main-Memory Database Systems&quot;, SIGMOD 2015.&lt;&#x2F;li&gt;
+&lt;li&gt;Neumann, Freitag, &quot;Umbra: A Disk-Based System with In-Memory Performance&quot;, CIDR 2020.&lt;&#x2F;li&gt;
+&lt;li&gt;Boncz, Neumann, Leis, &quot;FSST: Fast Random Access String Compression&quot;, VLDB 2020.&lt;&#x2F;li&gt;
+&lt;li&gt;Liakos, Papakonstantinopoulou, Kotidis, &quot;Chimp: Efficient Lossless Floating Point Compression for Time Series Databases&quot;, VLDB 2022.&lt;&#x2F;li&gt;
+&lt;li&gt;Afroozeh, Kuffo, Boncz, &quot;ALP: Adaptive Lossless floating-Point Compression&quot;, SIGMOD 2024.&lt;&#x2F;li&gt;
+&lt;li&gt;Mark Raasveldt, &quot;Lightweight Compression in DuckDB&quot;, duckdb.org blog, 2022-10-28.&lt;&#x2F;li&gt;
+&lt;li&gt;DuckDB source: &lt;code&gt;src&#x2F;storage&#x2F;&lt;&#x2F;code&gt; (single_file_block_manager, compression&#x2F;), &lt;code&gt;src&#x2F;execution&#x2F;&lt;&#x2F;code&gt; (physical_hash_join, physical_hashaggregate, physical_order), &lt;code&gt;src&#x2F;parallel&#x2F;&lt;&#x2F;code&gt; (executor, task_scheduler), &lt;code&gt;src&#x2F;optimizer&#x2F;&lt;&#x2F;code&gt; (join_order&#x2F;, filter_pushdown), &lt;code&gt;src&#x2F;transaction&#x2F;&lt;&#x2F;code&gt;.&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+</content>
+        
+    </entry>
     <entry xml:lang="en">
         <title>Cloudnativepg</title>
         <published>2026-05-20T00:00:00+00:00</published>
@@ -15108,7 +15870,7 @@ CPU AVX-512: ~2 TFLOPS BF16 at 250W  → ~125 pJ per FLOP
 &lt;tr&gt;&lt;td&gt;DMA&lt;&#x2F;td&gt;&lt;td&gt;Direct Memory Access — hardware capability for devices to read&#x2F;write main memory without CPU involvement&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;os&#x2F;vfio-internals&#x2F;&quot;&gt;VFIO Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;DMB&lt;&#x2F;td&gt;&lt;td&gt;Data Memory Barrier — ARM instruction ordering memory accesses without stalling execution&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;isa-critical-instructions&#x2F;&quot;&gt;ISA Critical Instructions&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;DPccp&lt;&#x2F;td&gt;&lt;td&gt;Dynamic Programming connected complement pairs — join enumeration algorithm for bushy plans&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
-&lt;tr&gt;&lt;td&gt;DPhyp&lt;&#x2F;td&gt;&lt;td&gt;Dynamic Programming on hypergraphs — join enumeration supporting multi-relation predicates&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;DPhyp&lt;&#x2F;td&gt;&lt;td&gt;Dynamic Programming on hypergraphs — join enumeration supporting multi-relation predicates&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;DPDK&lt;&#x2F;td&gt;&lt;td&gt;Data Plane Development Kit — userspace networking framework using VFIO for kernel-bypass packet processing (~30-40 Mpps)&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;os&#x2F;vfio-internals&#x2F;&quot;&gt;VFIO Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;DSB&lt;&#x2F;td&gt;&lt;td&gt;Data Synchronization Barrier — ARM instruction that stalls execution until all prior memory accesses complete&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;isa-critical-instructions&#x2F;&quot;&gt;ISA Critical Instructions&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;DST&lt;&#x2F;td&gt;&lt;td&gt;Deterministic Simulation Testing — technique running distributed systems in a single-threaded deterministic simulator&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;distributed&#x2F;deterministic-simulation-testing&#x2F;&quot;&gt;Deterministic Simulation Testing&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
@@ -15118,6 +15880,8 @@ CPU AVX-512: ~2 TFLOPS BF16 at 250W  → ~125 pJ per FLOP
 &lt;tr&gt;&lt;td&gt;FDW&lt;&#x2F;td&gt;&lt;td&gt;Foreign Data Wrapper — PostgreSQL mechanism for querying external data sources as local tables&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;database-systems&#x2F;&quot;&gt;Database Systems&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;FLP&lt;&#x2F;td&gt;&lt;td&gt;Fischer-Lynch-Paterson impossibility — proof that deterministic asynchronous consensus is impossible with even one crash&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;distributed&#x2F;distributed-consensus&#x2F;&quot;&gt;Distributed Consensus&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;FMA&lt;&#x2F;td&gt;&lt;td&gt;Fused Multiply-Add — single instruction computing a*b+c with one rounding; used in Tensor Cores and CPU SIMD&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;gpu-tpu-accelerator-design&#x2F;&quot;&gt;GPU&#x2F;TPU Accelerator Design&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;FOR&lt;&#x2F;td&gt;&lt;td&gt;Frame-of-Reference — lightweight compression storing a per-segment base (min) and bitpacked offsets; common for dates&#x2F;timestamps&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;FSST&lt;&#x2F;td&gt;&lt;td&gt;Fast Static Symbol Table — string compression assigning 1-byte codes to frequent substrings, allowing random access without full decompression&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;FP8&lt;&#x2F;td&gt;&lt;td&gt;8-bit floating point — low-precision format (E4M3&#x2F;E5M2) for LLM training&#x2F;inference on Hopper+ GPUs&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;gpu-tpu-accelerator-design&#x2F;&quot;&gt;GPU&#x2F;TPU Accelerator Design&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;FPW&lt;&#x2F;td&gt;&lt;td&gt;Full Page Writes — PostgreSQL technique writing complete page images to WAL after checkpoint to prevent torn pages&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;wal-torn-pages&#x2F;&quot;&gt;WAL &amp;amp; Torn Pages&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;FTL&lt;&#x2F;td&gt;&lt;td&gt;Flash Translation Layer — SSD firmware mapping logical block addresses to physical NAND pages&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;wal-torn-pages&#x2F;&quot;&gt;WAL &amp;amp; Torn Pages&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
@@ -15160,6 +15924,16 @@ CPU AVX-512: ~2 TFLOPS BF16 at 250W  → ~125 pJ per FLOP
 &lt;tr&gt;&lt;td&gt;LSE&lt;&#x2F;td&gt;&lt;td&gt;Large System Extensions — ARMv8.1 atomic instructions (CAS, LDADD, SWP) replacing LL&#x2F;SC for better scalability&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;isa-critical-instructions&#x2F;&quot;&gt;ISA Critical Instructions&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;LSM&lt;&#x2F;td&gt;&lt;td&gt;Log-Structured Merge tree — write-optimized structure converting random writes to sequential via leveled compaction&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;lsm-trees&#x2F;&quot;&gt;LSM Trees&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;LSN&lt;&#x2F;td&gt;&lt;td&gt;Log Sequence Number — monotonically increasing identifier for WAL records, used for recovery and page versioning&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;wal-torn-pages&#x2F;&quot;&gt;WAL &amp;amp; Torn Pages&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;MergeTree&lt;&#x2F;td&gt;&lt;td&gt;ClickHouse&#x27;s core storage engine family: each INSERT writes an immutable PK-sorted part; background merges fold parts together (LSM-like)&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;clickhouse-internals&#x2F;&quot;&gt;ClickHouse Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Granule&lt;&#x2F;td&gt;&lt;td&gt;ClickHouse unit of index addressing — default 8192 rows (capped by index_granularity_bytes); the smallest data block the sparse index can select&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;clickhouse-internals&#x2F;&quot;&gt;ClickHouse Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Mark&lt;&#x2F;td&gt;&lt;td&gt;ClickHouse mark (.mrk3&#x2F;.cmrk3) — 24-byte record mapping a granule to (offset_in_compressed_file, offset_in_decompressed_block, rows_in_granule)&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;clickhouse-internals&#x2F;&quot;&gt;ClickHouse Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Sparse primary index&lt;&#x2F;td&gt;&lt;td&gt;Index storing the PK tuple only at each granule boundary (primary.idx) — lossy zone-map-style pruning, not per-row&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;clickhouse-internals&#x2F;&quot;&gt;ClickHouse Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;DoubleDelta&lt;&#x2F;td&gt;&lt;td&gt;Codec storing second-order differences (delta-of-deltas) with Gorilla varint framing; near-free for fixed-stride sequences like timestamps&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;clickhouse-internals&#x2F;&quot;&gt;ClickHouse Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;T64&lt;&#x2F;td&gt;&lt;td&gt;ClickHouse codec transposing 64 integers into bit-planes after range subtraction, storing only the needed planes; for low-range&#x2F;low-cardinality ints&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;clickhouse-internals&#x2F;&quot;&gt;ClickHouse Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Gorilla&lt;&#x2F;td&gt;&lt;td&gt;XOR-based float compression encoding leading&#x2F;trailing zero runs of consecutive-value XORs (Pelkonen VLDB 2015); a ClickHouse codec&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;clickhouse-internals&#x2F;&quot;&gt;ClickHouse Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Volnitsky&lt;&#x2F;td&gt;&lt;td&gt;Bigram-hash substring search algorithm (Boyer-Moore-Horspool variant) used in ClickHouse string&#x2F;LIKE matching&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;clickhouse-internals&#x2F;&quot;&gt;ClickHouse Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;NuRaft&lt;&#x2F;td&gt;&lt;td&gt;C++ Raft consensus library underpinning ClickHouse Keeper, the ZooKeeper-compatible coordination service&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;clickhouse-internals&#x2F;&quot;&gt;ClickHouse Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Projection&lt;&#x2F;td&gt;&lt;td&gt;ClickHouse alternate physical layout stored inside each part (different sort order and&#x2F;or pre-aggregation), auto-maintained through merges&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;clickhouse-internals&#x2F;&quot;&gt;ClickHouse Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;MESIF&lt;&#x2F;td&gt;&lt;td&gt;Modified&#x2F;Exclusive&#x2F;Shared&#x2F;Invalid&#x2F;Forward — Intel&#x27;s extension of MESI with a Forward state for peer-to-peer cache supply&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;superscalar-ooo-cpu&#x2F;&quot;&gt;Superscalar OoO CPU&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;MESI&lt;&#x2F;td&gt;&lt;td&gt;Modified&#x2F;Exclusive&#x2F;Shared&#x2F;Invalid — CPU cache coherence protocol tracking cache line states across cores&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;isa-critical-instructions&#x2F;&quot;&gt;ISA Critical Instructions&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;MCV&lt;&#x2F;td&gt;&lt;td&gt;Most Common Values — per-column list of (value, frequency) pairs stored in pg_statistic stakind=1; used for exact selectivity on high-frequency values&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;database-statistics&#x2F;&quot;&gt;Database Statistics&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
@@ -15170,10 +15944,11 @@ CPU AVX-512: ~2 TFLOPS BF16 at 250W  → ~125 pJ per FLOP
 &lt;tr&gt;&lt;td&gt;MSHR&lt;&#x2F;td&gt;&lt;td&gt;Miss Status Holding Register — tracks outstanding cache misses and coalesces accesses to the same line; count ≈ MLP&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;superscalar-ooo-cpu&#x2F;&quot;&gt;Superscalar OoO CPU&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;MMA&lt;&#x2F;td&gt;&lt;td&gt;Matrix Multiply-Accumulate — Tensor Core operation computing D = A * B + C on small matrix tiles&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;gpu-tpu-accelerator-design&#x2F;&quot;&gt;GPU&#x2F;TPU Accelerator Design&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;MMIO&lt;&#x2F;td&gt;&lt;td&gt;Memory-Mapped I&#x2F;O — mapping device registers into CPU address space for direct read&#x2F;write access&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;os&#x2F;vfio-internals&#x2F;&quot;&gt;VFIO Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Morsel&lt;&#x2F;td&gt;&lt;td&gt;A small chunk of a source operator&#x27;s input handed to a worker thread; unit of morsel-driven parallelism and work stealing&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;MPSM&lt;&#x2F;td&gt;&lt;td&gt;Massively Parallel Sort-Merge — NUMA-aware join algorithm with local sort + parallel merge across nodes&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;MSI-X&lt;&#x2F;td&gt;&lt;td&gt;Message Signaled Interrupts Extended — PCIe interrupt delivery via memory writes, supporting per-queue interrupt vectors&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;os&#x2F;vfio-internals&#x2F;&quot;&gt;VFIO Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;MTE&lt;&#x2F;td&gt;&lt;td&gt;Memory Tagging Extension — ARM hardware feature for detecting memory safety bugs (use-after-free, buffer overflow)&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;os&#x2F;linux-expert-syscalls&#x2F;&quot;&gt;Linux Expert Syscalls&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
-&lt;tr&gt;&lt;td&gt;MVCC&lt;&#x2F;td&gt;&lt;td&gt;Multi-Version Concurrency Control — concurrency scheme where readers see snapshots and writers create new versions&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;database-systems&#x2F;&quot;&gt;Database Systems&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;MVCC&lt;&#x2F;td&gt;&lt;td&gt;Multi-Version Concurrency Control — concurrency scheme where readers see snapshots and writers create new versions&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;database-systems&#x2F;&quot;&gt;Database Systems&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;NoC&lt;&#x2F;td&gt;&lt;td&gt;Network-on-Chip — on-die interconnect (ring&#x2F;mesh&#x2F;torus) routing traffic between cores, caches, and memory controllers&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;superscalar-ooo-cpu&#x2F;&quot;&gt;Superscalar OoO CPU&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;gpu-tpu-accelerator-design&#x2F;&quot;&gt;GPU&#x2F;TPU Accelerator Design&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;NLJ&lt;&#x2F;td&gt;&lt;td&gt;Nested Loop Join — simplest join algorithm scanning inner relation for each outer tuple; O(|R| * B(S)) I&#x2F;O&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;NUMA&lt;&#x2F;td&gt;&lt;td&gt;Non-Uniform Memory Access — multi-socket architecture where memory access latency depends on which socket owns the memory&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;hyper-umbra-cedardb&#x2F;&quot;&gt;HyPer&#x2F;Umbra&#x2F;CedarDB&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
@@ -15193,6 +15968,7 @@ CPU AVX-512: ~2 TFLOPS BF16 at 250W  → ~125 pJ per FLOP
 &lt;tr&gt;&lt;td&gt;PRF&lt;&#x2F;td&gt;&lt;td&gt;Physical Register File — centralized storage for all in-flight register values; separate INT and FP files sized at ROB + arch_regs&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;superscalar-ooo-cpu&#x2F;&quot;&gt;Superscalar OoO CPU&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;PG&lt;&#x2F;td&gt;&lt;td&gt;Protection Group — Aurora&#x27;s 10 GB storage segment replicated 6 ways across 3 AZs&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;disaggregated-storage&#x2F;&quot;&gt;Disaggregated Storage&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;PID&lt;&#x2F;td&gt;&lt;td&gt;Page ID — logical identifier for a database page, translated to a buffer frame address by the buffer manager&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;buffer-management-predictive-translation&#x2F;&quot;&gt;Buffer Management&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Pipeline Breaker&lt;&#x2F;td&gt;&lt;td&gt;Operator that must fully consume its input before producing output (hash-join build, aggregate, sort); materializes into pipeline-local state and acts as the source of a downstream pipeline&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;PITR&lt;&#x2F;td&gt;&lt;td&gt;Point-In-Time Recovery — restoring a database to any past moment by replaying WAL to a target LSN&#x2F;timestamp&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;database-systems&#x2F;&quot;&gt;Database Systems&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;PLL&lt;&#x2F;td&gt;&lt;td&gt;Phase-Locked Loop — clock generation circuit multiplying a reference crystal frequency for the system clock&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;os&#x2F;timer-interrupts-stm32&#x2F;&quot;&gt;Timer Interrupts STM32&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;PMU&lt;&#x2F;td&gt;&lt;td&gt;Performance Monitoring Unit — hardware counters (cycles, cache misses, branch mispredictions) for CPU profiling&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;cycle-counters-and-energy&#x2F;&quot;&gt;Cycle Counters &amp;amp; Energy&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
@@ -15213,6 +15989,7 @@ CPU AVX-512: ~2 TFLOPS BF16 at 250W  → ~125 pJ per FLOP
 &lt;tr&gt;&lt;td&gt;SQ&lt;&#x2F;td&gt;&lt;td&gt;Store Queue — buffer holding committed stores until they drain to the L1D cache; used for STLF and memory ordering&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;superscalar-ooo-cpu&#x2F;&quot;&gt;Superscalar OoO CPU&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;SCL&lt;&#x2F;td&gt;&lt;td&gt;Segment Complete LSN — per-Protection-Group completeness tracker in Aurora&#x27;s storage layer&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;disaggregated-storage&#x2F;&quot;&gt;Disaggregated Storage&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;seccomp&lt;&#x2F;td&gt;&lt;td&gt;Secure Computing Mode — Linux syscall filtering mechanism using BPF programs for sandboxing (used in Neon WAL redo)&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;os&#x2F;linux-expert-syscalls&#x2F;&quot;&gt;Linux Expert Syscalls&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Selection Vector&lt;&#x2F;td&gt;&lt;td&gt;Array of indices into a vector selecting surviving rows after a filter; threaded downstream so filtered data is not compacted until materialization (DuckDB vectorized engine)&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;SFU&lt;&#x2F;td&gt;&lt;td&gt;Special Function Unit — GPU hardware computing transcendentals (sin, cos, rsqrt, log) at reduced throughput&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;gpu-tpu-accelerator-design&#x2F;&quot;&gt;GPU&#x2F;TPU Accelerator Design&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;SIMT&lt;&#x2F;td&gt;&lt;td&gt;Single Instruction, Multiple Thread — GPU execution model where warps of 32 threads execute in lockstep&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;gpu-tpu-accelerator-design&#x2F;&quot;&gt;GPU&#x2F;TPU Accelerator Design&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;SM&lt;&#x2F;td&gt;&lt;td&gt;Streaming Multiprocessor — fundamental GPU compute unit containing CUDA cores, Tensor Cores, register file, and shared memory&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;gpu-tpu-accelerator-design&#x2F;&quot;&gt;GPU&#x2F;TPU Accelerator Design&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
@@ -15387,6 +16164,7 @@ CPU AVX-512: ~2 TFLOPS BF16 at 250W  → ~125 pJ per FLOP
 &lt;h2 id=&quot;database-internals-query-processing&quot;&gt;Database Internals &amp;amp; Query Processing&lt;&#x2F;h2&gt;
 &lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Paper&lt;&#x2F;th&gt;&lt;th&gt;Venue&lt;&#x2F;th&gt;&lt;th&gt;Cited In&lt;&#x2F;th&gt;&lt;&#x2F;tr&gt;&lt;&#x2F;thead&gt;&lt;tbody&gt;
 &lt;tr&gt;&lt;td&gt;Abadi, Madden, Hachem, &quot;The Design and Implementation of Modern Column-Oriented Database Systems&quot;&lt;&#x2F;td&gt;&lt;td&gt;Foundations and Trends in Databases, 2013&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;arrow-format&#x2F;&quot;&gt;Arrow Format&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;arrow-postgresql-integration&#x2F;&quot;&gt;Arrow PG Integration&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Abadi, Madden, Hachem, &quot;Column-Stores vs. Row-Stores: How Different Are They Really?&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 2008&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;clickhouse-internals&#x2F;&quot;&gt;ClickHouse Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Athanassoulis, Kester et al., &quot;Designing Access Methods: The RUM Conjecture&quot;&lt;&#x2F;td&gt;&lt;td&gt;EDBT 2016&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;wal-torn-pages&#x2F;&quot;&gt;WAL &amp;amp; Torn Pages&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Berenson et al., &quot;A Critique of ANSI SQL Isolation Levels&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 1995&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;mongodb-wiredtiger-internals&#x2F;&quot;&gt;MongoDB &amp;amp; WiredTiger&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Bottcher, Leis, Neumann, Kemper, &quot;Scalable Garbage Collection for In-Memory MVCC Systems&quot;&lt;&#x2F;td&gt;&lt;td&gt;VLDB 2019&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;hyper-umbra-cedardb&#x2F;&quot;&gt;HyPer&#x2F;Umbra&#x2F;CedarDB&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
@@ -15402,13 +16180,18 @@ CPU AVX-512: ~2 TFLOPS BF16 at 250W  → ~125 pJ per FLOP
 &lt;tr&gt;&lt;td&gt;Kersten, Leis, Neumann, &quot;Tidy Tuples and Flying Start: Fast Compilation and Fast Execution of Relational Queries in Umbra&quot;&lt;&#x2F;td&gt;&lt;td&gt;VLDB Journal 2021&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;database-systems&#x2F;&quot;&gt;Database Systems&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;hyper-umbra-cedardb&#x2F;&quot;&gt;HyPer&#x2F;Umbra&#x2F;CedarDB&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Kersten, Leis, Kemper, Neumann, Pavlo, Boncz, &quot;Everything You Always Wanted to Know About Compiled and Vectorized Queries But Were Afraid to Ask&quot;&lt;&#x2F;td&gt;&lt;td&gt;VLDB 2018&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;arrow-postgresql-integration&#x2F;&quot;&gt;Arrow PG Integration&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;hyper-umbra-cedardb&#x2F;&quot;&gt;HyPer&#x2F;Umbra&#x2F;CedarDB&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;hardware&#x2F;isa-critical-instructions&#x2F;&quot;&gt;ISA Critical Instructions&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Leis, Kemper, Neumann, &quot;The Adaptive Radix Tree: ARTful Indexing for Main-Memory Databases&quot;&lt;&#x2F;td&gt;&lt;td&gt;ICDE 2013&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;database-systems&#x2F;&quot;&gt;Database Systems&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;hyper-umbra-cedardb&#x2F;&quot;&gt;HyPer&#x2F;Umbra&#x2F;CedarDB&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;programming&#x2F;data-structures&#x2F;&quot;&gt;Data Structures&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
-&lt;tr&gt;&lt;td&gt;Leis, Gubichev, Mirber, Olteanu, Kemper, Neumann, &quot;How Good Are Query Optimizers, Really?&quot;&lt;&#x2F;td&gt;&lt;td&gt;VLDB 2015&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;database-statistics&#x2F;&quot;&gt;Database Statistics&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Leis, Gubichev, Mirber, Olteanu, Kemper, Neumann, &quot;How Good Are Query Optimizers, Really?&quot;&lt;&#x2F;td&gt;&lt;td&gt;VLDB 2015&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;database-statistics&#x2F;&quot;&gt;Database Statistics&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Mohan, Haderle, Lindsay, Pirahesh, Schwarz, &quot;ARIES: A Transaction Recovery Method Supporting Fine-Granularity Locking&quot;&lt;&#x2F;td&gt;&lt;td&gt;ACM TODS, 1992&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;wal-torn-pages&#x2F;&quot;&gt;WAL &amp;amp; Torn Pages&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
-&lt;tr&gt;&lt;td&gt;Muhlbauer, Rodiger, Kemper, Neumann, &quot;Fast Serializable Multi-Version Concurrency Control for Main-Memory Database Systems&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 2015&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;hyper-umbra-cedardb&#x2F;&quot;&gt;HyPer&#x2F;Umbra&#x2F;CedarDB&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
-&lt;tr&gt;&lt;td&gt;Neumann, &quot;Efficiently Compiling Efficient Query Plans for Modern Hardware&quot;&lt;&#x2F;td&gt;&lt;td&gt;VLDB 2011&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;arrow-format&#x2F;&quot;&gt;Arrow Format&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;database-systems&#x2F;&quot;&gt;Database Systems&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;hyper-umbra-cedardb&#x2F;&quot;&gt;HyPer&#x2F;Umbra&#x2F;CedarDB&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
-&lt;tr&gt;&lt;td&gt;Neumann, Freitag, &quot;Umbra: A Disk-Based System with In-Memory Performance&quot;&lt;&#x2F;td&gt;&lt;td&gt;CIDR 2020&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;database-systems&#x2F;&quot;&gt;Database Systems&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;hyper-umbra-cedardb&#x2F;&quot;&gt;HyPer&#x2F;Umbra&#x2F;CedarDB&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Muhlbauer, Rodiger, Kemper, Neumann, &quot;Fast Serializable Multi-Version Concurrency Control for Main-Memory Database Systems&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 2015&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;hyper-umbra-cedardb&#x2F;&quot;&gt;HyPer&#x2F;Umbra&#x2F;CedarDB&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Neumann, &quot;Efficiently Compiling Efficient Query Plans for Modern Hardware&quot;&lt;&#x2F;td&gt;&lt;td&gt;VLDB 2011&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;arrow-format&#x2F;&quot;&gt;Arrow Format&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;database-systems&#x2F;&quot;&gt;Database Systems&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;hyper-umbra-cedardb&#x2F;&quot;&gt;HyPer&#x2F;Umbra&#x2F;CedarDB&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;clickhouse-internals&#x2F;&quot;&gt;ClickHouse Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Neumann, Freitag, &quot;Umbra: A Disk-Based System with In-Memory Performance&quot;&lt;&#x2F;td&gt;&lt;td&gt;CIDR 2020&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;database-systems&#x2F;&quot;&gt;Database Systems&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;hyper-umbra-cedardb&#x2F;&quot;&gt;HyPer&#x2F;Umbra&#x2F;CedarDB&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Raasveldt, Muhleisen, &quot;DuckDB: an Embeddable Analytical Database&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 2019 (demo)&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Raasveldt, Muhleisen, &quot;Don&#x27;t Hold My Data Hostage – A Case for Client Protocol Redesign&quot;&lt;&#x2F;td&gt;&lt;td&gt;VLDB 2017&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Pelkonen, Franklin, Cavallaro, Huang, Meza, Teller, Veeraraghavan, &quot;Gorilla: A Fast, Scalable, In-Memory Time Series Database&quot;&lt;&#x2F;td&gt;&lt;td&gt;VLDB 2015&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;clickhouse-internals&#x2F;&quot;&gt;ClickHouse Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Selinger et al., &quot;Access Path Selection in a Relational Database Management System&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 1979&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Stonebraker et al., &quot;C-Store: A Column-oriented DBMS&quot;&lt;&#x2F;td&gt;&lt;td&gt;VLDB 2005&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;clickhouse-internals&#x2F;&quot;&gt;ClickHouse Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Stonebraker, &quot;The Design of POSTGRES Storage System&quot;&lt;&#x2F;td&gt;&lt;td&gt;1987&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;wal-incremental-conversion&#x2F;&quot;&gt;WAL Incremental Conversion&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Zukowski, Heman, Nes, Boncz, &quot;Super-Scalar RAM-CPU Cache Compression&quot;&lt;&#x2F;td&gt;&lt;td&gt;ICDE 2006&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;clickhouse-internals&#x2F;&quot;&gt;ClickHouse Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;&#x2F;tbody&gt;&lt;&#x2F;table&gt;
 &lt;h2 id=&quot;join-algorithms&quot;&gt;Join Algorithms&lt;&#x2F;h2&gt;
 &lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Paper&lt;&#x2F;th&gt;&lt;th&gt;Venue&lt;&#x2F;th&gt;&lt;th&gt;Cited In&lt;&#x2F;th&gt;&lt;&#x2F;tr&gt;&lt;&#x2F;thead&gt;&lt;tbody&gt;
@@ -15421,7 +16204,7 @@ CPU AVX-512: ~2 TFLOPS BF16 at 250W  → ~125 pJ per FLOP
 &lt;tr&gt;&lt;td&gt;Birler, Schmidt, Fent, Neumann, &quot;Simple, Efficient, and Robust Hash Tables for Join Processing&quot;&lt;&#x2F;td&gt;&lt;td&gt;DaMoN 2024 (Best Paper)&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Blanas, Li, Hellerstein, Patel, &quot;Design and Evaluation of Main Memory Hash Join Algorithms for Multi-Core CPUs&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 2011&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Blanas, Patel, Ercegovac, Rao, Shekita, Tian, &quot;A Comparison of Join Algorithms for Log Processing in MapReduce&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 2010&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
-&lt;tr&gt;&lt;td&gt;Boncz et al., &quot;MonetDB&#x2F;X100: Hyper-Pipelining Query Execution&quot;&lt;&#x2F;td&gt;&lt;td&gt;CIDR 2005&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;arrow-format&#x2F;&quot;&gt;Arrow Format&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;arrow-postgresql-integration&#x2F;&quot;&gt;Arrow PG Integration&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Boncz et al., &quot;MonetDB&#x2F;X100: Hyper-Pipelining Query Execution&quot;&lt;&#x2F;td&gt;&lt;td&gt;CIDR 2005&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;arrow-format&#x2F;&quot;&gt;Arrow Format&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;arrow-postgresql-integration&#x2F;&quot;&gt;Arrow PG Integration&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;DeWitt, Gerber, &quot;Multiprocessor Hash-Based Join Algorithms&quot; (Hybrid hash join)&lt;&#x2F;td&gt;&lt;td&gt;VLDB 1985&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;DeWitt, Katz, Olken, Shapiro, Stonebraker, Wood, &quot;Implementation Techniques for Main Memory Database Systems&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 1984&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Gross, ten Wolde, Boncz, &quot;Adaptive Factorization Using Linear-Chained Hash Tables&quot;&lt;&#x2F;td&gt;&lt;td&gt;CIDR 2025&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
@@ -15429,10 +16212,10 @@ CPU AVX-512: ~2 TFLOPS BF16 at 250W  → ~125 pJ per FLOP
 &lt;tr&gt;&lt;td&gt;Kim, Sedlar, Chhugani et al., &quot;Sort vs. Hash Revisited: Fast Join Implementation on Modern Multi-Core CPUs&quot;&lt;&#x2F;td&gt;&lt;td&gt;VLDB 2009&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Kitsuregawa, Tanaka, Moto-oka, &quot;Application of Hash to Database Machine and Its Architecture&quot; (Grace hash join)&lt;&#x2F;td&gt;&lt;td&gt;New Generation Computing, 1983&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Kuiper, Gross, Boncz, Muhleisen, &quot;Saving Private Hash Join&quot;&lt;&#x2F;td&gt;&lt;td&gt;VLDB 2025&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
-&lt;tr&gt;&lt;td&gt;Leis, Boncz, Kemper, Neumann, &quot;Morsel-Driven Parallelism: A NUMA-Aware Query Evaluation Framework&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 2014&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;database-systems&#x2F;&quot;&gt;Database Systems&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;hyper-umbra-cedardb&#x2F;&quot;&gt;HyPer&#x2F;Umbra&#x2F;CedarDB&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Leis, Boncz, Kemper, Neumann, &quot;Morsel-Driven Parallelism: A NUMA-Aware Query Evaluation Framework&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 2014&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;database-systems&#x2F;&quot;&gt;Database Systems&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;hyper-umbra-cedardb&#x2F;&quot;&gt;HyPer&#x2F;Umbra&#x2F;CedarDB&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Manegold, Boncz, Kersten, &quot;Optimizing Main-Memory Join on Modern Hardware&quot;&lt;&#x2F;td&gt;&lt;td&gt;TKDE 2002&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Moerkotte, Neumann, &quot;Analysis of Two Existing and One New Dynamic Programming Algorithm&quot; (DPccp)&lt;&#x2F;td&gt;&lt;td&gt;VLDB 2006&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
-&lt;tr&gt;&lt;td&gt;Moerkotte, Neumann, &quot;Dynamic Programming Strikes Back&quot; (DPhyp)&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 2008&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Moerkotte, Neumann, &quot;Dynamic Programming Strikes Back&quot; (DPhyp)&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 2008&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Ngo, Porat, Re, Rudra, &quot;Worst-Case Optimal Join Algorithms&quot;&lt;&#x2F;td&gt;&lt;td&gt;PODS 2012&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Ngo, Re, Rudra, &quot;Skew Strikes Back: New Developments in the Theory of Join Algorithms&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD Record 2013&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Okcan, Riedewald, &quot;Processing Theta-Joins using MapReduce&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 2011&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;join-algorithms&#x2F;&quot;&gt;Join Algorithms&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
@@ -15454,6 +16237,9 @@ CPU AVX-512: ~2 TFLOPS BF16 at 250W  → ~125 pJ per FLOP
 &lt;tr&gt;&lt;td&gt;Leis et al., &quot;Virtual-Memory Assisted Buffer Management&quot; (vmcache)&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 2023&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;buffer-management-predictive-translation&#x2F;&quot;&gt;Buffer Management&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Vohringer, Leis, &quot;Write-Aware Timestamp Tracking&quot; (WATT eviction)&lt;&#x2F;td&gt;&lt;td&gt;VLDB 2023&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;buffer-management-predictive-translation&#x2F;&quot;&gt;Buffer Management&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Zinsmeister, Nguyen, Leis, Neumann, &quot;Predictive Translation: High-Performance Buffer Management Without the Trade-Offs&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 2026&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;buffer-management-predictive-translation&#x2F;&quot;&gt;Buffer Management&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Boncz, Neumann, Leis, &quot;FSST: Fast Random Access String Compression&quot;&lt;&#x2F;td&gt;&lt;td&gt;VLDB 2020&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Liakos, Papakonstantinopoulou, Kotidis, &quot;Chimp: Efficient Lossless Floating Point Compression for Time Series Databases&quot;&lt;&#x2F;td&gt;&lt;td&gt;VLDB 2022&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Afroozeh, Kuffo, Boncz, &quot;ALP: Adaptive Lossless floating-Point Compression&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 2024&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;duckdb-internals&#x2F;&quot;&gt;DuckDB Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;&#x2F;tbody&gt;&lt;&#x2F;table&gt;
 &lt;h2 id=&quot;lsm-trees-write-optimized-storage&quot;&gt;LSM Trees &amp;amp; Write-Optimized Storage&lt;&#x2F;h2&gt;
 &lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Paper&lt;&#x2F;th&gt;&lt;th&gt;Venue&lt;&#x2F;th&gt;&lt;th&gt;Cited In&lt;&#x2F;th&gt;&lt;&#x2F;tr&gt;&lt;&#x2F;thead&gt;&lt;tbody&gt;
@@ -15468,7 +16254,7 @@ CPU AVX-512: ~2 TFLOPS BF16 at 250W  → ~125 pJ per FLOP
 &lt;tr&gt;&lt;td&gt;Kaiyrakhmet et al., &quot;SLM-DB: Single-Level Key-Value Store with Persistent Memory&quot;&lt;&#x2F;td&gt;&lt;td&gt;FAST 2019&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;lsm-trees&#x2F;&quot;&gt;LSM Trees&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Lu, Pillai et al., &quot;WiscKey: Separating Keys from Values in SSD-Conscious Storage&quot;&lt;&#x2F;td&gt;&lt;td&gt;FAST 2016&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;wal-torn-pages&#x2F;&quot;&gt;WAL &amp;amp; Torn Pages&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;lsm-trees&#x2F;&quot;&gt;LSM Trees&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Luo, Carey, &quot;LSM-based Storage Techniques: A Survey&quot;&lt;&#x2F;td&gt;&lt;td&gt;VLDB Journal 2020&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;lsm-trees&#x2F;&quot;&gt;LSM Trees&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;programming&#x2F;data-structures&#x2F;&quot;&gt;Data Structures&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
-&lt;tr&gt;&lt;td&gt;O&#x27;Neil, Cheng, Gawlick, O&#x27;Neil, &quot;The Log-Structured Merge-Tree (LSM-Tree)&quot;&lt;&#x2F;td&gt;&lt;td&gt;Acta Informatica, 1996&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;wal-torn-pages&#x2F;&quot;&gt;WAL &amp;amp; Torn Pages&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;lsm-trees&#x2F;&quot;&gt;LSM Trees&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;mongodb-wiredtiger-internals&#x2F;&quot;&gt;MongoDB &amp;amp; WiredTiger&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;O&#x27;Neil, Cheng, Gawlick, O&#x27;Neil, &quot;The Log-Structured Merge-Tree (LSM-Tree)&quot;&lt;&#x2F;td&gt;&lt;td&gt;Acta Informatica, 1996&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;wal-torn-pages&#x2F;&quot;&gt;WAL &amp;amp; Torn Pages&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;lsm-trees&#x2F;&quot;&gt;LSM Trees&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;mongodb-wiredtiger-internals&#x2F;&quot;&gt;MongoDB &amp;amp; WiredTiger&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;clickhouse-internals&#x2F;&quot;&gt;ClickHouse Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Yao et al., &quot;MatrixKV: Reducing Write Stalls and Write Amplification in LSM-tree Based KV Stores&quot;&lt;&#x2F;td&gt;&lt;td&gt;USENIX ATC 2020&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;lsm-trees&#x2F;&quot;&gt;LSM Trees&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Zhong et al., &quot;REMIX: Efficient Range Query for LSM-trees&quot;&lt;&#x2F;td&gt;&lt;td&gt;FAST 2021&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;lsm-trees&#x2F;&quot;&gt;LSM Trees&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;&#x2F;tbody&gt;&lt;&#x2F;table&gt;
@@ -15478,6 +16264,7 @@ CPU AVX-512: ~2 TFLOPS BF16 at 250W  → ~125 pJ per FLOP
 &lt;tr&gt;&lt;td&gt;Armbrust et al., &quot;Delta Lake: High-Performance ACID Table Storage over Cloud Object Stores&quot;&lt;&#x2F;td&gt;&lt;td&gt;VLDB 2020&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;disaggregated-storage&#x2F;&quot;&gt;Disaggregated Storage&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Bacon et al., &quot;Spanner: Becoming a SQL System&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 2017&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;disaggregated-storage&#x2F;&quot;&gt;Disaggregated Storage&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;distributed&#x2F;distributed-consensus&#x2F;&quot;&gt;Distributed Consensus&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Cao et al., &quot;PolarFS: An Ultra-low Latency and Failure Resilient Distributed File System&quot;&lt;&#x2F;td&gt;&lt;td&gt;VLDB 2018&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;lsm-trees&#x2F;&quot;&gt;LSM Trees&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;disaggregated-storage&#x2F;&quot;&gt;Disaggregated Storage&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
+&lt;tr&gt;&lt;td&gt;Shvachko, Kuang, Radia, Chansler, &quot;The Hadoop Distributed File System&quot;&lt;&#x2F;td&gt;&lt;td&gt;MSST 2010&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;clickhouse-internals&#x2F;&quot;&gt;ClickHouse Internals&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Corbett et al., &quot;Spanner: Google&#x27;s Globally-Distributed Database&quot;&lt;&#x2F;td&gt;&lt;td&gt;OSDI 2012&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;wal-torn-pages&#x2F;&quot;&gt;WAL &amp;amp; Torn Pages&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;disaggregated-storage&#x2F;&quot;&gt;Disaggregated Storage&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;distributed&#x2F;distributed-consensus&#x2F;&quot;&gt;Distributed Consensus&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Dageville et al., &quot;The Snowflake Elastic Data Warehouse&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 2016&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;disaggregated-storage&#x2F;&quot;&gt;Disaggregated Storage&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
 &lt;tr&gt;&lt;td&gt;Depoutovitch et al., &quot;Taurus Database: How to Be Fast, Available, and Frugal in the Cloud&quot;&lt;&#x2F;td&gt;&lt;td&gt;SIGMOD 2020&lt;&#x2F;td&gt;&lt;td&gt;&lt;a href=&quot;https:&#x2F;&#x2F;nmbr7.github.io&#x2F;notes&#x2F;database&#x2F;disaggregated-storage&#x2F;&quot;&gt;Disaggregated Storage&lt;&#x2F;a&gt;&lt;&#x2F;td&gt;&lt;&#x2F;tr&gt;
