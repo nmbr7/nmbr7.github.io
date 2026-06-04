@@ -150,6 +150,10 @@
         <lastmod>2026-03-20</lastmod>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/notes/hardware/low-latency-trading/</loc>
+        <lastmod>2026-06-04</lastmod>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/notes/hardware/pcie-internals/</loc>
         <lastmod>2026-03-27</lastmod>
     </url>
@@ -489,6 +493,9 @@
         <loc>https://nmbr7.github.io/tags/foundationdb/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/fpga/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/full-text-search/</loc>
     </url>
     <url>
@@ -504,7 +511,13 @@
         <loc>https://nmbr7.github.io/tags/gpu/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/hardware/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/hash-join/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/hft/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/high-availability/</loc>
@@ -564,6 +577,9 @@
         <loc>https://nmbr7.github.io/tags/kafka/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/kernel-bypass/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/kraft/</loc>
     </url>
     <url>
@@ -601,6 +617,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/logical-decoding/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/low-latency/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/lrb/</loc>
@@ -742,6 +761,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/prestissimo/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/ptp/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/pwm/</loc>
@@ -889,6 +911,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/tpu/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/trading/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/transformation-rules/</loc>
