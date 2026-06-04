@@ -515,6 +515,49 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 | Zhang, Yang, Yue, Rashmi, "SIEVE is Simpler than LRU: an Efficient Turn-Key Eviction Algorithm for Web Caches" | NSDI 2024 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
 | Xiao, Tian, Chen, Han, "Efficient Streaming Language Models with Attention Sinks" (StreamingLLM) | ICLR 2024 | [Cache Algorithms](@/notes/database/cache_algorithms.md) |
 
+## Low-Latency Trading & Microsecond-Scale Systems
+
+| Paper | Venue | Cited In |
+|---|---|---|
+| Thompson, Farley, Barker, Gee, Stewart, "Disruptor: High performance alternating exchange between threads" (LMAX) | LMAX technical paper, 2011 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Barroso, Marty, Patterson, Ranganathan, "Attack of the Killer Microseconds" | CACM 2017 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Kalia, Kaminsky, Andersen, "Datacenter RPCs can be General and Fast" (eRPC) | NSDI 2019 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Marty, de Kruijf, Adriaens, Alfeld, Bauer, Contavalli et al., "Snap: a Microkernel Approach to Host Networking" | SOSP 2019 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Zhang, Bittman, Zhuo, Krieger, Ports et al., "The Demikernel Datapath OS Architecture for Microsecond-scale Datacenter Systems" | SOSP 2021 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Høiland-Jørgensen, Brouer, Borkmann, Fastabend, Herbert, Ahern, Miller, "The eXpress Data Path: Fast Programmable Packet Processing in the Operating System Kernel" (XDP) | CoNEXT 2018 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Ousterhout, Fried, Behrens, Belay, Balakrishnan, "Shenango: Achieving High CPU Efficiency for Latency-sensitive Datacenter Workloads" | NSDI 2019 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Fried, Ruan, Ousterhout, Belay, "Caladan: Mitigating Interference at Microsecond Timescales" | OSDI 2020 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Leber, Geib, Litz, "High Frequency Trading Acceleration using FPGAs" | FPL 2011 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Michael, Scott, "Simple, Fast, and Practical Non-Blocking and Blocking Concurrent Queue Algorithms" | PODC 1996 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md), [Data Structures](@/notes/programming/data_structures.md) |
+| Herlihy, Wing, "Linearizability: A Correctness Condition for Concurrent Objects" | ACM TOPLAS 1990 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Michael, "Hazard Pointers: Safe Memory Reclamation for Lock-Free Objects" | IEEE TPDS 2004 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Fraser, "Practical Lock-Freedom" (epoch-based reclamation) | PhD thesis / Cambridge TR, 2004 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Li, Sharma, Costa, Mickens, Suresh et al., "Sundial: Fault-tolerant Clock Synchronization for Datacenters" | OSDI 2020 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Geng, Liu, Zhang, Saeed, Prabhakar, Rosenblum, Vahdat, "Exploiting a Natural Network Effect for Scalable, Fine-grained Clock Synchronization" (Huygens) | NSDI 2018 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Kyle, "Continuous Auctions and Insider Trading" | Econometrica 1985 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Almgren, Chriss, "Optimal Execution of Portfolio Transactions" | Journal of Risk 2000 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| ESMA, "MiFID II RTS 25: Regulatory Technical Standards on Clock Synchronisation" | EU regulation, 2017 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| IEEE 1588-2019, "Precision Clock Synchronization Protocol (PTP), High Accuracy profile" (White Rabbit) | IEEE standard, 2019 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Exegy/AMD, "STAC-T0 tick-to-trade record: 13.9 ns" (Alveo UL3524, off-the-shelf, asynchronous critical path; jitter ~200 ps) | STAC-T0 report, 2024 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Funk, S. (Jane Street), "Safe at Any Speed: Building a Performant, Safe, Maintainable Packet Processor" (single-core OCaml packet processor at millions of msg/s, line rate) | Jane Street Tech Talk, 2024 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Jane Street, "Building a Lower-Latency GC" (decoupled major slices, application-forced GC in quiet times; ~3× tail-latency reduction in production) | Jane Street blog | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Gross, D. (Optiver), "When Nanoseconds Matter: Ultrafast Trading Systems in C++" (low-latency design principles, lock-free structures) | CppCon 2024 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| IEEE, "FPGA for High-Frequency Trading: Reducing Latency in Financial Systems" (Virtex UltraScale+ parallel ITCH decoders; 20–25 ns/msg, 100–150 ns pipeline, 8.3 M msg/s) | IEEE conference, 2024 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Easley, López de Prado, O'Hara, "Flow Toxicity and Liquidity in a High-Frequency World" (VPIN — Volume-Synchronized Probability of Informed Trading; Flash Crash May 2010 leading indicator) | Review of Financial Studies 25(5), 2012 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Easley, Kiefer, O'Hara, Paperman, "Liquidity, Information, and Infrequently Traded Stocks" (original PIN model) | Journal of Finance 51(4), 1996 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Andersen, Bondarenko, "VPIN and the Flash Crash" (critique: VPIN predictive power largely an artifact of volume-volatility clustering) | Journal of Financial Markets, 2014 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| SEC Final Rule 34-63241 (Rule 15c3-5, "Market Access Rule") (bans unfiltered/naked sponsored access; mandates pre-trade risk controls under broker's direct and exclusive control) | SEC regulation, 2010 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| SEC Order 34-89686, "Order Approving IEX D-Limit Order Type" (rules 350 µs speed bump is de minimis; IEX quotes are protected under Reg NMS Rule 611) | SEC, 2020; Federal Register 2020-19204 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| de Bruijn, Dumazet, "Zero Copy Networking" (MSG_ZEROCOPY / SO_ZEROCOPY; page-pinning zero-copy send; only net positive for ≥10 KB writes) | netdev 2.1, 2017 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Begunkov, Wei, "Zero-copy RX for io_uring" (IORING_OP_RECV_ZC; NIC header/data split; ~90.4 Gbps +31% over epoll at 1500 B) | LPC 2023 / NetDevConf 2024 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Thompson, Montgomery, "Simple Binary Encoding" (SBE; fixed-offset flyweight codecs; ~25 ns encode/decode vs ~1000 ns protobuf; allocation-free) | Real Logic / FIX Trading Community standard, 2014 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Leber et al., "Build fast, trade fast: Experience with a field-programmable gate-array based ultra-low latency algorithmic trading system" | FPL 2013 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| arXiv 2110.05335, "From FPGAs to Obfuscated eASICs: Design and Security Trade-offs" (structured ASIC / eFPGA hybrid; near-ASIC speed with reconfigurability) | arXiv, 2021 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Jane Street, "The Saga of Multicore OCaml" (Domain model; 2.5 yr adoption journey; GC-pacing regressions from rewritten runtime) | Jane Street tech talk, 2023 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Jane Street, "Oxidizing OCaml: Locality" (OxCaml locality modes; stack allocation without GC; exclave keyword; deep modes through data structures) | Jane Street blog, 2023–2024 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| Submarine Networks / Business Wire, "Hibernia Express achieves record transatlantic latency under 58.95 ms" | Press release, 2015 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+| McKay Brothers / PR Newswire, "Transatlantic Latency Slashed for Quincy Extreme Data" (Aurora→Slough 34.619 ms; Aurora→Frankfurt 36.917 ms) | Press release, 2016 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
+
 ## Textbooks & Reference Works
 
 | Paper | Venue | Cited In |
@@ -531,4 +574,4 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 
 ---
 
-*Last updated: 2026-05-30*
+*Last updated: 2026-06-04*
