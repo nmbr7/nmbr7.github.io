@@ -26,6 +26,7 @@ Existing related references:
 
 ## Table of Contents
 
+0. [Primer: HFT and Low-Latency Trading from First Principles](#0-primer-hft-and-low-latency-trading-from-first-principles)
 1. [The Latency Budget — Mental Model and Numbers](#1-the-latency-budget-mental-model-and-numbers)
 2. [Network Stack: Kernel Bypass and Co-Location](#2-network-stack-kernel-bypass-and-co-location)
 3. [OS / Kernel-Level Techniques](#3-os-kernel-level-techniques)
@@ -49,6 +50,147 @@ Existing related references:
 21. [Language and Runtime Choices](#21-language-and-runtime-choices)
 22. [Custom ASICs in Trading](#22-custom-asics-in-trading)
 23. [FIX Protocol Evolution: SBE and FAST](#23-fix-protocol-evolution-sbe-and-fast)
+
+---
+
+## 0. Primer: HFT and Low-Latency Trading from First Principles
+
+This section is for readers unfamiliar with electronic trading. If you already know what a matching engine and an order book are, skip to §1.
+
+### 0.1 How electronic markets work
+
+A stock exchange is, at its core, a computer program called a **matching engine**. It maintains an **order book** — a list of all outstanding buy and sell orders — and matches them against each other.
+
+When you place a "buy 100 shares of AAPL at $190", that becomes a **limit order** sitting in the book. The moment someone submits a "sell 100 shares of AAPL at $190", the matching engine pairs them and a **trade** happens. The exchange broadcasts this to the world as market data.
+
+```
+         BID (buy orders)         ASK (sell orders)
+         ─────────────────        ─────────────────
+  $189.98  ×  500 shares          $190.01  ×  300 shares
+  $189.97  ×  200 shares          $190.02  ×  800 shares
+  $189.95  ×  1000 shares         $190.05  ×  400 shares
+               ↑                       ↑
+           best bid               best ask
+           ←─── spread ──────────→
+```
+
+The **bid-ask spread** (here $0.03) is the gap between the highest buy order and the lowest sell order. A **market maker** earns this spread by sitting on both sides simultaneously — posting a bid and an ask — and capturing the difference when both sides fill.
+
+### 0.2 What is high-frequency trading?
+
+**High-frequency trading (HFT)** is electronic trading where decisions are made and orders sent in microseconds (millionths of a second) or nanoseconds (billionths of a second) — far faster than any human can act.
+
+HFT firms use computers to:
+- **React to market data** — when a large order hits the book at exchange A, prices at exchanges B and C will move within microseconds. Being first to respond is profitable.
+- **Provide liquidity (market making)** — continuously post bid/ask quotes across thousands of instruments, earn the spread, hedge the risk.
+- **Arbitrage** — the same stock or ETF trades on multiple exchanges. If it's $190.00 on NYSE and $190.02 on Nasdaq, buying one and selling the other is essentially free money — but only if you can act before the gap closes.
+
+Why nanoseconds matter: if 10 firms all see the same price discrepancy at the same time, only the *first* order to reach the exchange matching engine gets the fill. Being 1 microsecond slower means you never trade. The race is real and winner-takes-all.
+
+### 0.3 The tick-to-trade pipeline
+
+Every HFT system runs the same fundamental loop:
+
+```
+  Market data arrives            Order leaves
+  (a "tick")                     the wire
+       │                              │
+       ▼                              ▼
+  ┌─────────┐   ┌──────────┐   ┌──────────┐   ┌────────┐
+  │ Feed    │ → │ Strategy │ → │  Order   │ → │  NIC   │ ──► Exchange
+  │ Handler │   │  Logic   │   │ Gateway  │   │ (wire) │
+  └─────────┘   └──────────┘   └──────────┘   └────────┘
+
+  Parse raw      Decide:         Encode order     Physical
+  network        trade or        message          transmission
+  packets        not?            (FIX/SBE)
+```
+
+- **Feed handler**: parses raw UDP packets from the exchange's market data feed into usable price/size updates.
+- **Strategy logic**: the trading algorithm — is this tick an opportunity? What order to send?
+- **Order gateway**: encodes the order in the exchange's wire protocol and hands it to the NIC.
+
+Each box adds latency. The total from tick arriving to order leaving — **tick-to-trade** — is what the entire engineering stack is optimized to minimize.
+
+### 0.4 Why the kernel is the enemy
+
+Normal software on Linux to receive a network packet:
+1. Packet arrives at the NIC
+2. NIC interrupts the CPU
+3. Linux kernel copies the packet from NIC memory to kernel memory
+4. Kernel copies it again into your program's memory
+5. Your program reads it via a `recv()` syscall
+
+Each step adds latency. The kernel alone adds **~5–15 µs** — which is *thousands* of nanoseconds and totally unacceptable for HFT.
+
+**Kernel bypass** (§2) eliminates all of this: the NIC is configured to write packets *directly* into memory your program can read, no kernel involvement, no copies, no interrupts. Your program polls that memory in a tight loop. Latency drops to **~700 ns** or below.
+
+### 0.5 The four latency killers (and their fixes)
+
+| Problem | Cause | Fix |
+|---|---|---|
+| **Kernel overhead** | syscalls, copies, interrupts | Kernel bypass (DPDK, OpenOnload, ef_vi) |
+| **OS scheduling jitter** | kernel preempts your process to run other tasks | CPU isolation (`isolcpus`), busy-spinning, PREEMPT_RT |
+| **Cache misses** | data not in L1/L2 cache → wait for RAM (~100 ns) | NUMA pinning, hugepages, false-sharing elimination, warm caches |
+| **Lock contention** | multiple threads fight for a mutex → one waits | Lock-free data structures (SPSC queues, Disruptor) |
+
+The rest of this doc is essentially a deep-dive into each of these four problems and every known technique for attacking them.
+
+### 0.6 FPGA: bypassing the CPU entirely
+
+A **Field-Programmable Gate Array (FPGA)** is a chip you can wire up to implement *custom digital logic* — not software running on a processor, but actual circuits. An FPGA sitting on the network card can:
+
+- Parse a market data packet and make a trading decision in **~13–100 nanoseconds** — before it even reaches the CPU
+- Implement deterministic, jitter-free logic (no OS, no garbage collector, no branch mispredictions)
+- Perform risk checks, encode an order, and put it on the wire — all in hardware
+
+The tradeoff: FPGAs are expensive to develop, hard to change, and only viable for logic that's well-understood and stable. Simple strategies (latency arbitrage, market making on liquid instruments) go on FPGA. Complex strategies stay on CPU.
+
+### 0.7 Co-location: the geography of speed
+
+Light travels through fiber optic cable at ~200,000 km/s. A cable that is 1 meter longer adds ~5 nanoseconds of latency. At 10 km, that's ~50 µs — longer than the entire software pipeline.
+
+**Co-location (colo)**: HFT firms rent rack space *inside* the exchange's data center, meters from the matching engine. Exchanges offer "equalized" cross-connects — cables of identical length to every firm — so geography doesn't give anyone an edge inside the building.
+
+**Microwave networks**: between cities (e.g., Chicago ↔ New York), microwaves travel through air faster than fiber through glass. The Chicago-to-NJ path is ~1.5 ms faster via microwave (~8 ms) than via fiber (~13 ms). HFT firms have built private microwave tower networks along these routes.
+
+### 0.8 Market data feeds: the firehose
+
+Exchanges publish every order, cancel, and trade as multicast UDP packets. The US equity markets generate **hundreds of millions of messages per second** at peak. The **ITCH** protocol (Nasdaq) and **PITCH** (Cboe) are the raw binary feeds that HFT systems consume.
+
+Options markets are even more extreme: the **OPRA** feed (US options) has **>200 billion messages per day** with microbursts exceeding **70 Gbps** — more than many corporate data centers handle in total. Handling this requires FPGA-based NICs and dedicated engineering teams (§2, §7 of the main doc).
+
+### 0.9 The regulatory context
+
+HFT is legal and regulated. Key rules in the US:
+- **Reg NMS (2005)**: exchanges must route orders to the venue with the best price, not just execute locally. This created a multi-venue, latency-sensitive trading environment.
+- **Rule 15c3-5 (2010, "Market Access Rule")**: broker-dealers must have automated pre-trade risk checks *on the hot path* before any order leaves the building. Every order must pass a risk gate — position limits, notional limits — in **microseconds**. FPGAs implement these checks at ~200 ns (§16).
+- **IEX (2016)**: one US exchange deliberately inserted a 350 µs delay ("speed bump") on all incoming orders to neutralize latency advantages. IEX became a regulated exchange in 2016.
+
+### 0.10 How this doc is organized
+
+```
+  §1  Latency budget        ← numbers: what's achievable at each layer
+  §2  Kernel bypass + colo  ← eliminating the OS from the data path
+  §3  OS tuning             ← isolcpus, hugepages, C-states, NUMA
+  §4  CPU microarch          ← cache lines, false sharing, TSO memory ordering
+  §5  Lock-free structures  ← SPSC queues, LMAX Disruptor
+  §6  Order book design     ← matching engine internals
+  §7  Clock sync            ← PTP, GPSDO, hardware timestamps
+  §8  FPGA in HFT           ← when to use hardware logic, what firms run
+  §9  Measurement           ← how to actually measure nanosecond latency
+  §10 Industry practice     ← what exchanges and firms do publicly
+  §11 SOTA research         ← recent academic work
+  §12 Latency number table  ← consolidated reference
+  §13 Pitfalls checklist    ← common mistakes
+  §15 2024–2025 updates     ← latest hardware (13.9 ns record, Solarflare X4)
+  §16 Pre-trade risk        ← 15c3-5 on the hot path
+  §17 Microwave networks    ← transatlantic latency arms race
+  §18 Order flow toxicity   ← adverse selection, VPIN
+  §19 Rack topology         ← cabling, DAC latency, cooling
+  §21 Language choices      ← Rust vs C++ vs JVM vs OCaml
+  §23 Protocol evolution    ← FIX → SBE → FAST
+```
 
 ---
 
