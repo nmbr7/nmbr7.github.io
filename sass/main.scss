@@ -1048,11 +1048,15 @@ input:focus::placeholder {
   position: fixed;
   top: 16px;
   right: 0;
-  width: 360px;
+  // Size to content and align to the right so a button-only toolbar (home page)
+  // sits in the corner instead of centered over the page on narrow screens.
+  width: auto;
+  max-width: calc(100vw - 16px);
+  padding: 0 20px 0 24px;
   border-radius: 10px 0 0 10px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 18px;
   z-index: 999;
   font-family: $monospace;
