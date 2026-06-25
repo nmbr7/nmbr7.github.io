@@ -208,13 +208,6 @@
         <lastmod>2026-02-10</lastmod>
     </url>
     <url>
-        <loc>https://nmbr7.github.io/notes/quant/</loc>
-    </url>
-    <url>
-        <loc>https://nmbr7.github.io/notes/quant/options-market-making/</loc>
-        <lastmod>2026-06-04</lastmod>
-    </url>
-    <url>
         <loc>https://nmbr7.github.io/notes/reference/</loc>
     </url>
     <url>
@@ -420,9 +413,6 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/dcs/</loc>
-    </url>
-    <url>
-        <loc>https://nmbr7.github.io/tags/derivatives/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/determinism/</loc>
@@ -641,12 +631,6 @@
         <loc>https://nmbr7.github.io/tags/lsm-tree/</loc>
     </url>
     <url>
-        <loc>https://nmbr7.github.io/tags/machine-learning/</loc>
-    </url>
-    <url>
-        <loc>https://nmbr7.github.io/tags/market-making/</loc>
-    </url>
-    <url>
         <loc>https://nmbr7.github.io/tags/memory-hierarchy/</loc>
     </url>
     <url>
@@ -671,16 +655,10 @@
         <loc>https://nmbr7.github.io/tags/microarchitecture/</loc>
     </url>
     <url>
-        <loc>https://nmbr7.github.io/tags/microstructure/</loc>
-    </url>
-    <url>
         <loc>https://nmbr7.github.io/tags/mmio/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/mongodb/</loc>
-    </url>
-    <url>
-        <loc>https://nmbr7.github.io/tags/monte-carlo/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/mrc/</loc>
@@ -701,9 +679,6 @@
         <loc>https://nmbr7.github.io/tags/numa/</loc>
     </url>
     <url>
-        <loc>https://nmbr7.github.io/tags/numerical-methods/</loc>
-    </url>
-    <url>
         <loc>https://nmbr7.github.io/tags/nvic/</loc>
     </url>
     <url>
@@ -722,16 +697,10 @@
         <loc>https://nmbr7.github.io/tags/operator/</loc>
     </url>
     <url>
-        <loc>https://nmbr7.github.io/tags/opra/</loc>
-    </url>
-    <url>
         <loc>https://nmbr7.github.io/tags/optgen/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/optimization/</loc>
-    </url>
-    <url>
-        <loc>https://nmbr7.github.io/tags/options/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/page-table/</loc>
@@ -794,19 +763,10 @@
         <loc>https://nmbr7.github.io/tags/prestissimo/</loc>
     </url>
     <url>
-        <loc>https://nmbr7.github.io/tags/pricing/</loc>
-    </url>
-    <url>
         <loc>https://nmbr7.github.io/tags/ptp/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/pwm/</loc>
-    </url>
-    <url>
-        <loc>https://nmbr7.github.io/tags/quant/</loc>
-    </url>
-    <url>
-        <loc>https://nmbr7.github.io/tags/quantlib/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/query-compilation/</loc>
@@ -846,9 +806,6 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/risc-v/</loc>
-    </url>
-    <url>
-        <loc>https://nmbr7.github.io/tags/risk/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/rocksdb/</loc>
@@ -1007,9 +964,6 @@
         <loc>https://nmbr7.github.io/tags/vmx/</loc>
     </url>
     <url>
-        <loc>https://nmbr7.github.io/tags/volatility/</loc>
-    </url>
-    <url>
         <loc>https://nmbr7.github.io/tags/volcano/</loc>
     </url>
     <url>
@@ -1023,9 +977,6 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/x86/</loc>
-    </url>
-    <url>
-        <loc>https://nmbr7.github.io/tags/xva/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/zero-copy/</loc>

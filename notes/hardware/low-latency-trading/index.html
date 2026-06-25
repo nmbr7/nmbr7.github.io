@@ -375,10 +375,15 @@ tsc=reliable clocksource=tsc skew_tick=1 pcie_aspm=off
 <p>The hot path lives in L1/L2 and the store buffer. Everything here is about not missing in cache and not stalling the pipeline. See <a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/">Superscalar OoO CPU</a> for the underlying machinery.</p>
 <h3 id="4-1-cache-line-alignment-and-false-sharing">4.1 Cache-line alignment and false sharing</h3>
 <ul>
-<li>A cache line is <strong>64 bytes</strong> (Intel/AMD; Apple M-series 128 B). False sharing = two threads writing two different variables that happen to share a line → the coherence protocol (MESI/MOESI) ping-pongs the line between cores, turning an L1 write into a cross-core miss (~tens of ns, high variance). Fix: pad/align hot per-thread or producer/consumer variables to their own line.<pre><code data-lang="cpp">struct alignas(64) PaddedCounter { std::atomic&lt;uint64_t&gt; v; char pad[64 - sizeof(v)]; };
+<li>
+<p>A cache line is <strong>64 bytes</strong> (Intel/AMD; Apple M-series 128 B). False sharing = two threads writing two different variables that happen to share a line → the coherence protocol (MESI/MOESI) ping-pongs the line between cores, turning an L1 write into a cross-core miss (~tens of ns, high variance). Fix: pad/align hot per-thread or producer/consumer variables to their own line.</p>
+<pre><code data-lang="cpp">struct alignas(64) PaddedCounter { std::atomic&lt;uint64_t&gt; v; char pad[64 - sizeof(v)]; };
 </code></pre>
-C++17 <code>std::hardware_destructive_interference_size</code>; in a Disruptor the head and tail cursors are each on their own line.</li>
-<li><strong>Cache-line-aligned hot structs</strong>: keep the order-book level, the sequence number, the message buffer aligned and ideally within one or two lines. Group fields touched together; split fields touched by different cores.</li>
+<p>C++17 <code>std::hardware_destructive_interference_size</code>; in a Disruptor the head and tail cursors are each on their own line.</p>
+</li>
+<li>
+<p><strong>Cache-line-aligned hot structs</strong>: keep the order-book level, the sequence number, the message buffer aligned and ideally within one or two lines. Group fields touched together; split fields touched by different cores.</p>
+</li>
 </ul>
 <h3 id="4-2-avoiding-cache-misses-on-the-hot-path">4.2 Avoiding cache misses on the hot path</h3>
 <ul>
@@ -906,11 +911,18 @@ C++17 <code>std::hardware_destructive_interference_size</code>; in a Disruptor t
 <p><strong>Source:</strong> Easley, López de Prado, O'Hara. <em>"Flow Toxicity and Liquidity in a High-Frequency World."</em> Review of Financial Studies 25(5), 2012.</p>
 <p><strong>Mechanism:</strong></p>
 <ol>
-<li><strong>Volume bucketing.</strong> Partition the trade tape into equal-volume buckets V. Volume-time expands during active periods and contracts when quiet — exactly when informed trading concentrates.</li>
-<li><strong>Bulk Volume Classification (BVC).</strong> Classify volume in each bucket as buy vs. sell probabilistically using the standardized price change over the bucket mapped through a Student-t CDF: <code>V_buy = V · t(ΔP/σ)</code>, <code>V_sell = V − V_buy</code>. Robust at high message rates where the tick rule degrades.</li>
-<li><strong>Toxicity estimate.</strong> Over a rolling window of n buckets:<pre><code>VPIN ≈ Σ|V_buy − V_sell| / (n · V)
+<li>
+<p><strong>Volume bucketing.</strong> Partition the trade tape into equal-volume buckets V. Volume-time expands during active periods and contracts when quiet — exactly when informed trading concentrates.</p>
+</li>
+<li>
+<p><strong>Bulk Volume Classification (BVC).</strong> Classify volume in each bucket as buy vs. sell probabilistically using the standardized price change over the bucket mapped through a Student-t CDF: <code>V_buy = V · t(ΔP/σ)</code>, <code>V_sell = V − V_buy</code>. Robust at high message rates where the tick rule degrades.</p>
+</li>
+<li>
+<p><strong>Toxicity estimate.</strong> Over a rolling window of n buckets:</p>
+<pre><code>VPIN ≈ Σ|V_buy − V_sell| / (n · V)
 </code></pre>
-Values near 0 → balanced/benign flow; values approaching 1 → severe one-sided (toxic) flow.</li>
+<p>Values near 0 → balanced/benign flow; values approaching 1 → severe one-sided (toxic) flow.</p>
+</li>
 </ol>
 <p><strong>Flash Crash evidence (May 6, 2010):</strong> VPIN on the S&amp;P 500 E-mini rose steadily and reached extreme levels (≈0.8+) in the hours <em>before</em> the ~9% intraday plunge — consistent with toxicity driving liquidity providers to withdraw. Note: VPIN's predictive power is contested (Andersen &amp; Bondarenko, 2014 argue it's largely an artifact of volume-volatility clustering) — present as a debated metric.</p>
 <h3 id="18-3-fill-ratio-and-markout-analytics">18.3 Fill-ratio and markout analytics</h3>
