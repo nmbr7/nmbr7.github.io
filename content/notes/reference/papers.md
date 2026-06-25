@@ -558,60 +558,6 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 | Submarine Networks / Business Wire, "Hibernia Express achieves record transatlantic latency under 58.95 ms" | Press release, 2015 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
 | McKay Brothers / PR Newswire, "Transatlantic Latency Slashed for Quincy Extreme Data" (Aurora→Slough 34.619 ms; Aurora→Frankfurt 36.917 ms) | Press release, 2016 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
 
-## Derivatives Pricing & Options Market Making
-
-| Paper | Venue | Cited In |
-|---|---|---|
-| Black, Scholes, "The Pricing of Options and Corporate Liabilities" | Journal of Political Economy, 1973 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Abramowitz, Stegun, *Handbook of Mathematical Functions* (eq. 26.2.17, normal CDF rational approximation) | National Bureau of Standards, 1964 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Cody, "Rational Chebyshev Approximation for the Error Function" | Mathematics of Computation, 1969 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Jäckel, "Let's Be Rational" (4-branch rational initial guess + order-4 Householder; 2-iteration full-precision implied-vol inversion) | Wilmott, 2015 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Heston, "A Closed-Form Solution for Options with Stochastic Volatility with Applications to Bond and Currency Options" | Review of Financial Studies, 1993 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Carr, Madan, "Option Valuation Using the Fast Fourier Transform" (damping factor α, FFT over log-strike grid) | Journal of Computational Finance, 1999 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Lewis, "A Simple Option Formula for General Jump-Diffusion and Other Exponential Lévy Processes" (fundamental transform, contour shifting) | SSRN / Envision Financial Systems, 2001 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Fang, Oosterlee, "A Novel Pricing Method for European Options Based on Fourier-Cosine Series Expansions" (COS method) | SIAM J. Scientific Computing, 2008 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Cui, del Baño Rollin, Germano, Ortiz-Gracia, "Full and Fast Calibration of the Heston Stochastic Volatility Model" (analytic gradients ~10× over FD) | European Journal of Operational Research, 2017 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Albrecher, Mayer, Schoutens, Tistaert, "The Little Heston Trap" (complex sqrt/log branch choice for stable characteristic function) | Wilmott, 2007 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Hagan, Kumar, Lesniewski, Woodward, "Managing Smile Risk" (SABR model + asymptotic implied-vol formula) | Wilmott, 2002 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Hagan, Kumar, Lesniewski, Woodward, "Arbitrage-Free SABR" (forward-PDE density solve, absorbing/free boundary at zero) | Wilmott, 2014 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Dupire, "Pricing with a Smile" (local volatility from the call surface) | Risk, 1994 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Giles, Glasserman, "Smoking Adjoints: Fast Monte Carlo Greeks" (adjoint/reverse-mode pathwise sensitivities; O(1) in input count) | Risk, 2006 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Capriotti et al., "15 Years of Adjoint Algorithmic Differentiation (AAD) in Finance" | Quantitative Finance 24(9), 2024 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Capriotti, Jiang, Macrina, "AAD and Least-Square Monte Carlo: Fast Bermudan-Style Options and XVA Greeks" | Algorithmic Finance, 2017 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Gatheral, *The Volatility Surface: A Practitioner's Guide* (SVI parameterization) | Wiley, 2006 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Gatheral, Jacquier, "Arbitrage-Free SVI Volatility Surfaces" (SSVI; explicit no-butterfly/no-calendar conditions) | Quantitative Finance, 2014 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Corbetta, Cohort, Laachir, Martini, "Robust Calibration and Arbitrage-Free Interpolation of SSVI Slices" / eSSVI | arXiv:1804.04924, 2018; arXiv:2204.00312, 2022 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Avellaneda, Stoikov, "High-Frequency Trading in a Limit Order Book" (reservation price + inventory-skewed optimal quotes) | Quantitative Finance, 2008 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Stoikov, Saglam, "Option Market Making Under Inventory Risk" (optimal option/stock quotes as function of net Δ/Γ/vega) | Review of Derivatives Research, 2009 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Glasserman, *Monte Carlo Methods in Financial Engineering* (variance reduction, quasi-MC, Brownian bridge) | Springer, 2003 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Smelov et al., "Black-Scholes Option Pricing on Intel CPUs and GPUs: Implementation on SYCL and Optimization Techniques" | arXiv:2204.13740, 2022 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Databento, "Beyond 40 Gbps: Processing OPRA in Real-Time" (96-channel sharding, FPGA NIC buffering, kernel bypass, 80% NBBO filtering) | Databento engineering blog, 2024 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Heath, Jarrow, Morton, "Bond Pricing and the Term Structure of Interest Rates: A New Methodology" (HJM no-arbitrage drift condition) | Econometrica, 1992 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Hull, White, "Pricing Interest-Rate-Derivative Securities" (extended Vasicek / Hull-White) | Review of Financial Studies, 1990 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Hull, White, "Numerical Procedures for Implementing Term Structure Models I & II" (trinomial-tree construction, branching shift, Arrow-Debreu fit) | Journal of Derivatives, 1994 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Brace, Gatarek, Musiela, "The Market Model of Interest Rate Dynamics" (LMM / BGM) | Mathematical Finance, 1997 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Cheyette, "Markov Representation of the Heath-Jarrow-Morton Model" (quasi-Gaussian Markov collapse) | 1992; Ritchken, Sankarasubramanian, Mathematical Finance, 1995 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Rebonato, McKay, White, *The SABR/LIBOR Market Model: Pricing, Calibration and Hedging for Complex Interest-Rate Derivatives* | Wiley, 2009 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Lyashenko, Mercurio, "Looking Forward to Backward-Looking Rates: A Modeling Framework for Term Rates Replacing LIBOR" (RFR/SOFR forward-market model) | 2019 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Green, Kenyon, "MVA: Initial Margin Valuation Adjustment by Replication and Regression" (LSAC; SIMM dynamic initial margin) | arXiv:1405.0508, 2014 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Capriotti, Giles, "Real-Time Counterparty Credit Risk Management in Monte Carlo" (AAD for CVA exposure) | Risk, 2010 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Abbas-Turki, Crépey et al., "XVA Principles, Nested Monte Carlo Strategies, and GPU Optimizations" | Int. J. Theoretical & Applied Finance, 2018 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Hoencamp et al., "On Deep Learning for Computing the Dynamic Initial Margin and Margin Value Adjustment" | arXiv:2407.16435, 2024 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Longstaff, Schwartz, "Valuing American Options by Simulation: A Simple Least-Squares Approach" (LSM regression continuation value) | Review of Financial Studies, 2001 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Barone-Adesi, Whaley, "Efficient Analytic Approximation of American Option Values" (quadratic approximation) | Journal of Finance, 1987 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Cox, Ross, Rubinstein, "Option Pricing: A Simplified Approach" (binomial tree) | Journal of Financial Economics, 1979 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Kemna, Vorst, "A Pricing Method for Options Based on Average Asset Values" (geometric-Asian control variate) | Journal of Banking & Finance, 1990 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Carr, Madan, "Towards a Theory of Volatility Trading" (variance-swap log-contract / 1/K² replication) | 1998 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Demeterfi, Derman, Kamal, Zou, "More Than You Ever Wanted to Know About Volatility Swaps" (discrete option-strip replication; basis of VIX) | Goldman Sachs Quantitative Strategies, 1999 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Carr, Lee, "Robust Replication of Volatility Derivatives" (model-free volatility-swap replication) | 2009 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Buehler, Gonon, Teichmann, Wood, "Deep Hedging" (RL hedging under frictions, convex risk measure objective) | Quantitative Finance, 2019 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Imaki, Imajo, Ito, Nakagawa, Sakuma, "No-Transaction Band Network: A Neural Network Architecture for Efficient Deep Hedging" | arXiv:2103.01775, 2021 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Huge, Savine, "Differential Machine Learning" (train surrogate on prices + AAD differentials simultaneously) | arXiv:2005.02347, 2020 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Horvath, Muguruza, Tomas, "Deep Learning Volatility" (NN map model-params→IV surface; rough-Bergomi deep calibration) | Quantitative Finance, 2021 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Raissi, Perdikaris, Karniadakis, "Physics-Informed Neural Networks" (PDE-residual loss; applied to Black-Scholes/Heston) | Journal of Computational Physics, 2019 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Dim, Eraker, Vilkov, "0DTEs: Trading, Gamma Risk and Volatility Propagation" (dealer-gamma feedback, intraday vol) | SSRN, 2024 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-| Bakshi, Kapadia, "Delta-Hedged Gains and the Negative Market Volatility Risk Premium" (VRP evidence) | Review of Financial Studies, 2003 | [Options Market Making & Derivatives Pricing](@/notes/quant/options_market_making.md) |
-
 ## Textbooks & Reference Works
 
 | Paper | Venue | Cited In |

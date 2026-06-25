@@ -13,6 +13,7 @@ Expert reference for the full hardware/OS/network/algorithm stack used to build 
 This document is systems-internals-focused: it explains the *mechanisms* (why a technique removes latency, what hardware/kernel structure it bypasses) rather than trading strategy.
 
 Existing related references:
+
 - [Compute Interconnects](@/notes/hardware/interconnects.md) §9 RDMA verbs, §6 software stacks (DPDK/XDP), §11 tail latency pathology — networking substrate.
 - [Superscalar OoO CPU](@/notes/hardware/superscalar_ooo_cpu.md) — branch prediction, store-to-load forwarding, prefetchers; the microarchitecture being tuned here.
 - [ISA Critical Instructions](@/notes/hardware/isa_critical_instructions.md) §memory-ordering, §atomics, §RDTSC — fences and timestamp counters used below.
@@ -81,6 +82,7 @@ The **bid-ask spread** (here $0.03) is the gap between the highest buy order and
 **High-frequency trading (HFT)** is electronic trading where decisions are made and orders sent in microseconds (millionths of a second) or nanoseconds (billionths of a second) — far faster than any human can act.
 
 HFT firms use computers to:
+
 - **React to market data** — when a large order hits the book at exchange A, prices at exchanges B and C will move within microseconds. Being first to respond is profitable.
 - **Provide liquidity (market making)** — continuously post bid/ask quotes across thousands of instruments, earn the spread, hedge the risk.
 - **Arbitrage** — the same stock or ETF trades on multiple exchanges. If it's $190.00 on NYSE and $190.02 on Nasdaq, buying one and selling the other is essentially free money — but only if you can act before the gap closes.
@@ -115,6 +117,7 @@ Each box adds latency. The total from tick arriving to order leaving — **tick-
 ### 0.4 Why the kernel is the enemy
 
 Normal software on Linux to receive a network packet:
+
 1. Packet arrives at the NIC
 2. NIC interrupts the CPU
 3. Linux kernel copies the packet from NIC memory to kernel memory
@@ -163,6 +166,7 @@ Options markets are even more extreme: the **OPRA** feed (US options) has **>200
 ### 0.9 The regulatory context
 
 HFT is legal and regulated. Key rules in the US:
+
 - **Reg NMS (2005)**: exchanges must route orders to the venue with the best price, not just execute locally. This created a multi-venue, latency-sensitive trading environment.
 - **Rule 15c3-5 (2010, "Market Access Rule")**: broker-dealers must have automated pre-trade risk checks *on the hot path* before any order leaves the building. Every order must pass a risk gate — position limits, notional limits — in **microseconds**. FPGAs implement these checks at ~200 ns (§16).
 - **IEX (2016)**: one US exchange deliberately inserted a 350 µs delay ("speed bump") on all incoming orders to neutralize latency advantages. IEX became a regulated exchange in 2016.
@@ -248,18 +252,22 @@ A packet through the Linux network stack incurs: NIC IRQ → softirq (NAPI) → 
 ### 2.2 The kernel-bypass landscape
 
 **Solarflare/AMD OpenOnload + ef_vi** (the HFT standard).
+
 - *OpenOnload*: a `LD_PRELOAD` user-space TCP/IP stack that intercepts BSD socket calls. Zero application change, ~1.5–3 µs RX. Two modes: interrupt-driven and **spinning** (`EF_POLL_USEC`), where a thread busy-polls the NIC's virtual interface descriptor ring from user space — no IRQ, no syscall.
 - *ef_vi*: the low-level layer-2 API under Onload. The application gets direct access to the NIC's RX/TX descriptor rings (VIs = Virtual Interfaces) and DMA buffers. You poll `ef_eventq_poll()` for completions. This is the genuine HFT data path — ~250 ns NIC-to-user is achievable. Hardware models: Solarflare/Xilinx X2522, X3522 (the X3522 has an on-NIC "Cut-Through PIO" / TCPDirect path; sub-1µs and the X3 family integrates FPGA logic).
 - *TCPDirect*: a stripped, zero-copy TCP on top of ef_vi for the absolute minimum-latency TCP send.
 
 **DPDK** (Data Plane Development Kit).
+
 - Poll-mode drivers (PMDs) bind the NIC via VFIO/UIO, DMA directly into huge-page mempools, and busy-poll the rings. No kernel network stack at all — you bring your own TCP/IP (or none; many feeds are UDP multicast). Latency comparable to ef_vi for raw L2; you must implement protocol handling. Used widely; vendor-neutral. See [Interconnects §6](@/notes/hardware/interconnects.md) and [VFIO Internals](@/notes/os/vfio_internals.md).
 - Key DPDK knobs: `rte_eth_rx_burst` batch size (smaller = lower latency, larger = higher throughput), `--lcores` pinning, mempool cache alignment, RX/TX descriptor ring sizes, disabling RX interrupts entirely.
 
 **AF_XDP / XDP** (in-kernel eBPF fast path).
+
 - A middle ground: an eBPF program at the driver's NAPI poll can `XDP_REDIRECT` frames into a user-space `AF_XDP` socket via a UMEM (shared DMA region), bypassing the rest of the stack. Higher latency than DPDK/ef_vi (still has the driver NAPI context) but no exotic NIC and stays in mainline kernel. See [Linux Syscalls §XDP/AF_XDP](@/notes/os/linux_expert_syscalls.md).
 
 **RDMA / RoCEv2 / InfiniBand**.
+
 - One-sided `RDMA_WRITE`/`READ` let a remote NIC place data into local memory with zero CPU and zero kernel involvement; the verbs queue-pair (QP) model exposes send/recv/completion queues directly to user space (kernel only does connection setup). Excellent for *internal* fabric (strategy ↔ risk ↔ OMS, market-data fan-out) where you control both ends. Less used for exchange connectivity (exchanges speak UDP multicast + TCP). RoCEv2 needs a lossless fabric (PFC/ECN/DCQCN) — see [Interconnects §9–10](@/notes/hardware/interconnects.md). Verbs deep dive (SEND/WRITE/READ/ATOMIC, RNR, DCT) is in that doc.
 
 | Technique | Typical RX latency | NIC requirement | Protocol you implement | Mainline kernel |
@@ -274,6 +282,7 @@ A packet through the Linux network stack incurs: NIC IRQ → softirq (NAPI) → 
 ### 2.3 Feed handlers
 
 A **feed handler** decodes the exchange's market-data protocol into the firm's internal book. Exchange protocols are binary, fixed-field, designed for fast parsing:
+
 - **Nasdaq ITCH / TotalView-ITCH**: per-message, fixed-length, big-endian, sequenced over MoldUDP64 (UDP multicast with a sequence number + message-count header for gap detection). Message types: Add Order, Order Executed, Order Cancel, Order Delete, Trade.
 - **Cboe/BATS PITCH**, **NYSE XDP / Pillar**, **CME MDP 3.0** (Simple Binary Encoding, SBE — FIX's binary format, fixed-offset fields, no parsing branches).
 - Recovery: multicast feeds are lossy; you run **A/B line arbitration** (two redundant multicast feeds; take whichever packet of a given sequence number arrives first, dedup by sequence) and a TCP "retransmission" / snapshot channel to recover gaps.
@@ -306,6 +315,7 @@ The objective: give one thread one core, forever, with nothing else allowed to t
 - **Disable timer migration, watchdogs**: `nowatchdog`, `nmi_watchdog=0`, `kthread_cpus=`, move `workqueue` affinity (`/sys/devices/virtual/workqueue/cpumask`), disable the RT throttling (`/proc/sys/kernel/sched_rt_runtime_us = -1`) so a busy-polling `SCHED_FIFO` thread is never preempted to "give time back".
 
 Representative boot cmdline (Intel, 2-socket, cores 2–19 isolated):
+
 ```
 isolcpus=nohz_domain,managed_irq,2-19 nohz_full=2-19 rcu_nocbs=2-19 rcu_nocb_poll \
 irqaffinity=0-1 nosoftlockup nowatchdog nmi_watchdog=0 \
@@ -317,6 +327,7 @@ tsc=reliable clocksource=tsc skew_tick=1 pcie_aspm=off
 ### 3.2 Stopping the CPU from saving power (the C-state / P-state war)
 
 Power management is a top latency-tail source: a core in a deep C-state (C3/C6) takes microseconds to wake; frequency scaling (P-states) means your first instructions after idle run slow.
+
 - **`idle=poll`**: the idle loop busy-spins instead of entering C-states — the core never sleeps. Burns power and heat but gives the lowest wakeup latency. Alternatively `processor.max_cstate=1` / `intel_idle.max_cstate=0` to cap at C1.
 - **Disable C-states per-core** at runtime via `/dev/cpu_dma_latency` (write a 32-bit `0` and hold the fd open → PM QoS forces CPUs to C0/low-latency).
 - **Pin frequency**: `intel_pstate=disable` + `cpupower frequency-set -g performance`, or disable Turbo (`/sys/devices/system/cpu/intel_pstate/no_turbo`) for *determinism* (Turbo's frequency is non-deterministic and thermally throttled). HFT shops often disable Turbo and run a fixed all-core frequency for predictability, accepting a lower peak.
@@ -326,6 +337,7 @@ Power management is a top latency-tail source: a core in a deep C-state (C3/C6) 
 ### 3.3 NUMA pinning
 
 On a multi-socket box, accessing remote-socket memory crosses UPI/Infinity Fabric (~+50–100 ns, and contends). Rule: the trading thread, its memory, the NIC it polls, and its IRQs must all be on the **same NUMA node**.
+
 - Bind the NIC's PCIe slot to a socket (check `/sys/class/net/<dev>/device/numa_node`), pin the polling thread to a core on that node, allocate buffers with `numa_alloc_onnode`/`mbind`/`set_mempolicy`, mount huge pages from that node's pool.
 - `numactl --cpunodebind=0 --membind=0 ./trader`. `lstopo` to see the topology. See [Linux Syscalls §NUMA](@/notes/os/linux_expert_syscalls.md).
 
@@ -354,9 +366,11 @@ The hot path lives in L1/L2 and the store buffer. Everything here is about not m
 ### 4.1 Cache-line alignment and false sharing
 
 - A cache line is **64 bytes** (Intel/AMD; Apple M-series 128 B). False sharing = two threads writing two different variables that happen to share a line → the coherence protocol (MESI/MOESI) ping-pongs the line between cores, turning an L1 write into a cross-core miss (~tens of ns, high variance). Fix: pad/align hot per-thread or producer/consumer variables to their own line.
+
   ```cpp
   struct alignas(64) PaddedCounter { std::atomic<uint64_t> v; char pad[64 - sizeof(v)]; };
   ```
+
   C++17 `std::hardware_destructive_interference_size`; in a Disruptor the head and tail cursors are each on their own line.
 - **Cache-line-aligned hot structs**: keep the order-book level, the sequence number, the message buffer aligned and ideally within one or two lines. Group fields touched together; split fields touched by different cores.
 
@@ -649,6 +663,7 @@ HFT-specific peer-reviewed work is thinner than the underlying systems research 
 ## 13. Pitfalls and Decision Checklist
 
 **Top jitter sources (eliminate in this order):**
+
 1. Page faults on the hot path → pre-fault + `mlock` + huge pages, no `malloc` while trading.
 2. The scheduler tick and scheduler itself → `nohz_full` + `isolcpus` + `SCHED_FIFO` + cpuset.
 3. C-state wakeups + frequency scaling → `idle=poll`/cap C-state, pin frequency, disable Turbo for determinism.
@@ -661,6 +676,7 @@ HFT-specific peer-reviewed work is thinner than the underlying systems research 
 10. Allocator/locks/exceptions/logging-IO on the hot path → none of them; async everything off-path.
 
 **Decision checklist:**
+
 - *Do I need an FPGA?* Only if you're in a contested latency race where 50 ns beats 1 µs (cancel-on-event, simple liquidity-taking). For complex/slower strategies, tuned software wins on flexibility and cost.
 - *ef_vi vs DPDK vs Onload?* Onload if you want zero code change and ~µs is fine; ef_vi/TCPDirect for the lowest software path and you'll write L2/L4; DPDK if you want vendor-neutral and control the whole stack; AF_XDP if you must stay mainline and can tolerate higher latency.
 - *PREEMPT_RT or tuned vanilla?* If your hot thread busy-polls on an isolated nohz_full core it barely touches the kernel — tuned vanilla often suffices; use RT for bounded control-plane latency. Always validate with `cyclictest`.
@@ -671,6 +687,7 @@ HFT-specific peer-reviewed work is thinner than the underlying systems research 
 ## 14. Key References
 
 **Foundational / industry**
+
 - Thompson, Farley, Barker, Gee, Stewart, "Disruptor: High performance alternating exchange between threads" / LMAX Disruptor technical paper, 2011.
 - Barroso, Marty, Patterson, Ranganathan, "Attack of the Killer Microseconds," CACM 2017.
 - Tene, "How NOT to Measure Latency" (HdrHistogram, coordinated omission), conference talk, ~2015.
@@ -678,6 +695,7 @@ HFT-specific peer-reviewed work is thinner than the underlying systems research 
 - Almgren, Chriss, "Optimal Execution of Portfolio Transactions," Journal of Risk 2000.
 
 **Networking / kernel bypass**
+
 - Kalia, Kaminsky, Andersen, "Datacenter RPCs can be General and Fast" (eRPC), NSDI 2019.
 - Marty et al., "Snap: a Microkernel Approach to Host Networking," SOSP 2019.
 - Zhang et al., "The Demikernel Datapath OS Architecture for Microsecond-scale Datacenter Systems," SOSP 2021.
@@ -685,22 +703,26 @@ HFT-specific peer-reviewed work is thinner than the underlying systems research 
 - Ousterhout, Fried, Behrens, Belay, Balakrishnan, "Shenango: Achieving High CPU Efficiency for Latency-sensitive Datacenter Workloads," NSDI 2019; Fried et al., "Caladan," OSDI 2020.
 
 **FPGA**
+
 - Leber, Geib, Litz, "High Frequency Trading Acceleration using FPGAs," FPL 2011.
 - Body of FPL/FCCM/ACM-FPGA work on FPGA order-book construction and feed handling, 2011–2024.
 
 **Concurrency / lock-free**
+
 - Michael, Scott, "Simple, Fast, and Practical Non-Blocking and Blocking Concurrent Queue Algorithms," PODC 1996.
 - Herlihy, Wing, "Linearizability: A Correctness Condition for Concurrent Objects," ACM TOPLAS 1990.
 - Michael, "Hazard Pointers: Safe Memory Reclamation for Lock-Free Objects," IEEE TPDS 2004.
 - Fraser, "Practical Lock-Freedom" (epoch-based reclamation), PhD thesis / Cambridge TR, 2004.
 
 **Time synchronization**
+
 - IEEE 1588-2008 / 1588-2019 (PTP; 2019 adds the White Rabbit High Accuracy profile).
 - Li et al., "Sundial: Fault-tolerant Clock Synchronization for Datacenters," OSDI 2020.
 - Geng et al., "Exploiting a Natural Network Effect for Scalable, Fine-grained Clock Synchronization" (Huygens), NSDI 2018.
 - ESMA, MiFID II RTS 25 (clock synchronization / business clock accuracy), 2017.
 
 **OS / RT**
+
 - `PREEMPT_RT` (mainlined Linux 6.12, 2024); rt-tests `cyclictest`.
 - Intel, "How to Benchmark Code Execution Times" (RDTSC/RDTSCP/LFENCE guidance), white paper.
 
@@ -737,6 +759,7 @@ A 2024–2025 production benchmark (NordVarg, trading-system context, processing
 | **DPDK** | **850 ns** | p95 ~2.1 µs, max ~48 µs | 10M+ | 0 (busy-poll) |
 
 Key takeaways and corrections to §2:
+
 - **io_uring is now a real kernel-bypass-*adjacent* option for networking**, not just storage. With **SQPOLL** a kernel thread polls the submission ring so there is **no syscall per operation** once set up, and **registered/fixed buffers** (`io_uring_register_buffers`) give zero-copy. It lands at ~4.2 µs median — between sockets and XDP — useful when you want mainline, no special NIC, and async semantics, but it does **not** reach DPDK/ef_vi territory. This is the main "new kernel-bypass technique" since the doc was written: io_uring's **zero-copy RX** (`IORING_OP_RECV_ZC`, multishot receive, landed in Linux 6.x) is being actively explored for market-data ingest where ef_vi-class NICs aren't available.
 - The **ordering still holds: DPDK/ef_vi (sub-µs) > XDP (~2 µs) > io_uring (~4 µs) > sockets (~18 µs)**, and busy-polling paths (XDP, DPDK) zero out context switches — the determinism win, not just the mean.
 
@@ -766,6 +789,7 @@ The doc's §10.1 noted Jane Street uses OCaml; the public record now has mechani
 ### 15.8 Microwave / wireless networks, refreshed (McKay Brothers)
 
 McKay's published roadmap for the Aurora (Chicago) ↔ New Jersey microwave route:
+
 - Aurora ↔ **Secaucus**: target **< 8.05 ms** RTT.
 - Aurora ↔ **Carteret**: target **< 8.00 ms** RTT.
 - Aurora ↔ **CTS NJ3 (Piscataway)**: **7.98 ms** RTT (new PoP).
@@ -823,6 +847,7 @@ Current Arista 7130 (post-Metamako) figures: **L1 (Connect) port-to-port ~4 ns w
 | Post-trade surveillance | Immediate execution reports to surveillance | Async, off hot path |
 
 **FPGA implementation.** All required checks reduce to comparisons and table lookups against pre-loaded limits — ideal for combinational logic in an FPGA "bump-in-the-wire" gateway between strategy host and exchange:
+
 - Fat-finger/price-band: comparator against NBBO snapshot register
 - Max notional: fixed-point `qty × price` + comparator
 - Position/credit limit: running accumulator in BRAM, updated on each fill, compare-before-send
@@ -832,6 +857,7 @@ Current Arista 7130 (post-Metamako) figures: **L1 (Connect) port-to-port ~4 ns w
 These run in parallel as the order packet streams through, so added latency is **tens to ~300 ns** rather than the µs+ a software gateway adds.
 
 **Vendor latency numbers:**
+
 - **Magmio** FPGA pre-trade risk gateway: "as low as **200 ns**" — runs on Cisco Nexus SmartNICs (V9P-3, V5P, K3P-S/Q) and AMD Alveo UL3524/X3522PV
 - **Algo-Logic** PTRC (Alveo U50/U200/U250, Cisco Nexus V5P): "well under one microsecond"; all 15c3-5 checks completing in tens of ns within the full pipeline
 - **Enyx nxFramework**: framework for FPGA pre-trade risk gateways, SORs, and tick-to-trade engines
@@ -846,6 +872,7 @@ Software risk gateway: **single-digit to low-tens of µs**. FPGA inline: **~25�
 ### 16.2 Smart Order Routing (SOR) and Multi-Venue Latency
 
 **Reg NMS obligations.** US equity liquidity is fragmented across ~16 exchanges + dozens of ATSs/dark pools. Two Reg NMS rules drive SOR:
+
 - **Rule 611 (Order Protection / trade-through rule):** cannot execute at a price inferior to a *protected quotation* on another venue. Makes the **NBBO** the reference every router respects.
 - **Best execution** (FINRA Rule 5310): seek most favorable terms across price, speed, fill probability, and fees.
 
@@ -854,6 +881,7 @@ To satisfy Rule 611 at scale, routers fan out **Intermarket Sweep Orders (ISOs)*
 **Latency implications of simultaneous multi-venue routing.** Venues sit in different data centers (NYSE Mahwah NJ, Nasdaq Carteret NJ, Cboe/BATS Secaucus NJ, etc.) with different fiber distances. Orders sent simultaneously arrive at different times — letting fast HFTs detect the order at the nearest venue and race to the others. **RBC THOR** deliberately staggers send times so slices arrive simultaneously at all venues, defeating the cross-venue race.
 
 **IEX 350 µs speed bump:**
+
 - IEX coils **38 miles of fiber**, imposing **~350 µs** one-way delay (≈700 µs round trip) on inbound orders and outbound messages
 - Delay exceeds the time IEX needs to recompute the NBBO — so its engine "sees" away-market price changes before an arb order can act. Powers the **Crumbling Quote Indicator (CQI)**: a model over sequential away-exchange quote updates predicting an imminent NBBO move. CQI fires for **~2 ms**; during that window **D-Peg** and **D-Limit** orders re-price 1 MPV ($0.01) less aggressively.
 - **Reg NMS ruling (2016):** SEC ruled the speed bump is a *de minimis* delay consistent with Rule 611 "immediate access" — IEX quotes **are** protected. Routing around it: fire an ISO to IEX and route the rest of the sweep immediately without waiting for IEX's delayed response.
@@ -863,11 +891,13 @@ To satisfy Rule 611 at scale, routers fan out **Intermarket Sweep Orders (ISOs)*
 ### 16.3 MiFID II / RTS 25 and CAT — Compliance Timestamping
 
 **EU — MiFID II RTS 25 (clock sync) + RTS 24 (order records):**
+
 - Clock accuracy: business clocks must track UTC; for HFT max divergence = **100 µs** with timestamp **granularity ≤ 1 µs** (RTS 25 Table 2). Non-HFT members get looser bands.
 - RTS 24 order records: venues retain order-book data with 28 fields per buy/sell decision, 35 fields per executed order. ESMA's 2024 RTS 22/24 review proposes moving from XML → **JSON**.
 - Time source: NTP is insufficient at 100 µs/1 µs. Firms use **PTP (IEEE 1588v2)** disciplined by GPS/GNSS grandmaster clocks distributed via PTP-aware switches. Eurex piloted **White Rabbit** (~200 ps achievable) with FPGA-based switches for internal timestamping.
 
 **US — CAT (SEC Rule 613):**
+
 - Clock sync: member clocks within **50 ms of NIST UTC**
 - Granularity: reportable events in **≥1 ms** increments; if a firm captures finer than ms (down to nanoseconds), it *must report at that finer granularity*. HFTs running ns clocks must surface ns timestamps to CAT.
 
@@ -880,6 +910,7 @@ To satisfy Rule 611 at scale, routers fan out **Intermarket Sweep Orders (ISOs)*
 MiFID II is ~500× tighter on clock tolerance than CAT.
 
 **Async logging pattern — keeping compliance off the hot path:**
+
 1. **Passive wire capture** (optical tap + hardware-timestamping NIC/probe): authoritative ingress/egress timestamps with **zero application overhead** — preferred source for RTS 25 "time of receipt/transmission"
 2. **In-app events via cheap reads**: read hardware TSC in **<10 ns**, store raw count, defer UTC conversion and serialization to an off-path thread
 3. **Deferred publication to lock-free ring**: hot path writes compact record (raw counter + IDs) to pre-allocated SPSC ring; separate consumer batches, converts, persists. Hot-path overhead: **<10 ns**, no file I/O, no syscalls, no allocation
@@ -896,6 +927,7 @@ Net: decouples *measurement* (must be precise, on-wire) from *recording* (must b
 The EU↔US arb runs between **LD4** (Equinix Slough, near London) and **NY4** (Equinix Secaucus NJ), with the Chicago futures complex (CME, Aurora IL) as the western anchor. Theoretical great-circle minimum NY↔London ≈ **~37 ms round trip** (~18.6 ms one-way) at c-in-vacuum. Fiber is far slower: light travels ~31% slower in glass, and cables don't follow great-circle paths.
 
 **Transatlantic fiber (baseline):**
+
 - **Hibernia Express** (now GTT), purpose-built lowest-latency cable, in service Sept 2015: **<58.95 ms round trip** NY4↔LD4 (≈29.5 ms one-way). Corning EX2000 pure-silica-core fiber on the shortest surveyed great-circle path — ~5 ms faster than prior fastest cable, >20% better on the subsea segment.
 - **McKay Brothers / Quincy Extreme Data** published one-way figures from Aurora IL:
   - Aurora → Slough (LD4): **34.619 ms**
@@ -907,6 +939,7 @@ These combine terrestrial microwave (US + Europe) with transatlantic fiber — *
 ### 17.2 Transatlantic RF / shortwave (the cutting edge)
 
 The Atlantic crossing uses **HF/shortwave radio**, which bounces off the ionosphere and sea surface (skywave) to cover thousands of km in a few hops with no fiber path-length penalty:
+
 - Reported figures: NY↔London **~20–22 ms one-way** via radio vs **~33 ms** via fastest fiber — roughly **50% faster**, approaching the speed-of-light minimum because air propagation beats glass
 - Trade-offs: very **low bandwidth** (kbps-class — only enough for a compressed signal/trigger, not full market data); **weather/ionospheric instability**
 - **Operators:** **Vigilant Global** (DRW's network arm), **McKay Brothers / New Line Networks** (McKay's JV with Jump/GTS lineage), and other prop firms. Vigilant and McKay have collaborated on shared masts (e.g., Richborough, England) for terrestrial legs. **IMC** took a stake in **Quincy Data** (McKay's market-data arm).
@@ -940,12 +973,15 @@ A passive market maker profits from the spread only if counterparties are uninfo
 **Source:** Easley, López de Prado, O'Hara. *"Flow Toxicity and Liquidity in a High-Frequency World."* Review of Financial Studies 25(5), 2012.
 
 **Mechanism:**
+
 1. **Volume bucketing.** Partition the trade tape into equal-volume buckets V. Volume-time expands during active periods and contracts when quiet — exactly when informed trading concentrates.
 2. **Bulk Volume Classification (BVC).** Classify volume in each bucket as buy vs. sell probabilistically using the standardized price change over the bucket mapped through a Student-t CDF: `V_buy = V · t(ΔP/σ)`, `V_sell = V − V_buy`. Robust at high message rates where the tick rule degrades.
 3. **Toxicity estimate.** Over a rolling window of n buckets:
+
    ```
    VPIN ≈ Σ|V_buy − V_sell| / (n · V)
    ```
+
    Values near 0 → balanced/benign flow; values approaching 1 → severe one-sided (toxic) flow.
 
 **Flash Crash evidence (May 6, 2010):** VPIN on the S&P 500 E-mini rose steadily and reached extreme levels (≈0.8+) in the hours *before* the ~9% intraday plunge — consistent with toxicity driving liquidity providers to withdraw. Note: VPIN's predictive power is contested (Andersen & Bondarenko, 2014 argue it's largely an artifact of volume-volatility clustering) — present as a debated metric.
@@ -953,6 +989,7 @@ A passive market maker profits from the spread only if counterparties are uninfo
 ### 18.3 Fill-ratio and markout analytics
 
 Firms monitor realized fill quality in near-real-time:
+
 - **Fill ratio** = fills / (fills + cancels) or fills / quotes. Sudden change signals queue-position loss or selective adverse filling.
 - **Markout / post-fill drift:** track mid-price movement at fixed horizons after a passive fill (+10 µs, +100 µs, +1 ms, +1 s). Persistent adverse markout = being adversely selected. The practitioner's direct PnL-attributed toxicity measure, finer-grained than VPIN.
 - **Message-to-trade ratio baseline:** post-2009, cancel/execution ratios shifted from ~26:1 to ~32:1. Anomalies must be measured against this heavy-cancel baseline.
@@ -962,12 +999,14 @@ Firms monitor realized fill quality in near-real-time:
 **Mechanism:** submit and immediately cancel an extraordinarily large number of orders — thousands to **>10,000 messages/second** — to saturate a shared market-data feed or matching-engine outbound bandwidth. Phantom orders can be in *any* symbol sharing a price feed, so a competitor watching a different name on the same multicast group is slowed without being directly targeted.
 
 **Detection/defense:**
+
 - Surveillance on abnormally high message-to-trade ratios and burst submit-then-cancel patterns; ML/anomaly models flag deviations from the cancel-heavy baseline
 - A/B redundant feed paths (ITCH A/B lines), gap-fill/recovery channels, FPGA feed handlers that parse line-rate without buffering, consuming a less-contended feed (direct binary vs. consolidated SIP/CQS)
 
 ### 18.5 Alpha decay — quantifying the value of a microsecond
 
 Two distinct decays:
+
 - **Per-event decay (latency sensitivity):** within a race, value drops sharply over µs/ns. On CME, the top-of-queue participant can receive private fill confirmations **up to ~11 µs before** those trades print to the public tape — that window is pure informational edge for a faster actor.
 - **Strategy-level decay (signal aging):** signal Sharpe/strength degrades roughly **5–10% per year** under normal conditions. Infrastructure latency disadvantage estimated to cut returns by **~5.6% (US)** and **~10% (Europe)** in competitive equities/FX (Maven Securities / Exegy).
 - **Economic framing:** feed-handler build cost cited at **>$5.3M** initial, **$400K–$600K** per additional handler — the µs saved must be amortized against substantial capex, which is why firms quantify $/µs.
@@ -979,6 +1018,7 @@ Two distinct decays:
 ### 19.1 Physical wiring
 
 A latency-critical colo deployment minimizes hops and conversions:
+
 - **Trading server** with low-latency NIC/FPGA (Exablaze/Cisco Nexus SmartNIC, Solarflare/AMD X2/X3/X4, NVIDIA ConnectX, or FPGA card like Alveo UL3524)
 - **Cross-connect** from rack to exchange matching-engine handoff (metered patch in meet-me room). Exchanges enforce **length-equalized cross-connects** (CME, Nasdaq, NYSE Mahwah, LSE) — every colo tenant gets the same fiber length. You cannot beat your neighbor by being in a closer rack; you beat them with the box.
 
@@ -1038,6 +1078,7 @@ For the finest intra-process timing, skip even the vDSO and read TSC directly vi
 **Mechanism:** instead of copying user buffer into kernel skb memory, the kernel **pins user pages** and references them directly in the skb. Application must not reuse the buffer until it receives a **completion notification** on the socket's error queue (`MSG_ERRQUEUE` via `recvmsg`), which carries a range of sequence IDs identifying completed sends.
 
 **When it helps vs. hurts:**
+
 - Copy cost is replaced by **page accounting + pinning + completion-notification** overhead. Only pays off for **large writes (~≥10 KB)**. For small messages (trading orders are tens to hundreds of bytes), bookkeeping cost **exceeds** the copy it avoids — net loss.
 - If data has gone cold in cache by the time it's DMA'd, deferred zero-copy can be *more* expensive than an immediate copy. The kernel signals this via `SO_EE_CODE_ZEROCOPY_COPIED` on the completion — stop setting `MSG_ZEROCOPY` when you see that flag.
 - **HFT verdict:** rarely useful on the hot order path. Relevant for bulk paths (snapshot recovery, market-data replay, log shipping).
@@ -1051,6 +1092,7 @@ For the finest intra-process timing, skip even the vDSO and read TSC directly vi
 **Numbers (NetDevConf 2024):** ~**90.4 Gbps (+31.4% over epoll)** at 1500 B; ~**116.2 Gbps (+41.4%)** at 4096 B. Efficient even at smaller sizes, unlike send-side `MSG_ZEROCOPY`.
 
 **Decision matrix:**
+
 - Absolute lowest, most deterministic tick-to-trade → **full kernel bypass** (DPDK / OpenOnload / ef_vi / FPGA TCP offload)
 - Kernel TCP + cut copies on high-rate RX → **io_uring ZC RX**
 - Bulk send of large buffers → **MSG_ZEROCOPY**
@@ -1067,16 +1109,19 @@ For the finest intra-process timing, skip even the vDSO and read TSC directly vi
 "Zero-cost abstractions" means high-level constructs (iterators, `Option`/`Result`, trait objects when monomorphized, `async` futures) compile to the same machine code you'd write by hand. Async futures compile to state machines with no heap allocation for the future itself; Tokio I/O tasks consume ~200–400 bytes each.
 
 **Concrete numbers:**
+
 - A practitioner tick-to-trade prototype measured ~12 µs to process a quote, ~6 µs for a trade in Rust — targeting single-digit-µs with p999 ~4–5× median
 - Order-execution microbenchmarks put hot-path ops at ~120 ns in Rust vs. ~110 ns in C++ — a few percent behind in lab conditions, at parity or ahead in real-world conditions where safety guarantees reduce bug classes that cause latency spikes
 - Allocator swap (jemalloc/mimalloc as `#[global_allocator]`) commonly beats system allocator by **30–50%** on small-object tight-loop workloads
 
 **Pain points and controls:**
+
 - **Allocator on the hot path:** set `#[global_allocator]` to jemalloc/mimalloc, or — the real HFT answer — pre-allocate everything at startup and use object pools / arenas / ring buffers so the steady state does **zero allocation**
 - **Panic unwinding overhead:** set `panic = "abort"` in the release profile. Eliminates landing-pad code, lets the optimizer assume no unwind — measured ~13% smaller binary, ~11% faster compile; runtime gains smaller but real on instruction-dense paths. Trading processes want `abort` anyway: a panic is a bug and should crash, not unwind through a half-updated order book.
 - **Tokio tail latency:** Tokio's multi-threaded scheduler is built for I/O throughput, not deterministic latency. Tasks only yield at `.await`; a CPU-heavy section without yield points stalls a worker. Under load, maximum latencies in the **tens of milliseconds** (Tokio issue #2702: 26–29 ms tails on a TCP echo client under load). HFT hot paths **avoid Tokio entirely**: OS threads pinned to cores (`core_affinity`), busy-poll, lock-free SPSC/MPSC ring buffers. Tokio is fine for the cold path (config, control plane, slow-path networking).
 
 **Low-level control surface:**
+
 - **`#![no_std]` + custom allocators:** removes std runtime dependency for the hottest components; path to kernel-bypass or embedded/FPGA-adjacent code
 - **`std::hint::spin_loop()`:** emits the `PAUSE` instruction (x86) in busy-wait loops — same as C++'s `_mm_pause()`. Reduces power and frees the pipeline without yielding the core. Exactly what a busy-polling network thread wants.
 - **`core::sync::atomic`:** same C++11/C++20 memory model orderings (`Relaxed`, `Acquire`, `Release`, `AcqRel`, `SeqCst`) backed by the same LLVM atomics as `std::atomic` — atomic codegen is effectively identical. `Acquire`/`Release` maps 1:1 to C++ `memory_order_acquire/release`.
@@ -1088,10 +1133,12 @@ For the finest intra-process timing, skip even the vDSO and read TSC directly vi
 The JVM is used in production HFT by neutralizing the GC and JIT warmup.
 
 **GC strategies:**
+
 - **Azul Zing / C4 (Continuously Concurrent Compacting Collector):** concurrent, compacting, "pauseless" — GC work done concurrently with application, no stop-the-world compaction. **LMAX Exchange publicly reported up to 50% latency improvement** moving to Zing, plus "typically requires little or no GC tuning." Zing also includes ReadyNow! to pre-warm the JIT.
 - **OpenJDK ZGC / Shenandoah:** concurrent collectors targeting **sub-1 ms pauses** regardless of heap size (ZGC production-ready in JDK 15). Brings much of Zing's benefit into open-source, narrowing Azul's commercial moat.
 
 **Mechanical-sympathy ecosystem:**
+
 - **LMAX Disruptor:** lock-free ring buffer, pre-allocated, cache-line-padded — millions of ops/sec with single-digit-µs hand-off, no GC churn
 - **Chronicle Queue / Wire / Bytes:** off-heap, memory-mapped, zero-GC persisted messaging and serialization — keeps market data and order logs entirely out of the Java heap
 
@@ -1126,6 +1173,7 @@ Jane Street runs its trading in **OCaml** (30M+ lines, 500+ OCaml programmers). 
 Almost no first-party disclosure of full custom ASICs (taped-out, fabricated silicon) for trading logic. Firms treat hardware as the deepest part of their moat. What's documented publicly is almost entirely **FPGA-based**.
 
 **Why FPGAs dominate over ASICs:**
+
 - **Reconfigurability:** exchange protocols (SBE schemas, gateway behavior) change; strategies change nightly. An FPGA bitstream re-flashes overnight; an ASIC is immutable once fabricated. This is the decisive factor.
 - **NRE cost and time-to-market:** custom ASIC NRE (mask sets, verification, tape-out) runs into the millions and takes 12–24 months. FPGAs have zero per-unit fabrication cost and weeks-to-months iteration.
 - **Latency is already "good enough":** Arista 7130 L1 switching at ~45 ns round-trip using FPGA logic; Exablaze's L1 switch at **2.4–4.6 ns port-to-port**. The marginal latency win from an ASIC is small relative to its rigidity.
@@ -1148,6 +1196,7 @@ Classic FIX (tag=value, e.g. `35=D|55=AAPL|...`, SOH-delimited) forces: (1) **va
 **Authors:** Martin Thompson & Todd Montgomery, Real Logic / Aeron. FIX Trading Community standard; reference implementation at `aeron-io/simple-binary-encoding`.
 
 **Mechanism:**
+
 - **Schema-driven codegen:** XML schema defines messages, fixed-length root fields, types, and repeating groups. Generator emits Java/C++/C#/Go/Rust codecs AOT — no reflection, no runtime schema lookup. Rust generator emits 100%-safe, zero-dependency crates.
 - **Fixed offsets, C-struct layout:** root fields at compile-time-known byte offsets. Decoding a price = a single aligned load at a constant offset. No presence map, no per-field tags on the wire.
 - **Little-endian, native byte order:** direct loads on x86, no byte-swapping.
@@ -1164,6 +1213,7 @@ CME's **Market Data Platform 3.0** launched **Dec 7, 2014**, the first major SBE
 ### 23.4 FAST — FIX Adapted for Streaming
 
 FAST (~2005, FIX Protocol Ltd) optimizes **bandwidth**, not latency. **Mechanism:**
+
 - **Template-based with field operators:** `constant` (value in template, never sent), `copy` (omit if unchanged), `default`, `delta` (send only difference), `increment` (auto-incrementing). Highly redundant feeds compress dramatically.
 - **Presence map (PMAP):** leading bitmap flagging which optional/operated fields are present; absent fields reconstructed from operator + prior state.
 - **Bit-packed integers:** stop-bit-encoded variable-length integers.
@@ -1184,6 +1234,7 @@ FAST (~2005, FIX Protocol Ltd) optimizes **bandwidth**, not latency. **Mechanism
 ## 14c. Key References (§16–23 additions)
 
 **Regulatory / pre-trade risk:**
+
 - SEC Final Rule 34-63241 (2010); 17 CFR 240.15c3-5; SEC Division of Trading & Markets 15c3-5 FAQs.
 - WilmerHale, "Knight Capital Settles Rule 15c3-5 Violations with SEC" (2013); SEC order 34-70694.
 - FINRA Market Access Rule examination priority reports (2021–2026).
@@ -1192,12 +1243,14 @@ FAST (~2005, FIX Protocol Ltd) optimizes **bandwidth**, not latency. **Mechanism
 - Magmio, Algo-Logic, Enyx product pages; Exegy/AMD STAC-T0 13.9 ns benchmark (2024).
 
 **Smart order routing / IEX:**
+
 - SEC Reg NMS Rule 611; FINRA Rule 5310.
 - SEC Order approving IEX D-Limit, 34-89686 (2020); Federal Register 2020-19204.
 - RBC THOR patents: US 9,280,791; 10,896,466; 12,154,173.
 - Hu, SEC (2018), "Evidence from IEX Becoming an Exchange."
 
 **Transatlantic networks:**
+
 - Submarine Networks / Business Wire, "Hibernia Express under 58.95 ms" (2015).
 - McKay Brothers / PR Newswire, "Transatlantic Latency Slashed for Quincy Extreme Data" (2016).
 - A-Team Insight, "Secret Transatlantic Radio Links Create Game-Changing Advantage for Traders."
@@ -1205,12 +1258,14 @@ FAST (~2005, FIX Protocol Ltd) optimizes **bandwidth**, not latency. **Mechanism
 - Laser Focus World, "Hollow-core fiber gives high-frequency traders an edge."
 
 **Adverse selection / toxicity:**
+
 - Easley, López de Prado, O'Hara, "Flow Toxicity and Liquidity in a High-Frequency World," RFS 25(5) (2012).
 - Easley, Kiefer, O'Hara, Paperman, "Liquidity, Information, and Infrequently Traded Stocks," J. Finance (1996) — original PIN.
 - Andersen, Bondarenko, "VPIN and the Flash Crash" critique (2014).
 - Exegy, "How to Stop Alpha Decay" (2024–25).
 
 **Languages / runtimes:**
+
 - Azul Systems, "LMAX Exchange: Getting 50% improvement in latency with Azul's Zing JVM."
 - Jane Street, "Building a lower-latency GC" — blog.janestreet.com.
 - Jane Street, "The Saga of Multicore OCaml" tech talk.
@@ -1221,11 +1276,13 @@ FAST (~2005, FIX Protocol Ltd) optimizes **bandwidth**, not latency. **Mechanism
 - Tokio issue #2702 (26–29 ms tail latency under load).
 
 **ASIC / hardware:**
+
 - EE Times, "eFPGA: Hidden Engine of Tomorrow's HFT Systems."
 - arXiv 2110.05335, "From FPGAs to Obfuscated eASICs: Design and Security Trade-offs."
 - Leber, Geib, Litz, "High Frequency Trading Acceleration using FPGAs," FPL 2011.
 
 **SBE / FAST / protocols:**
+
 - Thompson, M., "Simple Binary Encoding," Mechanical Sympathy blog (2014).
 - Real Logic, `aeron-io/simple-binary-encoding` (GitHub).
 - CME Group, MDP 3.0 SBE documentation (Atlassian wiki).
