@@ -57,6 +57,13 @@ body {
   height: 100%;
 }
 
+html {
+  // Clip horizontal overflow at the scroll container too. body's overflow-x
+  // does not clip fixed-position elements (the off-canvas TOC panel/toggle),
+  // which were extending the page width and causing horizontal scroll.
+  overflow-x: clip;
+}
+
 body {
   font-family: Georgia, Times, serif;
   font-size: 145%;
@@ -65,7 +72,7 @@ body {
   color: $ink;
   // Prevent wide content (tables, code) from pushing the page wider than the
   // viewport, which on mobile shoved fixed-position elements off-screen.
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .head {
@@ -650,11 +657,13 @@ strong, b {
     right: 0;
   }
 
-  // Top nav must not exceed the viewport (its fixed 360px width plus content
-  // overflowed and pushed past the right edge on phones).
+  // Top nav must not exceed the viewport (its fixed 360px width pushed past
+  // the right edge on phones). Shrink to content and hug the right corner
+  // instead of centering across a wide bar.
   .top-toolbar {
     width: auto;
     max-width: calc(100vw - 16px);
+    justify-content: flex-end;
     gap: 12px;
     padding: 6px 12px;
   }
