@@ -26,7 +26,8 @@ Company engineering blogs, postmortems, architecture deep-dives.
 - [How Uber Conquered Database Overload: From Static Rate-Limiting to Intelligent Load Management](https://www.uber.com/en-IN/blog/from-static-rate-limiting-to-intelligent-load-management/) -- Uber's evolution from static rate limiting to adaptive database load shedding
 
   > **Key insights:**
-  > - Stateless quota-based rate-limiting failed at scale (Redis dependency, can't track thousands of partitions); shifted shedding to storage layer where context is complete
+  > - Scale context: Docstore/Schemaless handle tens of millions of req/s across 170M+ MAU; minor overloads cascade across microservices
+  > - Stateless quota-based rate-limiting failed at scale (Redis dependency, can't track thousands of partitions, broken cost model — full table scan costs same as single-row read); shifted shedding to storage layer where context is complete
   > - Concurrency (in-flight ops) chosen over QPS as primary overload signal — Little's Law `Concurrency = Throughput × Latency` maps directly to resource usage
   > - CoDel adapts queue policy: FIFO under normal load, LIFO under pressure ("newer requests still have a chance to succeed"); prevents wasted work on stale requests
   > - Cinnamon adds priority tiers (t0-t5): user-facing work protected at t1 while background jobs shed first — priority-aware on top of CoDel's priority-agnostic base
@@ -35,38 +36,21 @@ Company engineering blogs, postmortems, architecture deep-dives.
   > - BYOS framework: pluggable signals (follower lag, write bytes, mem) feed unified decision loop without core rewrite
   > - Scorecard layer: per-tenant deterministic concurrency limits isolate noisy neighbors independently of system-wide shedding
   > - Regulators detect "low-fidelity" overload (large write payloads, partition hotspots, mem pressure) missed by concurrency metric alone
-
-  > **Key insights:**
-  > - Uber's Docstore/Schemaless handle tens of millions of req/s across 170M+ MAU; minor overloads cascade across microservices
-  > - Phase 1 (failed): quota-based rate limiting with Redis; fundamentally flawed cost model (full table scan = same cost as single row read)
-  > - Phase 2: CoDel (Controlled Delay) queuing with LIFO under pressure + Scorecard engine for per-tenant concurrency limits
-  > - Phase 3 (Cinnamon): priority-aware load shedder with 6 tiers (t0-t5), PID-based controller for dynamic queue timeout/inflight adjustment
-  > - Phase 4: unified "Bring Your Own Signal" (BYOS) engine with pluggable signals (e.g., follower commit lag)
-  > - Key technique: Little's Law — use concurrency (inflight ops) as overload signal, not QPS
-  > - Results vs token bucket: 80% throughput increase (5400 vs 3000 QPS), 70% P99 latency reduction (1.0s vs 3.1s), 93% fewer goroutines (10K vs 150K peak), 60% lower heap (1GB vs 5-6GB)
-  > - Design principle: place control logic in storage layer where system state is authoritative; fail-fast over queuing
+  > - Evolution: Phase 1 quota/Redis (failed) → Phase 2 CoDel + Scorecard → Phase 3 Cinnamon (6 priority tiers + PID controller) → Phase 4 BYOS unified engine
 - [One Stone, Three Birds: Finer-Grained Encryption @ Apache Parquet](https://www.uber.com/en-IN/blog/one-stone-three-birds-finer-grained-encryption-apache-parquet/) -- Uber's column-level encryption for Parquet data at rest
 
   > **Key insights:**
   > - Single column-encryption mechanism solves three orthogonal needs: access control, retention/deletion, encryption-at-rest — avoids three separate systems
   > - Schema-driven: encryption metadata flows through Hive Metastore (HMS) not per-file RPC to tag store — eliminates excessive remote calls
   > - Per-column independent keys: each column encrypted with own key; access is "do you hold key K?" — permission enforcement at crypto layer, not app code
-  > - Crypto-shredding for retention: deleting the key turns ciphertext into garbage; no need to rewrite petabyte tables to expire one column
-  > - AES-CTR chosen over AES-GCM: 3-4.5× faster in single-thread Java 9; integrity provided by Parquet checksums at row-group level
-  > - Production overhead with 60% columns encrypted: +5.7% write, +3.7% read — small enough to enable by default
-  > - Parquet-1817 plugin factory enables Spark/Hive/Presto/Flink compatibility without per-engine modification
-  > - Auto-onboarding: tag changes propagate to ingestion pipelines; no manual table-by-table onboarding across PB-scale lake
-  > - Mask-on-deny: users without key get null values instead of hard failure — legacy pipelines keep working
-
-  > **Key insights:**
-  > - One encryption mechanism solves three problems: column-level ACL (key permissions = access control), data retention (crypto-shredding — delete master key to render data irrecoverable without rewriting files), and encryption-at-rest
   > - Double-envelope key hierarchy: Data Encryption Keys (DEKs, per file/column) → Key Encryption Keys (KEKs, cached in Spark executors) → Master Encryption Keys (MEKs, in KMS); KMS contacted only once per MEK per executor, not per file
-  > - Schema-driven auto-onboarding: tagging metadata propagated into Parquet schema itself; crypto retriever plugin reads tags at write time — no per-file RPC to tagging service
-  > - Two algorithm modes: AES-GCM (authenticated encryption, 5.7% write / 3.7% read overhead) vs AES-GCM-CTR (metadata-only auth, 3–4.5× faster than full AES-GCM)
-  > - Key rotation modifies only file footer (re-wrap DEKs/KEKs with new MEKs), not data pages — avoids re-encrypting column data
-  > - Encryption transparent to Parquet optimizations: columnar projection, predicate pushdown, encoding, compression all continue to work on encrypted files
-  > - Backfilling petabytes of historical data was hardest operational challenge; built 20× faster encryption tooling for re-encryption
-  > - Access denial enforced at format level across all query engines (Spark, Hive, Presto); optionally null-mask sensitive values instead of hard failure
+  > - Crypto-shredding for retention: deleting the master key turns ciphertext into garbage; no need to rewrite petabyte tables to expire one column
+  > - Two algorithm modes: AES-GCM (authenticated, +5.7% write / +3.7% read with 60% columns encrypted) vs AES-GCM-CTR (metadata-only auth, 3–4.5× faster than full GCM in single-thread Java 9; integrity from Parquet row-group checksums)
+  > - Key rotation modifies only the file footer (re-wrap DEKs/KEKs with new MEKs), not data pages — avoids re-encrypting column data
+  > - Parquet-1817 plugin factory enables Spark/Hive/Presto/Flink compatibility without per-engine modification; encryption transparent to columnar projection, predicate pushdown, encoding, compression
+  > - Auto-onboarding: tag changes propagate to ingestion pipelines; no manual table-by-table onboarding across PB-scale lake
+  > - Backfilling petabytes of historical data was the hardest operational challenge; built 20× faster encryption tooling for re-encryption
+  > - Mask-on-deny: users without key get null values instead of hard failure — legacy pipelines keep working
 - [How Uber Indexes Streaming Data with Pull-Based Ingestion in OpenSearch](https://www.uber.com/en-IN/blog/how-uber-indexes-streaming-data-with-pull-based-ingestion-in-opensearch/) -- Pull-based streaming data indexing at Uber
 
   > **Key insights:**
@@ -145,19 +129,10 @@ Company engineering blogs, postmortems, architecture deep-dives.
   > - Project state lived in markdown files (checklists, phase docs, session summaries) — Claude's own memory was insufficient for multi-week project
   > - Speedup from 1 year → 8 weeks came from expert code review catching systematic AI errors (wrong type signatures, symptom-fixing, missing edge cases) — not autonomous generation
   > - 71.2% coverage via porting PG's own regression suite (thousands of decade-spanning queries) — validates "Postgres-compatible grammar" claim
-  > - Benchmarks: 2-3× faster per query (1.6µs vs 3.1µs simple SELECT), 2.5× faster full suite (145ms vs 366ms)
+  > - Benchmarks: simple SELECT 1.6µs vs 3.1µs (2×), complex SELECT 3.2µs vs 11.0µs (3.5×), CREATE TABLE 7.7µs vs 26.4µs (3.5×); full suite 145ms vs 366ms (2.5×)
+  > - Scope: 287,786 lines across 304 files ported in 8 weeks (1 engineer + Claude); previous Vitess MySQL parser took over a year with a team
   > - Mechanical work (translation, test code, AST node generation) delegated to AI; architectural work (grammar debug, design) kept with humans
   > - Lesson: "fast output means nothing if output is wrong" — every grammar rule manually compared to PG source, every test failure investigated
-
-  > **Key insights:**
-  > - Pure Go PostgreSQL parser (no cgo) — rejected pg_query_go because cgo creates cross-compilation complexity, platform-specific builds, and per-call overhead on hot-path parsing
-  > - Performance: simple SELECT 1.6μs vs 3.1μs (2×), complex SELECT 3.2μs vs 11.0μs (3.5×), CREATE TABLE 7.7μs vs 26.4μs (3.5×); full regression suite 145ms vs 366ms = 2.5× faster
-  > - 287,786 lines across 304 files ported from PostgreSQL grammar to Go in 8 weeks (1 engineer + Claude); previous MySQL parser (Vitess) took over a year with a team
-  > - Key AI insight: "Claude is much better at translating existing logic than inventing new logic correctly" — grammar translation (has reference) had low error rate; deparsing (no reference) required much more debugging
-  > - Coordination system critical: markdown checklists tracking AST struct ports, grammar rules, test coverage (71.2%); session documents for cross-conversation continuity
-  > - Expertise verification caught recurring Claude mistakes: wrong types "fixed" via unnecessary conversion functions, grammar rules subtly accepting invalid SQL
-  > - Bottleneck shifted from implementation speed to decision quality and verification rigor
-  > - Ported PostgreSQL's own regression tests (thousands of queries) for edge case validation
 - [VACUUM FULL Locked Our Database for 14 Hours on Black Friday](https://medium.com/lets-code-future/vacuum-full-locked-our-database-for-14-hours-on-black-friday-33daf7959c9b) -- Production incident: Postgres VACUUM FULL during peak traffic
 
   > **Key insights:**
@@ -229,16 +204,6 @@ Company engineering blogs, postmortems, architecture deep-dives.
   > - Exponential backoff for retriable failures; timeouts at enqueue/claim/heartbeat each trigger automatic retry independently
   > - Isolation via dedicated clusters, queues, and quotas per lambda — prevents resource contention between independent task types
   > - Edgestore (Dropbox's metadata DB) backs task state; SQS handles work distribution — clean split of state-of-truth vs work queue
-
-  > **Key insights:**
-  > - Six components: Frontend (RPC), Task Store (Edgestore metadata), Store Consumer (polling), Queue (AWS SQS), Controller (per-worker polling), Executor, Heartbeat/Status Controller
-  > - Pull-based model: controllers and executors long-poll for work rather than being pushed, reducing coupling
-  > - Scale: 9,000 async tasks/sec, 100+ use cases across 28 engineering teams; 95% of tasks begin within 5 seconds of scheduled time
-  > - At-least-once execution: tasks retry until Success/FatalFailure; requires idempotent lambdas since tasks may execute multiple times
-  > - No concurrent execution: tasks claim exclusive state; HSC kills executors after 3 failed heartbeats to prevent overlap
-  > - Each lambda-priority pair gets dedicated SQS queue (95 total); lambda owners control their worker clusters, deployments, capacity
-  > - Exponential backoff for retriable failures; timeouts at enqueue, claim, and heartbeat stages trigger automatic retries
-  > - Isolation: dedicated clusters, queues, and scheduling quotas per lambda prevent resource contention
 - [How Spotify Built Its Data Platform To Understand 1.4 Trillion Data Points](https://blog.bytebytego.com/p/how-spotify-built-its-data-platform) -- Spotify's data platform for processing trillions of events
 - [How Tailscale works](https://tailscale.com/blog/how-tailscale-works) -- Architecture of Tailscale's WireGuard-based mesh VPN
 
@@ -350,16 +315,6 @@ Company engineering blogs, postmortems, architecture deep-dives.
   > - Arrow IPC over gRPC for worker→coordinator results; zero-copy on both ends inside the worker
   > - Serverless: runs on Workers + R2, no provisioned cluster; coordinator selected per query via internal API; Argo Smart Routing handles connectivity
   > - "Bite-sized pieces" model = power-of-two parallelism that adapts to query selectivity without explicit reshaping
-
-  > **Key insights:**
-  > - Two-phase architecture: Query Planner (metadata-driven pruning) + distributed Query Execution across Cloudflare's global network
-  > - Serverless: runs on Workers + R2, no provisioned clusters; coordinator-worker model
-  > - Multi-layer filtering: partition-level (manifest list), file-level (column stats), row-group-level (Parquet footers)
-  > - Streaming pipeline: manifests processed in ORDER BY sequence, enabling early termination when results are guaranteed complete
-  > - Built on Apache DataFusion (Rust): vectorized execution, filter pushdown, row-group parallelization
-  > - Each Parquet row group treated as independent partition for parallel processing with CPU cache efficiency
-  > - Arrow IPC format for inter-process communication between workers and coordinator via gRPC
-  > - Columnar Parquet reading: only needed columns read, massively reducing data transfer from R2
 - [R2 SQL Aggregations (Cloudflare)](https://blog.cloudflare.com/r2-sql-aggregations/) -- Adding GROUP BY/SUM to R2's distributed SQL engine
 
   > **Key insights:**

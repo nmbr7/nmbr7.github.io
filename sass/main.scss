@@ -31,6 +31,12 @@ $accent-alt: #6b5d44;
 
 /* Tiny reset */
 
+*, *::before, *::after {
+  // Padding/borders count inside width, so percentage widths plus padding no
+  // longer overflow the viewport (the cause of the mobile horizontal scroll).
+  box-sizing: border-box;
+}
+
 html,
 body,
 div,
@@ -57,6 +63,9 @@ body {
   line-height: 1.58;
   background-color: $paper;
   color: $ink;
+  // Prevent wide content (tables, code) from pushing the page wider than the
+  // viewport, which on mobile shoved fixed-position elements off-screen.
+  overflow-x: hidden;
 }
 
 .head {
@@ -224,15 +233,26 @@ body {
 
 .r-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 
+  // Let each card-anchor stretch to the row height so .r-link can fill it,
+  // giving equal-height cards regardless of description length.
+  > a {
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    // Grid items default to min-width:auto, letting content overflow the
+    // column (and the viewport on mobile); allow them to shrink instead.
+    min-width: 0;
+  }
+
   @media screen and (max-width: 900px) {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   @media screen and (max-width: 560px) {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -250,12 +270,14 @@ body {
 .r-link {
   display: flex;
   flex-direction: column;
-  height: 110px;
+  // Grow with content instead of clipping long descriptions at a fixed height.
+  min-height: 110px;
+  flex: 1;
+  width: 100%;
   border-radius: 6px;
   background: $paper-card;
   padding: 22px 24px;
   border: 1px solid rgba(58, 53, 48, 0.08);
-  overflow: hidden;
   transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
 
   &:hover {
@@ -279,6 +301,7 @@ body {
     font-size: medium;
     color: $ink-muted;
     line-height: 1.55;
+    overflow-wrap: anywhere;
   }
 }
 
@@ -309,6 +332,9 @@ main {
   height: 80%;
   max-width: 90%;
   margin: 0 auto;
+  // As a flex item in .container (row), min-width:auto would let wide content
+  // (resource grid) force main past the viewport; allow it to shrink instead.
+  min-width: 0;
 }
 
 figure a {
@@ -352,6 +378,16 @@ main video {
 
   main {
     padding: 30px 30px;
+  }
+
+  // Smaller code on phones so wide snippets need less horizontal scrolling.
+  pre,
+  pre code {
+    font-size: 9px;
+    line-height: 1.4;
+  }
+  code {
+    font-size: 9px;
   }
 
   .res_div {
@@ -443,9 +479,21 @@ strong, b {
 .note-page {
   font-size: 80%;
   line-height: 1.6;
+  // Flex items default to min-width:auto, which lets wide children (tables,
+  // code) force the column — and the whole page — wider than the viewport.
+  min-width: 0;
+  max-width: 100%;
 
   h1, h2, h3, h4, h5, h6 {
     scroll-margin-top: 70px;
+  }
+
+  // Wide tables scroll within the column instead of widening the page.
+  table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -582,8 +630,34 @@ strong, b {
 }
 
 @media screen and (max-width: 1100px) {
-  .note-toc { display: none; }
-  #toc-toggle { display: none; }
+  // Panel becomes an edge overlay capped to viewport width.
+  .note-toc {
+    width: min(320px, 85vw);
+    max-height: calc(100vh - 80px);
+  }
+
+  // Toggle rides the panel's left edge; when closed it sits at the screen edge.
+  // Make it a larger, higher-contrast tap handle so it's obvious on phones.
+  #toc-toggle {
+    right: min(320px, 85vw);
+    width: 30px;
+    height: 56px;
+    font-size: 1.2em;
+    color: $rust;
+    box-shadow: -3px 0 16px rgba(43, 36, 24, 0.18);
+  }
+  #toc-toggle.toc-closed {
+    right: 0;
+  }
+
+  // Top nav must not exceed the viewport (its fixed 360px width plus content
+  // overflowed and pushed past the right edge on phones).
+  .top-toolbar {
+    width: auto;
+    max-width: calc(100vw - 16px);
+    gap: 12px;
+    padding: 6px 12px;
+  }
 }
 
 html { scroll-behavior: smooth; }
@@ -671,13 +745,36 @@ pre {
   padding: 14px 18px;
   border-radius: 4px;
   overflow-x: auto;
-  background-color: $paper-dark;
+  // Faint translucent wash instead of solid cream so the block reads softer
+  // against the paper background.
+  background-color: rgba(43, 36, 24, 0.04);
   border-left: 3px solid $rust;
   border-top: 1px solid rgba(43, 36, 24, 0.1);
   border-right: 1px solid rgba(43, 36, 24, 0.1);
   border-bottom: 1px solid rgba(43, 36, 24, 0.1);
   box-shadow: inset 0 1px 3px rgba(43, 36, 24, 0.06);
   color: $ink;
+
+  // The inline `code` rule (bg, border, padding) also matches <code> inside
+  // <pre>, which shrink-wraps each line and looks like per-line highlighting.
+  // Strip it so the block has a single uniform background.
+  code {
+    background: none;
+    border: none;
+    padding: 0;
+  }
+
+  // Drop giallo's per-line highlight background (.z-hl) — overrides the
+  // generated giallo-*.css, which loads after main.css.
+  .z-hl {
+    background-color: transparent;
+  }
+
+  // Light theme: giallo's bright cream (.z-code #FBF1C7) feels harsh, so let
+  // the softer paper-dark wrapper background show through instead.
+  .z-code {
+    background-color: transparent;
+  }
 }
 
 h1 {
@@ -1035,6 +1132,13 @@ input:focus::placeholder {
     background-color: rgba(255, 255, 255, 0.05);
     box-shadow: none;
     color: #ece6da;
+
+    // Dark theme keeps a real code background (the transparent .z-code override
+    // in the base `pre` rule is meant for light theme only).
+    .z-code { background-color: rgba(255, 255, 255, 0.03); }
+
+    // No inline-code chrome inside the block (avoids per-line bg boxes).
+    code { background: none; border: none; padding: 0; }
   }
 
   code { background-color: rgba(255, 255, 255, 0.07); color: #e8d8a8; }

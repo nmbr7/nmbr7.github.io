@@ -10,6 +10,11 @@ taxonomies = [
     {name = "tags", feed = false},
 ]
 
+[markdown.highlighting]
+# Emit CSS classes so highlighting follows the site's light/dark theme toggle.
+style = "class"
+light_theme = "gruvbox-light-medium"
+dark_theme = "gruvbox-dark-medium"
 
 [link_checker]
 skip_anchor_prefixes = []

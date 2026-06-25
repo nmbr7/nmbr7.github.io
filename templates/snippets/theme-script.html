@@ -1,8 +1,8 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   })();
 </script>

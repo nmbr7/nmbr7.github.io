@@ -16,15 +16,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
