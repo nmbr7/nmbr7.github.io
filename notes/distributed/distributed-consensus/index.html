@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -127,19 +150,18 @@
 <p>In a network subject to partitions, a distributed system can provide at most two of: <strong>Consistency</strong> (linearizability), <strong>Availability</strong> (every non-faulty node returns a response), <strong>Partition tolerance</strong>.</p>
 </blockquote>
 <p>Since network partitions are inevitable in real systems, the practical trade-off is between <strong>CP</strong> (sacrifice availability during partitions) and <strong>AP</strong> (sacrifice consistency during partitions).</p>
-<pre><code>                  C (Consistency)
-                 / \
-                /   \
-               /     \
-              / CP    \
-             /  systems\
-            /___________\
-           A ----------- P
-        (Availability)   (Partition Tolerance)
-
-        CP systems: ZooKeeper, etcd, Spanner, CockroachDB
-        AP systems: Cassandra, DynamoDB, Riak
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                  C (Consistency)</span></span>
+<span class="giallo-l"><span>                 / \</span></span>
+<span class="giallo-l"><span>                /   \</span></span>
+<span class="giallo-l"><span>               /     \</span></span>
+<span class="giallo-l"><span>              / CP    \</span></span>
+<span class="giallo-l"><span>             /  systems\</span></span>
+<span class="giallo-l"><span>            /___________\</span></span>
+<span class="giallo-l"><span>           A ----------- P</span></span>
+<span class="giallo-l"><span>        (Availability)   (Partition Tolerance)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>        CP systems: ZooKeeper, etcd, Spanner, CockroachDB</span></span>
+<span class="giallo-l"><span>        AP systems: Cassandra, DynamoDB, Riak</span></span></code></pre>
 <p><strong>Important nuance</strong>: CAP is a spectrum, not a binary choice. The PACELC extension (Abadi, Computer, 2012) notes that even when the system is running <strong>N</strong>ormally (no <strong>P</strong>artition), there is a trade-off between <strong>L</strong>atency and <strong>C</strong>onsistency.</p>
 <h3 id="1-4-safety-vs-liveness">1.4 Safety vs. Liveness</h3>
 <p>Every correctness property of a distributed system can be decomposed into a safety property ("nothing bad happens") and a liveness property ("something good eventually happens") -- Alpern &amp; Schneider, 1985.</p>
@@ -168,30 +190,29 @@
 <li><strong>Learner</strong>: Learns the decided value.</li>
 </ul>
 <p><strong>Two-Phase Protocol</strong>:</p>
-<pre><code>Phase 1: Prepare / Promise
-==========================
-
-Proposer                 Acceptors (majority quorum)
-   |                         |
-   |---Prepare(n)-----------&gt;|   Proposer picks ballot number n
-   |                         |
-   |&lt;--Promise(n, v_max)-----|   Acceptor promises not to accept
-   |                         |   ballots &lt; n. Returns highest
-   |                         |   accepted value (if any).
-
-Phase 2: Accept / Accepted
-==========================
-
-Proposer                 Acceptors (majority quorum)
-   |                         |
-   |---Accept(n, v)---------&gt;|   v = highest v_max from Phase 1,
-   |                         |   or proposer&#39;s own value if none.
-   |                         |
-   |&lt;--Accepted(n, v)--------|   Acceptor accepts if it hasn&#39;t
-   |                         |   promised a higher ballot.
-
-   Once a majority accepts: value v is CHOSEN.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Phase 1: Prepare / Promise</span></span>
+<span class="giallo-l"><span>==========================</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Proposer                 Acceptors (majority quorum)</span></span>
+<span class="giallo-l"><span>   |                         |</span></span>
+<span class="giallo-l"><span>   |---Prepare(n)-----------&gt;|   Proposer picks ballot number n</span></span>
+<span class="giallo-l"><span>   |                         |</span></span>
+<span class="giallo-l"><span>   |&lt;--Promise(n, v_max)-----|   Acceptor promises not to accept</span></span>
+<span class="giallo-l"><span>   |                         |   ballots &lt; n. Returns highest</span></span>
+<span class="giallo-l"><span>   |                         |   accepted value (if any).</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Phase 2: Accept / Accepted</span></span>
+<span class="giallo-l"><span>==========================</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Proposer                 Acceptors (majority quorum)</span></span>
+<span class="giallo-l"><span>   |                         |</span></span>
+<span class="giallo-l"><span>   |---Accept(n, v)---------&gt;|   v = highest v_max from Phase 1,</span></span>
+<span class="giallo-l"><span>   |                         |   or proposer&#39;s own value if none.</span></span>
+<span class="giallo-l"><span>   |                         |</span></span>
+<span class="giallo-l"><span>   |&lt;--Accepted(n, v)--------|   Acceptor accepts if it hasn&#39;t</span></span>
+<span class="giallo-l"><span>   |                         |   promised a higher ballot.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>   Once a majority accepts: value v is CHOSEN.</span></span></code></pre>
 <p><strong>Key invariant</strong>: If a value <code>v</code> has been chosen with ballot <code>n</code>, then every higher-numbered ballot that is accepted must also have value <code>v</code>. This is enforced by Phase 1: any proposer using a higher ballot will discover <code>v</code> from a majority of acceptors.</p>
 <p><strong>Safety</strong>: Guaranteed unconditionally, regardless of message delays, duplicates, or reordering.</p>
 <p><strong>Liveness</strong>: Not guaranteed if two proposers "duel" with alternating ballots (livelock). This motivates the use of a distinguished proposer (leader).</p>
@@ -202,18 +223,17 @@ Proposer                 Acceptors (majority quorum)
 <li>Subsequent slots only require Phase 2 (Accept/Accepted), saving one round trip per entry.</li>
 <li>The leader acts as the sole proposer, eliminating dueling.</li>
 </ol>
-<pre><code>Multi-Paxos Steady State (leader established):
-
-Client       Leader        Followers
-  |            |              |
-  |--Request--&gt;|              |
-  |            |--Accept(n,v)---&gt;|
-  |            |&lt;--Accepted------|
-  |            |              |
-  |&lt;--Reply----|              |
-
-  Single round-trip in steady state.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Multi-Paxos Steady State (leader established):</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Client       Leader        Followers</span></span>
+<span class="giallo-l"><span>  |            |              |</span></span>
+<span class="giallo-l"><span>  |--Request--&gt;|              |</span></span>
+<span class="giallo-l"><span>  |            |--Accept(n,v)---&gt;|</span></span>
+<span class="giallo-l"><span>  |            |&lt;--Accepted------|</span></span>
+<span class="giallo-l"><span>  |            |              |</span></span>
+<span class="giallo-l"><span>  |&lt;--Reply----|              |</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Single round-trip in steady state.</span></span></code></pre>
 <p><strong>Leader election</strong>: Multi-Paxos does not prescribe a specific leader election mechanism. Implementations vary widely. Common approaches:</p>
 <ul>
 <li>Highest-ID node after Phase 1 succeeds becomes leader.</li>
@@ -237,15 +257,14 @@ Client       Leader        Followers
 <li>The primary assigns order; backups replicate.</li>
 </ul>
 <p><strong>Normal operation</strong>:</p>
-<pre><code>Client       Primary         Backups (f of 2f+1)
-  |            |                |
-  |--Request--&gt;|                |
-  |            |--Prepare(v,n)-&gt;|   v=view, n=op-number
-  |            |&lt;--PrepareOK----|
-  |            |  (wait for f)  |
-  |            |--Commit(n)----&gt;|
-  |&lt;--Reply----|                |
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Client       Primary         Backups (f of 2f+1)</span></span>
+<span class="giallo-l"><span>  |            |                |</span></span>
+<span class="giallo-l"><span>  |--Request--&gt;|                |</span></span>
+<span class="giallo-l"><span>  |            |--Prepare(v,n)-&gt;|   v=view, n=op-number</span></span>
+<span class="giallo-l"><span>  |            |&lt;--PrepareOK----|</span></span>
+<span class="giallo-l"><span>  |            |  (wait for f)  |</span></span>
+<span class="giallo-l"><span>  |            |--Commit(n)----&gt;|</span></span>
+<span class="giallo-l"><span>  |&lt;--Reply----|                |</span></span></code></pre>
 <p><strong>View Change Protocol</strong> (triggered when primary is suspected faulty):</p>
 <ol>
 <li>Backup sends <code>StartViewChange(v+1)</code> to all replicas.</li>
@@ -273,26 +292,24 @@ Client       Leader        Followers
 <li><strong>Leader completeness</strong>: If a log entry is committed in a given term, it will be present in the logs of all leaders for higher terms.</li>
 </ol>
 <h3 id="3-2-server-states">3.2 Server States</h3>
-<pre><code>                  +-----------+
-         timeout, |           | receives votes from
-         start    |           | majority of servers
-         election | Candidate |-------------------+
-     +-----------&gt;|           |                   |
-     |            +-----------+                   |
-     |               |    ^                       v
-     |   discovers   |    | timeout,          +---------+
-     |   current     |    | new election      |         |
-     |   leader or   +----+                   | Leader  |----+
-     |   new term                             |         |    |
-     |            +-----------+               +---------+    |
-     +------------|           |&lt;----- discovers server       |
-                  | Follower  |        with higher term      |
-     +-----------&gt;|           |&lt;-----------------------------+
-     |            +-----------+   steps down
-     |                 |
-     +-- on startup ---+
-</code></pre>
-<h3 id="3-3-leader-election">3.3 Leader Election</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                  +-----------+</span></span>
+<span class="giallo-l"><span>         timeout, |           | receives votes from</span></span>
+<span class="giallo-l"><span>         start    |           | majority of servers</span></span>
+<span class="giallo-l"><span>         election | Candidate |-------------------+</span></span>
+<span class="giallo-l"><span>     +-----------&gt;|           |                   |</span></span>
+<span class="giallo-l"><span>     |            +-----------+                   |</span></span>
+<span class="giallo-l"><span>     |               |    ^                       v</span></span>
+<span class="giallo-l"><span>     |   discovers   |    | timeout,          +---------+</span></span>
+<span class="giallo-l"><span>     |   current     |    | new election      |         |</span></span>
+<span class="giallo-l"><span>     |   leader or   +----+                   | Leader  |----+</span></span>
+<span class="giallo-l"><span>     |   new term                             |         |    |</span></span>
+<span class="giallo-l"><span>     |            +-----------+               +---------+    |</span></span>
+<span class="giallo-l"><span>     +------------|           |&lt;----- discovers server       |</span></span>
+<span class="giallo-l"><span>                  | Follower  |        with higher term      |</span></span>
+<span class="giallo-l"><span>     +-----------&gt;|           |&lt;-----------------------------+</span></span>
+<span class="giallo-l"><span>     |            +-----------+   steps down</span></span>
+<span class="giallo-l"><span>     |                 |</span></span>
+<span class="giallo-l"><span>     +-- on startup ---+</span></span></code></pre><h3 id="3-3-leader-election">3.3 Leader Election</h3>
 <p>Each server maintains a monotonically increasing <strong>term</strong> number. When a follower's election timeout fires:</p>
 <ol>
 <li>Increments term to <code>T+1</code>, transitions to Candidate.</li>
@@ -303,46 +320,42 @@ Client       Leader        Followers
 <p><strong>Election restriction</strong>: A server grants its vote only if the candidate's log is at least as up-to-date as its own. "Up-to-date" means: higher last log term, or same last log term with equal or higher last log index.</p>
 <p>This restriction ensures the <strong>Leader Completeness Property</strong>: a newly elected leader's log contains all committed entries. Unlike Paxos, the leader does not need to "catch up" after election.</p>
 <p><strong>Randomized timeouts</strong> (typically 150-300ms) break symmetry and prevent repeated split votes. The election timeout must be much larger than the broadcast time:</p>
-<pre><code>broadcastTime &lt;&lt; electionTimeout &lt;&lt; MTBF
-
-broadcastTime: ~0.5-20ms (within datacenter)
-electionTimeout: 150-300ms (configurable)
-MTBF: months to years
-</code></pre>
-<h3 id="3-4-log-replication">3.4 Log Replication</h3>
-<pre><code>Leader Log:    [1:x&lt;-3] [1:y&lt;-1] [2:x&lt;-5] [3:z&lt;-2] [3:w&lt;-7]
-                                            ^committed
-
-Follower A:   [1:x&lt;-3] [1:y&lt;-1] [2:x&lt;-5] [3:z&lt;-2]
-Follower B:   [1:x&lt;-3] [1:y&lt;-1] [2:x&lt;-5]
-Follower C:   [1:x&lt;-3] [1:y&lt;-1]           (lagging)
-
-AppendEntries RPC carries:
-  - term: leader&#39;s current term
-  - prevLogIndex, prevLogTerm: consistency check
-  - entries[]: new log entries
-  - leaderCommit: leader&#39;s commit index
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>broadcastTime &lt;&lt; electionTimeout &lt;&lt; MTBF</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>broadcastTime: ~0.5-20ms (within datacenter)</span></span>
+<span class="giallo-l"><span>electionTimeout: 150-300ms (configurable)</span></span>
+<span class="giallo-l"><span>MTBF: months to years</span></span></code></pre><h3 id="3-4-log-replication">3.4 Log Replication</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Leader Log:    [1:x&lt;-3] [1:y&lt;-1] [2:x&lt;-5] [3:z&lt;-2] [3:w&lt;-7]</span></span>
+<span class="giallo-l"><span>                                            ^committed</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Follower A:   [1:x&lt;-3] [1:y&lt;-1] [2:x&lt;-5] [3:z&lt;-2]</span></span>
+<span class="giallo-l"><span>Follower B:   [1:x&lt;-3] [1:y&lt;-1] [2:x&lt;-5]</span></span>
+<span class="giallo-l"><span>Follower C:   [1:x&lt;-3] [1:y&lt;-1]           (lagging)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>AppendEntries RPC carries:</span></span>
+<span class="giallo-l"><span>  - term: leader&#39;s current term</span></span>
+<span class="giallo-l"><span>  - prevLogIndex, prevLogTerm: consistency check</span></span>
+<span class="giallo-l"><span>  - entries[]: new log entries</span></span>
+<span class="giallo-l"><span>  - leaderCommit: leader&#39;s commit index</span></span></code></pre>
 <p>The <strong>consistency check</strong> in AppendEntries ensures the Log Matching Property: if <code>prevLogIndex</code> and <code>prevLogTerm</code> do not match the follower's log, the follower rejects the request and the leader decrements <code>nextIndex</code> and retries (or uses an optimization where the follower returns its conflicting term and earliest index for that term).</p>
 <p><strong>Commit rule</strong>: An entry from the current term is committed once a majority of servers have replicated it. Entries from previous terms are committed indirectly by committing a current-term entry at a higher index (this prevents the subtle "figure 8" problem described in the Raft paper).</p>
 <h3 id="3-5-joint-consensus-for-membership-changes">3.5 Joint Consensus for Membership Changes</h3>
 <p>Changing cluster membership (adding/removing nodes) is dangerous because different servers may transition at different times, allowing two disjoint majorities.</p>
 <p>Raft solves this with <strong>joint consensus</strong> (two-phase approach):</p>
-<pre><code>Phase 1: C_old -&gt; C_{old,new}
-===========================
-Leader creates a configuration entry C_{old,new}
-Decisions require majorities from BOTH C_old AND C_new
-
-Phase 2: C_{old,new} -&gt; C_new
-===========================
-Once C_{old,new} is committed, leader creates C_new entry
-Decisions now require majority of C_new only
-
-Timeline:
-  C_old    |---C_{old,new}---|---C_new---|
-           ^                 ^           ^
-         proposed         committed   committed
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Phase 1: C_old -&gt; C_{old,new}</span></span>
+<span class="giallo-l"><span>===========================</span></span>
+<span class="giallo-l"><span>Leader creates a configuration entry C_{old,new}</span></span>
+<span class="giallo-l"><span>Decisions require majorities from BOTH C_old AND C_new</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Phase 2: C_{old,new} -&gt; C_new</span></span>
+<span class="giallo-l"><span>===========================</span></span>
+<span class="giallo-l"><span>Once C_{old,new} is committed, leader creates C_new entry</span></span>
+<span class="giallo-l"><span>Decisions now require majority of C_new only</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Timeline:</span></span>
+<span class="giallo-l"><span>  C_old    |---C_{old,new}---|---C_new---|</span></span>
+<span class="giallo-l"><span>           ^                 ^           ^</span></span>
+<span class="giallo-l"><span>         proposed         committed   committed</span></span></code></pre>
 <p><strong>Single-server changes</strong> (Ongaro's dissertation): If membership changes are restricted to adding or removing one server at a time, joint consensus is not needed because any majority of the old configuration overlaps with any majority of the new configuration.</p>
 <h3 id="3-6-linearizable-reads">3.6 Linearizable Reads</h3>
 <p>By default, a Raft leader could serve stale reads if it has been deposed without knowing. Two solutions:</p>
@@ -359,17 +372,16 @@ Timeline:
 <li>If the lease has not expired, the leader can serve reads without an extra round of heartbeats.</li>
 <li>Requires bounded clock drift assumption (typically safe within a datacenter).</li>
 </ol>
-<pre><code>LeaseRead Timeline:
-
-Leader heartbeat to majority at time T
-Lease valid until: T + electionTimeout - clockDrift
-
-   T                    T+lease
-   |----lease valid-----|
-   ^                    ^
-   heartbeat ACK        must re-confirm or
-   from majority        step down
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>LeaseRead Timeline:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Leader heartbeat to majority at time T</span></span>
+<span class="giallo-l"><span>Lease valid until: T + electionTimeout - clockDrift</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>   T                    T+lease</span></span>
+<span class="giallo-l"><span>   |----lease valid-----|</span></span>
+<span class="giallo-l"><span>   ^                    ^</span></span>
+<span class="giallo-l"><span>   heartbeat ACK        must re-confirm or</span></span>
+<span class="giallo-l"><span>   from majority        step down</span></span></code></pre>
 <p><strong>Follower reads</strong> (etcd implementation): A follower asks the leader for the current commit index via ReadIndex, waits for its own state machine to catch up, then serves the read locally.</p>
 <h3 id="3-7-raft-vs-multi-paxos">3.7 Raft vs. Multi-Paxos</h3>
 <table><thead><tr><th>Aspect</th><th>Raft</th><th>Multi-Paxos</th></tr></thead><tbody>
@@ -394,42 +406,41 @@ Lease valid until: T + electionTimeout - clockDrift
 <li>Total: <code>(2f+1) + f = 3f+1</code>.</li>
 </ul>
 <p><strong>Three-Phase Protocol</strong>:</p>
-<pre><code>Client    Primary(0)   Replica 1   Replica 2   Replica 3
-  |          |            |            |            |
-  |--Request-&gt;            |            |            |
-  |          |            |            |            |
-  |     PRE-PREPARE       |            |            |
-  |          |---PP(v,n,d)------------&gt;|            |
-  |          |---PP(v,n,d)------------------------&gt;|
-  |          |---PP(v,n,d)-&gt;           |            |
-  |          |            |            |            |
-  |     PREPARE           |            |            |
-  |          |&lt;--P(v,n,d)-|            |            |
-  |          |&lt;--P(v,n,d)-------------|            |
-  |          |&lt;--P(v,n,d)-------------------------|
-  |          |---P(v,n,d)------------&gt;|            |
-  |          |            |--P(v,n,d)-&gt;|            |
-  |          |            |--P(v,n,d)-------------&gt;|
-  |          |            |            |--P(v,n,d)-&gt;|
-  |          |            |            |            |
-  |     COMMIT (once prepared = 2f+1 matching prepares)
-  |          |&lt;--C(v,n)---|            |            |
-  |          |&lt;--C(v,n)---------------|            |
-  |          |&lt;--C(v,n)----------------------------|
-  |          |---C(v,n)--&gt;|            |            |
-  |          |---C(v,n)--------------&gt;|            |
-  |          |---C(v,n)----------------------------|
-  |          |            |            |            |
-  |&lt;---Reply-|            |            |            |
-  |&lt;---Reply--------------|            |            |
-  |&lt;---Reply--------------------------|            |
-  |&lt;---Reply--------------------------------------|
-  |  (client waits for f+1 matching replies)       |
-
-  v = view number
-  n = sequence number
-  d = digest of request
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Client    Primary(0)   Replica 1   Replica 2   Replica 3</span></span>
+<span class="giallo-l"><span>  |          |            |            |            |</span></span>
+<span class="giallo-l"><span>  |--Request-&gt;            |            |            |</span></span>
+<span class="giallo-l"><span>  |          |            |            |            |</span></span>
+<span class="giallo-l"><span>  |     PRE-PREPARE       |            |            |</span></span>
+<span class="giallo-l"><span>  |          |---PP(v,n,d)------------&gt;|            |</span></span>
+<span class="giallo-l"><span>  |          |---PP(v,n,d)------------------------&gt;|</span></span>
+<span class="giallo-l"><span>  |          |---PP(v,n,d)-&gt;           |            |</span></span>
+<span class="giallo-l"><span>  |          |            |            |            |</span></span>
+<span class="giallo-l"><span>  |     PREPARE           |            |            |</span></span>
+<span class="giallo-l"><span>  |          |&lt;--P(v,n,d)-|            |            |</span></span>
+<span class="giallo-l"><span>  |          |&lt;--P(v,n,d)-------------|            |</span></span>
+<span class="giallo-l"><span>  |          |&lt;--P(v,n,d)-------------------------|</span></span>
+<span class="giallo-l"><span>  |          |---P(v,n,d)------------&gt;|            |</span></span>
+<span class="giallo-l"><span>  |          |            |--P(v,n,d)-&gt;|            |</span></span>
+<span class="giallo-l"><span>  |          |            |--P(v,n,d)-------------&gt;|</span></span>
+<span class="giallo-l"><span>  |          |            |            |--P(v,n,d)-&gt;|</span></span>
+<span class="giallo-l"><span>  |          |            |            |            |</span></span>
+<span class="giallo-l"><span>  |     COMMIT (once prepared = 2f+1 matching prepares)</span></span>
+<span class="giallo-l"><span>  |          |&lt;--C(v,n)---|            |            |</span></span>
+<span class="giallo-l"><span>  |          |&lt;--C(v,n)---------------|            |</span></span>
+<span class="giallo-l"><span>  |          |&lt;--C(v,n)----------------------------|</span></span>
+<span class="giallo-l"><span>  |          |---C(v,n)--&gt;|            |            |</span></span>
+<span class="giallo-l"><span>  |          |---C(v,n)--------------&gt;|            |</span></span>
+<span class="giallo-l"><span>  |          |---C(v,n)----------------------------|</span></span>
+<span class="giallo-l"><span>  |          |            |            |            |</span></span>
+<span class="giallo-l"><span>  |&lt;---Reply-|            |            |            |</span></span>
+<span class="giallo-l"><span>  |&lt;---Reply--------------|            |            |</span></span>
+<span class="giallo-l"><span>  |&lt;---Reply--------------------------|            |</span></span>
+<span class="giallo-l"><span>  |&lt;---Reply--------------------------------------|</span></span>
+<span class="giallo-l"><span>  |  (client waits for f+1 matching replies)       |</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  v = view number</span></span>
+<span class="giallo-l"><span>  n = sequence number</span></span>
+<span class="giallo-l"><span>  d = digest of request</span></span></code></pre>
 <p><strong>Phase guarantees</strong>:</p>
 <ul>
 <li><strong>Pre-Prepare</strong>: Leader assigns sequence number. Non-binding.</li>
@@ -452,70 +463,67 @@ Lease valid until: T + electionTimeout - clockDrift
 <li>Optimistic responsiveness: leader-driven progress after GST.</li>
 </ol>
 <p><strong>Three-phase commit with threshold signatures</strong>:</p>
-<pre><code>HotStuff Phases (Basic HotStuff):
-
-Round 1: PREPARE
-  Leader -&gt; ALL: Propose(block, QC_high)
-  ALL -&gt; Leader: Vote_prepare (if extends from locked QC)
-  Leader: Collect n-f votes -&gt; form prepareQC
-
-Round 2: PRE-COMMIT
-  Leader -&gt; ALL: prepareQC
-  ALL -&gt; Leader: Vote_precommit
-  Leader: Collect n-f votes -&gt; form precommitQC
-
-Round 3: COMMIT
-  Leader -&gt; ALL: precommitQC
-  ALL -&gt; Leader: Vote_commit
-  Leader: Collect n-f votes -&gt; form commitQC
-
-Round 4: DECIDE
-  Leader -&gt; ALL: commitQC
-  ALL: Execute and reply to client
-
-Message pattern (star topology through leader):
-
-           Replica 1
-           ^     |
-          /       \
-  Leader &lt;-------&gt; Replica 2
-          \       /
-           v     |
-           Replica 3
-
-  All communication goes through the leader.
-  Threshold signatures aggregate n-f votes into one QC.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>HotStuff Phases (Basic HotStuff):</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Round 1: PREPARE</span></span>
+<span class="giallo-l"><span>  Leader -&gt; ALL: Propose(block, QC_high)</span></span>
+<span class="giallo-l"><span>  ALL -&gt; Leader: Vote_prepare (if extends from locked QC)</span></span>
+<span class="giallo-l"><span>  Leader: Collect n-f votes -&gt; form prepareQC</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Round 2: PRE-COMMIT</span></span>
+<span class="giallo-l"><span>  Leader -&gt; ALL: prepareQC</span></span>
+<span class="giallo-l"><span>  ALL -&gt; Leader: Vote_precommit</span></span>
+<span class="giallo-l"><span>  Leader: Collect n-f votes -&gt; form precommitQC</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Round 3: COMMIT</span></span>
+<span class="giallo-l"><span>  Leader -&gt; ALL: precommitQC</span></span>
+<span class="giallo-l"><span>  ALL -&gt; Leader: Vote_commit</span></span>
+<span class="giallo-l"><span>  Leader: Collect n-f votes -&gt; form commitQC</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Round 4: DECIDE</span></span>
+<span class="giallo-l"><span>  Leader -&gt; ALL: commitQC</span></span>
+<span class="giallo-l"><span>  ALL: Execute and reply to client</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Message pattern (star topology through leader):</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>           Replica 1</span></span>
+<span class="giallo-l"><span>           ^     |</span></span>
+<span class="giallo-l"><span>          /       \</span></span>
+<span class="giallo-l"><span>  Leader &lt;-------&gt; Replica 2</span></span>
+<span class="giallo-l"><span>          \       /</span></span>
+<span class="giallo-l"><span>           v     |</span></span>
+<span class="giallo-l"><span>           Replica 3</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  All communication goes through the leader.</span></span>
+<span class="giallo-l"><span>  Threshold signatures aggregate n-f votes into one QC.</span></span></code></pre>
 <p><strong>Pipelined HotStuff</strong>: Overlaps phases of consecutive blocks. Each block's QC serves double duty as a vote for the current block and a phase advancement for the previous block:</p>
-<pre><code>Pipelined HotStuff:
-
-Block B1 proposed in view 1
-Block B2 proposed in view 2 (B2.QC certifies B1 -&gt; B1 is prepared)
-Block B3 proposed in view 3 (B3.QC certifies B2 -&gt; B1 is pre-committed)
-Block B4 proposed in view 4 (B4.QC certifies B3 -&gt; B1 is COMMITTED)
-
-&quot;Three-chain commit rule&quot;:
-  B1 &lt;- B2 &lt;- B3 &lt;- B4
-  ^                  ^
-  committed       latest
-
-  B1 commits when a three-chain B2-&gt;B3-&gt;B4 extends from it
-  with consecutive view numbers.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Pipelined HotStuff:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Block B1 proposed in view 1</span></span>
+<span class="giallo-l"><span>Block B2 proposed in view 2 (B2.QC certifies B1 -&gt; B1 is prepared)</span></span>
+<span class="giallo-l"><span>Block B3 proposed in view 3 (B3.QC certifies B2 -&gt; B1 is pre-committed)</span></span>
+<span class="giallo-l"><span>Block B4 proposed in view 4 (B4.QC certifies B3 -&gt; B1 is COMMITTED)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>&quot;Three-chain commit rule&quot;:</span></span>
+<span class="giallo-l"><span>  B1 &lt;- B2 &lt;- B3 &lt;- B4</span></span>
+<span class="giallo-l"><span>  ^                  ^</span></span>
+<span class="giallo-l"><span>  committed       latest</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  B1 commits when a three-chain B2-&gt;B3-&gt;B4 extends from it</span></span>
+<span class="giallo-l"><span>  with consecutive view numbers.</span></span></code></pre>
 <p><strong>View change in HotStuff</strong> is trivially handled: replicas simply send their highest QC to the new leader. No complex state reconciliation. This is the major advantage over PBFT.</p>
 <p><strong>LibraBFT / DiemBFT</strong>: Facebook's (Meta's) Libra/Diem blockchain used a variant of pipelined HotStuff. DiemBFT v4 added further optimizations including two-chain commit rules and improved liveness mechanisms.</p>
 <h3 id="4-3-tendermint-cometbft">4.3 Tendermint / CometBFT</h3>
 <p>Published by Buchman, Kwon, and Milosevic ("The latest gossip on BFT consensus", arXiv, 2018). CometBFT is the actively maintained successor to Tendermint Core.</p>
 <p><strong>Core mechanism</strong>: Round-based BFT consensus with propose/prevote/precommit phases.</p>
-<pre><code>Tendermint Round Structure:
-
-  Propose -&gt; Prevote -&gt; Precommit -&gt; [Commit or next round]
-
-  Proposer selection: deterministic round-robin (weighted by stake)
-
-  If &gt;2/3 precommit for a block: COMMIT (deterministic finality)
-  If timeout expires: move to next round with new proposer
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Tendermint Round Structure:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Propose -&gt; Prevote -&gt; Precommit -&gt; [Commit or next round]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Proposer selection: deterministic round-robin (weighted by stake)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  If &gt;2/3 precommit for a block: COMMIT (deterministic finality)</span></span>
+<span class="giallo-l"><span>  If timeout expires: move to next round with new proposer</span></span></code></pre>
 <p><strong>Key properties</strong>:</p>
 <ul>
 <li><strong>Deterministic finality</strong>: Once committed, a block is final. No forks.</li>
@@ -541,51 +549,48 @@ Block B4 proposed in view 4 (B4.QC certifies B3 -&gt; B1 is COMMITTED)
 <li><strong>Availability</strong>: Tolerates <code>f</code> failures with <code>2f+1</code> replicas.</li>
 </ul>
 <p><strong>Fast path</strong> (no conflicts):</p>
-<pre><code>Any Replica (as command leader)     Other Replicas
-      |                                  |
-      |---PreAccept(cmd, seq, deps)-----&gt;|
-      |&lt;--PreAcceptOK(cmd, seq, deps)----|
-      |                                  |
-      (if all replies agree on seq, deps)
-      |---Commit(cmd, seq, deps)--------&gt;|
-
-      1 round trip. Requires fast quorum:
-      floor(N/2) + floor((floor(N/2)+1)/2)
-      For N=5: fast quorum = 4 (of 5)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Any Replica (as command leader)     Other Replicas</span></span>
+<span class="giallo-l"><span>      |                                  |</span></span>
+<span class="giallo-l"><span>      |---PreAccept(cmd, seq, deps)-----&gt;|</span></span>
+<span class="giallo-l"><span>      |&lt;--PreAcceptOK(cmd, seq, deps)----|</span></span>
+<span class="giallo-l"><span>      |                                  |</span></span>
+<span class="giallo-l"><span>      (if all replies agree on seq, deps)</span></span>
+<span class="giallo-l"><span>      |---Commit(cmd, seq, deps)--------&gt;|</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>      1 round trip. Requires fast quorum:</span></span>
+<span class="giallo-l"><span>      floor(N/2) + floor((floor(N/2)+1)/2)</span></span>
+<span class="giallo-l"><span>      For N=5: fast quorum = 4 (of 5)</span></span></code></pre>
 <p><strong>Slow path</strong> (conflicts detected -- dependencies or sequence numbers disagree):</p>
-<pre><code>Command Leader              Other Replicas
-      |                          |
-      |---PreAccept(cmd)--------&gt;|
-      |&lt;--PreAcceptOK (disagree)-|
-      |                          |
-      (conflict detected)        |
-      |---Accept(cmd, merged)---&gt;|  Classic Paxos Phase 2
-      |&lt;--AcceptOK---------------|
-      |---Commit(cmd)-----------&gt;|
-
-      2 round trips.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Command Leader              Other Replicas</span></span>
+<span class="giallo-l"><span>      |                          |</span></span>
+<span class="giallo-l"><span>      |---PreAccept(cmd)--------&gt;|</span></span>
+<span class="giallo-l"><span>      |&lt;--PreAcceptOK (disagree)-|</span></span>
+<span class="giallo-l"><span>      |                          |</span></span>
+<span class="giallo-l"><span>      (conflict detected)        |</span></span>
+<span class="giallo-l"><span>      |---Accept(cmd, merged)---&gt;|  Classic Paxos Phase 2</span></span>
+<span class="giallo-l"><span>      |&lt;--AcceptOK---------------|</span></span>
+<span class="giallo-l"><span>      |---Commit(cmd)-----------&gt;|</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>      2 round trips.</span></span></code></pre>
 <p><strong>Dependency tracking</strong>: Each command carries:</p>
 <ul>
 <li>A <strong>sequence number</strong> (for ordering).</li>
 <li>A <strong>dependency set</strong> (commands that must execute before this one).</li>
 </ul>
 <p>At execution time, replicas build a dependency graph and execute commands in a topologically sorted order. Strongly connected components (cycles) are broken by sequence number.</p>
-<pre><code>Dependency Graph Example:
-
-  cmd_A (seq=1, deps={})
-    |
-    v
-  cmd_B (seq=2, deps={A})     cmd_C (seq=2, deps={A})
-    |                            |
-    +----------+-----------------+
-               |
-               v
-             cmd_D (seq=3, deps={B, C})
-
-Execution order: A -&gt; {B, C} (either order) -&gt; D
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Dependency Graph Example:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  cmd_A (seq=1, deps={})</span></span>
+<span class="giallo-l"><span>    |</span></span>
+<span class="giallo-l"><span>    v</span></span>
+<span class="giallo-l"><span>  cmd_B (seq=2, deps={A})     cmd_C (seq=2, deps={A})</span></span>
+<span class="giallo-l"><span>    |                            |</span></span>
+<span class="giallo-l"><span>    +----------+-----------------+</span></span>
+<span class="giallo-l"><span>               |</span></span>
+<span class="giallo-l"><span>               v</span></span>
+<span class="giallo-l"><span>             cmd_D (seq=3, deps={B, C})</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Execution order: A -&gt; {B, C} (either order) -&gt; D</span></span></code></pre>
 <p><strong>Limitations</strong>:</p>
 <ul>
 <li>Recovery is complex: must reconstruct dependency graphs.</li>
@@ -609,16 +614,15 @@ Execution order: A -&gt; {B, C} (either order) -&gt; D
 <li>Requirement: Q1 + Q2 &gt; n (they must intersect)</li>
 </ul>
 <p><strong>Practical implications</strong>:</p>
-<pre><code>Example with n=5 replicas:
-
-Classic:  Q1=3, Q2=3  (standard majority)
-Option A: Q1=4, Q2=2  (fast writes, slower recovery)
-Option B: Q1=5, Q2=1  (write to single node! recovery reads all)
-
-Option A is useful when:
-- Writes are frequent (Q2=2 means write to 2 of 5)
-- Leader failures are rare (Q1=4 is only used during election)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Example with n=5 replicas:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Classic:  Q1=3, Q2=3  (standard majority)</span></span>
+<span class="giallo-l"><span>Option A: Q1=4, Q2=2  (fast writes, slower recovery)</span></span>
+<span class="giallo-l"><span>Option B: Q1=5, Q2=1  (write to single node! recovery reads all)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Option A is useful when:</span></span>
+<span class="giallo-l"><span>- Writes are frequent (Q2=2 means write to 2 of 5)</span></span>
+<span class="giallo-l"><span>- Leader failures are rare (Q1=4 is only used during election)</span></span></code></pre>
 <p>This insight has been adopted in several systems. WPaxos (Ailijiang et al., 2017) uses flexible quorums for wide-area deployments, stealing objects to the nearest leader's zone.</p>
 <h3 id="5-3-crdts-as-an-alternative-to-consensus">5.3 CRDTs as an Alternative to Consensus</h3>
 <p>Conflict-free Replicated Data Types (Shapiro et al., SSS, 2011) provide <strong>strong eventual consistency</strong> without consensus:</p>
@@ -653,18 +657,17 @@ Option A is useful when:
 <li><strong>Synchronization</strong>: New leader syncs followers to its state.</li>
 <li><strong>Broadcast</strong>: Leader proposes, followers ACK, leader commits once a majority ACKs.</li>
 </ol>
-<pre><code>ZAB Broadcast Phase:
-
-Client -&gt; Leader: write(path, data)
-Leader -&gt; Followers: PROPOSAL(zxid, txn)
-Followers -&gt; Leader: ACK(zxid)
-Leader (on majority ACKs): COMMIT(zxid)
-Leader -&gt; Followers: COMMIT(zxid)
-
-zxid = (epoch &lt;&lt; 32) | counter
-  epoch increments on each new leader election
-  counter increments per transaction within an epoch
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>ZAB Broadcast Phase:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Client -&gt; Leader: write(path, data)</span></span>
+<span class="giallo-l"><span>Leader -&gt; Followers: PROPOSAL(zxid, txn)</span></span>
+<span class="giallo-l"><span>Followers -&gt; Leader: ACK(zxid)</span></span>
+<span class="giallo-l"><span>Leader (on majority ACKs): COMMIT(zxid)</span></span>
+<span class="giallo-l"><span>Leader -&gt; Followers: COMMIT(zxid)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>zxid = (epoch &lt;&lt; 32) | counter</span></span>
+<span class="giallo-l"><span>  epoch increments on each new leader election</span></span>
+<span class="giallo-l"><span>  counter increments per transaction within an epoch</span></span></code></pre>
 <p><strong>Differences from Paxos</strong>:</p>
 <ul>
 <li>ZAB guarantees <strong>FIFO ordering</strong> of all proposals from a leader; Paxos slots can be filled out of order.</li>
@@ -681,16 +684,15 @@ zxid = (epoch &lt;&lt; 32) | counter
 <h3 id="6-3-cockroachdb-multi-raft">6.3 CockroachDB (Multi-Raft)</h3>
 <p>CockroachDB uses a Multi-Raft architecture where each Range (~512MB of contiguous key-value data) is a separate Raft group.</p>
 <p><strong>Architecture</strong>:</p>
-<pre><code>CockroachDB Node 1         CockroachDB Node 2
-+---------------------+    +---------------------+
-| Range 1 (Leader)    |    | Range 1 (Follower)  |
-| Range 2 (Follower)  |    | Range 2 (Leader)    |
-| Range 3 (Follower)  |    | Range 3 (Follower)  |
-| ...                 |    | ...                 |
-| Raft Transport      |&lt;--&gt;| Raft Transport      |
-| (coalesced per-node)|    | (coalesced per-node)|
-+---------------------+    +---------------------+
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>CockroachDB Node 1         CockroachDB Node 2</span></span>
+<span class="giallo-l"><span>+---------------------+    +---------------------+</span></span>
+<span class="giallo-l"><span>| Range 1 (Leader)    |    | Range 1 (Follower)  |</span></span>
+<span class="giallo-l"><span>| Range 2 (Follower)  |    | Range 2 (Leader)    |</span></span>
+<span class="giallo-l"><span>| Range 3 (Follower)  |    | Range 3 (Follower)  |</span></span>
+<span class="giallo-l"><span>| ...                 |    | ...                 |</span></span>
+<span class="giallo-l"><span>| Raft Transport      |&lt;--&gt;| Raft Transport      |</span></span>
+<span class="giallo-l"><span>| (coalesced per-node)|    | (coalesced per-node)|</span></span>
+<span class="giallo-l"><span>+---------------------+    +---------------------+</span></span></code></pre>
 <p><strong>Key optimizations</strong>:</p>
 <ul>
 <li><strong>Coalesced heartbeats</strong>: Instead of per-Range heartbeats, a single heartbeat per node pair carries heartbeat information for all Ranges on that connection.</li>
@@ -708,35 +710,34 @@ zxid = (epoch &lt;&lt; 32) | counter
 <li>PD (Placement Driver) manages metadata, schedules Region split/merge/rebalance.</li>
 <li>Each TiKV node runs many Raft groups concurrently.</li>
 </ul>
-<pre><code data-lang="rust">// Simplified TiKV Raft processing loop (conceptual)
-fn on_raft_tick(&amp;mut self) {
-    for region in &amp;mut self.regions {
-        // Drive the Raft state machine forward
-        region.raft_group.tick();
-
-        // Process any ready state
-        if region.raft_group.has_ready() {
-            let ready = region.raft_group.ready();
-
-            // Persist entries and hard state to RocksDB (raft engine)
-            self.raft_engine.append(&amp;ready.entries);
-            self.raft_engine.put_hard_state(&amp;ready.hs);
-
-            // Send messages to other nodes
-            for msg in ready.messages {
-                self.transport.send(msg);
-            }
-
-            // Apply committed entries to state machine (kv engine)
-            for entry in ready.committed_entries {
-                self.apply_to_kv_engine(entry);
-            }
-
-            region.raft_group.advance(ready);
-        }
-    }
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Simplified TiKV Raft processing loop (conceptual)</span></span>
+<span class="giallo-l"><span class="z-keyword">fn</span><span class="z-entity z-name z-function"> on_raft_tick</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-storage z-modifier">mut</span><span class="z-variable"> self</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    for</span><span class="z-variable z-other"> region</span><span class="z-keyword"> in</span><span class="z-keyword z-operator"> &amp;</span><span class="z-storage z-modifier">mut</span><span class="z-variable"> self</span><span class="z-keyword z-operator">.</span><span>regions </span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">        //</span><span class="z-comment"> Drive the Raft state machine forward</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        region</span><span class="z-keyword z-operator">.</span><span>raft_group</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">tick</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">        //</span><span class="z-comment"> Process any ready state</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-variable z-other"> region</span><span class="z-keyword z-operator">.</span><span>raft_group</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">has_ready</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">            let</span><span class="z-variable z-other"> ready</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> region</span><span class="z-keyword z-operator">.</span><span>raft_group</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">ready</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">            //</span><span class="z-comment"> Persist entries and hard state to RocksDB (raft engine)</span></span>
+<span class="giallo-l"><span class="z-variable">            self</span><span class="z-keyword z-operator">.</span><span>raft_engine</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">append</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-variable z-other">ready</span><span class="z-keyword z-operator">.</span><span>entries</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable">            self</span><span class="z-keyword z-operator">.</span><span>raft_engine</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">put_hard_state</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-variable z-other">ready</span><span class="z-keyword z-operator">.</span><span>hs</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">            //</span><span class="z-comment"> Send messages to other nodes</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">            for</span><span class="z-variable z-other"> msg</span><span class="z-keyword"> in</span><span class="z-variable z-other"> ready</span><span class="z-keyword z-operator">.</span><span>messages </span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span class="z-variable">                self</span><span class="z-keyword z-operator">.</span><span>transport</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">send</span><span class="z-punctuation">(</span><span class="z-variable z-other">msg</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">            }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">            //</span><span class="z-comment"> Apply committed entries to state machine (kv engine)</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">            for</span><span class="z-variable z-other"> entry</span><span class="z-keyword"> in</span><span class="z-variable z-other"> ready</span><span class="z-keyword z-operator">.</span><span>committed_entries </span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span class="z-variable">                self</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">apply_to_kv_engine</span><span class="z-punctuation">(</span><span class="z-variable z-other">entry</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">            }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-variable z-other">            region</span><span class="z-keyword z-operator">.</span><span>raft_group</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">advance</span><span class="z-punctuation">(</span><span class="z-variable z-other">ready</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <p><strong>Key features</strong>:</p>
 <ul>
 <li><strong>Region split/merge</strong>: Regions auto-split when exceeding size threshold and merge when too small.</li>
@@ -749,22 +750,21 @@ fn on_raft_tick(&amp;mut self) {
 <h3 id="6-5-google-spanner-paxos-truetime">6.5 Google Spanner (Paxos + TrueTime)</h3>
 <p>Described in Corbett et al. (OSDI, 2012). Uses Paxos for replication and TrueTime for globally consistent timestamps.</p>
 <p><strong>Architecture</strong>:</p>
-<pre><code>Universe
-  |
-  +-- Zone 1 (datacenter)
-  |    +-- Spanserver 1
-  |    |    +-- Tablet 1 -&gt; Paxos Group -&gt; {Leader, Follower, Follower}
-  |    |    +-- Tablet 2 -&gt; Paxos Group -&gt; {Follower, Leader, Follower}
-  |    +-- Spanserver 2
-  |         +-- ...
-  +-- Zone 2 (datacenter)
-  |    +-- ...
-  +-- Zone 3 (datacenter)
-       +-- ...
-
-Each tablet is replicated across zones via Paxos.
-Leader handles writes; any replica can serve stale reads.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Universe</span></span>
+<span class="giallo-l"><span>  |</span></span>
+<span class="giallo-l"><span>  +-- Zone 1 (datacenter)</span></span>
+<span class="giallo-l"><span>  |    +-- Spanserver 1</span></span>
+<span class="giallo-l"><span>  |    |    +-- Tablet 1 -&gt; Paxos Group -&gt; {Leader, Follower, Follower}</span></span>
+<span class="giallo-l"><span>  |    |    +-- Tablet 2 -&gt; Paxos Group -&gt; {Follower, Leader, Follower}</span></span>
+<span class="giallo-l"><span>  |    +-- Spanserver 2</span></span>
+<span class="giallo-l"><span>  |         +-- ...</span></span>
+<span class="giallo-l"><span>  +-- Zone 2 (datacenter)</span></span>
+<span class="giallo-l"><span>  |    +-- ...</span></span>
+<span class="giallo-l"><span>  +-- Zone 3 (datacenter)</span></span>
+<span class="giallo-l"><span>       +-- ...</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Each tablet is replicated across zones via Paxos.</span></span>
+<span class="giallo-l"><span>Leader handles writes; any replica can serve stale reads.</span></span></code></pre>
 <p><strong>TrueTime integration</strong>:</p>
 <ul>
 <li>TrueTime API: <code>TT.now()</code> returns interval <code>[earliest, latest]</code> with bounded uncertainty (typically &lt;1ms in 99th percentile).</li>
@@ -772,31 +772,29 @@ Leader handles writes; any replica can serve stale reads.
 <li><strong>Commit wait</strong>: After assigning timestamp <code>s</code> to a transaction, the leader waits until <code>TT.after(s)</code> is true before releasing the commit. This ensures external consistency (linearizability of transactions).</li>
 </ul>
 <p><strong>Transaction protocol</strong>: Two-phase commit (2PC) across Paxos groups, with Paxos replication within each participant group. The 2PC coordinator is itself Paxos-replicated for fault tolerance.</p>
-<pre><code>Cross-shard Transaction:
-
-  Coordinator (Paxos Group A leader)
-       |
-       |--- Prepare --&gt; Participant (Paxos Group B leader)
-       |                      |
-       |                      |--&gt; Paxos replicate prepare
-       |                      |&lt;-- majority ACK
-       |                      |
-       |&lt;-- Prepared ---------|
-       |
-       |--&gt; Assign commit timestamp s
-       |--&gt; Wait until TT.after(s) (commit wait)
-       |
-       |--- Commit(s) --&gt; Participant B leader
-       |                      |
-       |                      |--&gt; Paxos replicate commit
-       |                      |&lt;-- majority ACK
-       |                      |
-       |&lt;-- Committed --------|
-       |
-       |--&gt; Paxos replicate commit locally
-       |--&gt; Respond to client
-</code></pre>
-<h3 id="6-6-kafka-kraft">6.6 Kafka KRaft</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Cross-shard Transaction:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Coordinator (Paxos Group A leader)</span></span>
+<span class="giallo-l"><span>       |</span></span>
+<span class="giallo-l"><span>       |--- Prepare --&gt; Participant (Paxos Group B leader)</span></span>
+<span class="giallo-l"><span>       |                      |</span></span>
+<span class="giallo-l"><span>       |                      |--&gt; Paxos replicate prepare</span></span>
+<span class="giallo-l"><span>       |                      |&lt;-- majority ACK</span></span>
+<span class="giallo-l"><span>       |                      |</span></span>
+<span class="giallo-l"><span>       |&lt;-- Prepared ---------|</span></span>
+<span class="giallo-l"><span>       |</span></span>
+<span class="giallo-l"><span>       |--&gt; Assign commit timestamp s</span></span>
+<span class="giallo-l"><span>       |--&gt; Wait until TT.after(s) (commit wait)</span></span>
+<span class="giallo-l"><span>       |</span></span>
+<span class="giallo-l"><span>       |--- Commit(s) --&gt; Participant B leader</span></span>
+<span class="giallo-l"><span>       |                      |</span></span>
+<span class="giallo-l"><span>       |                      |--&gt; Paxos replicate commit</span></span>
+<span class="giallo-l"><span>       |                      |&lt;-- majority ACK</span></span>
+<span class="giallo-l"><span>       |                      |</span></span>
+<span class="giallo-l"><span>       |&lt;-- Committed --------|</span></span>
+<span class="giallo-l"><span>       |</span></span>
+<span class="giallo-l"><span>       |--&gt; Paxos replicate commit locally</span></span>
+<span class="giallo-l"><span>       |--&gt; Respond to client</span></span></code></pre><h3 id="6-6-kafka-kraft">6.6 Kafka KRaft</h3>
 <p>KIP-500 introduced KRaft (Kafka Raft), replacing ZooKeeper for Kafka metadata management.</p>
 <p><strong>Key design decisions</strong>:</p>
 <ul>
@@ -826,98 +824,90 @@ Leader handles writes; any replica can serve stale reads.
 <li>Transaction processing uses OCC (Optimistic Concurrency Control) with MVCC.</li>
 <li>If any replica fails, the entire transaction system is reconfigured rather than relying on quorum masking.</li>
 </ul>
-<pre><code>Control Plane:
-  Coordinators (Paxos) -&gt; ClusterController -&gt; recruits:
-    - Sequencer (timestamp oracle)
-    - Proxies (transaction processing)
-    - Resolvers (conflict detection)
-    - LogServers (WAL)
-    - StorageServers (data)
-
-Data Plane:
-  Client -&gt; Proxy -&gt; Resolver -&gt; LogServers (f+1 replicas)
-                                     |
-                                     v
-                              StorageServers (async)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Control Plane:</span></span>
+<span class="giallo-l"><span>  Coordinators (Paxos) -&gt; ClusterController -&gt; recruits:</span></span>
+<span class="giallo-l"><span>    - Sequencer (timestamp oracle)</span></span>
+<span class="giallo-l"><span>    - Proxies (transaction processing)</span></span>
+<span class="giallo-l"><span>    - Resolvers (conflict detection)</span></span>
+<span class="giallo-l"><span>    - LogServers (WAL)</span></span>
+<span class="giallo-l"><span>    - StorageServers (data)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Data Plane:</span></span>
+<span class="giallo-l"><span>  Client -&gt; Proxy -&gt; Resolver -&gt; LogServers (f+1 replicas)</span></span>
+<span class="giallo-l"><span>                                     |</span></span>
+<span class="giallo-l"><span>                                     v</span></span>
+<span class="giallo-l"><span>                              StorageServers (async)</span></span></code></pre>
 <p><strong>Key insight</strong>: By eschewing quorum replication for data and instead detecting failures quickly and reconfiguring, FoundationDB needs only <code>f+1</code> replicas (not <code>2f+1</code>) to tolerate <code>f</code> failures. The trade-off is brief unavailability during reconfiguration (typically &lt;5 seconds).</p>
 <hr />
 <h2 id="7-performance-considerations">7. Performance Considerations</h2>
 <h3 id="7-1-batching">7.1 Batching</h3>
 <p>Batching amortizes the cost of consensus over multiple client requests.</p>
-<pre><code>Without batching:
-  Request 1 -&gt; Propose -&gt; Accept -&gt; Commit (1 RTT per request)
-  Request 2 -&gt; Propose -&gt; Accept -&gt; Commit
-  Request 3 -&gt; Propose -&gt; Accept -&gt; Commit
-
-With batching:
-  {Request 1, 2, 3} -&gt; Propose -&gt; Accept -&gt; Commit (1 RTT for 3 requests)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Without batching:</span></span>
+<span class="giallo-l"><span>  Request 1 -&gt; Propose -&gt; Accept -&gt; Commit (1 RTT per request)</span></span>
+<span class="giallo-l"><span>  Request 2 -&gt; Propose -&gt; Accept -&gt; Commit</span></span>
+<span class="giallo-l"><span>  Request 3 -&gt; Propose -&gt; Accept -&gt; Commit</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>With batching:</span></span>
+<span class="giallo-l"><span>  {Request 1, 2, 3} -&gt; Propose -&gt; Accept -&gt; Commit (1 RTT for 3 requests)</span></span></code></pre>
 <p>Santos and Schiper ("Optimizing Paxos with Batching and Pipelining", 2012) showed batching can improve throughput by 10x+ under high load. The trade-off is increased latency at low load (must wait for batch to fill or timeout).</p>
 <p><strong>Implementation strategy</strong>: Use an adaptive batch size -- batch aggressively under high load, immediately dispatch under low load:</p>
-<pre><code data-lang="rust">// Adaptive batching pseudocode
-struct BatchAccumulator {
-    entries: Vec&lt;LogEntry&gt;,
-    max_batch_size: usize,
-    max_wait: Duration,
-    last_flush: Instant,
-}
-
-impl BatchAccumulator {
-    fn maybe_flush(&amp;mut self) -&gt; Option&lt;Vec&lt;LogEntry&gt;&gt; {
-        let should_flush = self.entries.len() &gt;= self.max_batch_size
-            || self.last_flush.elapsed() &gt;= self.max_wait
-            || (self.entries.len() &gt; 0 &amp;&amp; self.no_pending_requests());
-
-        if should_flush &amp;&amp; !self.entries.is_empty() {
-            self.last_flush = Instant::now();
-            Some(std::mem::take(&amp;mut self.entries))
-        } else {
-            None
-        }
-    }
-}
-</code></pre>
-<h3 id="7-2-pipelining">7.2 Pipelining</h3>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Adaptive batching pseudocode</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span class="z-entity z-name z-type"> BatchAccumulator</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    entries</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> Vec</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">LogEntry</span><span class="z-punctuation">&gt;</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    max_batch_size</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    max_wait</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> Duration</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    last_flush</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> Instant</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword">impl</span><span class="z-entity z-name z-type"> BatchAccumulator</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword">    fn</span><span class="z-entity z-name z-function"> maybe_flush</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-storage z-modifier">mut</span><span class="z-variable"> self</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> Option</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">Vec</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">LogEntry</span><span class="z-punctuation">&gt;</span><span class="z-punctuation">&gt;</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">        let</span><span class="z-variable z-other"> should_flush</span><span class="z-keyword z-operator"> =</span><span class="z-variable"> self</span><span class="z-keyword z-operator">.</span><span>entries</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">len</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> &gt;=</span><span class="z-variable"> self</span><span class="z-keyword z-operator">.</span><span>max_batch_size</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator z-logical">            |</span><span class="z-keyword z-operator z-logical">|</span><span class="z-variable"> self</span><span class="z-keyword z-operator">.</span><span>last_flush</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">elapsed</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> &gt;=</span><span class="z-variable"> self</span><span class="z-keyword z-operator">.</span><span>max_wait</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator z-logical">            |</span><span class="z-keyword z-operator z-logical">|</span><span class="z-punctuation"> (</span><span class="z-variable">self</span><span class="z-keyword z-operator">.</span><span>entries</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">len</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation"> &gt;</span><span class="z-constant"> 0</span><span class="z-keyword z-operator z-logical"> &amp;&amp;</span><span class="z-variable"> self</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">no_pending_requests</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-variable z-other"> should_flush</span><span class="z-keyword z-operator z-logical"> &amp;&amp;</span><span class="z-keyword z-operator z-logical"> !</span><span class="z-variable">self</span><span class="z-keyword z-operator">.</span><span>entries</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">is_empty</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable">            self</span><span class="z-keyword z-operator">.</span><span>last_flush </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-type"> Instant</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">now</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">            Some</span><span class="z-punctuation">(</span><span class="z-entity z-name">std</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name">mem</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">take</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-storage z-modifier">mut</span><span class="z-variable"> self</span><span class="z-keyword z-operator">.</span><span>entries</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span><span class="z-keyword z-control"> else</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">            None</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre><h3 id="7-2-pipelining">7.2 Pipelining</h3>
 <p>Pipelining allows the leader to send multiple AppendEntries (or Accept) messages without waiting for the previous one to be acknowledged.</p>
-<pre><code>Without pipelining (sequential):
-  Leader: Send(entry 1) -&gt; Wait ACK -&gt; Send(entry 2) -&gt; Wait ACK -&gt; ...
-  Throughput limited by: 1 / RTT
-
-With pipelining (window = 3):
-  Leader: Send(entry 1) -&gt; Send(entry 2) -&gt; Send(entry 3) -&gt; Wait ACK(1)...
-  Throughput limited by: window / RTT
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Without pipelining (sequential):</span></span>
+<span class="giallo-l"><span>  Leader: Send(entry 1) -&gt; Wait ACK -&gt; Send(entry 2) -&gt; Wait ACK -&gt; ...</span></span>
+<span class="giallo-l"><span>  Throughput limited by: 1 / RTT</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>With pipelining (window = 3):</span></span>
+<span class="giallo-l"><span>  Leader: Send(entry 1) -&gt; Send(entry 2) -&gt; Send(entry 3) -&gt; Wait ACK(1)...</span></span>
+<span class="giallo-l"><span>  Throughput limited by: window / RTT</span></span></code></pre>
 <p>CockroachDB uses transaction pipelining to overlap Raft consensus with transaction processing: write intents are replicated via Raft in parallel, and the transaction only waits for all replications to complete at commit time.</p>
 <h3 id="7-3-parallel-commits">7.3 Parallel Commits</h3>
 <p>CockroachDB's parallel commit protocol eliminates a round trip from the transaction commit path:</p>
-<pre><code>Traditional 2PC + Raft:
-  Write intents (Raft replicated) -&gt; Commit record (Raft replicated) -&gt; Resolve intents
-  3 synchronous Raft rounds
-
-Parallel Commits:
-  Write intents + Commit record (all Raft-replicated in parallel)
-  -&gt; Resolve intents (async)
-  1 synchronous Raft round (all in parallel)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Traditional 2PC + Raft:</span></span>
+<span class="giallo-l"><span>  Write intents (Raft replicated) -&gt; Commit record (Raft replicated) -&gt; Resolve intents</span></span>
+<span class="giallo-l"><span>  3 synchronous Raft rounds</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Parallel Commits:</span></span>
+<span class="giallo-l"><span>  Write intents + Commit record (all Raft-replicated in parallel)</span></span>
+<span class="giallo-l"><span>  -&gt; Resolve intents (async)</span></span>
+<span class="giallo-l"><span>  1 synchronous Raft round (all in parallel)</span></span></code></pre>
 <p>The commit record is written as a STAGING record that references all in-flight writes. The transaction is implicitly committed once all referenced writes are durably replicated.</p>
 <h3 id="7-4-prevote">7.4 PreVote</h3>
 <p>The PreVote extension (Ongaro's PhD thesis) prevents a partitioned node from disrupting the cluster upon reconnection.</p>
 <p><strong>Problem</strong>: A partitioned follower repeatedly increments its term. When it rejoins, its high term forces the current leader to step down, causing an unnecessary election.</p>
 <p><strong>Solution</strong>: Before starting a real election, a candidate sends a PreVote request. Other nodes respond based on whether they would vote for the candidate, but do NOT update their own term. Only if the PreVote succeeds does the candidate increment its term and run a real election.</p>
-<pre><code>Without PreVote:
-  Partitioned node term: 5 -&gt; 6 -&gt; 7 -&gt; 8 -&gt; 9 ...
-  Rejoins cluster (leader at term 5):
-  -&gt; Leader sees term 9, steps down
-  -&gt; Unnecessary election disruption
-
-With PreVote:
-  Partitioned node term stays at 5 (PreVote fails, term not incremented)
-  Rejoins cluster:
-  -&gt; PreVote fails (leader is healthy, nodes reject)
-  -&gt; No disruption
-</code></pre>
-<h3 id="7-5-witness-replicas">7.5 Witness Replicas</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Without PreVote:</span></span>
+<span class="giallo-l"><span>  Partitioned node term: 5 -&gt; 6 -&gt; 7 -&gt; 8 -&gt; 9 ...</span></span>
+<span class="giallo-l"><span>  Rejoins cluster (leader at term 5):</span></span>
+<span class="giallo-l"><span>  -&gt; Leader sees term 9, steps down</span></span>
+<span class="giallo-l"><span>  -&gt; Unnecessary election disruption</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>With PreVote:</span></span>
+<span class="giallo-l"><span>  Partitioned node term stays at 5 (PreVote fails, term not incremented)</span></span>
+<span class="giallo-l"><span>  Rejoins cluster:</span></span>
+<span class="giallo-l"><span>  -&gt; PreVote fails (leader is healthy, nodes reject)</span></span>
+<span class="giallo-l"><span>  -&gt; No disruption</span></span></code></pre><h3 id="7-5-witness-replicas">7.5 Witness Replicas</h3>
 <p>A witness is a lightweight replica that participates in quorum voting but does not store the full state machine. It only stores the Raft log (or just metadata about committed entries).</p>
 <p><strong>Benefits</strong>:</p>
 <ul>
@@ -942,29 +932,28 @@ With PreVote:
 </tbody></table>
 <h3 id="7-7-multi-raft-optimizations-summary">7.7 Multi-Raft Optimizations Summary</h3>
 <p>For systems running thousands of Raft groups per node (CockroachDB, TiKV):</p>
-<pre><code>Optimization             Impact
--------------------------------------------------------------------
-Coalesced heartbeats     Reduce heartbeat traffic from O(groups)
-                         to O(nodes) per node pair
-
-Batched disk writes      Single fsync for multiple Raft groups&#39;
-                         log entries via WriteBatch
-
-Shared transport         Multiplex Raft messages for all groups
-                         over a single TCP connection per node pair
-
-Leader balancing         Distribute Raft leadership across nodes
-                         to spread write load
-
-Raft log engine          Dedicated storage engine for Raft logs
-                         (TiKV moved from RocksDB to custom engine)
-
-Region merge             Combine small Raft groups to reduce per-
-                         group overhead
-
-Async apply              Decouple Raft commit from state machine
-                         apply for higher throughput
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Optimization             Impact</span></span>
+<span class="giallo-l"><span>-------------------------------------------------------------------</span></span>
+<span class="giallo-l"><span>Coalesced heartbeats     Reduce heartbeat traffic from O(groups)</span></span>
+<span class="giallo-l"><span>                         to O(nodes) per node pair</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Batched disk writes      Single fsync for multiple Raft groups&#39;</span></span>
+<span class="giallo-l"><span>                         log entries via WriteBatch</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Shared transport         Multiplex Raft messages for all groups</span></span>
+<span class="giallo-l"><span>                         over a single TCP connection per node pair</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Leader balancing         Distribute Raft leadership across nodes</span></span>
+<span class="giallo-l"><span>                         to spread write load</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Raft log engine          Dedicated storage engine for Raft logs</span></span>
+<span class="giallo-l"><span>                         (TiKV moved from RocksDB to custom engine)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Region merge             Combine small Raft groups to reduce per-</span></span>
+<span class="giallo-l"><span>                         group overhead</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Async apply              Decouple Raft commit from state machine</span></span>
+<span class="giallo-l"><span>                         apply for higher throughput</span></span></code></pre>
 <hr />
 <h2 id="8-key-papers">8. Key Papers</h2>
 <h3 id="foundations">Foundations</h3>
@@ -1032,54 +1021,51 @@ Async apply              Decouple Raft commit from state machine
 </ol>
 <hr />
 <h2 id="appendix-a-fault-tolerance-requirements">Appendix A: Fault Tolerance Requirements</h2>
-<pre><code>Protocol         Model                Replicas   Tolerated   Commit
-                                      Needed     Failures    Latency
----------------------------------------------------------------------------
-Paxos            Crash, Partial Sync  2f+1       f crash     2 RTT (1 RTT steady)
-Multi-Paxos      Crash, Partial Sync  2f+1       f crash     1 RTT (steady state)
-Raft             Crash, Partial Sync  2f+1       f crash     1 RTT (steady state)
-VR               Crash, Partial Sync  2f+1       f crash     1 RTT (steady state)
-ZAB              Crash, Partial Sync  2f+1       f crash     1 RTT (steady state)
-EPaxos           Crash, Partial Sync  2f+1       f crash     1 RTT (fast path)
-Flexible Paxos   Crash, Partial Sync  varies     depends     1 RTT (steady state)
-PBFT             Byzantine, P.Sync    3f+1       f Byzantine 2 RTT
-HotStuff         Byzantine, P.Sync    3f+1       f Byzantine 3 RTT (basic)
-Tendermint       Byzantine, P.Sync    3f+1       f Byzantine 2 RTT
-FoundationDB     Crash (eager detect) f+1        f crash     1 RTT + reconfig risk
-</code></pre>
-<h2 id="appendix-b-decision-tree">Appendix B: Decision Tree</h2>
-<pre><code>Start
-  |
-  |-- Need Byzantine fault tolerance?
-  |     |
-  |     +-- Yes: How many nodes?
-  |     |     |
-  |     |     +-- &lt; 20: PBFT or Tendermint
-  |     |     +-- &gt; 20: HotStuff (linear complexity)
-  |     |
-  |     +-- No: Continue below
-  |
-  |-- Single datacenter or geo-distributed?
-  |     |
-  |     +-- Single DC:
-  |     |     |
-  |     |     +-- Need simplicity? -&gt; Raft
-  |     |     +-- Need max throughput? -&gt; Multi-Paxos with batching
-  |     |     +-- Metadata only? -&gt; etcd (Raft) or ZooKeeper (ZAB)
-  |     |
-  |     +-- Geo-distributed:
-  |           |
-  |           +-- Low conflict workload? -&gt; EPaxos (any-replica leader)
-  |           +-- High conflict? -&gt; Multi-Paxos/Raft with leader in hot region
-  |           +-- Need global consistency? -&gt; Spanner-style (Paxos + TrueTime)
-  |           +-- Flexible quorum needs? -&gt; WPaxos / Flexible Paxos
-  |
-  |-- Scale (data volume)?
-        |
-        +-- Small (metadata): Single Raft/Paxos group
-        +-- Large (data): Multi-Raft (CockroachDB/TiKV pattern)
-        +-- Very large (unbounded): FoundationDB (f+1 + reconfiguration)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Protocol         Model                Replicas   Tolerated   Commit</span></span>
+<span class="giallo-l"><span>                                      Needed     Failures    Latency</span></span>
+<span class="giallo-l"><span>---------------------------------------------------------------------------</span></span>
+<span class="giallo-l"><span>Paxos            Crash, Partial Sync  2f+1       f crash     2 RTT (1 RTT steady)</span></span>
+<span class="giallo-l"><span>Multi-Paxos      Crash, Partial Sync  2f+1       f crash     1 RTT (steady state)</span></span>
+<span class="giallo-l"><span>Raft             Crash, Partial Sync  2f+1       f crash     1 RTT (steady state)</span></span>
+<span class="giallo-l"><span>VR               Crash, Partial Sync  2f+1       f crash     1 RTT (steady state)</span></span>
+<span class="giallo-l"><span>ZAB              Crash, Partial Sync  2f+1       f crash     1 RTT (steady state)</span></span>
+<span class="giallo-l"><span>EPaxos           Crash, Partial Sync  2f+1       f crash     1 RTT (fast path)</span></span>
+<span class="giallo-l"><span>Flexible Paxos   Crash, Partial Sync  varies     depends     1 RTT (steady state)</span></span>
+<span class="giallo-l"><span>PBFT             Byzantine, P.Sync    3f+1       f Byzantine 2 RTT</span></span>
+<span class="giallo-l"><span>HotStuff         Byzantine, P.Sync    3f+1       f Byzantine 3 RTT (basic)</span></span>
+<span class="giallo-l"><span>Tendermint       Byzantine, P.Sync    3f+1       f Byzantine 2 RTT</span></span>
+<span class="giallo-l"><span>FoundationDB     Crash (eager detect) f+1        f crash     1 RTT + reconfig risk</span></span></code></pre><h2 id="appendix-b-decision-tree">Appendix B: Decision Tree</h2>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Start</span></span>
+<span class="giallo-l"><span>  |</span></span>
+<span class="giallo-l"><span>  |-- Need Byzantine fault tolerance?</span></span>
+<span class="giallo-l"><span>  |     |</span></span>
+<span class="giallo-l"><span>  |     +-- Yes: How many nodes?</span></span>
+<span class="giallo-l"><span>  |     |     |</span></span>
+<span class="giallo-l"><span>  |     |     +-- &lt; 20: PBFT or Tendermint</span></span>
+<span class="giallo-l"><span>  |     |     +-- &gt; 20: HotStuff (linear complexity)</span></span>
+<span class="giallo-l"><span>  |     |</span></span>
+<span class="giallo-l"><span>  |     +-- No: Continue below</span></span>
+<span class="giallo-l"><span>  |</span></span>
+<span class="giallo-l"><span>  |-- Single datacenter or geo-distributed?</span></span>
+<span class="giallo-l"><span>  |     |</span></span>
+<span class="giallo-l"><span>  |     +-- Single DC:</span></span>
+<span class="giallo-l"><span>  |     |     |</span></span>
+<span class="giallo-l"><span>  |     |     +-- Need simplicity? -&gt; Raft</span></span>
+<span class="giallo-l"><span>  |     |     +-- Need max throughput? -&gt; Multi-Paxos with batching</span></span>
+<span class="giallo-l"><span>  |     |     +-- Metadata only? -&gt; etcd (Raft) or ZooKeeper (ZAB)</span></span>
+<span class="giallo-l"><span>  |     |</span></span>
+<span class="giallo-l"><span>  |     +-- Geo-distributed:</span></span>
+<span class="giallo-l"><span>  |           |</span></span>
+<span class="giallo-l"><span>  |           +-- Low conflict workload? -&gt; EPaxos (any-replica leader)</span></span>
+<span class="giallo-l"><span>  |           +-- High conflict? -&gt; Multi-Paxos/Raft with leader in hot region</span></span>
+<span class="giallo-l"><span>  |           +-- Need global consistency? -&gt; Spanner-style (Paxos + TrueTime)</span></span>
+<span class="giallo-l"><span>  |           +-- Flexible quorum needs? -&gt; WPaxos / Flexible Paxos</span></span>
+<span class="giallo-l"><span>  |</span></span>
+<span class="giallo-l"><span>  |-- Scale (data volume)?</span></span>
+<span class="giallo-l"><span>        |</span></span>
+<span class="giallo-l"><span>        +-- Small (metadata): Single Raft/Paxos group</span></span>
+<span class="giallo-l"><span>        +-- Large (data): Multi-Raft (CockroachDB/TiKV pattern)</span></span>
+<span class="giallo-l"><span>        +-- Very large (unbounded): FoundationDB (f+1 + reconfiguration)</span></span></code></pre>
 <hr />
 <h2 id="see-also">See Also</h2>
 <ul>

@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" /> 
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+    
 
 
 
@@ -75,15 +92,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -108,224 +131,215 @@
 <hr />
 <p>It was a <code>Reverse-Engineering</code> Challenge.<br />
 The challenge Description was :</p>
-<pre><code data-lang="c">There&#39;s a gremlin in my machinery. I guess it&#39;ll stop working soon. Can you help me?
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span>There</span><span class="z-punctuation">&#39;</span><span class="z-string">s a gremlin in my machinery. I guess it</span><span class="z-punctuation">&#39;</span><span>ll stop working soon. Can you help me</span><span class="z-keyword z-operator">?</span></span></code></pre>
 <p>along with a file <code>cpg.bin</code> to download<br />
 A Hint was also provided\</p>
-<pre><code data-lang="rust">u32 table[10][2] = { {0xff, 1}, {0xfe, 2}, {0xfd, 3},
-{0xfc, 4}, {0xfb, 5}, {0x00, 5}, {0x01, 4}, {0x02, 3}, {0x03, 2}, {0x04, 1} };
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-entity z-name z-type">u32</span><span class="z-variable z-other"> table</span><span class="z-punctuation">[</span><span class="z-constant">10</span><span class="z-punctuation">]</span><span class="z-punctuation">[</span><span class="z-constant">2</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> =</span><span class="z-punctuation"> {</span><span class="z-punctuation"> {</span><span class="z-constant">0xff</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">}</span><span class="z-punctuation">,</span><span class="z-punctuation"> {</span><span class="z-constant">0xfe</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">}</span><span class="z-punctuation">,</span><span class="z-punctuation"> {</span><span class="z-constant">0xfd</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">}</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">{</span><span class="z-constant">0xfc</span><span class="z-punctuation">,</span><span class="z-constant"> 4</span><span class="z-punctuation">}</span><span class="z-punctuation">,</span><span class="z-punctuation"> {</span><span class="z-constant">0xfb</span><span class="z-punctuation">,</span><span class="z-constant"> 5</span><span class="z-punctuation">}</span><span class="z-punctuation">,</span><span class="z-punctuation"> {</span><span class="z-constant">0x00</span><span class="z-punctuation">,</span><span class="z-constant"> 5</span><span class="z-punctuation">}</span><span class="z-punctuation">,</span><span class="z-punctuation"> {</span><span class="z-constant">0x01</span><span class="z-punctuation">,</span><span class="z-constant"> 4</span><span class="z-punctuation">}</span><span class="z-punctuation">,</span><span class="z-punctuation"> {</span><span class="z-constant">0x02</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">}</span><span class="z-punctuation">,</span><span class="z-punctuation"> {</span><span class="z-constant">0x03</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">}</span><span class="z-punctuation">,</span><span class="z-punctuation"> {</span><span class="z-constant">0x04</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">}</span><span class="z-punctuation"> }</span><span class="z-punctuation">;</span></span></code></pre>
 <p>I downloaded the <code>cpg.bin</code> file.</p>
-<pre><code data-lang="rust">gremlin &gt;&gt; head cpg.bin
-H:2,blockSize:1000,created:17168fe53f5,format:1,fletcher:a504a51d
-H:2,blockSize:1000,created:17168fe53f5,format:1,fletcher:a504a51d
-chunk:1,block:2,len:1,map:2,max:380,next:3,pages:3,root:400000c388,time:3ee,version:1
-�RSTU&#39;��LANGUAGE��C��6)��FULL_NAME��&lt;global&gt;�NAME��&lt;global&gt;
-��@&amp;��NAME��&quot;/home/jai/Documents/ctf/bbctf/re.c���    �
-�y)��FULL_NAME��+/home/jai/Documents/ctf/bbctf/re.c:&lt;global&gt;�NAME��&lt;global&gt;�
-��  �   (�  k�  �
-�
-�
-�
-�   �
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-variable z-other">gremlin</span><span class="z-keyword z-operator z-logical"> &gt;&gt;</span><span class="z-variable z-other"> head</span><span class="z-variable z-other"> cpg</span><span class="z-keyword z-operator">.</span><span>bin</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">H</span><span class="z-keyword z-operator">:</span><span class="z-constant">2</span><span class="z-punctuation">,</span><span>blockSize</span><span class="z-keyword z-operator">:</span><span class="z-constant">1000</span><span class="z-punctuation">,</span><span class="z-variable z-other">created</span><span class="z-keyword z-operator">:</span><span class="z-variable z-other">17168fe53f5</span><span class="z-punctuation">,</span><span class="z-variable z-other">format</span><span class="z-keyword z-operator">:</span><span class="z-constant">1</span><span class="z-punctuation">,</span><span class="z-variable z-other">fletcher</span><span class="z-keyword z-operator">:</span><span class="z-variable z-other">a504a51d</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">H</span><span class="z-keyword z-operator">:</span><span class="z-constant">2</span><span class="z-punctuation">,</span><span>blockSize</span><span class="z-keyword z-operator">:</span><span class="z-constant">1000</span><span class="z-punctuation">,</span><span class="z-variable z-other">created</span><span class="z-keyword z-operator">:</span><span class="z-variable z-other">17168fe53f5</span><span class="z-punctuation">,</span><span class="z-variable z-other">format</span><span class="z-keyword z-operator">:</span><span class="z-constant">1</span><span class="z-punctuation">,</span><span class="z-variable z-other">fletcher</span><span class="z-keyword z-operator">:</span><span class="z-variable z-other">a504a51d</span></span>
+<span class="giallo-l"><span class="z-variable z-other">chunk</span><span class="z-keyword z-operator">:</span><span class="z-constant">1</span><span class="z-punctuation">,</span><span class="z-variable z-other">block</span><span class="z-keyword z-operator">:</span><span class="z-constant">2</span><span class="z-punctuation">,</span><span class="z-variable z-other">len</span><span class="z-keyword z-operator">:</span><span class="z-constant">1</span><span class="z-punctuation">,</span><span class="z-variable z-other">map</span><span class="z-keyword z-operator">:</span><span class="z-constant">2</span><span class="z-punctuation">,</span><span class="z-variable z-other">max</span><span class="z-keyword z-operator">:</span><span class="z-constant">380</span><span class="z-punctuation">,</span><span class="z-variable z-other">next</span><span class="z-keyword z-operator">:</span><span class="z-constant">3</span><span class="z-punctuation">,</span><span class="z-variable z-other">pages</span><span class="z-keyword z-operator">:</span><span class="z-constant">3</span><span class="z-punctuation">,</span><span class="z-variable z-other">root</span><span class="z-keyword z-operator">:</span><span class="z-variable z-other">400000c388</span><span class="z-punctuation">,</span><span class="z-variable z-other">time</span><span class="z-keyword z-operator">:</span><span class="z-variable z-other">3ee</span><span class="z-punctuation">,</span><span class="z-variable z-other">version</span><span class="z-keyword z-operator">:</span><span class="z-constant">1</span></span>
+<span class="giallo-l"><span>�</span><span class="z-constant">RSTU</span><span class="z-punctuation">&#39;</span><span class="z-string">��LANGUAGE��C��6)��FULL_NAME��&lt;global&gt;�NAME��&lt;global&gt;</span></span>
+<span class="giallo-l"><span class="z-string">��@&amp;��NAME��&quot;/home/jai/Documents/ctf/bbctf/re.c���    �</span></span>
+<span class="giallo-l"><span class="z-string">�y)��FULL_NAME��+/home/jai/Documents/ctf/bbctf/re.c:&lt;global&gt;�NAME��&lt;global&gt;�</span></span>
+<span class="giallo-l"><span class="z-string">��  �   (�  k�  �</span></span>
+<span class="giallo-l"><span class="z-string">�</span></span>
+<span class="giallo-l"><span class="z-string">�</span></span>
+<span class="giallo-l"><span class="z-string">�</span></span>
+<span class="giallo-l"><span class="z-string">�   �</span></span></code></pre>
 <p>On running <code>strings</code> command on it, the output contained many strings like <code>LINE_NUMBER</code> <code>ORDER</code> <code>PARSER_TYPE_NAME</code> <code>CODE</code> and also contained some code segments</p>
-<pre><code data-lang="c">gremlin &gt;&gt; strings cpg.bin
-....
-....
-....
-LINE_NUMBER
-ORDER
-PARSER_TYPE_NAME
-ForStatement
-CODE
- for (u8 i = 1; i &lt;= key[1]; i++)
-ARGUMENT_INDEX
-COLUMN_NUMBER
-LINE_NUMBER
-CODE
-TYPE_FULL_NAME
-....
-....
-....
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span>gremlin </span><span class="z-keyword z-operator">&gt;&gt;</span><span> strings cpg.bin</span></span>
+<span class="giallo-l"><span>....</span></span>
+<span class="giallo-l"><span>....</span></span>
+<span class="giallo-l"><span>....</span></span>
+<span class="giallo-l"><span>LINE_NUMBER</span></span>
+<span class="giallo-l"><span>ORDER</span></span>
+<span class="giallo-l"><span>PARSER_TYPE_NAME</span></span>
+<span class="giallo-l"><span>ForStatement</span></span>
+<span class="giallo-l"><span>CODE</span></span>
+<span class="giallo-l"><span class="z-keyword z-control"> for</span><span class="z-punctuation"> (</span><span>u8 i </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 1</span><span class="z-punctuation">;</span><span> i </span><span class="z-keyword z-operator">&lt;=</span><span class="z-variable"> key</span><span class="z-punctuation">[</span><span class="z-constant">1</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span><span> i</span><span class="z-keyword z-operator">++</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span>ARGUMENT_INDEX</span></span>
+<span class="giallo-l"><span>COLUMN_NUMBER</span></span>
+<span class="giallo-l"><span>LINE_NUMBER</span></span>
+<span class="giallo-l"><span>CODE</span></span>
+<span class="giallo-l"><span>TYPE_FULL_NAME</span></span>
+<span class="giallo-l"><span>....</span></span>
+<span class="giallo-l"><span>....</span></span>
+<span class="giallo-l"><span>....</span></span></code></pre>
 <p>the <code>for</code> loop code segment was interesting, the file seemed like something related to CPG(Code Property Graph) representation, But i didn't know anything about CPG, so i examined the <code>strings</code> output for more details, i further came accross many more code segments</p>
-<pre><code data-lang="c">...
-...
-CODE
-while (n &gt; 0)
-...
-CODE
-printf(&quot;%llu&quot;, out[i])
-...
-&quot;%llu&quot;
-...
-CODE
-printf(&quot;\n&quot;)
-...
-...
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span>...</span></span>
+<span class="giallo-l"><span>...</span></span>
+<span class="giallo-l"><span>CODE</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">while</span><span class="z-punctuation"> (</span><span>n </span><span class="z-keyword z-operator">&gt;</span><span class="z-constant"> 0</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span>...</span></span>
+<span class="giallo-l"><span>CODE</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">printf</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-constant">%llu</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">,</span><span class="z-variable"> out</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span>...</span></span>
+<span class="giallo-l"><span class="z-punctuation">&quot;</span><span class="z-constant">%llu</span><span class="z-punctuation">&quot;</span></span>
+<span class="giallo-l"><span>...</span></span>
+<span class="giallo-l"><span>CODE</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">printf</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-constant">\n</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span>...</span></span>
+<span class="giallo-l"><span>...</span></span></code></pre>
 <p>we can also note that all the code segments are preceded by the string <code>CODE</code>, so i <code>grepped</code> the <code>strings</code> output</p>
-<pre><code data-lang="rust">gremlin &gt;&gt; strings cpg.bin| grep CODE -A1|head -n30
-CODE
-u64 n
---
-CODE
-COLUMN_NUMBER
---
-CODE
-ARGUMENT_INDEX
---
-CODE
-TYPE_FULL_NAME
---
-CODE
-r = 0
---
-CODE
-ARGUMENT_INDEX
---
-CODE
-ARGUMENT_INDEX
---
-CODE
-while (n &gt; 0)
---
-CODE
-n &gt; 0
---
-CODE
-ARGUMENT_INDEX
---
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-variable z-other">gremlin</span><span class="z-keyword z-operator z-logical"> &gt;&gt;</span><span class="z-variable z-other"> strings</span><span class="z-variable z-other"> cpg</span><span class="z-keyword z-operator">.</span><span>bin</span><span class="z-keyword z-operator z-logical">|</span><span class="z-variable z-other"> grep</span><span class="z-constant"> CODE</span><span class="z-keyword z-operator"> -</span><span class="z-entity z-name z-type">A1</span><span class="z-keyword z-operator z-logical">|</span><span class="z-variable z-other">head</span><span class="z-keyword z-operator"> -</span><span class="z-variable z-other">n30</span></span>
+<span class="giallo-l"><span class="z-constant">CODE</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">u64</span><span class="z-variable z-other"> n</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">-</span></span>
+<span class="giallo-l"><span class="z-constant">CODE</span></span>
+<span class="giallo-l"><span class="z-constant">COLUMN_NUMBER</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">-</span></span>
+<span class="giallo-l"><span class="z-constant">CODE</span></span>
+<span class="giallo-l"><span class="z-constant">ARGUMENT_INDEX</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">-</span></span>
+<span class="giallo-l"><span class="z-constant">CODE</span></span>
+<span class="giallo-l"><span class="z-constant">TYPE_FULL_NAME</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">-</span></span>
+<span class="giallo-l"><span class="z-constant">CODE</span></span>
+<span class="giallo-l"><span class="z-variable z-other">r</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">-</span></span>
+<span class="giallo-l"><span class="z-constant">CODE</span></span>
+<span class="giallo-l"><span class="z-constant">ARGUMENT_INDEX</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">-</span></span>
+<span class="giallo-l"><span class="z-constant">CODE</span></span>
+<span class="giallo-l"><span class="z-constant">ARGUMENT_INDEX</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">-</span></span>
+<span class="giallo-l"><span class="z-constant">CODE</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">while</span><span class="z-punctuation"> (</span><span class="z-variable z-other">n</span><span class="z-keyword z-operator"> &gt;</span><span class="z-constant"> 0</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">-</span></span>
+<span class="giallo-l"><span class="z-constant">CODE</span></span>
+<span class="giallo-l"><span class="z-variable z-other">n</span><span class="z-keyword z-operator"> &gt;</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">-</span></span>
+<span class="giallo-l"><span class="z-constant">CODE</span></span>
+<span class="giallo-l"><span class="z-constant">ARGUMENT_INDEX</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">-</span></span></code></pre>
 <p>after cleaning up the strings, we get</p>
-<pre><code data-lang="rust">u64 n
-r = 0
-while (n &gt; 0)
-n &gt; 0
-r |= n &amp; 0xff
-n &amp; 0xff
-0xff
-r &lt;&lt;= 1
-n &gt;&gt;= 1
-r &gt;&gt;= 1
-return r;
-u8 *s
-u32 *idx
-*key = table[s[0]]
-table[s[0]]
-table
-s[0]
-...
-...
-...
-key[1]
-return val;
-char *s
-u32 n
-sz = 0
-idx = 0
-while (idx &lt; n)
-idx &lt; n
-*key = table[s[idx]]
-table[s[idx]]
-table
-s[idx]
-idx += key[1] + 1
-key[1] + 1
-key[1]
-sz++
-return sz;
-idx = 0
-in[] = { 0, 3, 9, 1, 1, 4, 5, 2, 7, 6, 1, 5, 0, 6, 3, 9, 8, 4,
-  9, 9, 2,\n        1, 3, 7, 6, 5, 4, 6, 1, 1, 2, 3, 3, 2, 1, 0, 3, 8, 2, 7 }
-...
-...
-...
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-entity z-name z-type">u64</span><span class="z-variable z-other"> n</span></span>
+<span class="giallo-l"><span class="z-variable z-other">r</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">while</span><span class="z-punctuation"> (</span><span class="z-variable z-other">n</span><span class="z-keyword z-operator"> &gt;</span><span class="z-constant"> 0</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-variable z-other">n</span><span class="z-keyword z-operator"> &gt;</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span class="z-variable z-other">r</span><span class="z-keyword z-operator"> |=</span><span class="z-variable z-other"> n</span><span class="z-keyword z-operator"> &amp;</span><span class="z-constant"> 0xff</span></span>
+<span class="giallo-l"><span class="z-variable z-other">n</span><span class="z-keyword z-operator"> &amp;</span><span class="z-constant"> 0xff</span></span>
+<span class="giallo-l"><span class="z-constant">0xff</span></span>
+<span class="giallo-l"><span class="z-variable z-other">r</span><span class="z-keyword z-operator"> &lt;&lt;=</span><span class="z-constant"> 1</span></span>
+<span class="giallo-l"><span class="z-variable z-other">n</span><span class="z-keyword z-operator"> &gt;&gt;=</span><span class="z-constant"> 1</span></span>
+<span class="giallo-l"><span class="z-variable z-other">r</span><span class="z-keyword z-operator"> &gt;&gt;=</span><span class="z-constant"> 1</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">return</span><span class="z-variable z-other"> r</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">u8</span><span class="z-keyword z-operator"> *</span><span class="z-variable z-other">s</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">u32</span><span class="z-keyword z-operator"> *</span><span class="z-variable z-other">idx</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">*</span><span class="z-variable z-other">key</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> table</span><span class="z-punctuation">[</span><span class="z-variable z-other">s</span><span class="z-punctuation">[</span><span class="z-constant">0</span><span class="z-punctuation">]</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span class="z-variable z-other">table</span><span class="z-punctuation">[</span><span class="z-variable z-other">s</span><span class="z-punctuation">[</span><span class="z-constant">0</span><span class="z-punctuation">]</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span class="z-variable z-other">table</span></span>
+<span class="giallo-l"><span class="z-variable z-other">s</span><span class="z-punctuation">[</span><span class="z-constant">0</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">...</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">...</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">...</span></span>
+<span class="giallo-l"><span class="z-variable z-other">key</span><span class="z-punctuation">[</span><span class="z-constant">1</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">return</span><span class="z-variable z-other"> val</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">char</span><span class="z-keyword z-operator"> *</span><span class="z-variable z-other">s</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">u32</span><span class="z-variable z-other"> n</span></span>
+<span class="giallo-l"><span class="z-variable z-other">sz</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span class="z-variable z-other">idx</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">while</span><span class="z-punctuation"> (</span><span class="z-variable z-other">idx</span><span class="z-keyword z-operator"> &lt;</span><span class="z-variable z-other"> n</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-variable z-other">idx</span><span class="z-keyword z-operator"> &lt;</span><span class="z-variable z-other"> n</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">*</span><span class="z-variable z-other">key</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> table</span><span class="z-punctuation">[</span><span class="z-variable z-other">s</span><span class="z-punctuation">[</span><span class="z-variable z-other">idx</span><span class="z-punctuation">]</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span class="z-variable z-other">table</span><span class="z-punctuation">[</span><span class="z-variable z-other">s</span><span class="z-punctuation">[</span><span class="z-variable z-other">idx</span><span class="z-punctuation">]</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span class="z-variable z-other">table</span></span>
+<span class="giallo-l"><span class="z-variable z-other">s</span><span class="z-punctuation">[</span><span class="z-variable z-other">idx</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span class="z-variable z-other">idx</span><span class="z-keyword z-operator"> +=</span><span class="z-variable z-other"> key</span><span class="z-punctuation">[</span><span class="z-constant">1</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> +</span><span class="z-constant"> 1</span></span>
+<span class="giallo-l"><span class="z-variable z-other">key</span><span class="z-punctuation">[</span><span class="z-constant">1</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> +</span><span class="z-constant"> 1</span></span>
+<span class="giallo-l"><span class="z-variable z-other">key</span><span class="z-punctuation">[</span><span class="z-constant">1</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span class="z-variable z-other">sz</span><span class="z-keyword z-operator">+</span><span class="z-keyword z-operator">+</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">return</span><span class="z-variable z-other"> sz</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">idx</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span class="z-keyword">in</span><span class="z-punctuation">[</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> =</span><span class="z-punctuation"> {</span><span class="z-constant"> 0</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 9</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 4</span><span class="z-punctuation">,</span><span class="z-constant"> 5</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">,</span><span class="z-constant"> 7</span><span class="z-punctuation">,</span><span class="z-constant"> 6</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 5</span><span class="z-punctuation">,</span><span class="z-constant"> 0</span><span class="z-punctuation">,</span><span class="z-constant"> 6</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 9</span><span class="z-punctuation">,</span><span class="z-constant"> 8</span><span class="z-punctuation">,</span><span class="z-constant"> 4</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-constant">  9</span><span class="z-punctuation">,</span><span class="z-constant"> 9</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">,</span><span>\</span><span class="z-variable z-other">n</span><span class="z-constant">        1</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 7</span><span class="z-punctuation">,</span><span class="z-constant"> 6</span><span class="z-punctuation">,</span><span class="z-constant"> 5</span><span class="z-punctuation">,</span><span class="z-constant"> 4</span><span class="z-punctuation">,</span><span class="z-constant"> 6</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 0</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 8</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">,</span><span class="z-constant"> 7</span><span class="z-punctuation"> }</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">...</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">...</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">...</span></span></code></pre>
 <p>and after cleaning all the repeated code we finally get a rough c code</p>
-<pre><code data-lang="c">u64 n
-r = 0
-while (n &gt; 0){
-    r |= n &amp; 0xff
-    r &lt;&lt;= 1
-    n &gt;&gt;= 1
-}
-r &gt;&gt;= 1
-return r;
-
-u8 *s
-u32 *idx
-
-*key = table[s[0]]
-s[0] &amp;= key[0]
-val = 0
-val |= s[0]
-
-for (u8 i = 1; i &lt;= key[1]; i++){
-    val &lt;&lt;= 1
-    val |= s[i]
-    *idx += key[1] + 1
-return val;
-
-char *s
-u32 n
-sz = 0
-idx = 0
-while (idx &lt; n){
-    *key = table[s[idx]]
-    idx += key[1] + 1
-    sz++
-return sz;
-
-idx = 0
-in[] = { 0, 3, 9, 1, 1, 4, 5, 2, 7, 6, 1, 5, 0, 6, 3, 9, 8, 4,
-         9, 9, 2, 1, 3, 7, 6, 5, 4, 6, 1, 1, 2, 3, 3, 2, 1, 0, 3, 8, 2, 7 }
-
-len = sizeof(in) / sizeof(u8)
-sz = calc_size(in, len)
-idx_o = 0
-*out = (u64*)malloc(sz * sizeof(u64))
-
-while (idx &lt; len){
-    &amp;out[idx_o++] = resolve(in + idx, &amp;idx)
-
-for (u32 i = 0; i &lt; idx_o; i++)
-    printf(&quot;%llu&quot;, out[i])
-printf(&quot;\n&quot;)
-return 0;
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span>u64 n</span></span>
+<span class="giallo-l"><span>r </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">while</span><span class="z-punctuation"> (</span><span>n </span><span class="z-keyword z-operator">&gt;</span><span class="z-constant"> 0</span><span class="z-punctuation">)</span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span>    r </span><span class="z-keyword z-operator">|=</span><span> n </span><span class="z-keyword z-operator">&amp;</span><span class="z-keyword z-other z-unit"> 0x</span><span class="z-constant">ff</span></span>
+<span class="giallo-l"><span>    r </span><span class="z-keyword z-operator">&lt;&lt;=</span><span class="z-constant"> 1</span></span>
+<span class="giallo-l"><span>    n </span><span class="z-keyword z-operator">&gt;&gt;=</span><span class="z-constant"> 1</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"><span>r </span><span class="z-keyword z-operator">&gt;&gt;=</span><span class="z-constant"> 1</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">return</span><span> r</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>u8 </span><span class="z-keyword z-operator">*</span><span>s</span></span>
+<span class="giallo-l"><span>u32 </span><span class="z-keyword z-operator">*</span><span>idx</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-operator">*</span><span>key </span><span class="z-keyword z-operator">=</span><span class="z-variable"> table</span><span class="z-punctuation">[</span><span class="z-variable">s</span><span class="z-punctuation">[</span><span class="z-constant">0</span><span class="z-punctuation">]</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span class="z-variable">s</span><span class="z-punctuation">[</span><span class="z-constant">0</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> &amp;=</span><span class="z-variable"> key</span><span class="z-punctuation">[</span><span class="z-constant">0</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span>val </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span>val </span><span class="z-keyword z-operator">|=</span><span class="z-variable"> s</span><span class="z-punctuation">[</span><span class="z-constant">0</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">for</span><span class="z-punctuation"> (</span><span>u8 i </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 1</span><span class="z-punctuation">;</span><span> i </span><span class="z-keyword z-operator">&lt;=</span><span class="z-variable"> key</span><span class="z-punctuation">[</span><span class="z-constant">1</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span><span> i</span><span class="z-keyword z-operator">++</span><span class="z-punctuation">)</span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span>    val </span><span class="z-keyword z-operator">&lt;&lt;=</span><span class="z-constant"> 1</span></span>
+<span class="giallo-l"><span>    val </span><span class="z-keyword z-operator">|=</span><span class="z-variable"> s</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">    *</span><span>idx </span><span class="z-keyword z-operator">+=</span><span class="z-variable"> key</span><span class="z-punctuation">[</span><span class="z-constant">1</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> +</span><span class="z-constant"> 1</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">return</span><span> val</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">char</span><span class="z-keyword z-operator"> *</span><span>s</span></span>
+<span class="giallo-l"><span>u32 n</span></span>
+<span class="giallo-l"><span>sz </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span>idx </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">while</span><span class="z-punctuation"> (</span><span>idx </span><span class="z-keyword z-operator">&lt;</span><span> n</span><span class="z-punctuation">)</span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">    *</span><span>key </span><span class="z-keyword z-operator">=</span><span class="z-variable"> table</span><span class="z-punctuation">[</span><span class="z-variable">s</span><span class="z-punctuation">[</span><span>idx</span><span class="z-punctuation">]</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span>    idx </span><span class="z-keyword z-operator">+=</span><span class="z-variable"> key</span><span class="z-punctuation">[</span><span class="z-constant">1</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> +</span><span class="z-constant"> 1</span></span>
+<span class="giallo-l"><span>    sz</span><span class="z-keyword z-operator">++</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">return</span><span> sz</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>idx </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span>in</span><span class="z-storage z-modifier">[]</span><span class="z-keyword z-operator"> =</span><span class="z-punctuation"> {</span><span class="z-constant"> 0</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 9</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 4</span><span class="z-punctuation">,</span><span class="z-constant"> 5</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">,</span><span class="z-constant"> 7</span><span class="z-punctuation">,</span><span class="z-constant"> 6</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 5</span><span class="z-punctuation">,</span><span class="z-constant"> 0</span><span class="z-punctuation">,</span><span class="z-constant"> 6</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 9</span><span class="z-punctuation">,</span><span class="z-constant"> 8</span><span class="z-punctuation">,</span><span class="z-constant"> 4</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-constant">         9</span><span class="z-punctuation">,</span><span class="z-constant"> 9</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 7</span><span class="z-punctuation">,</span><span class="z-constant"> 6</span><span class="z-punctuation">,</span><span class="z-constant"> 5</span><span class="z-punctuation">,</span><span class="z-constant"> 4</span><span class="z-punctuation">,</span><span class="z-constant"> 6</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 0</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 8</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">,</span><span class="z-constant"> 7</span><span class="z-punctuation"> }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>len </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-operator"> sizeof</span><span class="z-punctuation">(</span><span>in</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> /</span><span class="z-keyword z-operator"> sizeof</span><span class="z-punctuation">(</span><span>u8</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span>sz </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> calc_size</span><span class="z-punctuation">(</span><span>in</span><span class="z-punctuation">,</span><span> len</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span>idx_o </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">*</span><span>out </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> (</span><span>u64</span><span class="z-keyword z-operator">*</span><span class="z-punctuation">)</span><span class="z-entity z-name z-function">malloc</span><span class="z-punctuation">(</span><span>sz </span><span class="z-keyword z-operator">*</span><span class="z-keyword z-operator"> sizeof</span><span class="z-punctuation">(</span><span>u64</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">while</span><span class="z-punctuation"> (</span><span>idx </span><span class="z-keyword z-operator">&lt;</span><span> len</span><span class="z-punctuation">)</span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">    &amp;</span><span class="z-variable">out</span><span class="z-punctuation">[</span><span>idx_o</span><span class="z-keyword z-operator">++</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-function"> resolve</span><span class="z-punctuation">(</span><span>in </span><span class="z-keyword z-operator">+</span><span> idx</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span>idx</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">for</span><span class="z-punctuation"> (</span><span>u32 i </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span><span> i </span><span class="z-keyword z-operator">&lt;</span><span> idx_o</span><span class="z-punctuation">;</span><span> i</span><span class="z-keyword z-operator">++</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    printf</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-constant">%llu</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">,</span><span class="z-variable"> out</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">printf</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-constant">\n</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">return</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span></code></pre>
 <p>we can also see that an array named <code>table</code> is being referred here which appears to be same as the one from the provided <code>Hint</code>.</p>
 <p>i then converted the above c code to python which involved removing some size calculation and memory allocation functions</p>
-<pre><code data-lang="python">table = [ [0xff, 1], [0xfe, 2], [0xfd, 3], [0xfc, 4],
-           [0xfb, 5], [0x00, 5], [0x01, 4], [0x02, 3], [0x03, 2], [0x04, 1] ]
-
-def resolve(s,idx):
-    key = table[s[0]]
-    s[0] &amp;= key[0]
-    val = 0
-    val |= s[0]
-    for i in range(1,key[1]+1):
-        val &lt;&lt;= 1
-        val |= s[i]
-    idx += key[1] + 1
-    return (idx,val)
-def main():
-    idx = 0
-    ln = [ 0, 3, 9, 1, 1, 4, 5, 2, 7, 6, 1, 5, 0, 6, 3, 9, 8, 4,
-           9, 9, 2, 1, 3, 7, 6, 5, 4, 6, 1, 1, 2, 3, 3, 2, 1, 0, 3, 8, 2, 7 ]
-    l = len(ln)
-    idx_o = 0
-    out= [0]*l
-    while (idx &lt; l):
-        (idx,out[idx_o]) = resolve(ln[idx:], idx)
-        idx_o+=1
-    for i in range(0,idx_o):
-        print(out[i],end=&#39;&#39;)
-    print()
-    return 0
-main()
-</code></pre>
+<pre class="giallo z-code"><code data-lang="python"><span class="giallo-l"><span>table</span><span class="z-keyword z-operator"> =</span><span class="z-punctuation"> [</span><span class="z-punctuation"> [</span><span class="z-storage z-type">0x</span><span class="z-constant">ff</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span><span class="z-punctuation"> [</span><span class="z-storage z-type">0x</span><span class="z-constant">fe</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span><span class="z-punctuation"> [</span><span class="z-storage z-type">0x</span><span class="z-constant">fd</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span><span class="z-punctuation"> [</span><span class="z-storage z-type">0x</span><span class="z-constant">fc</span><span class="z-punctuation">,</span><span class="z-constant"> 4</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">           [</span><span class="z-storage z-type">0x</span><span class="z-constant">fb</span><span class="z-punctuation">,</span><span class="z-constant"> 5</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span><span class="z-punctuation"> [</span><span class="z-storage z-type">0x</span><span class="z-constant">00</span><span class="z-punctuation">,</span><span class="z-constant"> 5</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span><span class="z-punctuation"> [</span><span class="z-storage z-type">0x</span><span class="z-constant">01</span><span class="z-punctuation">,</span><span class="z-constant"> 4</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span><span class="z-punctuation"> [</span><span class="z-storage z-type">0x</span><span class="z-constant">02</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span><span class="z-punctuation"> [</span><span class="z-storage z-type">0x</span><span class="z-constant">03</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span><span class="z-punctuation"> [</span><span class="z-storage z-type">0x</span><span class="z-constant">04</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">]</span><span class="z-punctuation"> ]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type z-function z-python">def</span><span class="z-entity z-name z-function z-python"> resolve</span><span class="z-punctuation">(</span><span class="z-variable z-parameter">s</span><span class="z-punctuation">,</span><span class="z-variable z-parameter">idx</span><span class="z-punctuation">)</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span>    key</span><span class="z-keyword z-operator"> =</span><span> table</span><span class="z-punctuation">[</span><span>s</span><span class="z-punctuation">[</span><span class="z-constant">0</span><span class="z-punctuation">]</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span>    s</span><span class="z-punctuation">[</span><span class="z-constant">0</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> &amp;=</span><span> key</span><span class="z-punctuation">[</span><span class="z-constant">0</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span>    val</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span>    val</span><span class="z-keyword z-operator"> |=</span><span> s</span><span class="z-punctuation">[</span><span class="z-constant">0</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    for</span><span> i</span><span class="z-keyword z-control"> in</span><span class="z-support z-function z-builtin"> range</span><span class="z-punctuation">(</span><span class="z-constant">1</span><span class="z-punctuation">,</span><span class="z-meta z-function-call z-arguments">key</span><span class="z-punctuation">[</span><span class="z-constant">1</span><span class="z-punctuation">]</span><span class="z-keyword z-operator">+</span><span class="z-constant">1</span><span class="z-punctuation">)</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span>        val</span><span class="z-keyword z-operator"> &lt;&lt;=</span><span class="z-constant"> 1</span></span>
+<span class="giallo-l"><span>        val</span><span class="z-keyword z-operator"> |=</span><span> s</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span>    idx</span><span class="z-keyword z-operator"> +=</span><span> key</span><span class="z-punctuation">[</span><span class="z-constant">1</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> +</span><span class="z-constant"> 1</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    return</span><span class="z-punctuation"> (</span><span>idx</span><span class="z-punctuation">,</span><span>val</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-function z-python">def</span><span class="z-entity z-name z-function z-python"> main</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span>    idx</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span>    ln</span><span class="z-keyword z-operator"> =</span><span class="z-punctuation"> [</span><span class="z-constant"> 0</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 9</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 4</span><span class="z-punctuation">,</span><span class="z-constant"> 5</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">,</span><span class="z-constant"> 7</span><span class="z-punctuation">,</span><span class="z-constant"> 6</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 5</span><span class="z-punctuation">,</span><span class="z-constant"> 0</span><span class="z-punctuation">,</span><span class="z-constant"> 6</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 9</span><span class="z-punctuation">,</span><span class="z-constant"> 8</span><span class="z-punctuation">,</span><span class="z-constant"> 4</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-constant">           9</span><span class="z-punctuation">,</span><span class="z-constant"> 9</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 7</span><span class="z-punctuation">,</span><span class="z-constant"> 6</span><span class="z-punctuation">,</span><span class="z-constant"> 5</span><span class="z-punctuation">,</span><span class="z-constant"> 4</span><span class="z-punctuation">,</span><span class="z-constant"> 6</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-constant"> 0</span><span class="z-punctuation">,</span><span class="z-constant"> 3</span><span class="z-punctuation">,</span><span class="z-constant"> 8</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-punctuation">,</span><span class="z-constant"> 7</span><span class="z-punctuation"> ]</span></span>
+<span class="giallo-l"><span>    l</span><span class="z-keyword z-operator"> =</span><span class="z-support z-function z-builtin"> len</span><span class="z-punctuation">(</span><span class="z-meta z-function-call z-arguments">ln</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span>    idx_o</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span>    out</span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> [</span><span class="z-constant">0</span><span class="z-punctuation">]</span><span class="z-keyword z-operator">*</span><span>l</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    while</span><span class="z-punctuation"> (</span><span>idx</span><span class="z-keyword z-operator"> &lt;</span><span> l</span><span class="z-punctuation">)</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-punctuation">        (</span><span>idx</span><span class="z-punctuation">,</span><span>out</span><span class="z-punctuation">[</span><span>idx_o</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> =</span><span class="z-meta z-function-call z-generic"> resolve</span><span class="z-punctuation">(</span><span class="z-meta z-function-call z-arguments">ln</span><span class="z-punctuation">[</span><span class="z-meta z-function-call z-arguments">idx</span><span class="z-punctuation">:</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span><span class="z-meta z-function-call z-arguments"> idx</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span>        idx_o</span><span class="z-keyword z-operator">+=</span><span class="z-constant">1</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    for</span><span> i</span><span class="z-keyword z-control"> in</span><span class="z-support z-function z-builtin"> range</span><span class="z-punctuation">(</span><span class="z-constant">0</span><span class="z-punctuation">,</span><span class="z-meta z-function-call z-arguments">idx_o</span><span class="z-punctuation">)</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-support z-function z-builtin">        print</span><span class="z-punctuation">(</span><span class="z-meta z-function-call z-arguments">out</span><span class="z-punctuation">[</span><span class="z-meta z-function-call z-arguments">i</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span><span class="z-variable z-parameter">end</span><span class="z-keyword z-operator">=</span><span class="z-punctuation">&#39;</span><span class="z-punctuation">&#39;</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-support z-function z-builtin">    print</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    return</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span class="z-meta z-function-call z-generic">main</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span></span></code></pre>
 <p>after running the above python code we get some integer output <code>311329622193015237</code> and the flag is <code>flag{311329622193015237}</code></p>
 <p>Initially i thought that it would be hard to solve, mostly because of the low number of solves, but it came out pretty easy.</p>
 <p>It was a really good challenge :)</p>

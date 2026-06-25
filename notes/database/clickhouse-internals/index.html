@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -94,27 +117,25 @@ columns (typically 65536 rows) through a pull-based processor pipeline.</p>
 Row-Stores: How Different Are They Really?" (SIGMOD 2008), with lightweight codecs in
 the lineage of Zukowski et al., "Super-Scalar RAM-CPU Cache Compression" (ICDE 2006).
 Replication uses a replicated log over ZooKeeper or the Raft-based ClickHouse Keeper.</p>
-<pre><code>INSERT ──► [in-memory block sorted by PK] ──► write immutable PART to disk
-                                                   │
-parts:  all_1_1_0  all_2_2_0  all_3_3_0 ...        ▼
-                              SimpleMergeSelector picks a run
-                                       │
-                              merge-sort by PK ──► all_1_3_1 (new part)
-                                       │
-                              old parts marked outdated, GC&#39;d
-
-SELECT ─► parse ─► AST ─► QueryPlan ─► QueryPipeline (IProcessor DAG) ─► PipelineExecutor
-                              │
-                  MergeTree reader: PK index → granule ranges → marks → decompress .bin
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>INSERT ──► [in-memory block sorted by PK] ──► write immutable PART to disk</span></span>
+<span class="giallo-l"><span>                                                   │</span></span>
+<span class="giallo-l"><span>parts:  all_1_1_0  all_2_2_0  all_3_3_0 ...        ▼</span></span>
+<span class="giallo-l"><span>                              SimpleMergeSelector picks a run</span></span>
+<span class="giallo-l"><span>                                       │</span></span>
+<span class="giallo-l"><span>                              merge-sort by PK ──► all_1_3_1 (new part)</span></span>
+<span class="giallo-l"><span>                                       │</span></span>
+<span class="giallo-l"><span>                              old parts marked outdated, GC&#39;d</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>SELECT ─► parse ─► AST ─► QueryPlan ─► QueryPipeline (IProcessor DAG) ─► PipelineExecutor</span></span>
+<span class="giallo-l"><span>                              │</span></span>
+<span class="giallo-l"><span>                  MergeTree reader: PK index → granule ranges → marks → decompress .bin</span></span></code></pre>
 <p>Source layout references: <code>src/Storages/MergeTree/</code>, <code>src/Processors/</code>, <code>src/Columns/</code>,
 <code>src/Compression/</code>, <code>src/Coordination/</code>.</p>
 <hr />
 <h2 id="1-mergetree-part-structure-on-disk-layout">1. MergeTree Part Structure (On-Disk Layout)</h2>
 <p>A <em>part</em> is an immutable directory. Its name encodes its lineage:</p>
-<pre><code>{partition_id}_{min_block}_{max_block}_{level}[_{mutation_version}]
-   all          _   1      _    3       _   1
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>{partition_id}_{min_block}_{max_block}_{level}[_{mutation_version}]</span></span>
+<span class="giallo-l"><span>   all          _   1      _    3       _   1</span></span></code></pre>
 <ul>
 <li><code>partition_id</code>: from <code>PARTITION BY</code> (e.g. <code>202605</code> for <code>toYYYYMM(date)</code>), or literal
 <code>all</code> when no partition key.</li>
@@ -183,27 +204,24 @@ regardless of row width — important because the index addresses granules, not 
 granule</strong> only. For a part of <code>R</code> rows and granule size <code>g</code>, the index has <code>ceil(R/g)</code>
 entries — for 1 billion rows and <code>g=8192</code> that is ~122k entries, small enough to keep
 in memory (loaded once, cached in the mark/index cache).</p>
-<pre><code>primary.idx (PK = (toDate(ts), user_id)):
-  entry 0 → granule 0 first row → (2026-05-01, 42)
-  entry 1 → granule 1 first row → (2026-05-01, 991)
-  entry 2 → granule 2 first row → (2026-05-02, 17)
-  ...
-
-WHERE user_id = 991 AND date = &#39;2026-05-01&#39;
-  binary search entries → matching granule range [1, 2)
-  read marks[1] → seek .bin → decompress → scan 8192 rows
-</code></pre>
-<h3 id="lookup-algorithm">Lookup algorithm</h3>
-<pre><code>function selectGranules(condition, index, marks):
-    # index entries are sorted ascending by the composite PK (lexicographic)
-    ranges = []
-    # KeyCondition turns the WHERE clause into a hyperrectangle test in PK space
-    for each contiguous run of granules g where
-        KeyCondition.mayBeTrueInRange(index[g], index[g+1]) is true:
-            ranges.append( MarkRange(g, g_end) )
-    # binary search is used when the condition is a prefix-bounded range
-    return ranges        # then read only marks/.bin for these ranges
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>primary.idx (PK = (toDate(ts), user_id)):</span></span>
+<span class="giallo-l"><span>  entry 0 → granule 0 first row → (2026-05-01, 42)</span></span>
+<span class="giallo-l"><span>  entry 1 → granule 1 first row → (2026-05-01, 991)</span></span>
+<span class="giallo-l"><span>  entry 2 → granule 2 first row → (2026-05-02, 17)</span></span>
+<span class="giallo-l"><span>  ...</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>WHERE user_id = 991 AND date = &#39;2026-05-01&#39;</span></span>
+<span class="giallo-l"><span>  binary search entries → matching granule range [1, 2)</span></span>
+<span class="giallo-l"><span>  read marks[1] → seek .bin → decompress → scan 8192 rows</span></span></code></pre><h3 id="lookup-algorithm">Lookup algorithm</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>function selectGranules(condition, index, marks):</span></span>
+<span class="giallo-l"><span>    # index entries are sorted ascending by the composite PK (lexicographic)</span></span>
+<span class="giallo-l"><span>    ranges = []</span></span>
+<span class="giallo-l"><span>    # KeyCondition turns the WHERE clause into a hyperrectangle test in PK space</span></span>
+<span class="giallo-l"><span>    for each contiguous run of granules g where</span></span>
+<span class="giallo-l"><span>        KeyCondition.mayBeTrueInRange(index[g], index[g+1]) is true:</span></span>
+<span class="giallo-l"><span>            ranges.append( MarkRange(g, g_end) )</span></span>
+<span class="giallo-l"><span>    # binary search is used when the condition is a prefix-bounded range</span></span>
+<span class="giallo-l"><span>    return ranges        # then read only marks/.bin for these ranges</span></span></code></pre>
 <p><code>KeyCondition</code> (<code>src/Storages/MergeTree/KeyCondition.h</code>) evaluates whether a granule's
 <code>[low, high)</code> PK interval <em>can</em> satisfy the predicate. Because the index is sparse it is
 <em>lossy</em>: a granule is read whenever it <em>might</em> contain a match, then rows are filtered
@@ -238,12 +256,11 @@ consulted <em>after</em> PK pruning, <em>before</em> reading column data.</p>
 <tr><td><code>ngrambf_v1(n, size, hashes, seed)</code></td><td>Bloom filter over n-grams</td><td>substring <code>LIKE '%x%'</code>, <code>hasToken</code>-style</td></tr>
 <tr><td><code>tokenbf_v1(size, hashes, seed)</code></td><td>Bloom filter over whitespace/punct tokens</td><td>word search in text</td></tr>
 </tbody></table>
-<pre><code>DDL:  INDEX idx_url url TYPE bloom_filter(0.01) GRANULARITY 4
-                                                   │
-each index granule summarizes 4 data granules (4×8192 = 32768 rows).
-WHERE url = &#39;x&#39; → test bloom filter per index-granule → skip blocks that
-                  definitely lack &#39;x&#39;; read the rest and filter exactly.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>DDL:  INDEX idx_url url TYPE bloom_filter(0.01) GRANULARITY 4</span></span>
+<span class="giallo-l"><span>                                                   │</span></span>
+<span class="giallo-l"><span>each index granule summarizes 4 data granules (4×8192 = 32768 rows).</span></span>
+<span class="giallo-l"><span>WHERE url = &#39;x&#39; → test bloom filter per index-granule → skip blocks that</span></span>
+<span class="giallo-l"><span>                  definitely lack &#39;x&#39;; read the rest and filter exactly.</span></span></code></pre>
 <p><strong>When they help</strong>: the indexed column must be <em>physically clustered</em> enough that whole
 blocks can be excluded. A <code>minmax</code> on a column uncorrelated with the sort order is
 useless (every block spans the full range). Bloom filters help equality on
@@ -272,31 +289,27 @@ width. Turns a monotone counter into a stream of small (often constant) values t
 crushes. <code>DoubleDelta</code> stores the delta-of-deltas; for a fixed-stride series (timestamps
 every 15 s) the second-order differences are zero and encode to a single bit each. The
 varint framing follows the Gorilla paper.</p>
-<pre><code>DoubleDelta encode (per Pelkonen et al., VLDB 2015 timestamp scheme):
-  write v[0] raw; write d1 = v[1]-v[0] raw
-  for i &gt;= 2:
-    dod = (v[i]-v[i-1]) - (v[i-1]-v[i-2])
-    if dod == 0:                 emit &#39;0&#39;
-    elif dod in [-63,64]:        emit &#39;10&#39;  + 7  bits
-    elif dod in [-255,256]:      emit &#39;110&#39; + 9  bits
-    elif dod in [-2047,2048]:    emit &#39;1110&#39;+ 12 bits
-    else:                        emit &#39;1111&#39;+ 32/64 bits
-</code></pre>
-<h3 id="gorilla-float-xor">Gorilla (float XOR)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>DoubleDelta encode (per Pelkonen et al., VLDB 2015 timestamp scheme):</span></span>
+<span class="giallo-l"><span>  write v[0] raw; write d1 = v[1]-v[0] raw</span></span>
+<span class="giallo-l"><span>  for i &gt;= 2:</span></span>
+<span class="giallo-l"><span>    dod = (v[i]-v[i-1]) - (v[i-1]-v[i-2])</span></span>
+<span class="giallo-l"><span>    if dod == 0:                 emit &#39;0&#39;</span></span>
+<span class="giallo-l"><span>    elif dod in [-63,64]:        emit &#39;10&#39;  + 7  bits</span></span>
+<span class="giallo-l"><span>    elif dod in [-255,256]:      emit &#39;110&#39; + 9  bits</span></span>
+<span class="giallo-l"><span>    elif dod in [-2047,2048]:    emit &#39;1110&#39;+ 12 bits</span></span>
+<span class="giallo-l"><span>    else:                        emit &#39;1111&#39;+ 32/64 bits</span></span></code></pre><h3 id="gorilla-float-xor">Gorilla (float XOR)</h3>
 <p>From Pelkonen et al., "Gorilla: A Fast, Scalable, In-Memory Time Series Database"
 (VLDB 2015). XOR each float with the previous; if equal, emit one <code>0</code> bit. Otherwise
 emit <code>1</code> plus a control bit choosing whether to reuse the previous (leading-zeros,
 trailing-zeros) window or store a fresh one, then the meaningful XOR bits between.
 Excellent for gauges that change slowly; poor for high-entropy floats.</p>
-<pre><code>Gorilla value encode:
-  xor = bits(v[i]) ^ bits(v[i-1])
-  if xor == 0: emit &#39;0&#39;
-  else:
-    lz = clz(xor); tz = ctz(xor)
-    if can reuse prev (lz,tz) window: emit &#39;10&#39; + meaningful_bits
-    else: emit &#39;11&#39; + lz(5b) + len(6b) + meaningful_bits
-</code></pre>
-<h3 id="t64">T64</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Gorilla value encode:</span></span>
+<span class="giallo-l"><span>  xor = bits(v[i]) ^ bits(v[i-1])</span></span>
+<span class="giallo-l"><span>  if xor == 0: emit &#39;0&#39;</span></span>
+<span class="giallo-l"><span>  else:</span></span>
+<span class="giallo-l"><span>    lz = clz(xor); tz = ctz(xor)</span></span>
+<span class="giallo-l"><span>    if can reuse prev (lz,tz) window: emit &#39;10&#39; + meaningful_bits</span></span>
+<span class="giallo-l"><span>    else: emit &#39;11&#39; + lz(5b) + len(6b) + meaningful_bits</span></span></code></pre><h3 id="t64">T64</h3>
 <p>Takes 64 consecutive integers, computes the active value range, subtracts the min, then
 <strong>transposes</strong> the 64 values × <code>b</code> significant bits into <code>b</code> 64-bit bit-planes — storing
 only as many planes as the range needs. A column of values in <code>[0,15]</code> needs 4 planes
@@ -316,28 +329,26 @@ impactful "compression" for low-cardinality strings and composes with the codecs
 sorted list of active parts and scores every contiguous <em>range</em> of adjacent parts,
 preferring ranges that are balanced in size, not too large in total, and weighting in
 part age so small parts left behind get merged eventually. The high-level scoring:</p>
-<pre><code>for each contiguous range [i..j] of active parts:
-    sum   = Σ size(parts)
-    max   = max size(parts);  cnt = j-i+1
-    if sum &gt; max_total_size_to_merge: skip          # don&#39;t build giant parts
-    # prefer ranges where no single part dominates and that aren&#39;t too few/many parts
-    score = sum / (max + ε)                          # ~cnt when balanced
-    # heuristic boost for ranges containing old small parts (base_for_age)
-    score *= ageBoost(min_age_in_range)
-pick range with best score; if best score good enough, schedule a merge
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>for each contiguous range [i..j] of active parts:</span></span>
+<span class="giallo-l"><span>    sum   = Σ size(parts)</span></span>
+<span class="giallo-l"><span>    max   = max size(parts);  cnt = j-i+1</span></span>
+<span class="giallo-l"><span>    if sum &gt; max_total_size_to_merge: skip          # don&#39;t build giant parts</span></span>
+<span class="giallo-l"><span>    # prefer ranges where no single part dominates and that aren&#39;t too few/many parts</span></span>
+<span class="giallo-l"><span>    score = sum / (max + ε)                          # ~cnt when balanced</span></span>
+<span class="giallo-l"><span>    # heuristic boost for ranges containing old small parts (base_for_age)</span></span>
+<span class="giallo-l"><span>    score *= ageBoost(min_age_in_range)</span></span>
+<span class="giallo-l"><span>pick range with best score; if best score good enough, schedule a merge</span></span></code></pre>
 <p>The effect approximates a tiered LSM compaction: many small parts repeatedly fold into
 fewer larger parts, with merged-part size bounded by <code>max_bytes_to_merge_at_max_space_in_pool</code>.</p>
 <h3 id="merge-steps">Merge steps</h3>
-<pre><code>1. select range of parts (SimpleMergeSelector)
-2. open a sorted reader over each part (each is internally PK-sorted)
-3. k-way merge by PK using a heap (MergingSortedAlgorithm)
-   - engine-specific &quot;merge algorithm&quot; transforms the stream (see below)
-4. stream merged rows through column writers → new part directory (temp name)
-5. write primary.idx, marks, skip indexes, checksums.txt, count.txt
-6. atomically rename temp → final part; mark source parts Outdated
-7. source parts removed after old_parts_lifetime once no query references them
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>1. select range of parts (SimpleMergeSelector)</span></span>
+<span class="giallo-l"><span>2. open a sorted reader over each part (each is internally PK-sorted)</span></span>
+<span class="giallo-l"><span>3. k-way merge by PK using a heap (MergingSortedAlgorithm)</span></span>
+<span class="giallo-l"><span>   - engine-specific &quot;merge algorithm&quot; transforms the stream (see below)</span></span>
+<span class="giallo-l"><span>4. stream merged rows through column writers → new part directory (temp name)</span></span>
+<span class="giallo-l"><span>5. write primary.idx, marks, skip indexes, checksums.txt, count.txt</span></span>
+<span class="giallo-l"><span>6. atomically rename temp → final part; mark source parts Outdated</span></span>
+<span class="giallo-l"><span>7. source parts removed after old_parts_lifetime once no query references them</span></span></code></pre>
 <p>Merges run on the background pool (<code>background_pool_size</code>, default 16) with a separate
 pool for large merges; selection respects available pool space so a giant merge cannot
 starve small ones.</p>
@@ -371,30 +382,28 @@ a row count (<code>src/Processors/Chunk.h</code>). Default block size is 65536 r
 (<code>max_block_size</code>). Operating on whole columns amortizes virtual dispatch and exposes
 SIMD — the core argument of the column-store literature.</p>
 <h3 id="icolumn-hierarchy">IColumn hierarchy</h3>
-<pre><code>IColumn
- ├─ ColumnVector&lt;T&gt;     contiguous PODArray&lt;T&gt; (UInt8..Float64, dates)
- ├─ ColumnString        chars: PODArray&lt;UInt8&gt; + offsets: PODArray&lt;UInt64&gt;
- ├─ ColumnFixedString   fixed-width contiguous bytes
- ├─ ColumnArray         data: IColumn + offsets: PODArray&lt;UInt64&gt;
- ├─ ColumnNullable      nested: IColumn + null_map: ColumnVector&lt;UInt8&gt;
- ├─ ColumnLowCardinality dictionary: IColumn + indexes: IColumn
- ├─ ColumnConst         single value + size (avoids materializing constants)
- └─ ColumnTuple / ColumnMap / ColumnSparse ...
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>IColumn</span></span>
+<span class="giallo-l"><span> ├─ ColumnVector&lt;T&gt;     contiguous PODArray&lt;T&gt; (UInt8..Float64, dates)</span></span>
+<span class="giallo-l"><span> ├─ ColumnString        chars: PODArray&lt;UInt8&gt; + offsets: PODArray&lt;UInt64&gt;</span></span>
+<span class="giallo-l"><span> ├─ ColumnFixedString   fixed-width contiguous bytes</span></span>
+<span class="giallo-l"><span> ├─ ColumnArray         data: IColumn + offsets: PODArray&lt;UInt64&gt;</span></span>
+<span class="giallo-l"><span> ├─ ColumnNullable      nested: IColumn + null_map: ColumnVector&lt;UInt8&gt;</span></span>
+<span class="giallo-l"><span> ├─ ColumnLowCardinality dictionary: IColumn + indexes: IColumn</span></span>
+<span class="giallo-l"><span> ├─ ColumnConst         single value + size (avoids materializing constants)</span></span>
+<span class="giallo-l"><span> └─ ColumnTuple / ColumnMap / ColumnSparse ...</span></span></code></pre>
 <p><code>ColumnSparse</code> stores only non-default values plus their positions — chosen per part via
 <code>serialization.json</code> when a column is mostly default (e.g. mostly-zero metrics), and
 arithmetic on it stays sparse.</p>
 <h3 id="function-dispatch">Function dispatch</h3>
 <p><code>IFunction::executeImpl(arguments, result_type, input_rows_count)</code> takes input columns
 and returns a result column. The hot loop typically does:</p>
-<pre><code>ColumnPtr executeImpl(cols, n):
-    a = cols[0]; b = cols[1]
-    if isColumnConst(b): return executeConstRHS(a, constval(b), n)  # specialize
-    res = ColumnVector&lt;R&gt;::create(n)
-    for i in 0..n:                       # auto-vectorized by the compiler
-        res[i] = op(a[i], b[i])          # AVX2/AVX-512 on the contiguous arrays
-    return res
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>ColumnPtr executeImpl(cols, n):</span></span>
+<span class="giallo-l"><span>    a = cols[0]; b = cols[1]</span></span>
+<span class="giallo-l"><span>    if isColumnConst(b): return executeConstRHS(a, constval(b), n)  # specialize</span></span>
+<span class="giallo-l"><span>    res = ColumnVector&lt;R&gt;::create(n)</span></span>
+<span class="giallo-l"><span>    for i in 0..n:                       # auto-vectorized by the compiler</span></span>
+<span class="giallo-l"><span>        res[i] = op(a[i], b[i])          # AVX2/AVX-512 on the contiguous arrays</span></span>
+<span class="giallo-l"><span>    return res</span></span></code></pre>
 <p>Specialized template instantiations per numeric type give the autovectorizer tight,
 branch-free loops.</p>
 <h3 id="simd-usage">SIMD usage</h3>
@@ -420,16 +429,15 @@ out by <code>if</code>/<code>and</code>/<code>or</code>, important for nullable 
 <code>prepare()</code>/<code>work()</code> protocol: <code>prepare()</code> inspects port states and returns a status
 (<code>NeedData</code>, <code>PortFull</code>, <code>Ready</code>, <code>Async</code>, <code>Finished</code>); <code>work()</code> does the actual CPU
 work when <code>Ready</code>.</p>
-<pre><code>   ┌──────────┐   ┌────────────────┐   ┌───────────────┐   ┌──────────┐
-   │  Source  │──►│ FilterTransform│──►│ExpressionTrans │──►│ ... Sink │
-   │(MergeTree│   │  (WHERE)       │   │ (SELECT exprs) │   └──────────┘
-   │  reader) │   └────────────────┘   └───────────────┘
-   └──────────┘
-        ▲   resize/merge ports fan-in/out for parallel lanes
-        │
-   ┌────┴─────┬──────────┐
- stream0    stream1    stream2     (one lane per thread; granule ranges split)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>   ┌──────────┐   ┌────────────────┐   ┌───────────────┐   ┌──────────┐</span></span>
+<span class="giallo-l"><span>   │  Source  │──►│ FilterTransform│──►│ExpressionTrans │──►│ ... Sink │</span></span>
+<span class="giallo-l"><span>   │(MergeTree│   │  (WHERE)       │   │ (SELECT exprs) │   └──────────┘</span></span>
+<span class="giallo-l"><span>   │  reader) │   └────────────────┘   └───────────────┘</span></span>
+<span class="giallo-l"><span>   └──────────┘</span></span>
+<span class="giallo-l"><span>        ▲   resize/merge ports fan-in/out for parallel lanes</span></span>
+<span class="giallo-l"><span>        │</span></span>
+<span class="giallo-l"><span>   ┌────┴─────┬──────────┐</span></span>
+<span class="giallo-l"><span> stream0    stream1    stream2     (one lane per thread; granule ranges split)</span></span></code></pre>
 <p>Node families:</p>
 <ul>
 <li><strong>ISource</strong>: <code>MergeTreeSource</code> (reads granule ranges), <code>RemoteSource</code> (reads from a
@@ -455,21 +463,19 @@ page cache plus ClickHouse's own mark cache and uncompressed-block cache.</p>
 <h2 id="8-distributed-query-execution">8. Distributed Query Execution</h2>
 <p>The <code>Distributed</code> table engine is a <em>view</em> over a <code>cluster</code> of shards (each shard a
 local <code>MergeTree</code>-family table, possibly replicated). It does no storage of its own.</p>
-<pre><code>        client
-          │ SELECT ... FROM distributed_t GROUP BY k
-          ▼
-     ┌─────────┐   initiator rewrites query for shards (push down WHERE,
-     │initiator│   partial GROUP BY), then fans out the remote query
-     └─────────┘
-       │     │     │
-       ▼     ▼     ▼        per-shard: local read + partial aggregation
-   shard0  shard1  shard2
-       │     │     │        RemoteBlockInputStream / RemoteSource pulls
-       └─────┴─────┘        partial blocks back over the native protocol
-          │
-     initiator MergingAggregatedTransform → final result
-</code></pre>
-<h3 id="planning">Planning</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>        client</span></span>
+<span class="giallo-l"><span>          │ SELECT ... FROM distributed_t GROUP BY k</span></span>
+<span class="giallo-l"><span>          ▼</span></span>
+<span class="giallo-l"><span>     ┌─────────┐   initiator rewrites query for shards (push down WHERE,</span></span>
+<span class="giallo-l"><span>     │initiator│   partial GROUP BY), then fans out the remote query</span></span>
+<span class="giallo-l"><span>     └─────────┘</span></span>
+<span class="giallo-l"><span>       │     │     │</span></span>
+<span class="giallo-l"><span>       ▼     ▼     ▼        per-shard: local read + partial aggregation</span></span>
+<span class="giallo-l"><span>   shard0  shard1  shard2</span></span>
+<span class="giallo-l"><span>       │     │     │        RemoteBlockInputStream / RemoteSource pulls</span></span>
+<span class="giallo-l"><span>       └─────┴─────┘        partial blocks back over the native protocol</span></span>
+<span class="giallo-l"><span>          │</span></span>
+<span class="giallo-l"><span>     initiator MergingAggregatedTransform → final result</span></span></code></pre><h3 id="planning">Planning</h3>
 <p>The initiator splits the query into an <strong>initiator part</strong> and a <strong>remote part</strong>. The
 remote part (sent verbatim as SQL plus a "stage" hint) runs on each shard up to
 <code>WithMergeableState</code> — i.e. it does the local scan, filter, and a <em>partial</em> aggregation,
@@ -493,19 +499,17 @@ ranges dynamically rather than statically splitting by <code>parallel_replicas_c
 ClickHouse Keeper. There is no leader for writes in the Raft sense — any replica accepts
 inserts and appends log entries; replicas converge by replaying the log.</p>
 <h3 id="keeper-paths">Keeper paths</h3>
-<pre><code>/clickhouse/tables/{shard}/{table}/
-   ├─ log/                  sequence of replication tasks (log-0000000001, ...)
-   ├─ replicas/{replica}/
-   │     ├─ log_pointer     last log entry this replica has copied to its queue
-   │     ├─ queue/          this replica&#39;s pending tasks
-   │     ├─ parts/          parts this replica currently has
-   │     └─ is_active       ephemeral node = replica is alive
-   ├─ block_numbers/        per-partition block-number allocator
-   ├─ blocks/               insert dedup hashes (idempotent retries)
-   ├─ mutations/            ALTER UPDATE/DELETE definitions
-   └─ columns / metadata    current schema + version
-</code></pre>
-<h3 id="log-entry-types">Log entry types</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>/clickhouse/tables/{shard}/{table}/</span></span>
+<span class="giallo-l"><span>   ├─ log/                  sequence of replication tasks (log-0000000001, ...)</span></span>
+<span class="giallo-l"><span>   ├─ replicas/{replica}/</span></span>
+<span class="giallo-l"><span>   │     ├─ log_pointer     last log entry this replica has copied to its queue</span></span>
+<span class="giallo-l"><span>   │     ├─ queue/          this replica&#39;s pending tasks</span></span>
+<span class="giallo-l"><span>   │     ├─ parts/          parts this replica currently has</span></span>
+<span class="giallo-l"><span>   │     └─ is_active       ephemeral node = replica is alive</span></span>
+<span class="giallo-l"><span>   ├─ block_numbers/        per-partition block-number allocator</span></span>
+<span class="giallo-l"><span>   ├─ blocks/               insert dedup hashes (idempotent retries)</span></span>
+<span class="giallo-l"><span>   ├─ mutations/            ALTER UPDATE/DELETE definitions</span></span>
+<span class="giallo-l"><span>   └─ columns / metadata    current schema + version</span></span></code></pre><h3 id="log-entry-types">Log entry types</h3>
 <table><thead><tr><th>Type</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>GET_PART</code></td><td>fetch a part another replica produced (e.g. a fresh insert)</td></tr>
 <tr><td><code>MERGE_PARTS</code></td><td>merge a named set of source parts into a result part</td></tr>
@@ -514,15 +518,14 @@ inserts and appends log entries; replicas converge by replaying the log.</p>
 <tr><td><code>ALTER_METADATA</code></td><td>apply a schema change</td></tr>
 </tbody></table>
 <h3 id="replica-lifecycle">Replica lifecycle</h3>
-<pre><code>loop:
-  if /log has entries beyond my log_pointer:
-      copy them into my queue/ ; advance log_pointer
-  pick an executable queue task (deps satisfied, parts present):
-      GET_PART   → download part from a replica that has it (interserver HTTP)
-      MERGE_PARTS→ run the merge locally (deterministic: all replicas get same bytes)
-      MUTATE_PART→ apply mutation locally
-  on success: register result in replicas/{me}/parts ; remove queue node
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>loop:</span></span>
+<span class="giallo-l"><span>  if /log has entries beyond my log_pointer:</span></span>
+<span class="giallo-l"><span>      copy them into my queue/ ; advance log_pointer</span></span>
+<span class="giallo-l"><span>  pick an executable queue task (deps satisfied, parts present):</span></span>
+<span class="giallo-l"><span>      GET_PART   → download part from a replica that has it (interserver HTTP)</span></span>
+<span class="giallo-l"><span>      MERGE_PARTS→ run the merge locally (deterministic: all replicas get same bytes)</span></span>
+<span class="giallo-l"><span>      MUTATE_PART→ apply mutation locally</span></span>
+<span class="giallo-l"><span>  on success: register result in replicas/{me}/parts ; remove queue node</span></span></code></pre>
 <p>Merges are <em>assigned via the log</em>, not run independently, so every replica produces
 byte-identical merged parts (deterministic merge). A replica can instead <code>GET_PART</code> the
 merged result if it falls behind. Inserts are deduplicated by a hash stored under
@@ -546,13 +549,12 @@ snapshot keep its on-disk state bounded.</p>
 <p>A ClickHouse MV is an <strong>insert trigger</strong>, not a maintained cache. After a block is
 inserted into the <em>source</em> table, ClickHouse runs the MV's <code>SELECT</code> over <strong>just that
 block</strong> and inserts the result into the MV's target table:</p>
-<pre><code>INSERT INTO source (block B)
-      │
-      ├─► write B to source&#39;s MergeTree
-      └─► for each attached MV:
-              result = MV.SELECT applied to B          # block-at-a-time
-              INSERT result INTO MV.target_table
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>INSERT INTO source (block B)</span></span>
+<span class="giallo-l"><span>      │</span></span>
+<span class="giallo-l"><span>      ├─► write B to source&#39;s MergeTree</span></span>
+<span class="giallo-l"><span>      └─► for each attached MV:</span></span>
+<span class="giallo-l"><span>              result = MV.SELECT applied to B          # block-at-a-time</span></span>
+<span class="giallo-l"><span>              INSERT result INTO MV.target_table</span></span></code></pre>
 <p>The target is usually an <code>AggregatingMergeTree</code> / <code>SummingMergeTree</code> holding partial
 states, so rollups are maintained incrementally and finalized at read time with <code>-Merge</code>
 combinators. The MV never re-reads history — it only ever sees newly-inserted blocks,
@@ -562,12 +564,11 @@ see the freshly inserted side. The <code>to</code>-table can be shared by multip
 <p>A <strong>projection</strong> is an alternate physical representation stored <em>inside the same part
 directory</em> (<code>projections/{name}/</code>), giving each part a second sort order and/or a
 pre-aggregation:</p>
-<pre><code>part all_1_3_1/
-  ├─ {column}.bin ...            (base data, ORDER BY a)
-  └─ projections/by_b/
-        ├─ {column}.bin ...      (same rows re-sorted by b, or pre-aggregated)
-        └─ primary.idx
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>part all_1_3_1/</span></span>
+<span class="giallo-l"><span>  ├─ {column}.bin ...            (base data, ORDER BY a)</span></span>
+<span class="giallo-l"><span>  └─ projections/by_b/</span></span>
+<span class="giallo-l"><span>        ├─ {column}.bin ...      (same rows re-sorted by b, or pre-aggregated)</span></span>
+<span class="giallo-l"><span>        └─ primary.idx</span></span></code></pre>
 <p>Because the projection lives in the part, it is always consistent with base data and is
 maintained automatically through merges (no separate refresh). Two kinds:</p>
 <ul>

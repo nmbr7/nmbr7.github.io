@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -221,14 +244,13 @@
 <h2 id="3-connection-lifecycle-state-machine">3. Connection Lifecycle &amp; State Machine</h2>
 <h3 id="3-1-client-connection-states">3.1 Client Connection States</h3>
 <p>The client connection progresses through these states (defined in PgBouncer source as <code>SocketState</code>):</p>
-<pre><code>CL_FREE        --&gt; socket not in use (in free list)
-CL_JUSTFREE    --&gt; just disconnected, cleanup pending
-CL_LOGIN       --&gt; client connected, authentication in progress
-CL_WAITING     --&gt; authenticated, waiting for a server connection
-CL_WAITING_LOGIN --&gt; waiting for server connection to finish login
-CL_ACTIVE      --&gt; linked to a server connection, forwarding data
-CL_CANCEL      --&gt; processing a cancel request
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>CL_FREE        --&gt; socket not in use (in free list)</span></span>
+<span class="giallo-l"><span>CL_JUSTFREE    --&gt; just disconnected, cleanup pending</span></span>
+<span class="giallo-l"><span>CL_LOGIN       --&gt; client connected, authentication in progress</span></span>
+<span class="giallo-l"><span>CL_WAITING     --&gt; authenticated, waiting for a server connection</span></span>
+<span class="giallo-l"><span>CL_WAITING_LOGIN --&gt; waiting for server connection to finish login</span></span>
+<span class="giallo-l"><span>CL_ACTIVE      --&gt; linked to a server connection, forwarding data</span></span>
+<span class="giallo-l"><span>CL_CANCEL      --&gt; processing a cancel request</span></span></code></pre>
 <p><strong>Detailed flow</strong>:</p>
 <ol>
 <li>
@@ -277,15 +299,13 @@ CL_CANCEL      --&gt; processing a cancel request
 </li>
 </ol>
 <h3 id="3-2-server-connection-states">3.2 Server Connection States</h3>
-<pre><code>SV_FREE         --&gt; not in use
-SV_JUSTFREE     --&gt; cleanup pending
-SV_LOGIN        --&gt; connecting to PostgreSQL, authentication in progress
-SV_IDLE         --&gt; in the pool&#39;s free list, ready for assignment
-SV_ACTIVE       --&gt; linked to a client, forwarding data
-SV_USED         --&gt; just unlinked from a client, reset query pending
-SV_TESTED       --&gt; test query in progress (server_check_query)
-</code></pre>
-<h3 id="3-3-authentication-detail">3.3 Authentication Detail</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>SV_FREE         --&gt; not in use</span></span>
+<span class="giallo-l"><span>SV_JUSTFREE     --&gt; cleanup pending</span></span>
+<span class="giallo-l"><span>SV_LOGIN        --&gt; connecting to PostgreSQL, authentication in progress</span></span>
+<span class="giallo-l"><span>SV_IDLE         --&gt; in the pool&#39;s free list, ready for assignment</span></span>
+<span class="giallo-l"><span>SV_ACTIVE       --&gt; linked to a client, forwarding data</span></span>
+<span class="giallo-l"><span>SV_USED         --&gt; just unlinked from a client, reset query pending</span></span>
+<span class="giallo-l"><span>SV_TESTED       --&gt; test query in progress (server_check_query)</span></span></code></pre><h3 id="3-3-authentication-detail">3.3 Authentication Detail</h3>
 <p><strong>Client-side authentication</strong> (PgBouncer authenticates the client):</p>
 <ul>
 <li><strong>trust</strong>: No authentication.</li>
@@ -497,8 +517,7 @@ SV_TESTED       --&gt; test query in progress (server_check_query)
 <h2 id="6-monitoring-admin-console">6. Monitoring &amp; Admin Console</h2>
 <h3 id="6-1-admin-console">6.1 Admin Console</h3>
 <p>PgBouncer exposes a virtual database called <code>pgbouncer</code> (configurable via <code>admin_users</code> and <code>stats_users</code>). You connect to it like a regular PostgreSQL database:</p>
-<pre><code>psql -p 6432 -U admin pgbouncer
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>psql -p 6432 -U admin pgbouncer</span></span></code></pre>
 <p>This is not a real database. It is a command interface that responds to SHOW commands and a few control commands.</p>
 <h3 id="6-2-key-show-commands">6.2 Key SHOW Commands</h3>
 <p><strong>SHOW POOLS</strong> -- The most important monitoring view:</p>
@@ -634,8 +653,7 @@ SV_TESTED       --&gt; test query in progress (server_check_query)
 <p>This is an advanced pattern. The added complexity is only justified for deployments with hundreds of application instances and strict connection limits on PostgreSQL.</p>
 <h3 id="7-4-haproxy-pgbouncer">7.4 HAProxy + PgBouncer</h3>
 <p>Common pattern for high availability:</p>
-<pre><code>Application --&gt; HAProxy --&gt; PgBouncer instances (2+) --&gt; PostgreSQL
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Application --&gt; HAProxy --&gt; PgBouncer instances (2+) --&gt; PostgreSQL</span></span></code></pre>
 <p>HAProxy provides:</p>
 <ul>
 <li>Health checking of PgBouncer instances (TCP check or HTTP check via a custom health endpoint).</li>

@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -128,15 +151,14 @@
 <h3 id="0-1-how-electronic-markets-work">0.1 How electronic markets work</h3>
 <p>A stock exchange is, at its core, a computer program called a <strong>matching engine</strong>. It maintains an <strong>order book</strong> — a list of all outstanding buy and sell orders — and matches them against each other.</p>
 <p>When you place a "buy 100 shares of AAPL at $190", that becomes a <strong>limit order</strong> sitting in the book. The moment someone submits a "sell 100 shares of AAPL at $190", the matching engine pairs them and a <strong>trade</strong> happens. The exchange broadcasts this to the world as market data.</p>
-<pre><code>         BID (buy orders)         ASK (sell orders)
-         ─────────────────        ─────────────────
-  $189.98  ×  500 shares          $190.01  ×  300 shares
-  $189.97  ×  200 shares          $190.02  ×  800 shares
-  $189.95  ×  1000 shares         $190.05  ×  400 shares
-               ↑                       ↑
-           best bid               best ask
-           ←─── spread ──────────→
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>         BID (buy orders)         ASK (sell orders)</span></span>
+<span class="giallo-l"><span>         ─────────────────        ─────────────────</span></span>
+<span class="giallo-l"><span>  $189.98  ×  500 shares          $190.01  ×  300 shares</span></span>
+<span class="giallo-l"><span>  $189.97  ×  200 shares          $190.02  ×  800 shares</span></span>
+<span class="giallo-l"><span>  $189.95  ×  1000 shares         $190.05  ×  400 shares</span></span>
+<span class="giallo-l"><span>               ↑                       ↑</span></span>
+<span class="giallo-l"><span>           best bid               best ask</span></span>
+<span class="giallo-l"><span>           ←─── spread ──────────→</span></span></code></pre>
 <p>The <strong>bid-ask spread</strong> (here $0.03) is the gap between the highest buy order and the lowest sell order. A <strong>market maker</strong> earns this spread by sitting on both sides simultaneously — posting a bid and an ask — and capturing the difference when both sides fill.</p>
 <h3 id="0-2-what-is-high-frequency-trading">0.2 What is high-frequency trading?</h3>
 <p><strong>High-frequency trading (HFT)</strong> is electronic trading where decisions are made and orders sent in microseconds (millionths of a second) or nanoseconds (billionths of a second) — far faster than any human can act.</p>
@@ -149,19 +171,18 @@
 <p>Why nanoseconds matter: if 10 firms all see the same price discrepancy at the same time, only the <em>first</em> order to reach the exchange matching engine gets the fill. Being 1 microsecond slower means you never trade. The race is real and winner-takes-all.</p>
 <h3 id="0-3-the-tick-to-trade-pipeline">0.3 The tick-to-trade pipeline</h3>
 <p>Every HFT system runs the same fundamental loop:</p>
-<pre><code>  Market data arrives            Order leaves
-  (a &quot;tick&quot;)                     the wire
-       │                              │
-       ▼                              ▼
-  ┌─────────┐   ┌──────────┐   ┌──────────┐   ┌────────┐
-  │ Feed    │ → │ Strategy │ → │  Order   │ → │  NIC   │ ──► Exchange
-  │ Handler │   │  Logic   │   │ Gateway  │   │ (wire) │
-  └─────────┘   └──────────┘   └──────────┘   └────────┘
-
-  Parse raw      Decide:         Encode order     Physical
-  network        trade or        message          transmission
-  packets        not?            (FIX/SBE)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  Market data arrives            Order leaves</span></span>
+<span class="giallo-l"><span>  (a &quot;tick&quot;)                     the wire</span></span>
+<span class="giallo-l"><span>       │                              │</span></span>
+<span class="giallo-l"><span>       ▼                              ▼</span></span>
+<span class="giallo-l"><span>  ┌─────────┐   ┌──────────┐   ┌──────────┐   ┌────────┐</span></span>
+<span class="giallo-l"><span>  │ Feed    │ → │ Strategy │ → │  Order   │ → │  NIC   │ ──► Exchange</span></span>
+<span class="giallo-l"><span>  │ Handler │   │  Logic   │   │ Gateway  │   │ (wire) │</span></span>
+<span class="giallo-l"><span>  └─────────┘   └──────────┘   └──────────┘   └────────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Parse raw      Decide:         Encode order     Physical</span></span>
+<span class="giallo-l"><span>  network        trade or        message          transmission</span></span>
+<span class="giallo-l"><span>  packets        not?            (FIX/SBE)</span></span></code></pre>
 <ul>
 <li><strong>Feed handler</strong>: parses raw UDP packets from the exchange's market data feed into usable price/size updates.</li>
 <li><strong>Strategy logic</strong>: the trading algorithm — is this tick an opportunity? What order to send?</li>
@@ -210,27 +231,26 @@
 <li><strong>IEX (2016)</strong>: one US exchange deliberately inserted a 350 µs delay ("speed bump") on all incoming orders to neutralize latency advantages. IEX became a regulated exchange in 2016.</li>
 </ul>
 <h3 id="0-10-how-this-doc-is-organized">0.10 How this doc is organized</h3>
-<pre><code>  §1  Latency budget        ← numbers: what&#39;s achievable at each layer
-  §2  Kernel bypass + colo  ← eliminating the OS from the data path
-  §3  OS tuning             ← isolcpus, hugepages, C-states, NUMA
-  §4  CPU microarch          ← cache lines, false sharing, TSO memory ordering
-  §5  Lock-free structures  ← SPSC queues, LMAX Disruptor
-  §6  Order book design     ← matching engine internals
-  §7  Clock sync            ← PTP, GPSDO, hardware timestamps
-  §8  FPGA in HFT           ← when to use hardware logic, what firms run
-  §9  Measurement           ← how to actually measure nanosecond latency
-  §10 Industry practice     ← what exchanges and firms do publicly
-  §11 SOTA research         ← recent academic work
-  §12 Latency number table  ← consolidated reference
-  §13 Pitfalls checklist    ← common mistakes
-  §15 2024–2025 updates     ← latest hardware (13.9 ns record, Solarflare X4)
-  §16 Pre-trade risk        ← 15c3-5 on the hot path
-  §17 Microwave networks    ← transatlantic latency arms race
-  §18 Order flow toxicity   ← adverse selection, VPIN
-  §19 Rack topology         ← cabling, DAC latency, cooling
-  §21 Language choices      ← Rust vs C++ vs JVM vs OCaml
-  §23 Protocol evolution    ← FIX → SBE → FAST
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  §1  Latency budget        ← numbers: what&#39;s achievable at each layer</span></span>
+<span class="giallo-l"><span>  §2  Kernel bypass + colo  ← eliminating the OS from the data path</span></span>
+<span class="giallo-l"><span>  §3  OS tuning             ← isolcpus, hugepages, C-states, NUMA</span></span>
+<span class="giallo-l"><span>  §4  CPU microarch          ← cache lines, false sharing, TSO memory ordering</span></span>
+<span class="giallo-l"><span>  §5  Lock-free structures  ← SPSC queues, LMAX Disruptor</span></span>
+<span class="giallo-l"><span>  §6  Order book design     ← matching engine internals</span></span>
+<span class="giallo-l"><span>  §7  Clock sync            ← PTP, GPSDO, hardware timestamps</span></span>
+<span class="giallo-l"><span>  §8  FPGA in HFT           ← when to use hardware logic, what firms run</span></span>
+<span class="giallo-l"><span>  §9  Measurement           ← how to actually measure nanosecond latency</span></span>
+<span class="giallo-l"><span>  §10 Industry practice     ← what exchanges and firms do publicly</span></span>
+<span class="giallo-l"><span>  §11 SOTA research         ← recent academic work</span></span>
+<span class="giallo-l"><span>  §12 Latency number table  ← consolidated reference</span></span>
+<span class="giallo-l"><span>  §13 Pitfalls checklist    ← common mistakes</span></span>
+<span class="giallo-l"><span>  §15 2024–2025 updates     ← latest hardware (13.9 ns record, Solarflare X4)</span></span>
+<span class="giallo-l"><span>  §16 Pre-trade risk        ← 15c3-5 on the hot path</span></span>
+<span class="giallo-l"><span>  §17 Microwave networks    ← transatlantic latency arms race</span></span>
+<span class="giallo-l"><span>  §18 Order flow toxicity   ← adverse selection, VPIN</span></span>
+<span class="giallo-l"><span>  §19 Rack topology         ← cabling, DAC latency, cooling</span></span>
+<span class="giallo-l"><span>  §21 Language choices      ← Rust vs C++ vs JVM vs OCaml</span></span>
+<span class="giallo-l"><span>  §23 Protocol evolution    ← FIX → SBE → FAST</span></span></code></pre>
 <hr />
 <h2 id="1-the-latency-budget-mental-model-and-numbers">1. The Latency Budget — Mental Model and Numbers</h2>
 <h3 id="1-1-definitions-be-precise-the-field-is-loose-with-these">1.1 Definitions (be precise, the field is loose with these)</h3>
@@ -241,17 +261,15 @@
 <li><strong>Internal / application latency</strong>: feed-handler-in to order-gateway-out, in user space. Smallest number, most gameable.</li>
 <li><strong>Round-trip / RTT to matching engine</strong>: order sent → ack received, dominated by cable length + switch + exchange gateway.</li>
 </ul>
-<pre><code>        EXTERNAL TAP (wire-to-wire — the honest number)
-   ┌──────────────────────────────────────────────────────────┐
-   │  ┌── NIC RX ──┐                          ┌── NIC TX ──┐    │
-   │  │ PHY/SerDes │  feed   strategy  order  │ MAC/PHY    │    │
-in ─┼──┤ MAC        ├─ handler ─ logic ─ gw ──┤ SerDes     ├────┼─ out
-   │  └────────────┘                          └────────────┘    │
-   │      └────────── tick-to-order (SW) ──────────┘            │
-   │   └──────────────── tick-to-trade ───────────────┘         │
-   └──────────────────────────────────────────────────────────┘
-</code></pre>
-<h3 id="1-2-order-of-magnitude-budget-2024-2025-top-tier-setups">1.2 Order-of-magnitude budget (2024–2025, top-tier setups)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>        EXTERNAL TAP (wire-to-wire — the honest number)</span></span>
+<span class="giallo-l"><span>   ┌──────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>   │  ┌── NIC RX ──┐                          ┌── NIC TX ──┐    │</span></span>
+<span class="giallo-l"><span>   │  │ PHY/SerDes │  feed   strategy  order  │ MAC/PHY    │    │</span></span>
+<span class="giallo-l"><span>in ─┼──┤ MAC        ├─ handler ─ logic ─ gw ──┤ SerDes     ├────┼─ out</span></span>
+<span class="giallo-l"><span>   │  └────────────┘                          └────────────┘    │</span></span>
+<span class="giallo-l"><span>   │      └────────── tick-to-order (SW) ──────────┘            │</span></span>
+<span class="giallo-l"><span>   │   └──────────────── tick-to-trade ───────────────┘         │</span></span>
+<span class="giallo-l"><span>   └──────────────────────────────────────────────────────────┘</span></span></code></pre><h3 id="1-2-order-of-magnitude-budget-2024-2025-top-tier-setups">1.2 Order-of-magnitude budget (2024–2025, top-tier setups)</h3>
 <table><thead><tr><th>Path</th><th>Software (kernel-bypass)</th><th>FPGA-accelerated</th><th>Pure FPGA / ASIC</th></tr></thead><tbody>
 <tr><td>Wire-to-wire tick-to-trade</td><td>800 ns – 5 µs</td><td>100–300 ns</td><td><strong>&lt;100 ns (≈30–90 ns)</strong></td></tr>
 <tr><td>NIC RX → user space (kernel bypass)</td><td>700 ns – 1 µs</td><td>—</td><td>—</td></tr>
@@ -333,13 +351,11 @@ in ─┼──┤ MAC        ├─ handler ─ logic ─ gw ──┤ SerDes  
 <li><strong>Disable timer migration, watchdogs</strong>: <code>nowatchdog</code>, <code>nmi_watchdog=0</code>, <code>kthread_cpus=</code>, move <code>workqueue</code> affinity (<code>/sys/devices/virtual/workqueue/cpumask</code>), disable the RT throttling (<code>/proc/sys/kernel/sched_rt_runtime_us = -1</code>) so a busy-polling <code>SCHED_FIFO</code> thread is never preempted to "give time back".</li>
 </ul>
 <p>Representative boot cmdline (Intel, 2-socket, cores 2–19 isolated):</p>
-<pre><code>isolcpus=nohz_domain,managed_irq,2-19 nohz_full=2-19 rcu_nocbs=2-19 rcu_nocb_poll \
-irqaffinity=0-1 nosoftlockup nowatchdog nmi_watchdog=0 \
-intel_pstate=disable processor.max_cstate=1 intel_idle.max_cstate=0 idle=poll \
-mce=off audit=0 selinux=0 transparent_hugepage=never default_hugepagesz=1G hugepagesz=1G hugepages=64 \
-tsc=reliable clocksource=tsc skew_tick=1 pcie_aspm=off
-</code></pre>
-<h3 id="3-2-stopping-the-cpu-from-saving-power-the-c-state-p-state-war">3.2 Stopping the CPU from saving power (the C-state / P-state war)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>isolcpus=nohz_domain,managed_irq,2-19 nohz_full=2-19 rcu_nocbs=2-19 rcu_nocb_poll \</span></span>
+<span class="giallo-l"><span>irqaffinity=0-1 nosoftlockup nowatchdog nmi_watchdog=0 \</span></span>
+<span class="giallo-l"><span>intel_pstate=disable processor.max_cstate=1 intel_idle.max_cstate=0 idle=poll \</span></span>
+<span class="giallo-l"><span>mce=off audit=0 selinux=0 transparent_hugepage=never default_hugepagesz=1G hugepagesz=1G hugepages=64 \</span></span>
+<span class="giallo-l"><span>tsc=reliable clocksource=tsc skew_tick=1 pcie_aspm=off</span></span></code></pre><h3 id="3-2-stopping-the-cpu-from-saving-power-the-c-state-p-state-war">3.2 Stopping the CPU from saving power (the C-state / P-state war)</h3>
 <p>Power management is a top latency-tail source: a core in a deep C-state (C3/C6) takes microseconds to wake; frequency scaling (P-states) means your first instructions after idle run slow.</p>
 <ul>
 <li><strong><code>idle=poll</code></strong>: the idle loop busy-spins instead of entering C-states — the core never sleeps. Burns power and heat but gives the lowest wakeup latency. Alternatively <code>processor.max_cstate=1</code> / <code>intel_idle.max_cstate=0</code> to cap at C1.</li>
@@ -377,8 +393,7 @@ tsc=reliable clocksource=tsc skew_tick=1 pcie_aspm=off
 <ul>
 <li>
 <p>A cache line is <strong>64 bytes</strong> (Intel/AMD; Apple M-series 128 B). False sharing = two threads writing two different variables that happen to share a line → the coherence protocol (MESI/MOESI) ping-pongs the line between cores, turning an L1 write into a cross-core miss (~tens of ns, high variance). Fix: pad/align hot per-thread or producer/consumer variables to their own line.</p>
-<pre><code data-lang="cpp">struct alignas(64) PaddedCounter { std::atomic&lt;uint64_t&gt; v; char pad[64 - sizeof(v)]; };
-</code></pre>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">struct</span><span class="z-punctuation"> alignas(</span><span class="z-constant">64</span><span class="z-punctuation">)</span><span class="z-entity z-name z-type"> PaddedCounter</span><span class="z-punctuation"> {</span><span class="z-entity z-name"> std</span><span class="z-punctuation">::</span><span>atomic</span><span class="z-keyword z-operator">&lt;</span><span class="z-storage z-type">uint64_t</span><span class="z-keyword z-operator">&gt;</span><span> v</span><span class="z-punctuation">;</span><span class="z-storage z-type"> char</span><span class="z-variable z-other"> pad</span><span class="z-punctuation">[</span><span class="z-constant">64</span><span class="z-keyword z-operator"> -</span><span class="z-keyword z-operator"> sizeof</span><span class="z-punctuation">(</span><span>v</span><span class="z-punctuation">)</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span><span class="z-punctuation"> }</span><span class="z-punctuation">;</span></span></code></pre>
 <p>C++17 <code>std::hardware_destructive_interference_size</code>; in a Disruptor the head and tail cursors are each on their own line.</p>
 </li>
 <li>
@@ -919,8 +934,7 @@ tsc=reliable clocksource=tsc skew_tick=1 pcie_aspm=off
 </li>
 <li>
 <p><strong>Toxicity estimate.</strong> Over a rolling window of n buckets:</p>
-<pre><code>VPIN ≈ Σ|V_buy − V_sell| / (n · V)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>VPIN ≈ Σ|V_buy − V_sell| / (n · V)</span></span></code></pre>
 <p>Values near 0 → balanced/benign flow; values approaching 1 → severe one-sided (toxic) flow.</p>
 </li>
 </ol>

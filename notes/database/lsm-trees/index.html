@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -101,66 +124,64 @@
 <p>The LSM-tree was introduced by Patrick O'Neil, Edward Cheng, Dieter Gawlick, and Elizabeth O'Neil in their seminal 1996 paper "The Log-Structured Merge-Tree (LSM-Tree)" published in Acta Informatica. The motivation was clear: traditional B-tree indexes suffer from random I/O on writes, which was devastating for the mechanical hard drives of the era (and remains suboptimal even for SSDs).</p>
 <p><strong>Key Insight</strong>: By converting random writes into sequential writes through buffering and batch operations, LSM-trees can achieve orders of magnitude better write throughput than in-place update structures.</p>
 <h3 id="1-2-core-architecture">1.2 Core Architecture</h3>
-<pre><code>                    ┌─────────────────────────────────────────────┐
-                    │              WRITE PATH                      │
-                    └─────────────────────────────────────────────┘
-                                        │
-                                        ▼
-                    ┌─────────────────────────────────────────────┐
-                    │            WRITE-AHEAD LOG (WAL)            │
-                    │         (Durability guarantee)               │
-                    └─────────────────────────────────────────────┘
-                                        │
-                                        ▼
-                    ┌─────────────────────────────────────────────┐
-                    │              MEMTABLE (C0)                   │
-                    │    In-memory sorted structure (skiplist,     │
-                    │    red-black tree, or B-tree)               │
-                    │    Size: Typically 64MB-256MB               │
-                    └─────────────────────────────────────────────┘
-                                        │
-                         (When full, becomes immutable)
-                                        │
-                                        ▼
-                    ┌─────────────────────────────────────────────┐
-                    │           IMMUTABLE MEMTABLE                 │
-                    │    (Being flushed to disk)                   │
-                    └─────────────────────────────────────────────┘
-                                        │
-                              (Flush to Level 0)
-                                        │
-                    ┌───────────────────▼─────────────────────────┐
-                    │                                              │
-    ┌───────────────┴─────────────────────────────────────────────┴──────────────┐
-    │                           PERSISTENT STORAGE                                │
-    │  ┌────────────────────────────────────────────────────────────────────────┐│
-    │  │  LEVEL 0 (L0): Recently flushed SSTables                              ││
-    │  │  - May have overlapping key ranges                                     ││
-    │  │  - Typically 4-8 files before compaction triggered                     ││
-    │  │  [SST1: a-z] [SST2: b-y] [SST3: c-x] [SST4: a-m]                       ││
-    │  └────────────────────────────────────────────────────────────────────────┘│
-    │                              │ Compaction                                   │
-    │                              ▼                                              │
-    │  ┌────────────────────────────────────────────────────────────────────────┐│
-    │  │  LEVEL 1 (L1): 10x size of L0                                         ││
-    │  │  - Non-overlapping key ranges (sorted runs)                            ││
-    │  │  [SST: a-d] [SST: e-h] [SST: i-l] [SST: m-p] [SST: q-t] [SST: u-z]     ││
-    │  └────────────────────────────────────────────────────────────────────────┘│
-    │                              │ Compaction                                   │
-    │                              ▼                                              │
-    │  ┌────────────────────────────────────────────────────────────────────────┐│
-    │  │  LEVEL 2 (L2): 10x size of L1                                         ││
-    │  │  - Non-overlapping, larger files                                       ││
-    │  │  [SST: a-b] [SST: c-d] ... (many more files)                           ││
-    │  └────────────────────────────────────────────────────────────────────────┘│
-    │                              │                                              │
-    │                              ▼                                              │
-    │  ┌────────────────────────────────────────────────────────────────────────┐│
-    │  │  LEVEL N: Largest level, contains majority of data                    ││
-    │  └────────────────────────────────────────────────────────────────────────┘│
-    └─────────────────────────────────────────────────────────────────────────────┘
-</code></pre>
-<h3 id="1-3-lsm-vs-b-tree-fundamental-differences">1.3 LSM vs B-Tree: Fundamental Differences</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                    ┌─────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>                    │              WRITE PATH                      │</span></span>
+<span class="giallo-l"><span>                    └─────────────────────────────────────────────┘</span></span>
+<span class="giallo-l"><span>                                        │</span></span>
+<span class="giallo-l"><span>                                        ▼</span></span>
+<span class="giallo-l"><span>                    ┌─────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>                    │            WRITE-AHEAD LOG (WAL)            │</span></span>
+<span class="giallo-l"><span>                    │         (Durability guarantee)               │</span></span>
+<span class="giallo-l"><span>                    └─────────────────────────────────────────────┘</span></span>
+<span class="giallo-l"><span>                                        │</span></span>
+<span class="giallo-l"><span>                                        ▼</span></span>
+<span class="giallo-l"><span>                    ┌─────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>                    │              MEMTABLE (C0)                   │</span></span>
+<span class="giallo-l"><span>                    │    In-memory sorted structure (skiplist,     │</span></span>
+<span class="giallo-l"><span>                    │    red-black tree, or B-tree)               │</span></span>
+<span class="giallo-l"><span>                    │    Size: Typically 64MB-256MB               │</span></span>
+<span class="giallo-l"><span>                    └─────────────────────────────────────────────┘</span></span>
+<span class="giallo-l"><span>                                        │</span></span>
+<span class="giallo-l"><span>                         (When full, becomes immutable)</span></span>
+<span class="giallo-l"><span>                                        │</span></span>
+<span class="giallo-l"><span>                                        ▼</span></span>
+<span class="giallo-l"><span>                    ┌─────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>                    │           IMMUTABLE MEMTABLE                 │</span></span>
+<span class="giallo-l"><span>                    │    (Being flushed to disk)                   │</span></span>
+<span class="giallo-l"><span>                    └─────────────────────────────────────────────┘</span></span>
+<span class="giallo-l"><span>                                        │</span></span>
+<span class="giallo-l"><span>                              (Flush to Level 0)</span></span>
+<span class="giallo-l"><span>                                        │</span></span>
+<span class="giallo-l"><span>                    ┌───────────────────▼─────────────────────────┐</span></span>
+<span class="giallo-l"><span>                    │                                              │</span></span>
+<span class="giallo-l"><span>    ┌───────────────┴─────────────────────────────────────────────┴──────────────┐</span></span>
+<span class="giallo-l"><span>    │                           PERSISTENT STORAGE                                │</span></span>
+<span class="giallo-l"><span>    │  ┌────────────────────────────────────────────────────────────────────────┐│</span></span>
+<span class="giallo-l"><span>    │  │  LEVEL 0 (L0): Recently flushed SSTables                              ││</span></span>
+<span class="giallo-l"><span>    │  │  - May have overlapping key ranges                                     ││</span></span>
+<span class="giallo-l"><span>    │  │  - Typically 4-8 files before compaction triggered                     ││</span></span>
+<span class="giallo-l"><span>    │  │  [SST1: a-z] [SST2: b-y] [SST3: c-x] [SST4: a-m]                       ││</span></span>
+<span class="giallo-l"><span>    │  └────────────────────────────────────────────────────────────────────────┘│</span></span>
+<span class="giallo-l"><span>    │                              │ Compaction                                   │</span></span>
+<span class="giallo-l"><span>    │                              ▼                                              │</span></span>
+<span class="giallo-l"><span>    │  ┌────────────────────────────────────────────────────────────────────────┐│</span></span>
+<span class="giallo-l"><span>    │  │  LEVEL 1 (L1): 10x size of L0                                         ││</span></span>
+<span class="giallo-l"><span>    │  │  - Non-overlapping key ranges (sorted runs)                            ││</span></span>
+<span class="giallo-l"><span>    │  │  [SST: a-d] [SST: e-h] [SST: i-l] [SST: m-p] [SST: q-t] [SST: u-z]     ││</span></span>
+<span class="giallo-l"><span>    │  └────────────────────────────────────────────────────────────────────────┘│</span></span>
+<span class="giallo-l"><span>    │                              │ Compaction                                   │</span></span>
+<span class="giallo-l"><span>    │                              ▼                                              │</span></span>
+<span class="giallo-l"><span>    │  ┌────────────────────────────────────────────────────────────────────────┐│</span></span>
+<span class="giallo-l"><span>    │  │  LEVEL 2 (L2): 10x size of L1                                         ││</span></span>
+<span class="giallo-l"><span>    │  │  - Non-overlapping, larger files                                       ││</span></span>
+<span class="giallo-l"><span>    │  │  [SST: a-b] [SST: c-d] ... (many more files)                           ││</span></span>
+<span class="giallo-l"><span>    │  └────────────────────────────────────────────────────────────────────────┘│</span></span>
+<span class="giallo-l"><span>    │                              │                                              │</span></span>
+<span class="giallo-l"><span>    │                              ▼                                              │</span></span>
+<span class="giallo-l"><span>    │  ┌────────────────────────────────────────────────────────────────────────┐│</span></span>
+<span class="giallo-l"><span>    │  │  LEVEL N: Largest level, contains majority of data                    ││</span></span>
+<span class="giallo-l"><span>    │  └────────────────────────────────────────────────────────────────────────┘│</span></span>
+<span class="giallo-l"><span>    └─────────────────────────────────────────────────────────────────────────────┘</span></span></code></pre><h3 id="1-3-lsm-vs-b-tree-fundamental-differences">1.3 LSM vs B-Tree: Fundamental Differences</h3>
 <table><thead><tr><th>Aspect</th><th>B-Tree</th><th>LSM-Tree</th></tr></thead><tbody>
 <tr><td><strong>Write Pattern</strong></td><td>In-place update (random I/O)</td><td>Append-only (sequential I/O)</td></tr>
 <tr><td><strong>Read Pattern</strong></td><td>Single lookup path</td><td>Multiple levels to check</td></tr>
@@ -173,70 +194,66 @@
 <tr><td><strong>Range Scans</strong></td><td>Excellent (single structure)</td><td>Good (merge during scan)</td></tr>
 </tbody></table>
 <h3 id="1-4-the-write-path-in-detail">1.4 The Write Path in Detail</h3>
-<pre><code data-lang="rust">// Conceptual write path implementation
-fn put(key: &amp;[u8], value: &amp;[u8]) -&gt; Result&lt;()&gt; {
-    // Step 1: Write to WAL for durability
-    wal.append(WriteRecord { key, value, seq_num })?;
-
-    // Step 2: Insert into active memtable
-    // This is typically a concurrent skiplist for lock-free access
-    memtable.insert(key, value, seq_num);
-
-    // Step 3: Check if memtable is full
-    if memtable.size() &gt;= memtable_size_limit {
-        // Make current memtable immutable
-        let immutable = memtable.freeze();
-        immutable_memtables.push(immutable);
-
-        // Create new active memtable
-        memtable = MemTable::new();
-
-        // Trigger background flush
-        background_scheduler.schedule_flush();
-    }
-
-    Ok(())
-}
-</code></pre>
-<h3 id="1-5-the-read-path-in-detail">1.5 The Read Path in Detail</h3>
-<pre><code data-lang="rust">// Conceptual read path
-fn get(key: &amp;[u8]) -&gt; Result&lt;Option&lt;Value&gt;&gt; {
-    // Step 1: Check active memtable (most recent)
-    if let Some(value) = memtable.get(key) {
-        return Ok(handle_tombstone(value));
-    }
-
-    // Step 2: Check immutable memtables (newest first)
-    for imm in immutable_memtables.iter().rev() {
-        if let Some(value) = imm.get(key) {
-            return Ok(handle_tombstone(value));
-        }
-    }
-
-    // Step 3: Check on-disk levels (L0 first, then L1, L2, ...)
-    // L0 may have overlapping files, must check all
-    for sst in level0.iter().rev() {  // newest first
-        if sst.may_contain(key) {  // Bloom filter check
-            if let Some(value) = sst.get(key) {
-                return Ok(handle_tombstone(value));
-            }
-        }
-    }
-
-    // L1+ have non-overlapping files, binary search to find correct file
-    for level in 1..=max_level {
-        let sst = levels[level].find_file_for_key(key);  // Binary search
-        if sst.may_contain(key) {  // Bloom filter
-            if let Some(value) = sst.get(key) {
-                return Ok(handle_tombstone(value));
-            }
-        }
-    }
-
-    Ok(None)
-}
-</code></pre>
-<h3 id="1-6-why-lsm-trees-excel-for-write-heavy-workloads">1.6 Why LSM Trees Excel for Write-Heavy Workloads</h3>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Conceptual write path implementation</span></span>
+<span class="giallo-l"><span class="z-keyword">fn</span><span class="z-entity z-name z-function"> put</span><span class="z-punctuation">(</span><span class="z-variable z-other">key</span><span class="z-keyword z-operator">:</span><span class="z-keyword z-operator"> &amp;</span><span class="z-punctuation">[</span><span class="z-entity z-name z-type">u8</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span><span class="z-variable z-other"> value</span><span class="z-keyword z-operator">:</span><span class="z-keyword z-operator"> &amp;</span><span class="z-punctuation">[</span><span class="z-entity z-name z-type">u8</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> Result</span><span class="z-punctuation">&lt;</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">&gt;</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Step 1: Write to WAL for durability</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    wal</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">append</span><span class="z-punctuation">(</span><span class="z-entity z-name z-type">WriteRecord</span><span class="z-punctuation"> {</span><span class="z-variable z-other"> key</span><span class="z-punctuation">,</span><span class="z-variable z-other"> value</span><span class="z-punctuation">,</span><span class="z-variable z-other"> seq_num</span><span class="z-punctuation"> }</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">?</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Step 2: Insert into active memtable</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> This is typically a concurrent skiplist for lock-free access</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    memtable</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">insert</span><span class="z-punctuation">(</span><span class="z-variable z-other">key</span><span class="z-punctuation">,</span><span class="z-variable z-other"> value</span><span class="z-punctuation">,</span><span class="z-variable z-other"> seq_num</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Step 3: Check if memtable is full</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    if</span><span class="z-variable z-other"> memtable</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">size</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> &gt;=</span><span class="z-variable z-other"> memtable_size_limit</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">        //</span><span class="z-comment"> Make current memtable immutable</span></span>
+<span class="giallo-l"><span class="z-storage z-type">        let</span><span class="z-variable z-other"> immutable</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> memtable</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">freeze</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        immutable_memtables</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">push</span><span class="z-punctuation">(</span><span class="z-variable z-other">immutable</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">        //</span><span class="z-comment"> Create new active memtable</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        memtable</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-type"> MemTable</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">new</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">        //</span><span class="z-comment"> Trigger background flush</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        background_scheduler</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">schedule_flush</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">    Ok</span><span class="z-punctuation">(</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre><h3 id="1-5-the-read-path-in-detail">1.5 The Read Path in Detail</h3>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Conceptual read path</span></span>
+<span class="giallo-l"><span class="z-keyword">fn</span><span class="z-entity z-name z-function"> get</span><span class="z-punctuation">(</span><span class="z-variable z-other">key</span><span class="z-keyword z-operator">:</span><span class="z-keyword z-operator"> &amp;</span><span class="z-punctuation">[</span><span class="z-entity z-name z-type">u8</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> Result</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">Option</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">Value</span><span class="z-punctuation">&gt;</span><span class="z-punctuation">&gt;</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Step 1: Check active memtable (most recent)</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    if</span><span class="z-storage z-type"> let</span><span class="z-entity z-name z-type"> Some</span><span class="z-punctuation">(</span><span class="z-variable z-other">value</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> memtable</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">get</span><span class="z-punctuation">(</span><span class="z-variable z-other">key</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        return</span><span class="z-entity z-name z-type"> Ok</span><span class="z-punctuation">(</span><span class="z-entity z-name z-function">handle_tombstone</span><span class="z-punctuation">(</span><span class="z-variable z-other">value</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Step 2: Check immutable memtables (newest first)</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    for</span><span class="z-variable z-other"> imm</span><span class="z-keyword"> in</span><span class="z-variable z-other"> immutable_memtables</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">iter</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">rev</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-storage z-type"> let</span><span class="z-entity z-name z-type"> Some</span><span class="z-punctuation">(</span><span class="z-variable z-other">value</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> imm</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">get</span><span class="z-punctuation">(</span><span class="z-variable z-other">key</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">            return</span><span class="z-entity z-name z-type"> Ok</span><span class="z-punctuation">(</span><span class="z-entity z-name z-function">handle_tombstone</span><span class="z-punctuation">(</span><span class="z-variable z-other">value</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Step 3: Check on-disk levels (L0 first, then L1, L2, ...)</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> L0 may have overlapping files, must check all</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    for</span><span class="z-variable z-other"> sst</span><span class="z-keyword"> in</span><span class="z-variable z-other"> level0</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">iter</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">rev</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> newest first</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-variable z-other"> sst</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">may_contain</span><span class="z-punctuation">(</span><span class="z-variable z-other">key</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Bloom filter check</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">            if</span><span class="z-storage z-type"> let</span><span class="z-entity z-name z-type"> Some</span><span class="z-punctuation">(</span><span class="z-variable z-other">value</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> sst</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">get</span><span class="z-punctuation">(</span><span class="z-variable z-other">key</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">                return</span><span class="z-entity z-name z-type"> Ok</span><span class="z-punctuation">(</span><span class="z-entity z-name z-function">handle_tombstone</span><span class="z-punctuation">(</span><span class="z-variable z-other">value</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">            }</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> L1+ have non-overlapping files, binary search to find correct file</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    for</span><span class="z-variable z-other"> level</span><span class="z-keyword"> in</span><span class="z-constant"> 1</span><span class="z-keyword z-operator">..=</span><span class="z-variable z-other">max_level</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">        let</span><span class="z-variable z-other"> sst</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> levels</span><span class="z-punctuation">[</span><span class="z-variable z-other">level</span><span class="z-punctuation">]</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">find_file_for_key</span><span class="z-punctuation">(</span><span class="z-variable z-other">key</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Binary search</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-variable z-other"> sst</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">may_contain</span><span class="z-punctuation">(</span><span class="z-variable z-other">key</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Bloom filter</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">            if</span><span class="z-storage z-type"> let</span><span class="z-entity z-name z-type"> Some</span><span class="z-punctuation">(</span><span class="z-variable z-other">value</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> sst</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">get</span><span class="z-punctuation">(</span><span class="z-variable z-other">key</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">                return</span><span class="z-entity z-name z-type"> Ok</span><span class="z-punctuation">(</span><span class="z-entity z-name z-function">handle_tombstone</span><span class="z-punctuation">(</span><span class="z-variable z-other">value</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">            }</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">    Ok</span><span class="z-punctuation">(</span><span class="z-entity z-name z-type">None</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre><h3 id="1-6-why-lsm-trees-excel-for-write-heavy-workloads">1.6 Why LSM Trees Excel for Write-Heavy Workloads</h3>
 <ol>
 <li>
 <p><strong>Sequential I/O Dominance</strong>: Writes are buffered and written sequentially, which is 100-1000x faster than random I/O on HDDs and 10-100x faster on SSDs.</p>
@@ -266,11 +283,10 @@ fn get(key: &amp;[u8]) -&gt; Result&lt;Option&lt;Value&gt;&gt; {
 <li>When L(i) exceeds its size limit, pick a file and merge with overlapping files in L(i+1)</li>
 </ul>
 <p><strong>Properties</strong>:</p>
-<pre><code>Write Amplification: O(L * T) where L = levels, T = size ratio (typically 10)
-                     Approximately 10-30x in practice
-Read Amplification:  O(L) = O(log_T(N)) - logarithmic in data size
-Space Amplification: ~1.1x (minimal wasted space)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Write Amplification: O(L * T) where L = levels, T = size ratio (typically 10)</span></span>
+<span class="giallo-l"><span>                     Approximately 10-30x in practice</span></span>
+<span class="giallo-l"><span>Read Amplification:  O(L) = O(log_T(N)) - logarithmic in data size</span></span>
+<span class="giallo-l"><span>Space Amplification: ~1.1x (minimal wasted space)</span></span></code></pre>
 <p><strong>Pros</strong>:</p>
 <ul>
 <li>Excellent read performance (bounded number of files to check)</li>
@@ -292,11 +308,10 @@ Space Amplification: ~1.1x (minimal wasted space)
 <li>No size limit per level, trigger based on run count</li>
 </ul>
 <p><strong>Properties</strong>:</p>
-<pre><code>Write Amplification: O(L) - much lower than leveled
-                     Approximately 4-8x
-Read Amplification:  O(L * T) - must check more files
-Space Amplification: Up to 2x (temporary during compaction)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Write Amplification: O(L) - much lower than leveled</span></span>
+<span class="giallo-l"><span>                     Approximately 4-8x</span></span>
+<span class="giallo-l"><span>Read Amplification:  O(L * T) - must check more files</span></span>
+<span class="giallo-l"><span>Space Amplification: Up to 2x (temporary during compaction)</span></span></code></pre>
 <p><strong>Pros</strong>:</p>
 <ul>
 <li>Lower write amplification</li>
@@ -317,10 +332,9 @@ Space Amplification: Up to 2x (temporary during compaction)
 <li>Only for time-series data with TTL</li>
 </ul>
 <p><strong>Properties</strong>:</p>
-<pre><code>Write Amplification: 1x (no rewriting)
-Read Amplification:  Very high (all files may need scanning)
-Space Amplification: None beyond data itself
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Write Amplification: 1x (no rewriting)</span></span>
+<span class="giallo-l"><span>Read Amplification:  Very high (all files may need scanning)</span></span>
+<span class="giallo-l"><span>Space Amplification: None beyond data itself</span></span></code></pre>
 <p><strong>Used by</strong>: RocksDB (optional for time-series), InfluxDB concepts</p>
 <h4 id="2-1-4-universal-compaction-rocksdb">2.1.4 Universal Compaction (RocksDB)</h4>
 <p><strong>Mechanism</strong>:</p>
@@ -331,10 +345,9 @@ Space Amplification: None beyond data itself
 <li>Configurable space amplification limit</li>
 </ul>
 <p><strong>Properties</strong>:</p>
-<pre><code>Write Amplification: Tunable between leveled and tiered
-Read Amplification:  Tunable
-Space Amplification: Configurable limit (e.g., max 2x)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Write Amplification: Tunable between leveled and tiered</span></span>
+<span class="giallo-l"><span>Read Amplification:  Tunable</span></span>
+<span class="giallo-l"><span>Space Amplification: Configurable limit (e.g., max 2x)</span></span></code></pre>
 <p><strong>Pros</strong>:</p>
 <ul>
 <li>Flexible tradeoff tuning</li>
@@ -355,10 +368,9 @@ Space Amplification: Configurable limit (e.g., max 2x)
 <li>Hybrid approach targeting the optimal point</li>
 </ul>
 <p><strong>Properties</strong>:</p>
-<pre><code>Write Amplification: O(L) - similar to tiered
-Read Amplification:  O(1) for point lookups (with Bloom filters)
-Space Amplification: Similar to leveled
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Write Amplification: O(L) - similar to tiered</span></span>
+<span class="giallo-l"><span>Read Amplification:  O(1) for point lookups (with Bloom filters)</span></span>
+<span class="giallo-l"><span>Space Amplification: Similar to leveled</span></span></code></pre>
 <p><strong>Key Paper</strong>: "Dostoevsky: Better Space-Time Trade-Offs for LSM-Tree Based Key-Value Stores via Adaptive Removal of Superfluous Merging" - Dayan &amp; Idreos, SIGMOD 2018</p>
 <h3 id="2-2-the-rum-conjecture-and-amplification-tradeoffs">2.2 The RUM Conjecture and Amplification Tradeoffs</h3>
 <p>The <strong>RUM Conjecture</strong> (Read, Update, Memory) states that you can optimize at most two of the three:</p>
@@ -368,29 +380,28 @@ Space Amplification: Similar to leveled
 <li><strong>M</strong>emory (space) overhead</li>
 </ul>
 <p><strong>Visualization of the Design Space</strong>:</p>
-<pre><code>                        Read Optimal
-                             ▲
-                             │
-                             │  B-Tree
-                             │    ●
-                             │
-                             │         Leveled LSM
-                             │              ●
-                             │
-                             │                    Lazy Leveling
-                             │                         ●
-                             │
-    Write Optimal ◄──────────┼───────────────────────────► Space Optimal
-                             │
-                             │                    Tiered LSM
-                             │                         ●
-                             │
-                             │
-                             │  Append-Only Log
-                             │    ●
-                             │
-                             ▼
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                        Read Optimal</span></span>
+<span class="giallo-l"><span>                             ▲</span></span>
+<span class="giallo-l"><span>                             │</span></span>
+<span class="giallo-l"><span>                             │  B-Tree</span></span>
+<span class="giallo-l"><span>                             │    ●</span></span>
+<span class="giallo-l"><span>                             │</span></span>
+<span class="giallo-l"><span>                             │         Leveled LSM</span></span>
+<span class="giallo-l"><span>                             │              ●</span></span>
+<span class="giallo-l"><span>                             │</span></span>
+<span class="giallo-l"><span>                             │                    Lazy Leveling</span></span>
+<span class="giallo-l"><span>                             │                         ●</span></span>
+<span class="giallo-l"><span>                             │</span></span>
+<span class="giallo-l"><span>    Write Optimal ◄──────────┼───────────────────────────► Space Optimal</span></span>
+<span class="giallo-l"><span>                             │</span></span>
+<span class="giallo-l"><span>                             │                    Tiered LSM</span></span>
+<span class="giallo-l"><span>                             │                         ●</span></span>
+<span class="giallo-l"><span>                             │</span></span>
+<span class="giallo-l"><span>                             │</span></span>
+<span class="giallo-l"><span>                             │  Append-Only Log</span></span>
+<span class="giallo-l"><span>                             │    ●</span></span>
+<span class="giallo-l"><span>                             │</span></span>
+<span class="giallo-l"><span>                             ▼</span></span></code></pre>
 <p><strong>Quantifying Amplification</strong> (from Dostoevsky paper):</p>
 <p>For leveled compaction with size ratio T and L levels:</p>
 <ul>
@@ -419,9 +430,8 @@ Space Amplification: Similar to leveled
 <li>Use traditional Bloom filter as backup for false negatives</li>
 <li>Can achieve same FPR with less memory for skewed distributions</li>
 </ul>
-<pre><code>Traditional: FPR = (1 - e^(-kn/m))^k
-Learned: FPR = P(model says yes | not in set) * P(bloom says yes | model said yes, not in set)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Traditional: FPR = (1 - e^(-kn/m))^k</span></span>
+<span class="giallo-l"><span>Learned: FPR = P(model says yes | not in set) * P(bloom says yes | model said yes, not in set)</span></span></code></pre>
 <p><strong>Key Paper</strong>: "The Case for Learned Index Structures" - Kraska et al., SIGMOD 2018</p>
 <h4 id="2-3-2-learned-compaction-scheduling">2.3.2 Learned Compaction Scheduling</h4>
 <p><strong>Research Direction</strong>: Use ML to predict:</p>
@@ -549,30 +559,29 @@ Learned: FPR = P(model says yes | not in set) * P(bloom says yes | model said ye
 <li>Written in C++, highly configurable</li>
 </ul>
 <p><strong>Key Features</strong>:</p>
-<pre><code data-lang="cpp">// RocksDB configuration example
-Options options;
-options.create_if_missing = true;
-
-// Compaction
-options.compaction_style = kCompactionStyleLevel;  // or kCompactionStyleUniversal
-options.level_compaction_dynamic_level_bytes = true;
-options.max_bytes_for_level_base = 256 * 1024 * 1024;  // 256MB
-options.max_bytes_for_level_multiplier = 10;
-
-// Memtable
-options.write_buffer_size = 64 * 1024 * 1024;  // 64MB
-options.max_write_buffer_number = 4;
-options.min_write_buffer_number_to_merge = 2;
-
-// Block cache
-BlockBasedTableOptions table_options;
-table_options.block_cache = NewLRUCache(512 * 1024 * 1024);  // 512MB
-table_options.filter_policy.reset(NewBloomFilterPolicy(10));  // 10 bits per key
-options.table_factory.reset(NewBlockBasedTableFactory(table_options));
-
-// Rate limiting
-options.rate_limiter.reset(NewGenericRateLimiter(100 * 1024 * 1024));  // 100MB/s for compaction
-</code></pre>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> RocksDB configuration example</span></span>
+<span class="giallo-l"><span>Options options</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">options</span><span class="z-punctuation">.</span><span class="z-variable z-other">create_if_missing</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> true</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Compaction</span></span>
+<span class="giallo-l"><span class="z-variable z-other">options</span><span class="z-punctuation">.</span><span class="z-variable z-other">compaction_style</span><span class="z-keyword z-operator"> =</span><span> kCompactionStyleLevel</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> or kCompactionStyleUniversal</span></span>
+<span class="giallo-l"><span class="z-variable z-other">options</span><span class="z-punctuation">.</span><span class="z-variable z-other">level_compaction_dynamic_level_bytes</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> true</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">options</span><span class="z-punctuation">.</span><span class="z-variable z-other">max_bytes_for_level_base</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 256</span><span class="z-keyword z-operator"> *</span><span class="z-constant"> 1024</span><span class="z-keyword z-operator"> *</span><span class="z-constant"> 1024</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> 256MB</span></span>
+<span class="giallo-l"><span class="z-variable z-other">options</span><span class="z-punctuation">.</span><span class="z-variable z-other">max_bytes_for_level_multiplier</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 10</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Memtable</span></span>
+<span class="giallo-l"><span class="z-variable z-other">options</span><span class="z-punctuation">.</span><span class="z-variable z-other">write_buffer_size</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 64</span><span class="z-keyword z-operator"> *</span><span class="z-constant"> 1024</span><span class="z-keyword z-operator"> *</span><span class="z-constant"> 1024</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> 64MB</span></span>
+<span class="giallo-l"><span class="z-variable z-other">options</span><span class="z-punctuation">.</span><span class="z-variable z-other">max_write_buffer_number</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 4</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">options</span><span class="z-punctuation">.</span><span class="z-variable z-other">min_write_buffer_number_to_merge</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 2</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Block cache</span></span>
+<span class="giallo-l"><span>BlockBasedTableOptions table_options</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">table_options</span><span class="z-punctuation">.</span><span class="z-variable z-other">block_cache</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-function"> NewLRUCache</span><span class="z-punctuation">(</span><span class="z-constant">512</span><span class="z-keyword z-operator"> *</span><span class="z-constant"> 1024</span><span class="z-keyword z-operator"> *</span><span class="z-constant"> 1024</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> 512MB</span></span>
+<span class="giallo-l"><span class="z-variable z-other">table_options</span><span class="z-punctuation">.</span><span class="z-variable z-other">filter_policy</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">reset</span><span class="z-punctuation">(</span><span class="z-entity z-name z-function">NewBloomFilterPolicy</span><span class="z-punctuation">(</span><span class="z-constant">10</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> 10 bits per key</span></span>
+<span class="giallo-l"><span class="z-variable z-other">options</span><span class="z-punctuation">.</span><span class="z-variable z-other">table_factory</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">reset</span><span class="z-punctuation">(</span><span class="z-entity z-name z-function">NewBlockBasedTableFactory</span><span class="z-punctuation">(</span><span>table_options</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Rate limiting</span></span>
+<span class="giallo-l"><span class="z-variable z-other">options</span><span class="z-punctuation">.</span><span class="z-variable z-other">rate_limiter</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">reset</span><span class="z-punctuation">(</span><span class="z-entity z-name z-function">NewGenericRateLimiter</span><span class="z-punctuation">(</span><span class="z-constant">100</span><span class="z-keyword z-operator"> *</span><span class="z-constant"> 1024</span><span class="z-keyword z-operator"> *</span><span class="z-constant"> 1024</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> 100MB/s for compaction</span></span></code></pre>
 <p><strong>Advanced Features</strong>:</p>
 <ol>
 <li><strong>Column Families</strong>: Logical separation within same DB, independent memtables and compaction</li>
@@ -583,35 +592,33 @@ options.rate_limiter.reset(NewGenericRateLimiter(100 * 1024 * 1024));  // 100MB/
 <li><strong>Rate Limiter</strong>: Control background I/O impact</li>
 </ol>
 <p><strong>SSTable Format</strong>:</p>
-<pre><code>┌──────────────────────────────────────────────────────────────┐
-│                        DATA BLOCKS                           │
-│  ┌─────────────────────────────────────────────────────────┐ │
-│  │ Block 1: [KV, KV, KV, ...] (compressed)                │ │
-│  │ Block 2: [KV, KV, KV, ...] (compressed)                │ │
-│  │ ...                                                     │ │
-│  └─────────────────────────────────────────────────────────┘ │
-├──────────────────────────────────────────────────────────────┤
-│                      META BLOCKS                             │
-│  ┌─────────────────────────────────────────────────────────┐ │
-│  │ Filter Block (Bloom filter for all keys)               │ │
-│  │ Properties Block (file metadata)                        │ │
-│  │ Compression Dict Block (shared dictionary)              │ │
-│  │ Range Deletion Block (tombstone ranges)                │ │
-│  └─────────────────────────────────────────────────────────┘ │
-├──────────────────────────────────────────────────────────────┤
-│                      INDEX BLOCK                             │
-│  [last_key_block_1, offset_1]                               │
-│  [last_key_block_2, offset_2]                               │
-│  ...                                                         │
-├──────────────────────────────────────────────────────────────┤
-│                      META INDEX                              │
-│  [filter_block_handle, properties_block_handle, ...]        │
-├──────────────────────────────────────────────────────────────┤
-│                        FOOTER                                │
-│  [meta_index_handle, index_handle, magic_number]            │
-└──────────────────────────────────────────────────────────────┘
-</code></pre>
-<h3 id="3-2-leveldb-google">3.2 LevelDB (Google)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌──────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                        DATA BLOCKS                           │</span></span>
+<span class="giallo-l"><span>│  ┌─────────────────────────────────────────────────────────┐ │</span></span>
+<span class="giallo-l"><span>│  │ Block 1: [KV, KV, KV, ...] (compressed)                │ │</span></span>
+<span class="giallo-l"><span>│  │ Block 2: [KV, KV, KV, ...] (compressed)                │ │</span></span>
+<span class="giallo-l"><span>│  │ ...                                                     │ │</span></span>
+<span class="giallo-l"><span>│  └─────────────────────────────────────────────────────────┘ │</span></span>
+<span class="giallo-l"><span>├──────────────────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│                      META BLOCKS                             │</span></span>
+<span class="giallo-l"><span>│  ┌─────────────────────────────────────────────────────────┐ │</span></span>
+<span class="giallo-l"><span>│  │ Filter Block (Bloom filter for all keys)               │ │</span></span>
+<span class="giallo-l"><span>│  │ Properties Block (file metadata)                        │ │</span></span>
+<span class="giallo-l"><span>│  │ Compression Dict Block (shared dictionary)              │ │</span></span>
+<span class="giallo-l"><span>│  │ Range Deletion Block (tombstone ranges)                │ │</span></span>
+<span class="giallo-l"><span>│  └─────────────────────────────────────────────────────────┘ │</span></span>
+<span class="giallo-l"><span>├──────────────────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│                      INDEX BLOCK                             │</span></span>
+<span class="giallo-l"><span>│  [last_key_block_1, offset_1]                               │</span></span>
+<span class="giallo-l"><span>│  [last_key_block_2, offset_2]                               │</span></span>
+<span class="giallo-l"><span>│  ...                                                         │</span></span>
+<span class="giallo-l"><span>├──────────────────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│                      META INDEX                              │</span></span>
+<span class="giallo-l"><span>│  [filter_block_handle, properties_block_handle, ...]        │</span></span>
+<span class="giallo-l"><span>├──────────────────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│                        FOOTER                                │</span></span>
+<span class="giallo-l"><span>│  [meta_index_handle, index_handle, magic_number]            │</span></span>
+<span class="giallo-l"><span>└──────────────────────────────────────────────────────────────┘</span></span></code></pre><h3 id="3-2-leveldb-google">3.2 LevelDB (Google)</h3>
 <p><strong>Overview</strong>:</p>
 <ul>
 <li>Original modern LSM implementation (2011)</li>
@@ -633,29 +640,28 @@ options.rate_limiter.reset(NewGenericRateLimiter(100 * 1024 * 1024));  // 100MB/
 <li>Written in C</li>
 </ul>
 <p><strong>Key Architecture</strong>:</p>
-<pre><code>┌─────────────────────────────────────────────────────────────┐
-│                     WiredTiger Architecture                  │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌──────────────────┐    ┌────────────────────────────────┐ │
-│  │   In-Memory      │    │      On-Disk                   │ │
-│  │   ┌──────────┐   │    │   ┌────────────────────────┐   │ │
-│  │   │ Skip List│   │    │   │ Row Store (B+ Tree)    │   │ │
-│  │   │(Updates) │───┼────┼──&gt;│ - Page-based           │   │ │
-│  │   └──────────┘   │    │   │ - In-place updates     │   │ │
-│  │                  │    │   │ - BUT reconciliation   │   │ │
-│  │   ┌──────────┐   │    │   │   batches writes       │   │ │
-│  │   │Block Mgr │   │    │   └────────────────────────┘   │ │
-│  │   │ (Cache)  │   │    │                                │ │
-│  │   └──────────┘   │    │   ┌────────────────────────┐   │ │
-│  │                  │    │   │ Column Store (LSM-like)│   │ │
-│  │                  │    │   │ - Append-only          │   │ │
-│  │                  │    │   │ - Background merge     │   │ │
-│  │                  │    │   └────────────────────────┘   │ │
-│  └──────────────────┘    └────────────────────────────────┘ │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                     WiredTiger Architecture                  │</span></span>
+<span class="giallo-l"><span>├─────────────────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│                                                              │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────────┐    ┌────────────────────────────────┐ │</span></span>
+<span class="giallo-l"><span>│  │   In-Memory      │    │      On-Disk                   │ │</span></span>
+<span class="giallo-l"><span>│  │   ┌──────────┐   │    │   ┌────────────────────────┐   │ │</span></span>
+<span class="giallo-l"><span>│  │   │ Skip List│   │    │   │ Row Store (B+ Tree)    │   │ │</span></span>
+<span class="giallo-l"><span>│  │   │(Updates) │───┼────┼──&gt;│ - Page-based           │   │ │</span></span>
+<span class="giallo-l"><span>│  │   └──────────┘   │    │   │ - In-place updates     │   │ │</span></span>
+<span class="giallo-l"><span>│  │                  │    │   │ - BUT reconciliation   │   │ │</span></span>
+<span class="giallo-l"><span>│  │   ┌──────────┐   │    │   │   batches writes       │   │ │</span></span>
+<span class="giallo-l"><span>│  │   │Block Mgr │   │    │   └────────────────────────┘   │ │</span></span>
+<span class="giallo-l"><span>│  │   │ (Cache)  │   │    │                                │ │</span></span>
+<span class="giallo-l"><span>│  │   └──────────┘   │    │   ┌────────────────────────┐   │ │</span></span>
+<span class="giallo-l"><span>│  │                  │    │   │ Column Store (LSM-like)│   │ │</span></span>
+<span class="giallo-l"><span>│  │                  │    │   │ - Append-only          │   │ │</span></span>
+<span class="giallo-l"><span>│  │                  │    │   │ - Background merge     │   │ │</span></span>
+<span class="giallo-l"><span>│  │                  │    │   └────────────────────────┘   │ │</span></span>
+<span class="giallo-l"><span>│  └──────────────────┘    └────────────────────────────────┘ │</span></span>
+<span class="giallo-l"><span>│                                                              │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────────────────┘</span></span></code></pre>
 <p><strong>Key Features</strong>:</p>
 <ol>
 <li><strong>Document-level Concurrency</strong>: MVCC with hazard pointers</li>
@@ -671,24 +677,23 @@ options.rate_limiter.reset(NewGenericRateLimiter(100 * 1024 * 1024));  // 100MB/
 <li>Focus on correctness and Go ecosystem integration</li>
 </ul>
 <p><strong>Key Differences from RocksDB</strong>:</p>
-<pre><code data-lang="go">// Pebble configuration
-opts := &amp;pebble.Options{
-    // Memory
-    MemTableSize:                64 &lt;&lt; 20,  // 64MB
-    MemTableStopWritesThreshold: 4,
-
-    // Compaction
-    L0CompactionThreshold:     2,
-    L0StopWritesThreshold:     1000,
-    LBaseMaxBytes:             64 &lt;&lt; 20,  // 64MB
-    MaxConcurrentCompactions:  3,
-
-    // Bloom filters
-    Levels: []pebble.LevelOptions{
-        {FilterPolicy: bloom.FilterPolicy(10)},
-    },
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="go"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Pebble configuration</span></span>
+<span class="giallo-l"><span class="z-variable z-other">opts</span><span class="z-keyword z-operator"> :=</span><span class="z-keyword z-operator"> &amp;</span><span class="z-entity z-name z-type">pebble</span><span class="z-punctuation">.</span><span class="z-entity z-name z-type">Options</span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Memory</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    MemTableSize</span><span class="z-punctuation">:</span><span class="z-constant">                64</span><span class="z-keyword z-operator"> &lt;&lt;</span><span class="z-constant"> 20</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> 64MB</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    MemTableStopWritesThreshold</span><span class="z-punctuation">:</span><span class="z-constant"> 4</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Compaction</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    L0CompactionThreshold</span><span class="z-punctuation">:</span><span class="z-constant">     2</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    L0StopWritesThreshold</span><span class="z-punctuation">:</span><span class="z-constant">     1000</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    LBaseMaxBytes</span><span class="z-punctuation">:</span><span class="z-constant">             64</span><span class="z-keyword z-operator"> &lt;&lt;</span><span class="z-constant"> 20</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> 64MB</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    MaxConcurrentCompactions</span><span class="z-punctuation">:</span><span class="z-constant">  3</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Bloom filters</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    Levels</span><span class="z-punctuation">:</span><span class="z-punctuation"> [</span><span class="z-punctuation">]</span><span class="z-entity z-name z-type">pebble</span><span class="z-punctuation">.</span><span class="z-entity z-name z-type">LevelOptions</span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span class="z-punctuation">        {</span><span class="z-variable z-other">FilterPolicy</span><span class="z-punctuation">:</span><span class="z-variable z-other"> bloom</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">FilterPolicy</span><span class="z-punctuation">(</span><span class="z-constant">10</span><span class="z-punctuation">)</span><span class="z-punctuation">}</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <p><strong>Notable Features</strong>:</p>
 <ol>
 <li><strong>Range Keys</strong>: Native support for range-based metadata (used for MVCC garbage)</li>
@@ -707,16 +712,15 @@ opts := &amp;pebble.Options{
 <ol>
 <li><strong>Incremental Compaction Strategy (ICS)</strong>:</li>
 </ol>
-<pre><code>Traditional Compaction:
-[SST1] + [SST2] + [SST3] + [SST4] → [SST_merged]
-(All files must be read and written atomically)
-
-Incremental Compaction:
-[SST1] + [SST2] → [fragment1]
-[fragment1] + [SST3] → [fragment2]
-[fragment2] + [SST4] → [SST_merged]
-(Can pause and resume, lower space amplification)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Traditional Compaction:</span></span>
+<span class="giallo-l"><span>[SST1] + [SST2] + [SST3] + [SST4] → [SST_merged]</span></span>
+<span class="giallo-l"><span>(All files must be read and written atomically)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Incremental Compaction:</span></span>
+<span class="giallo-l"><span>[SST1] + [SST2] → [fragment1]</span></span>
+<span class="giallo-l"><span>[fragment1] + [SST3] → [fragment2]</span></span>
+<span class="giallo-l"><span>[fragment2] + [SST4] → [SST_merged]</span></span>
+<span class="giallo-l"><span>(Can pause and resume, lower space amplification)</span></span></code></pre>
 <ol start="2">
 <li><strong>Shard-per-Core</strong>: Each CPU core owns a shard, no cross-core synchronization</li>
 <li><strong>Seastar Framework</strong>: Async I/O throughout</li>
@@ -752,57 +756,53 @@ Incremental Compaction:
 <li>Distributed across nodes using consistent hashing</li>
 </ul>
 <p><strong>Compaction Strategies</strong>:</p>
-<pre><code data-lang="yaml"># Size-Tiered (default, write-optimized)
-compaction:
-  class: SizeTieredCompactionStrategy
-  min_threshold: 4
-  max_threshold: 32
-
-# Leveled (read-optimized)
-compaction:
-  class: LeveledCompactionStrategy
-  sstable_size_in_mb: 160
-
-# Time-Window (time-series)
-compaction:
-  class: TimeWindowCompactionStrategy
-  compaction_window_unit: DAYS
-  compaction_window_size: 1
-</code></pre>
+<pre class="giallo z-code"><code data-lang="yaml"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Size-Tiered (default, write-optimized)</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">c</span><span class="z-entity z-name z-tag">ompaction</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  c</span><span class="z-entity z-name z-tag">lass</span><span class="z-punctuation">:</span><span class="z-string"> S</span><span class="z-string">izeTieredCompactionStrategy</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  m</span><span class="z-entity z-name z-tag">in_threshold</span><span class="z-punctuation">:</span><span class="z-constant"> 4</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  m</span><span class="z-entity z-name z-tag">ax_threshold</span><span class="z-punctuation">:</span><span class="z-constant"> 32</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Leveled (read-optimized)</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">c</span><span class="z-entity z-name z-tag">ompaction</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  c</span><span class="z-entity z-name z-tag">lass</span><span class="z-punctuation">:</span><span class="z-string"> L</span><span class="z-string">eveledCompactionStrategy</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  s</span><span class="z-entity z-name z-tag">stable_size_in_mb</span><span class="z-punctuation">:</span><span class="z-constant"> 160</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Time-Window (time-series)</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">c</span><span class="z-entity z-name z-tag">ompaction</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  c</span><span class="z-entity z-name z-tag">lass</span><span class="z-punctuation">:</span><span class="z-string"> T</span><span class="z-string">imeWindowCompactionStrategy</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  c</span><span class="z-entity z-name z-tag">ompaction_window_unit</span><span class="z-punctuation">:</span><span class="z-string"> D</span><span class="z-string">AYS</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  c</span><span class="z-entity z-name z-tag">ompaction_window_size</span><span class="z-punctuation">:</span><span class="z-constant"> 1</span></span></code></pre>
 <hr />
 <h2 id="4-advanced-optimization-techniques">4. Advanced Optimization Techniques</h2>
 <h3 id="4-1-bloom-filters-theory-and-practice">4.1 Bloom Filters: Theory and Practice</h3>
 <h4 id="4-1-1-standard-bloom-filter-math">4.1.1 Standard Bloom Filter Math</h4>
-<pre><code>Parameters:
-  n = number of elements
-  m = number of bits
-  k = number of hash functions
-
-Optimal k: k = (m/n) * ln(2) ≈ 0.693 * (m/n)
-
-False Positive Rate: FPR ≈ (1 - e^(-kn/m))^k
-
-Bits per key for target FPR:
-  m/n = -1.44 * log2(FPR)
-
-  FPR = 1%  → 9.6 bits/key
-  FPR = 0.1% → 14.4 bits/key
-</code></pre>
-<h4 id="4-1-2-blocked-bloom-filters">4.1.2 Blocked Bloom Filters</h4>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Parameters:</span></span>
+<span class="giallo-l"><span>  n = number of elements</span></span>
+<span class="giallo-l"><span>  m = number of bits</span></span>
+<span class="giallo-l"><span>  k = number of hash functions</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Optimal k: k = (m/n) * ln(2) ≈ 0.693 * (m/n)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>False Positive Rate: FPR ≈ (1 - e^(-kn/m))^k</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Bits per key for target FPR:</span></span>
+<span class="giallo-l"><span>  m/n = -1.44 * log2(FPR)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  FPR = 1%  → 9.6 bits/key</span></span>
+<span class="giallo-l"><span>  FPR = 0.1% → 14.4 bits/key</span></span></code></pre><h4 id="4-1-2-blocked-bloom-filters">4.1.2 Blocked Bloom Filters</h4>
 <p>Problem: Standard Bloom filters have poor cache behavior (random memory access).</p>
 <p>Solution: Divide into cache-line-sized blocks:</p>
-<pre><code>┌────────────────────────────────────────────────────────────┐
-│                    Blocked Bloom Filter                     │
-├────────────────────────────────────────────────────────────┤
-│ Block 0 (64 bytes)  │ Block 1 (64 bytes)  │ Block 2 ...    │
-│ [bits for keys      │ [bits for keys      │                │
-│  hashing to block 0]│  hashing to block 1]│                │
-└────────────────────────────────────────────────────────────┘
-
-Lookup:
-1. Hash key to determine block
-2. All k probes within that single cache line
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                    Blocked Bloom Filter                     │</span></span>
+<span class="giallo-l"><span>├────────────────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│ Block 0 (64 bytes)  │ Block 1 (64 bytes)  │ Block 2 ...    │</span></span>
+<span class="giallo-l"><span>│ [bits for keys      │ [bits for keys      │                │</span></span>
+<span class="giallo-l"><span>│  hashing to block 0]│  hashing to block 1]│                │</span></span>
+<span class="giallo-l"><span>└────────────────────────────────────────────────────────────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Lookup:</span></span>
+<span class="giallo-l"><span>1. Hash key to determine block</span></span>
+<span class="giallo-l"><span>2. All k probes within that single cache line</span></span></code></pre>
 <p><strong>Tradeoff</strong>: Slightly higher FPR but much better cache performance.</p>
 <h4 id="4-1-3-ribbon-filters-rocksdb">4.1.3 Ribbon Filters (RocksDB)</h4>
 <p><strong>Ribbon Filter</strong> (Rocksdb Improved Bloom-like Binary fused filter):</p>
@@ -814,20 +814,19 @@ Lookup:
 <p><strong>Key Paper</strong>: "Ribbon filter: practically smaller than Bloom and Xor" - Dillinger &amp; Walzer, 2021</p>
 <h3 id="4-2-fence-pointers-and-index-structures">4.2 Fence Pointers and Index Structures</h3>
 <p><strong>Fence Pointers</strong>: Store the last (or first) key of each block</p>
-<pre><code>┌─────────────────────────────────────────────────────────────┐
-│                     Index Block                              │
-├─────────────────────────────────────────────────────────────┤
-│ fence_key_1: &quot;apple&quot;   → block_offset_1                     │
-│ fence_key_2: &quot;banana&quot;  → block_offset_2                     │
-│ fence_key_3: &quot;cherry&quot;  → block_offset_3                     │
-│ ...                                                          │
-└─────────────────────────────────────────────────────────────┘
-
-To find &quot;ball&quot;:
-1. Binary search fence keys: &quot;apple&quot; &lt; &quot;ball&quot; &lt; &quot;banana&quot;
-2. Read block at offset_2
-3. Search within block
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                     Index Block                              │</span></span>
+<span class="giallo-l"><span>├─────────────────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│ fence_key_1: &quot;apple&quot;   → block_offset_1                     │</span></span>
+<span class="giallo-l"><span>│ fence_key_2: &quot;banana&quot;  → block_offset_2                     │</span></span>
+<span class="giallo-l"><span>│ fence_key_3: &quot;cherry&quot;  → block_offset_3                     │</span></span>
+<span class="giallo-l"><span>│ ...                                                          │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────────────────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>To find &quot;ball&quot;:</span></span>
+<span class="giallo-l"><span>1. Binary search fence keys: &quot;apple&quot; &lt; &quot;ball&quot; &lt; &quot;banana&quot;</span></span>
+<span class="giallo-l"><span>2. Read block at offset_2</span></span>
+<span class="giallo-l"><span>3. Search within block</span></span></code></pre>
 <p><strong>Partitioned Indexes</strong> (RocksDB):</p>
 <ul>
 <li>Split large index blocks into partitions</li>
@@ -836,40 +835,38 @@ To find &quot;ball&quot;:
 </ul>
 <h3 id="4-3-block-caching-strategies">4.3 Block Caching Strategies</h3>
 <h4 id="4-3-1-cache-tiers">4.3.1 Cache Tiers</h4>
-<pre><code>┌─────────────────────────────────────────────────────────────┐
-│                    Caching Hierarchy                         │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │              Row Cache (optional)                     │   │
-│  │   - Caches decoded key-value pairs                    │   │
-│  │   - Fastest for repeated point lookups               │   │
-│  │   - High memory per entry                             │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                          ↓                                   │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │              Block Cache (primary)                    │   │
-│  │   - Caches decompressed data blocks                   │   │
-│  │   - Typically LRU or LRU with high-priority pool     │   │
-│  │   - Most important cache                              │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                          ↓                                   │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │           Compressed Block Cache (optional)           │   │
-│  │   - Caches compressed blocks                          │   │
-│  │   - More entries, but decompression cost              │   │
-│  │   - Good for high memory pressure scenarios          │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                          ↓                                   │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │                 OS Page Cache                         │   │
-│  │   - Filesystem caching                                │   │
-│  │   - Can be bypassed with Direct I/O                  │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-</code></pre>
-<h4 id="4-3-2-cache-admission-policies">4.3.2 Cache Admission Policies</h4>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                    Caching Hierarchy                         │</span></span>
+<span class="giallo-l"><span>├─────────────────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│                                                              │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────────────────────────────────────────────┐   │</span></span>
+<span class="giallo-l"><span>│  │              Row Cache (optional)                     │   │</span></span>
+<span class="giallo-l"><span>│  │   - Caches decoded key-value pairs                    │   │</span></span>
+<span class="giallo-l"><span>│  │   - Fastest for repeated point lookups               │   │</span></span>
+<span class="giallo-l"><span>│  │   - High memory per entry                             │   │</span></span>
+<span class="giallo-l"><span>│  └──────────────────────────────────────────────────────┘   │</span></span>
+<span class="giallo-l"><span>│                          ↓                                   │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────────────────────────────────────────────┐   │</span></span>
+<span class="giallo-l"><span>│  │              Block Cache (primary)                    │   │</span></span>
+<span class="giallo-l"><span>│  │   - Caches decompressed data blocks                   │   │</span></span>
+<span class="giallo-l"><span>│  │   - Typically LRU or LRU with high-priority pool     │   │</span></span>
+<span class="giallo-l"><span>│  │   - Most important cache                              │   │</span></span>
+<span class="giallo-l"><span>│  └──────────────────────────────────────────────────────┘   │</span></span>
+<span class="giallo-l"><span>│                          ↓                                   │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────────────────────────────────────────────┐   │</span></span>
+<span class="giallo-l"><span>│  │           Compressed Block Cache (optional)           │   │</span></span>
+<span class="giallo-l"><span>│  │   - Caches compressed blocks                          │   │</span></span>
+<span class="giallo-l"><span>│  │   - More entries, but decompression cost              │   │</span></span>
+<span class="giallo-l"><span>│  │   - Good for high memory pressure scenarios          │   │</span></span>
+<span class="giallo-l"><span>│  └──────────────────────────────────────────────────────┘   │</span></span>
+<span class="giallo-l"><span>│                          ↓                                   │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────────────────────────────────────────────┐   │</span></span>
+<span class="giallo-l"><span>│  │                 OS Page Cache                         │   │</span></span>
+<span class="giallo-l"><span>│  │   - Filesystem caching                                │   │</span></span>
+<span class="giallo-l"><span>│  │   - Can be bypassed with Direct I/O                  │   │</span></span>
+<span class="giallo-l"><span>│  └──────────────────────────────────────────────────────┘   │</span></span>
+<span class="giallo-l"><span>│                                                              │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────────────────┘</span></span></code></pre><h4 id="4-3-2-cache-admission-policies">4.3.2 Cache Admission Policies</h4>
 <p><strong>Problem</strong>: Not all blocks are equally valuable. Index and filter blocks are more valuable than data blocks accessed once.</p>
 <p><strong>Solutions</strong>:</p>
 <ol>
@@ -879,32 +876,30 @@ To find &quot;ball&quot;:
 </ol>
 <h3 id="4-4-partitioning-and-sharding-strategies">4.4 Partitioning and Sharding Strategies</h3>
 <h4 id="4-4-1-range-partitioning">4.4.1 Range Partitioning</h4>
-<pre><code>┌─────────────────────────────────────────────────────────────┐
-│                   Range Partitioning                         │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  Partition 1: keys [a, g)     Partition 2: keys [g, m)      │
-│  ┌───────────────────┐        ┌───────────────────┐         │
-│  │ Memtable          │        │ Memtable          │         │
-│  │ L0 SSTables       │        │ L0 SSTables       │         │
-│  │ L1 SSTables       │        │ L1 SSTables       │         │
-│  │ ...               │        │ ...               │         │
-│  └───────────────────┘        └───────────────────┘         │
-│                                                              │
-│  Partition 3: keys [m, s)     Partition 4: keys [s, z]      │
-│  ┌───────────────────┐        ┌───────────────────┐         │
-│  │ ...               │        │ ...               │         │
-│  └───────────────────┘        └───────────────────┘         │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-
-Benefits:
-- Parallel compaction across partitions
-- Localized write amplification
-- Better cache locality
-- Easier load balancing (split/merge partitions)
-</code></pre>
-<h4 id="4-4-2-hash-partitioning">4.4.2 Hash Partitioning</h4>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                   Range Partitioning                         │</span></span>
+<span class="giallo-l"><span>├─────────────────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│                                                              │</span></span>
+<span class="giallo-l"><span>│  Partition 1: keys [a, g)     Partition 2: keys [g, m)      │</span></span>
+<span class="giallo-l"><span>│  ┌───────────────────┐        ┌───────────────────┐         │</span></span>
+<span class="giallo-l"><span>│  │ Memtable          │        │ Memtable          │         │</span></span>
+<span class="giallo-l"><span>│  │ L0 SSTables       │        │ L0 SSTables       │         │</span></span>
+<span class="giallo-l"><span>│  │ L1 SSTables       │        │ L1 SSTables       │         │</span></span>
+<span class="giallo-l"><span>│  │ ...               │        │ ...               │         │</span></span>
+<span class="giallo-l"><span>│  └───────────────────┘        └───────────────────┘         │</span></span>
+<span class="giallo-l"><span>│                                                              │</span></span>
+<span class="giallo-l"><span>│  Partition 3: keys [m, s)     Partition 4: keys [s, z]      │</span></span>
+<span class="giallo-l"><span>│  ┌───────────────────┐        ┌───────────────────┐         │</span></span>
+<span class="giallo-l"><span>│  │ ...               │        │ ...               │         │</span></span>
+<span class="giallo-l"><span>│  └───────────────────┘        └───────────────────┘         │</span></span>
+<span class="giallo-l"><span>│                                                              │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────────────────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Benefits:</span></span>
+<span class="giallo-l"><span>- Parallel compaction across partitions</span></span>
+<span class="giallo-l"><span>- Localized write amplification</span></span>
+<span class="giallo-l"><span>- Better cache locality</span></span>
+<span class="giallo-l"><span>- Easier load balancing (split/merge partitions)</span></span></code></pre><h4 id="4-4-2-hash-partitioning">4.4.2 Hash Partitioning</h4>
 <ul>
 <li>Hash key to determine partition</li>
 <li>Good for uniform distribution</li>
@@ -919,146 +914,133 @@ Benefits:
 </ul>
 <h3 id="4-5-compaction-scheduling-and-i-o-prioritization">4.5 Compaction Scheduling and I/O Prioritization</h3>
 <h4 id="4-5-1-write-stall-prevention">4.5.1 Write Stall Prevention</h4>
-<pre><code>┌─────────────────────────────────────────────────────────────┐
-│              Write Stall Triggers (RocksDB)                  │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  Soft Limits (slowdown writes):                             │
-│    - L0 files &gt; level0_slowdown_writes_trigger (20)         │
-│    - Pending compaction bytes &gt; soft_pending_compaction     │
-│                                                              │
-│  Hard Limits (stop writes):                                  │
-│    - L0 files &gt; level0_stop_writes_trigger (36)             │
-│    - Memtables &gt; max_write_buffer_number (6)                │
-│    - Pending compaction bytes &gt; hard_pending_compaction     │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-</code></pre>
-<h4 id="4-5-2-i-o-scheduling">4.5.2 I/O Scheduling</h4>
-<pre><code data-lang="rust">// Conceptual I/O scheduler
-enum IoPriority {
-    High,    // User reads/writes
-    Medium,  // L0 compaction (most urgent)
-    Low,     // Lower level compaction
-}
-
-struct IoScheduler {
-    rate_limiter: RateLimiter,
-    queues: HashMap&lt;IoPriority, VecDeque&lt;IoRequest&gt;&gt;,
-}
-
-impl IoScheduler {
-    fn submit(&amp;mut self, req: IoRequest) {
-        match req.io_type {
-            IoType::UserRead | IoType::UserWrite =&gt; {
-                // Execute immediately, no rate limiting
-                self.execute_immediate(req);
-            }
-            IoType::Flush =&gt; {
-                // High priority background, limited rate
-                self.queues[IoPriority::Medium].push_back(req);
-            }
-            IoType::Compaction { level } =&gt; {
-                let priority = if level == 0 {
-                    IoPriority::Medium  // L0 compaction is urgent
-                } else {
-                    IoPriority::Low
-                };
-                self.queues[priority].push_back(req);
-            }
-        }
-    }
-}
-</code></pre>
-<h3 id="4-6-mvcc-and-snapshot-isolation-with-lsm">4.6 MVCC and Snapshot Isolation with LSM</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│              Write Stall Triggers (RocksDB)                  │</span></span>
+<span class="giallo-l"><span>├─────────────────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│                                                              │</span></span>
+<span class="giallo-l"><span>│  Soft Limits (slowdown writes):                             │</span></span>
+<span class="giallo-l"><span>│    - L0 files &gt; level0_slowdown_writes_trigger (20)         │</span></span>
+<span class="giallo-l"><span>│    - Pending compaction bytes &gt; soft_pending_compaction     │</span></span>
+<span class="giallo-l"><span>│                                                              │</span></span>
+<span class="giallo-l"><span>│  Hard Limits (stop writes):                                  │</span></span>
+<span class="giallo-l"><span>│    - L0 files &gt; level0_stop_writes_trigger (36)             │</span></span>
+<span class="giallo-l"><span>│    - Memtables &gt; max_write_buffer_number (6)                │</span></span>
+<span class="giallo-l"><span>│    - Pending compaction bytes &gt; hard_pending_compaction     │</span></span>
+<span class="giallo-l"><span>│                                                              │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────────────────┘</span></span></code></pre><h4 id="4-5-2-i-o-scheduling">4.5.2 I/O Scheduling</h4>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Conceptual I/O scheduler</span></span>
+<span class="giallo-l"><span class="z-storage z-type">enum</span><span class="z-entity z-name z-type"> IoPriority</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">    High</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> User reads/writes</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">    Medium</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> L0 compaction (most urgent)</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">    Low</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">     //</span><span class="z-comment"> Lower level compaction</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span class="z-entity z-name z-type"> IoScheduler</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    rate_limiter</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> RateLimiter</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    queues</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> HashMap</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">IoPriority</span><span class="z-punctuation">,</span><span class="z-entity z-name z-type"> VecDeque</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">IoRequest</span><span class="z-punctuation">&gt;</span><span class="z-punctuation">&gt;</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword">impl</span><span class="z-entity z-name z-type"> IoScheduler</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword">    fn</span><span class="z-entity z-name z-function"> submit</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-storage z-modifier">mut</span><span class="z-variable"> self</span><span class="z-punctuation">,</span><span class="z-variable z-other"> req</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> IoRequest</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        match</span><span class="z-variable z-other"> req</span><span class="z-keyword z-operator">.</span><span>io_type </span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">            IoType</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-type">UserRead</span><span class="z-keyword z-operator z-logical"> |</span><span class="z-entity z-name z-type"> IoType</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-type">UserWrite</span><span class="z-keyword z-operator"> =&gt;</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">                //</span><span class="z-comment"> Execute immediately, no rate limiting</span></span>
+<span class="giallo-l"><span class="z-variable">                self</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">execute_immediate</span><span class="z-punctuation">(</span><span class="z-variable z-other">req</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">            }</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">            IoType</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-type">Flush</span><span class="z-keyword z-operator"> =&gt;</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">                //</span><span class="z-comment"> High priority background, limited rate</span></span>
+<span class="giallo-l"><span class="z-variable">                self</span><span class="z-keyword z-operator">.</span><span>queues</span><span class="z-punctuation">[</span><span class="z-entity z-name z-type">IoPriority</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-type">Medium</span><span class="z-punctuation">]</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">push_back</span><span class="z-punctuation">(</span><span class="z-variable z-other">req</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">            }</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">            IoType</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-type">Compaction</span><span class="z-punctuation"> {</span><span class="z-variable z-other"> level</span><span class="z-punctuation"> }</span><span class="z-keyword z-operator"> =&gt;</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">                let</span><span class="z-variable z-other"> priority</span><span class="z-keyword z-operator"> =</span><span class="z-keyword z-control"> if</span><span class="z-variable z-other"> level</span><span class="z-keyword z-operator"> ==</span><span class="z-constant"> 0</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">                    IoPriority</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-type">Medium</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> L0 compaction is urgent</span></span>
+<span class="giallo-l"><span class="z-punctuation">                }</span><span class="z-keyword z-control"> else</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">                    IoPriority</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-type">Low</span></span>
+<span class="giallo-l"><span class="z-punctuation">                }</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable">                self</span><span class="z-keyword z-operator">.</span><span>queues</span><span class="z-punctuation">[</span><span class="z-variable z-other">priority</span><span class="z-punctuation">]</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">push_back</span><span class="z-punctuation">(</span><span class="z-variable z-other">req</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">            }</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre><h3 id="4-6-mvcc-and-snapshot-isolation-with-lsm">4.6 MVCC and Snapshot Isolation with LSM</h3>
 <h4 id="4-6-1-version-encoding">4.6.1 Version Encoding</h4>
-<pre><code>Key Format with Version:
-┌────────────────────────────────────────────────────────────┐
-│  user_key  │  sequence_number (descending)  │  value_type  │
-│  variable  │         8 bytes                │    1 byte    │
-└────────────────────────────────────────────────────────────┘
-
-Example:
-&quot;user123&quot; @ seq=1000 → Put(&quot;profile&quot;, &quot;{...}&quot;)
-&quot;user123&quot; @ seq=900  → Put(&quot;profile&quot;, &quot;{old...}&quot;)
-&quot;user123&quot; @ seq=800  → Delete
-
-Reading at snapshot 950:
-- Returns value from seq=900
-- seq=1000 is &quot;in the future&quot;
-- seq=800 is deleted
-</code></pre>
-<h4 id="4-6-2-snapshot-implementation">4.6.2 Snapshot Implementation</h4>
-<pre><code data-lang="rust">struct Snapshot {
-    sequence_number: u64,
-}
-
-impl DB {
-    fn get_snapshot(&amp;self) -&gt; Snapshot {
-        Snapshot {
-            sequence_number: self.current_sequence.load(Ordering::SeqCst)
-        }
-    }
-
-    fn get_at_snapshot(&amp;self, key: &amp;[u8], snapshot: &amp;Snapshot) -&gt; Option&lt;Value&gt; {
-        // Only return values with seq &lt;= snapshot.sequence_number
-        // Iterate in descending sequence order, stop at first match
-    }
-}
-</code></pre>
-<h4 id="4-6-3-garbage-collection-of-old-versions">4.6.3 Garbage Collection of Old Versions</h4>
-<pre><code>MVCC GC Considerations:
-1. Cannot delete versions visible to any active snapshot
-2. Can only GC versions older than oldest active snapshot
-3. Compaction is the natural place to do GC
-
-During Compaction:
-  oldest_snapshot = min(active_snapshots)
-
-  For each key:
-    Keep: most recent version &lt;= oldest_snapshot
-    Keep: all versions &gt; oldest_snapshot (might be needed)
-    Delete: all older versions (safe to GC)
-</code></pre>
-<h3 id="4-7-zone-storage-and-append-only-optimizations">4.7 Zone Storage and Append-Only Optimizations</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Key Format with Version:</span></span>
+<span class="giallo-l"><span>┌────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│  user_key  │  sequence_number (descending)  │  value_type  │</span></span>
+<span class="giallo-l"><span>│  variable  │         8 bytes                │    1 byte    │</span></span>
+<span class="giallo-l"><span>└────────────────────────────────────────────────────────────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Example:</span></span>
+<span class="giallo-l"><span>&quot;user123&quot; @ seq=1000 → Put(&quot;profile&quot;, &quot;{...}&quot;)</span></span>
+<span class="giallo-l"><span>&quot;user123&quot; @ seq=900  → Put(&quot;profile&quot;, &quot;{old...}&quot;)</span></span>
+<span class="giallo-l"><span>&quot;user123&quot; @ seq=800  → Delete</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Reading at snapshot 950:</span></span>
+<span class="giallo-l"><span>- Returns value from seq=900</span></span>
+<span class="giallo-l"><span>- seq=1000 is &quot;in the future&quot;</span></span>
+<span class="giallo-l"><span>- seq=800 is deleted</span></span></code></pre><h4 id="4-6-2-snapshot-implementation">4.6.2 Snapshot Implementation</h4>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-storage z-type">struct</span><span class="z-entity z-name z-type"> Snapshot</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    sequence_number</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u64</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword">impl</span><span class="z-constant"> DB</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword">    fn</span><span class="z-entity z-name z-function"> get_snapshot</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-variable">self</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> Snapshot</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">        Snapshot</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">            sequence_number</span><span class="z-keyword z-operator">:</span><span class="z-variable"> self</span><span class="z-keyword z-operator">.</span><span>current_sequence</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">load</span><span class="z-punctuation">(</span><span class="z-entity z-name">Ordering</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-type">SeqCst</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword">    fn</span><span class="z-entity z-name z-function"> get_at_snapshot</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-variable">self</span><span class="z-punctuation">,</span><span class="z-variable z-other"> key</span><span class="z-keyword z-operator">:</span><span class="z-keyword z-operator"> &amp;</span><span class="z-punctuation">[</span><span class="z-entity z-name z-type">u8</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span><span class="z-variable z-other"> snapshot</span><span class="z-keyword z-operator">:</span><span class="z-keyword z-operator"> &amp;</span><span class="z-entity z-name z-type">Snapshot</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> Option</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">Value</span><span class="z-punctuation">&gt;</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">        //</span><span class="z-comment"> Only return values with seq &lt;= snapshot.sequence_number</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">        //</span><span class="z-comment"> Iterate in descending sequence order, stop at first match</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre><h4 id="4-6-3-garbage-collection-of-old-versions">4.6.3 Garbage Collection of Old Versions</h4>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>MVCC GC Considerations:</span></span>
+<span class="giallo-l"><span>1. Cannot delete versions visible to any active snapshot</span></span>
+<span class="giallo-l"><span>2. Can only GC versions older than oldest active snapshot</span></span>
+<span class="giallo-l"><span>3. Compaction is the natural place to do GC</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>During Compaction:</span></span>
+<span class="giallo-l"><span>  oldest_snapshot = min(active_snapshots)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  For each key:</span></span>
+<span class="giallo-l"><span>    Keep: most recent version &lt;= oldest_snapshot</span></span>
+<span class="giallo-l"><span>    Keep: all versions &gt; oldest_snapshot (might be needed)</span></span>
+<span class="giallo-l"><span>    Delete: all older versions (safe to GC)</span></span></code></pre><h3 id="4-7-zone-storage-and-append-only-optimizations">4.7 Zone Storage and Append-Only Optimizations</h3>
 <h4 id="4-7-1-zoned-namespaces-zns-ssds">4.7.1 Zoned Namespaces (ZNS) SSDs</h4>
-<pre><code>┌─────────────────────────────────────────────────────────────┐
-│                    ZNS SSD Layout                            │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
-│  │  Zone 0  │ │  Zone 1  │ │  Zone 2  │ │  Zone 3  │ ...   │
-│  │Sequential│ │Sequential│ │Sequential│ │Sequential│       │
-│  │Write Only│ │Write Only│ │Write Only│ │Write Only│       │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
-│                                                              │
-│  Zone States:                                                │
-│    Empty → Open → Full → (Reset) → Empty                    │
-│                                                              │
-│  Operations:                                                 │
-│    - Write: Append to current write pointer                 │
-│    - Read: Random read anywhere                             │
-│    - Reset: Erase entire zone (only way to rewrite)         │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-</code></pre>
-<h4 id="4-7-2-lsm-zns-integration">4.7.2 LSM-ZNS Integration</h4>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                    ZNS SSD Layout                            │</span></span>
+<span class="giallo-l"><span>├─────────────────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│                                                              │</span></span>
+<span class="giallo-l"><span>│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │</span></span>
+<span class="giallo-l"><span>│  │  Zone 0  │ │  Zone 1  │ │  Zone 2  │ │  Zone 3  │ ...   │</span></span>
+<span class="giallo-l"><span>│  │Sequential│ │Sequential│ │Sequential│ │Sequential│       │</span></span>
+<span class="giallo-l"><span>│  │Write Only│ │Write Only│ │Write Only│ │Write Only│       │</span></span>
+<span class="giallo-l"><span>│  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │</span></span>
+<span class="giallo-l"><span>│                                                              │</span></span>
+<span class="giallo-l"><span>│  Zone States:                                                │</span></span>
+<span class="giallo-l"><span>│    Empty → Open → Full → (Reset) → Empty                    │</span></span>
+<span class="giallo-l"><span>│                                                              │</span></span>
+<span class="giallo-l"><span>│  Operations:                                                 │</span></span>
+<span class="giallo-l"><span>│    - Write: Append to current write pointer                 │</span></span>
+<span class="giallo-l"><span>│    - Read: Random read anywhere                             │</span></span>
+<span class="giallo-l"><span>│    - Reset: Erase entire zone (only way to rewrite)         │</span></span>
+<span class="giallo-l"><span>│                                                              │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────────────────┘</span></span></code></pre><h4 id="4-7-2-lsm-zns-integration">4.7.2 LSM-ZNS Integration</h4>
 <p><strong>ZenFS (RocksDB)</strong>:</p>
-<pre><code>Mapping Strategy:
-  - Each SSTable → one or more zones
-  - WAL → dedicated zone(s)
-  - Zone = unit of garbage collection
-
-Benefits:
-  - No SSD garbage collection (device-level WA = 1)
-  - Predictable performance
-  - Better endurance
-
-Challenges:
-  - Zone size alignment
-  - Compaction output must align
-  - Zone selection algorithm
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Mapping Strategy:</span></span>
+<span class="giallo-l"><span>  - Each SSTable → one or more zones</span></span>
+<span class="giallo-l"><span>  - WAL → dedicated zone(s)</span></span>
+<span class="giallo-l"><span>  - Zone = unit of garbage collection</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Benefits:</span></span>
+<span class="giallo-l"><span>  - No SSD garbage collection (device-level WA = 1)</span></span>
+<span class="giallo-l"><span>  - Predictable performance</span></span>
+<span class="giallo-l"><span>  - Better endurance</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Challenges:</span></span>
+<span class="giallo-l"><span>  - Zone size alignment</span></span>
+<span class="giallo-l"><span>  - Compaction output must align</span></span>
+<span class="giallo-l"><span>  - Zone selection algorithm</span></span></code></pre>
 <hr />
 <h2 id="5-cutting-edge-research-areas">5. Cutting-Edge Research Areas</h2>
 <h3 id="5-1-computational-storage">5.1 Computational Storage</h3>
@@ -1092,18 +1074,16 @@ Challenges:
 <h4 id="5-3-1-workload-aware-compaction">5.3.1 Workload-Aware Compaction</h4>
 <p><strong>Observation</strong>: Static compaction parameters are suboptimal for varying workloads.</p>
 <p><strong>Approach</strong>:</p>
-<pre><code>Monitor:
-  - Write rate over time
-  - Read patterns (point vs range)
-  - Key distribution
-  - Latency requirements
-
-Adapt:
-  - More aggressive compaction during low write periods
-  - Relax compaction during write bursts
-  - Prioritize compaction for hot key ranges
-</code></pre>
-<h4 id="5-3-2-reinforcement-learning-for-compaction">5.3.2 Reinforcement Learning for Compaction</h4>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Monitor:</span></span>
+<span class="giallo-l"><span>  - Write rate over time</span></span>
+<span class="giallo-l"><span>  - Read patterns (point vs range)</span></span>
+<span class="giallo-l"><span>  - Key distribution</span></span>
+<span class="giallo-l"><span>  - Latency requirements</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Adapt:</span></span>
+<span class="giallo-l"><span>  - More aggressive compaction during low write periods</span></span>
+<span class="giallo-l"><span>  - Relax compaction during write bursts</span></span>
+<span class="giallo-l"><span>  - Prioritize compaction for hot key ranges</span></span></code></pre><h4 id="5-3-2-reinforcement-learning-for-compaction">5.3.2 Reinforcement Learning for Compaction</h4>
 <p><strong>State</strong>: Current LSM-tree state (levels, sizes, pending compactions)
 <strong>Actions</strong>: Which compaction to trigger, which files to include
 <strong>Reward</strong>: Minimize latency or maximize throughput</p>
@@ -1138,30 +1118,28 @@ Adapt:
 </ul>
 <h3 id="5-5-emerging-architecttic-patterns">5.5 Emerging Architecttic Patterns</h3>
 <h4 id="5-5-1-function-as-a-service-faas-integration">5.5.1 Function-as-a-Service (FaaS) Integration</h4>
-<pre><code>┌─────────────────────────────────────────────────────────────┐
-│              Serverless LSM Architecture                     │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
-│  │  Lambda 1   │  │  Lambda 2   │  │  Lambda 3   │          │
-│  │  (writes)   │  │  (reads)    │  │  (compact)  │          │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘          │
-│         │                │                │                  │
-│         └────────────────┼────────────────┘                  │
-│                          │                                   │
-│                   ┌──────▼──────┐                            │
-│                   │ Shared Cache │                           │
-│                   │   (Redis)    │                           │
-│                   └──────┬──────┘                            │
-│                          │                                   │
-│                   ┌──────▼──────┐                            │
-│                   │  S3 Storage  │                           │
-│                   │  (SSTables)  │                           │
-│                   └─────────────┘                            │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-</code></pre>
-<h4 id="5-5-2-rdma-enabled-distributed-lsm">5.5.2 RDMA-Enabled Distributed LSM</h4>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│              Serverless LSM Architecture                     │</span></span>
+<span class="giallo-l"><span>├─────────────────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│                                                              │</span></span>
+<span class="giallo-l"><span>│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │</span></span>
+<span class="giallo-l"><span>│  │  Lambda 1   │  │  Lambda 2   │  │  Lambda 3   │          │</span></span>
+<span class="giallo-l"><span>│  │  (writes)   │  │  (reads)    │  │  (compact)  │          │</span></span>
+<span class="giallo-l"><span>│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘          │</span></span>
+<span class="giallo-l"><span>│         │                │                │                  │</span></span>
+<span class="giallo-l"><span>│         └────────────────┼────────────────┘                  │</span></span>
+<span class="giallo-l"><span>│                          │                                   │</span></span>
+<span class="giallo-l"><span>│                   ┌──────▼──────┐                            │</span></span>
+<span class="giallo-l"><span>│                   │ Shared Cache │                           │</span></span>
+<span class="giallo-l"><span>│                   │   (Redis)    │                           │</span></span>
+<span class="giallo-l"><span>│                   └──────┬──────┘                            │</span></span>
+<span class="giallo-l"><span>│                          │                                   │</span></span>
+<span class="giallo-l"><span>│                   ┌──────▼──────┐                            │</span></span>
+<span class="giallo-l"><span>│                   │  S3 Storage  │                           │</span></span>
+<span class="giallo-l"><span>│                   │  (SSTables)  │                           │</span></span>
+<span class="giallo-l"><span>│                   └─────────────┘                            │</span></span>
+<span class="giallo-l"><span>│                                                              │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────────────────┘</span></span></code></pre><h4 id="5-5-2-rdma-enabled-distributed-lsm">5.5.2 RDMA-Enabled Distributed LSM</h4>
 <p><strong>Concept</strong>: Use RDMA for:</p>
 <ul>
 <li>Remote memtable reads (bypass remote CPU)</li>
@@ -1299,56 +1277,53 @@ Adapt:
 <li>Simpler operational model preferred</li>
 </ul>
 <h3 id="7-2-compaction-strategy-selection">7.2 Compaction Strategy Selection</h3>
-<pre><code>                    Workload Analysis
-                          │
-                          ▼
-              ┌───────────────────────┐
-              │  What is your primary │
-              │    optimization goal? │
-              └───────────────────────┘
-                          │
-          ┌───────────────┼───────────────┐
-          ▼               ▼               ▼
-    ┌─────────┐     ┌─────────┐     ┌─────────┐
-    │  Write  │     │  Read   │     │  Space  │
-    │Throughput│    │ Latency │     │Efficiency│
-    └────┬────┘     └────┬────┘     └────┬────┘
-         │               │               │
-         ▼               ▼               ▼
-    ┌─────────┐     ┌─────────┐     ┌─────────┐
-    │ Tiered  │     │ Leveled │     │ Leveled │
-    │Compaction│    │Compaction│    │Compaction│
-    └─────────┘     └─────────┘     └─────────┘
-</code></pre>
-<h3 id="7-3-configuration-checklist">7.3 Configuration Checklist</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                    Workload Analysis</span></span>
+<span class="giallo-l"><span>                          │</span></span>
+<span class="giallo-l"><span>                          ▼</span></span>
+<span class="giallo-l"><span>              ┌───────────────────────┐</span></span>
+<span class="giallo-l"><span>              │  What is your primary │</span></span>
+<span class="giallo-l"><span>              │    optimization goal? │</span></span>
+<span class="giallo-l"><span>              └───────────────────────┘</span></span>
+<span class="giallo-l"><span>                          │</span></span>
+<span class="giallo-l"><span>          ┌───────────────┼───────────────┐</span></span>
+<span class="giallo-l"><span>          ▼               ▼               ▼</span></span>
+<span class="giallo-l"><span>    ┌─────────┐     ┌─────────┐     ┌─────────┐</span></span>
+<span class="giallo-l"><span>    │  Write  │     │  Read   │     │  Space  │</span></span>
+<span class="giallo-l"><span>    │Throughput│    │ Latency │     │Efficiency│</span></span>
+<span class="giallo-l"><span>    └────┬────┘     └────┬────┘     └────┬────┘</span></span>
+<span class="giallo-l"><span>         │               │               │</span></span>
+<span class="giallo-l"><span>         ▼               ▼               ▼</span></span>
+<span class="giallo-l"><span>    ┌─────────┐     ┌─────────┐     ┌─────────┐</span></span>
+<span class="giallo-l"><span>    │ Tiered  │     │ Leveled │     │ Leveled │</span></span>
+<span class="giallo-l"><span>    │Compaction│    │Compaction│    │Compaction│</span></span>
+<span class="giallo-l"><span>    └─────────┘     └─────────┘     └─────────┘</span></span></code></pre><h3 id="7-3-configuration-checklist">7.3 Configuration Checklist</h3>
 <p>For a production LSM deployment, tune these parameters:</p>
-<pre><code data-lang="yaml"># Memory
-memtable_size: 64-256 MB per memtable
-max_memtables: 2-4 (write buffer count)
-block_cache_size: 30-50% of available RAM
-
-# Compaction
-compaction_style: leveled or universal
-level0_file_trigger: 4-8 files
-level0_slowdown_trigger: 20 files
-level0_stop_trigger: 36 files
-max_background_compactions: 2-4 (CPU cores / 2)
-target_file_size_base: 64-256 MB
-
-# Bloom Filters
-bloom_bits_per_key: 10 (1% FPR)
-bloom_locality: 1 (blocked bloom)
-partition_filters: true for large SSTables
-
-# Compression
-compression_per_level:
-  - L0-L1: LZ4 or no compression (speed)
-  - L2+: ZSTD (ratio)
-
-# I/O
-direct_io: true (bypass page cache)
-rate_limiter_bytes_per_sec: based on SSD IOPS budget
-</code></pre>
+<pre class="giallo z-code"><code data-lang="yaml"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Memory</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">m</span><span class="z-entity z-name z-tag">emtable_size</span><span class="z-punctuation">:</span><span class="z-string"> 6</span><span class="z-string">4-256 MB per memtable</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">m</span><span class="z-entity z-name z-tag">ax_memtables</span><span class="z-punctuation">:</span><span class="z-string"> 2</span><span class="z-string">-4 (write buffer count)</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">b</span><span class="z-entity z-name z-tag">lock_cache_size</span><span class="z-punctuation">:</span><span class="z-string"> 3</span><span class="z-string">0-50% of available RAM</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Compaction</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">c</span><span class="z-entity z-name z-tag">ompaction_style</span><span class="z-punctuation">:</span><span class="z-string"> l</span><span class="z-string">eveled or universal</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">l</span><span class="z-entity z-name z-tag">evel0_file_trigger</span><span class="z-punctuation">:</span><span class="z-string"> 4</span><span class="z-string">-8 files</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">l</span><span class="z-entity z-name z-tag">evel0_slowdown_trigger</span><span class="z-punctuation">:</span><span class="z-string"> 2</span><span class="z-string">0 files</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">l</span><span class="z-entity z-name z-tag">evel0_stop_trigger</span><span class="z-punctuation">:</span><span class="z-string"> 3</span><span class="z-string">6 files</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">m</span><span class="z-entity z-name z-tag">ax_background_compactions</span><span class="z-punctuation">:</span><span class="z-string"> 2</span><span class="z-string">-4 (CPU cores / 2)</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">t</span><span class="z-entity z-name z-tag">arget_file_size_base</span><span class="z-punctuation">:</span><span class="z-string"> 6</span><span class="z-string">4-256 MB</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Bloom Filters</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">b</span><span class="z-entity z-name z-tag">loom_bits_per_key</span><span class="z-punctuation">:</span><span class="z-string"> 1</span><span class="z-string">0 (1% FPR)</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">b</span><span class="z-entity z-name z-tag">loom_locality</span><span class="z-punctuation">:</span><span class="z-string"> 1</span><span class="z-string"> (blocked bloom)</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">p</span><span class="z-entity z-name z-tag">artition_filters</span><span class="z-punctuation">:</span><span class="z-string"> t</span><span class="z-string">rue for large SSTables</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Compression</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">c</span><span class="z-entity z-name z-tag">ompression_per_level</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-punctuation">  -</span><span class="z-entity z-name z-tag"> L</span><span class="z-entity z-name z-tag">0-L1</span><span class="z-punctuation">:</span><span class="z-string"> L</span><span class="z-string">Z4 or no compression (speed)</span></span>
+<span class="giallo-l"><span class="z-punctuation">  -</span><span class="z-entity z-name z-tag"> L</span><span class="z-entity z-name z-tag">2+</span><span class="z-punctuation">:</span><span class="z-string"> Z</span><span class="z-string">STD (ratio)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> I/O</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">d</span><span class="z-entity z-name z-tag">irect_io</span><span class="z-punctuation">:</span><span class="z-string"> t</span><span class="z-string">rue (bypass page cache)</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">r</span><span class="z-entity z-name z-tag">ate_limiter_bytes_per_sec</span><span class="z-punctuation">:</span><span class="z-string"> b</span><span class="z-string">ased on SSD IOPS budget</span></span></code></pre>
 <hr />
 <h2 id="8-practical-implementation-considerations-for-pg-arrow">8. Practical Implementation Considerations for pg_arrow</h2>
 <h3 id="8-1-relevance-to-pg-arrow-project">8.1 Relevance to pg_arrow Project</h3>

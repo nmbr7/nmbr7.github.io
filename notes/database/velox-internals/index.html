@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -85,24 +108,23 @@
 <p>Velox is a C++ library of reusable vectorized execution building blocks. Not a standalone database — designed to be embedded into query engines. Presto (via Prestissimo), Spark (via Apache Gluten), and PyTorch data pipelines all embed it. Core insight: one high-quality vectorized kernel shared by multiple engines beats per-engine reimplementation.</p>
 <hr />
 <h2 id="architecture-overview">Architecture Overview</h2>
-<pre><code>┌─────────────────────────────────────────────────────────────┐
-│              Query Engine (Presto / Spark / custom)          │
-│          plans, optimizes, distributes, schedules            │
-└───────────────────────────┬─────────────────────────────────┘
-                            │  PlanNode tree (Velox IR)
-┌───────────────────────────▼─────────────────────────────────┐
-│                        Velox Core                            │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
-│  │  Type System │  │ Vector Engine│  │ Expression Eval  │   │
-│  └──────────────┘  └──────────────┘  └──────────────────┘   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
-│  │   Operators  │  │  Task/Driver │  │  Memory Manager  │   │
-│  └──────────────┘  └──────────────┘  └──────────────────┘   │
-│  ┌──────────────────────────────────────────────────────┐    │
-│  │   Connectors: HiveConnector · IcebergConnector       │    │
-│  └──────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│              Query Engine (Presto / Spark / custom)          │</span></span>
+<span class="giallo-l"><span>│          plans, optimizes, distributes, schedules            │</span></span>
+<span class="giallo-l"><span>└───────────────────────────┬─────────────────────────────────┘</span></span>
+<span class="giallo-l"><span>                            │  PlanNode tree (Velox IR)</span></span>
+<span class="giallo-l"><span>┌───────────────────────────▼─────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                        Velox Core                            │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │</span></span>
+<span class="giallo-l"><span>│  │  Type System │  │ Vector Engine│  │ Expression Eval  │   │</span></span>
+<span class="giallo-l"><span>│  └──────────────┘  └──────────────┘  └──────────────────┘   │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │</span></span>
+<span class="giallo-l"><span>│  │   Operators  │  │  Task/Driver │  │  Memory Manager  │   │</span></span>
+<span class="giallo-l"><span>│  └──────────────┘  └──────────────┘  └──────────────────┘   │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────────────────────────────────────────────┐    │</span></span>
+<span class="giallo-l"><span>│  │   Connectors: HiveConnector · IcebergConnector       │    │</span></span>
+<span class="giallo-l"><span>│  └──────────────────────────────────────────────────────┘    │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────────────────┘</span></span></code></pre>
 <p>A query enters as a <code>PlanNode</code> tree. <code>LocalPlanner</code> converts it to a pipeline DAG of <code>Operator</code> instances. A <code>Task</code> owns execution state; <code>Driver</code> threads iterate operators in a pipeline. Data flows as columnar <code>RowVector</code> batches (default <code>kDefaultVectorSize = 1024</code> rows).</p>
 <hr />
 <h2 id="type-system">Type System</h2>
@@ -133,17 +155,16 @@
 <li><code>DECIMAL(p,s)</code> → BIGINT (p ≤ 18) or HUGEINT (p 19–38)</li>
 </ul>
 <h3 id="structural-types">Structural Types</h3>
-<pre><code>Type
-├── ScalarType&lt;Kind&gt;
-├── RowType          — names[]: string, types[]: TypePtr
-│                      field lookup: linear scan; lazy hash map only for wide rows
-├── ArrayType        — elementType: TypePtr
-├── MapType          — keyType: TypePtr, valueType: TypePtr
-├── DecimalType      — precision: uint8, scale: uint8
-│                      SHORT (p ≤ 18): physical BIGINT
-│                      LONG  (p 19–38): physical HUGEINT (int128_t)
-└── OpaqueType&lt;T&gt;    — type_index(typeid(T)), registered serializers
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Type</span></span>
+<span class="giallo-l"><span>├── ScalarType&lt;Kind&gt;</span></span>
+<span class="giallo-l"><span>├── RowType          — names[]: string, types[]: TypePtr</span></span>
+<span class="giallo-l"><span>│                      field lookup: linear scan; lazy hash map only for wide rows</span></span>
+<span class="giallo-l"><span>├── ArrayType        — elementType: TypePtr</span></span>
+<span class="giallo-l"><span>├── MapType          — keyType: TypePtr, valueType: TypePtr</span></span>
+<span class="giallo-l"><span>├── DecimalType      — precision: uint8, scale: uint8</span></span>
+<span class="giallo-l"><span>│                      SHORT (p ≤ 18): physical BIGINT</span></span>
+<span class="giallo-l"><span>│                      LONG  (p 19–38): physical HUGEINT (int128_t)</span></span>
+<span class="giallo-l"><span>└── OpaqueType&lt;T&gt;    — type_index(typeid(T)), registered serializers</span></span></code></pre>
 <p><strong>RowType field lookup:</strong> stores parallel <code>std::vector&lt;std::string&gt; names_</code> and <code>std::vector&lt;TypePtr&gt; children_</code>. <code>getChildIdx(name)</code> / <code>containsChild()</code> are linear by default; a lazy hash map is built only for wide rows with frequent lookups.</p>
 <p><strong>DecimalType boundary:</strong> 10^18 &lt; 2^63 ≤ 10^19, so 18 digits is the largest fitting in int64_t. Physical representation is the raw int64_t / int128_t unscaled integer (e.g., 123.45 with scale 2 → unscaled 12345). The older wrapper classes <code>UnscaledShortDecimal</code>/<code>UnscaledLongDecimal</code>/<code>UnscaledInt128Decimal</code> were removed; helpers live in <code>DecimalUtil</code>.</p>
 <p><strong>OpaqueType:</strong> <code>OpaqueType::create&lt;T&gt;()</code> instantiates a type tagged with <code>std::type_index(typeid(T))</code>. On read, checks requested <code>type_index</code> before <code>static_pointer_cast&lt;T&gt;</code>. <code>registerSerialization&lt;T&gt;()</code> allows opaque payloads to cross spill/shuffle boundaries.</p>
@@ -151,42 +172,35 @@
 <hr />
 <h2 id="vector-memory-layout">Vector Memory Layout</h2>
 <h3 id="basevector">BaseVector</h3>
-<pre><code data-lang="cpp">// velox/vector/BaseVector.h
-class BaseVector {
-  TypePtr        type_;
-  BufferPtr      nulls_;      // bit-packed: 1 = VALID (not null), 0 = null
-  vector_size_t  length_;     // int32_t
-  // encoding() → VectorEncoding::Simple
-};
-</code></pre>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> velox/vector/BaseVector.h</span></span>
+<span class="giallo-l"><span class="z-storage z-type">class</span><span class="z-entity z-name z-type"> BaseVector</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>  TypePtr        type_</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>  BufferPtr      nulls_</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">      //</span><span class="z-comment"> bit-packed: 1 = VALID (not null), 0 = null</span></span>
+<span class="giallo-l"><span class="z-support z-type">  vector_size_t</span><span>  length_</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">     //</span><span class="z-comment"> int32_t</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> encoding() → VectorEncoding::Simple</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span></code></pre>
 <p><strong>Null convention (critical):</strong> bit SET (1) = valid/not-null; bit CLEAR (0) = null. Same as Arrow validity bitmap. Absent <code>nulls_</code> buffer = no nulls at all.</p>
 <h3 id="vectorencoding-simple-velox-vector-typealiases-h">VectorEncoding::Simple (velox/vector/TypeAliases.h)</h3>
-<pre><code>FLAT, CONSTANT, DICTIONARY, BIASED, SEQUENCE, ROW, MAP, ARRAY, LAZY, FUNCTION
-</code></pre>
-<h3 id="flatvector-t-velox-vector-flatvector-h">FlatVector&lt;T&gt; (velox/vector/FlatVector.h)</h3>
-<pre><code>FlatVector&lt;T&gt; : BaseVector
-├── values_        : BufferPtr   — sizeof(T) * length_ bytes (bit-packed for bool)
-└── stringBuffers_ : vector&lt;BufferPtr&gt;   — only for VARCHAR/VARBINARY
-                     holds out-of-line bytes for non-inlined strings
-</code></pre>
-<h3 id="stringview-layout-velox-type-stringview-h">StringView Layout (velox/type/StringView.h)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>FLAT, CONSTANT, DICTIONARY, BIASED, SEQUENCE, ROW, MAP, ARRAY, LAZY, FUNCTION</span></span></code></pre><h3 id="flatvector-t-velox-vector-flatvector-h">FlatVector&lt;T&gt; (velox/vector/FlatVector.h)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>FlatVector&lt;T&gt; : BaseVector</span></span>
+<span class="giallo-l"><span>├── values_        : BufferPtr   — sizeof(T) * length_ bytes (bit-packed for bool)</span></span>
+<span class="giallo-l"><span>└── stringBuffers_ : vector&lt;BufferPtr&gt;   — only for VARCHAR/VARBINARY</span></span>
+<span class="giallo-l"><span>                     holds out-of-line bytes for non-inlined strings</span></span></code></pre><h3 id="stringview-layout-velox-type-stringview-h">StringView Layout (velox/type/StringView.h)</h3>
 <p>16 bytes total:</p>
-<pre><code>Short strings (size ≤ 12):
-  [ size: 4 bytes ][ inline chars: 12 bytes ]
-
-Long strings (size &gt; 12):
-  [ size: 4 bytes ][ prefix: 4 bytes ][ raw pointer: 8 bytes ]
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Short strings (size ≤ 12):</span></span>
+<span class="giallo-l"><span>  [ size: 4 bytes ][ inline chars: 12 bytes ]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Long strings (size &gt; 12):</span></span>
+<span class="giallo-l"><span>  [ size: 4 bytes ][ prefix: 4 bytes ][ raw pointer: 8 bytes ]</span></span></code></pre>
 <ul>
 <li>Short: entire string inlined, no heap deref.</li>
 <li>Long: 4-char prefix enables fail-fast comparison (short-circuit on prefix mismatch); pointer into one of <code>stringBuffers_</code>. Arrow Utf8View format uses (buffer-index, offset) instead of a raw pointer — export to pre-Arrow-15 Utf8 requires materialization (contiguous bytes); Arrow 15 Utf8View can share buffers zero-copy.</li>
 <li><code>trim()</code>/<code>substr()</code> mutate only the view — zero-copy for substrings.</li>
 </ul>
 <h3 id="dictionaryvector-t-velox-vector-dictionaryvector-h">DictionaryVector&lt;T&gt; (velox/vector/DictionaryVector.h)</h3>
-<pre><code>DictionaryVector&lt;T&gt; : BaseVector
-├── indices_          : BufferPtr   — int32_t per row
-└── dictionaryValues_ : VectorPtr   — shared base (usually FlatVector)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>DictionaryVector&lt;T&gt; : BaseVector</span></span>
+<span class="giallo-l"><span>├── indices_          : BufferPtr   — int32_t per row</span></span>
+<span class="giallo-l"><span>└── dictionaryValues_ : VectorPtr   — shared base (usually FlatVector)</span></span></code></pre>
 <p>Own optional <code>nulls_</code> adds nulls without touching the base. Built via <code>BaseVector::wrapInDictionary(nulls, indices, size, base)</code>. Layers nest: <code>Dict(Dict(Flat))</code>. The key optimization: if all inputs to an expression share the same indices buffer, evaluate only on the dictionary (unique values) then re-wrap — compresses computation for low-cardinality columns.</p>
 <h3 id="constantvector-t-velox-vector-constantvector-h">ConstantVector&lt;T&gt; (velox/vector/ConstantVector.h)</h3>
 <p>Scalar form: <code>T value_</code> + <code>bool isNull_</code> (+ <code>stringBuffer_</code> for long strings). Complex form: <code>VectorPtr valueVector_</code> + <code>vector_size_t index_</code>. Never materializes — <code>valueAt(i)</code> ignores <code>i</code>. Materialization only happens if an operation explicitly calls <code>BaseVector::flatten()</code>.</p>
@@ -197,9 +211,8 @@ Long strings (size &gt; 12):
 <h3 id="lazyvector-velox-vector-lazyvector-h">LazyVector (velox/vector/LazyVector.h)</h3>
 <p>Wraps a <code>VectorLoader</code> callback. Materialized only when <code>loadedVector()</code> is called or <code>load(rows, hook)</code>. Operators force evaluation; filters can push a <code>ValueHook</code> so the loader applies the filter during decode (late materialization). Columns never accessed are never decoded.</p>
 <h3 id="selectivityvector-velox-vector-selectivityvector-h">SelectivityVector (velox/vector/SelectivityVector.h)</h3>
-<pre><code data-lang="cpp">std::vector&lt;uint64_t&gt; bits_;   // 64 rows per word
-vector_size_t begin_, end_;    // cached range of set bits
-</code></pre>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-entity z-name">std</span><span class="z-punctuation">::</span><span>vector</span><span class="z-keyword z-operator">&lt;</span><span class="z-storage z-type">uint64_t</span><span class="z-keyword z-operator">&gt;</span><span> bits_</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> 64 rows per word</span></span>
+<span class="giallo-l"><span class="z-support z-type">vector_size_t</span><span> begin_</span><span class="z-punctuation">,</span><span> end_</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> cached range of set bits</span></span></code></pre>
 <ul>
 <li><code>setValid(i, bool)</code>, <code>updateBounds()</code> recomputes range.</li>
 <li><code>applyToSelected(lambda)</code>: word-at-a-time iteration via <code>__builtin_ctzll</code>.</li>
@@ -214,12 +227,11 @@ vector_size_t begin_, end_;    // cached range of set bits
 <hr />
 <h2 id="memory-management">Memory Management</h2>
 <h3 id="memorypool-hierarchy-velox-common-memory-memorypool-h">MemoryPool Hierarchy (velox/common/memory/MemoryPool.h)</h3>
-<pre><code>MemoryManager (singleton)
-└── Root pool         kAggregate  enforces maxCapacity_   [per query, QueryCtx]
-    └── Task pool     kAggregate
-        └── Node pool kAggregate
-            └── Op pool kLeaf   ← only kind that allocates
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>MemoryManager (singleton)</span></span>
+<span class="giallo-l"><span>└── Root pool         kAggregate  enforces maxCapacity_   [per query, QueryCtx]</span></span>
+<span class="giallo-l"><span>    └── Task pool     kAggregate</span></span>
+<span class="giallo-l"><span>        └── Node pool kAggregate</span></span>
+<span class="giallo-l"><span>            └── Op pool kLeaf   ← only kind that allocates</span></span></code></pre>
 <p>Only <code>kLeaf</code> pools allocate; <code>kAggregate</code> pools sum children and forbid direct allocation. Only the query root pool enforces the per-query memory limit.</p>
 <p><strong>Quantized reservation</strong> (avoids per-allocation root traffic): leaf pools keep <code>usedReservationBytes_</code> (actual) vs <code>reservationBytes_</code> (reserved from root). Growth rounds up:</p>
 <ul>
@@ -246,8 +258,7 @@ vector_size_t begin_, end_;    // cached range of set bits
 <h3 id="hashstringallocator-arena-velox-common-memory-hashstringallocator-h">HashStringAllocator / Arena (velox/common/memory/HashStringAllocator.h)</h3>
 <p>Arena over <code>memory::Allocation</code> runs (min 16 KB). Used heavily inside hash tables and aggregation to avoid per-element <code>malloc</code>.</p>
 <p><strong>Block layout:</strong></p>
-<pre><code>[ Header: 4 bytes ][ data: N bytes ]
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>[ Header: 4 bytes ][ data: N bytes ]</span></span></code></pre>
 <p>Header packs size with three flag bits:</p>
 <ul>
 <li><code>kFree</code> — block on free list</li>
@@ -286,12 +297,10 @@ vector_size_t begin_, end_;    // cached range of set bits
 <h2 id="task-driver-pipeline-execution">Task / Driver / Pipeline Execution</h2>
 <h3 id="plannode-pipeline">PlanNode → Pipeline</h3>
 <p><code>LocalPlanner::plan()</code> walks the <code>PlanNode</code> tree bottom-up, emitting pipelines. A <strong>pipeline</strong> is a linear chain of operators with no repartition. Pipeline breaks occur at <code>LocalExchangeNode</code>, <code>MergeExchangeNode</code>, and <code>HashJoinNode</code> (build side becomes a separate pipeline).</p>
-<pre><code>PlanNode tree:            → Pipeline 0:
-  AggregationNode            [TableScanOp] → [FilterOp] → [AggregationOp]
-    └─ FilterNode
-         └─ TableScanNode
-</code></pre>
-<h3 id="task">Task</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>PlanNode tree:            → Pipeline 0:</span></span>
+<span class="giallo-l"><span>  AggregationNode            [TableScanOp] → [FilterOp] → [AggregationOp]</span></span>
+<span class="giallo-l"><span>    └─ FilterNode</span></span>
+<span class="giallo-l"><span>         └─ TableScanNode</span></span></code></pre><h3 id="task">Task</h3>
 <p><code>Task</code> owns:</p>
 <ul>
 <li>PlanNode tree + <code>QueryCtx</code></li>
@@ -301,30 +310,27 @@ vector_size_t begin_, end_;    // cached range of set bits
 <li>Synchronization: <code>std::mutex</code>, <code>std::condition_variable</code> for driver state transitions</li>
 </ul>
 <h3 id="driver-runinternal-loop-velox-exec-driver-cpp">Driver::runInternal() Loop (velox/exec/Driver.cpp)</h3>
-<pre><code>while (true) {
-  check for blocked operators → return ContinueFuture if any blocked
-  
-  op = findNextReady();
-  output = op-&gt;getOutput();
-  if (output) { nextOp-&gt;addInput(output) }
-  
-  if (op-&gt;isFinished()) { propagate noMoreInput downstream }
-  if (shouldYield()) { re-enqueue driver, yield thread }
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>while (true) {</span></span>
+<span class="giallo-l"><span>  check for blocked operators → return ContinueFuture if any blocked</span></span>
+<span class="giallo-l"><span>  </span></span>
+<span class="giallo-l"><span>  op = findNextReady();</span></span>
+<span class="giallo-l"><span>  output = op-&gt;getOutput();</span></span>
+<span class="giallo-l"><span>  if (output) { nextOp-&gt;addInput(output) }</span></span>
+<span class="giallo-l"><span>  </span></span>
+<span class="giallo-l"><span>  if (op-&gt;isFinished()) { propagate noMoreInput downstream }</span></span>
+<span class="giallo-l"><span>  if (shouldYield()) { re-enqueue driver, yield thread }</span></span>
+<span class="giallo-l"><span>}</span></span></code></pre>
 <p>Blocking I/O uses <code>folly::SemiFuture</code> (alias <code>ContinueFuture</code>): blocked operator returns future from <code>isBlocked()</code>, driver yields thread back to <code>folly::Executor</code> thread pool, driver re-queued when future completes. No thread parking.</p>
 <p><code>BlockingReason</code> values: <code>kWaitForConsumer</code>, <code>kWaitForSplit</code>, <code>kWaitForExchange</code>, <code>kWaitForJoinBuild</code>, <code>kWaitForMemory</code>, <code>kYield</code>.</p>
 <h3 id="operator-interface">Operator Interface</h3>
-<pre><code data-lang="cpp">class Operator {
-  virtual void       addInput(RowVectorPtr input)   = 0;
-  virtual RowVectorPtr getOutput()                  = 0;
-  virtual bool       needsInput() const             = 0;
-  virtual void       noMoreInput()                  = 0;
-  virtual bool       isFinished()                   = 0;
-  virtual BlockingReason isBlocked(ContinueFuture*) = 0;
-};
-</code></pre>
-<h3 id="filterproject-fusion-velox-exec-filterproject-cpp">FilterProject Fusion (velox/exec/FilterProject.cpp)</h3>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">class</span><span class="z-entity z-name z-type"> Operator</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">  virtual</span><span class="z-storage z-type"> void</span><span class="z-entity z-name z-function">       addInput</span><span class="z-punctuation">(</span><span class="z-entity z-name z-type">RowVectorPtr</span><span class="z-variable z-parameter"> input</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">   =</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">  virtual</span><span class="z-entity z-name z-type"> RowVectorPtr</span><span class="z-entity z-name z-function"> getOutput</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">                  =</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">  virtual</span><span class="z-storage z-type"> bool</span><span class="z-entity z-name z-function">       needsInput</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-storage z-modifier"> const</span><span class="z-keyword z-operator">             =</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">  virtual</span><span class="z-storage z-type"> void</span><span class="z-entity z-name z-function">       noMoreInput</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">                  =</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">  virtual</span><span class="z-storage z-type"> bool</span><span class="z-entity z-name z-function">       isFinished</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">                   =</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">  virtual</span><span class="z-entity z-name z-type"> BlockingReason</span><span class="z-entity z-name z-function"> isBlocked</span><span class="z-punctuation">(</span><span class="z-entity z-name z-type">ContinueFuture</span><span class="z-storage z-modifier">*</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span></code></pre><h3 id="filterproject-fusion-velox-exec-filterproject-cpp">FilterProject Fusion (velox/exec/FilterProject.cpp)</h3>
 <p><code>FilterNode</code> directly feeding <code>ProjectNode</code> collapses into one <code>FilterProject</code> operator with a single <code>ExprSet</code> containing both filter predicate and projection expressions. Filter evaluates first → <code>SelectivityVector</code> active rows → passed directly to projection ExprSet. No intermediate <code>RowVector</code> materialized between filter and project. <code>hasFilter_</code> bool selects the path.</p>
 <h3 id="tablescanoperator-lazyvector">TableScanOperator + LazyVector</h3>
 <p>Scan produces columns as <code>LazyVector</code>s wrapping a <code>VectorLoader</code>. Downstream evaluation forces materialization via <code>loadedVector()</code>. Filters and <code>ValueHook</code>s can be pushed so the loader decodes+filters in one pass. Columns projected away or pruned are never loaded.</p>
@@ -340,12 +346,11 @@ vector_size_t begin_, end_;    // cached range of set bits
 <li><code>computeMetadata()</code> populates <code>distinctFields_</code>, <code>multiplyReferencedFields_</code>, <code>propagatesNulls_</code>, <code>deterministic_</code>, <code>hasConditionals_</code>.</li>
 </ol>
 <h3 id="evaluation-pipeline-per-expr-eval">Evaluation Pipeline per Expr::eval</h3>
-<pre><code>CSE cache check
-→ evalEncodings()        (peeling: strip shared dict/const wrappers)
-→ evalWithNulls()        (remove null-input rows for null-propagating exprs)
-→ evalAll() / evalSpecialForm()
-→ finalize              (restore nulls, re-wrap peeled encoding, cache if CSE)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>CSE cache check</span></span>
+<span class="giallo-l"><span>→ evalEncodings()        (peeling: strip shared dict/const wrappers)</span></span>
+<span class="giallo-l"><span>→ evalWithNulls()        (remove null-input rows for null-propagating exprs)</span></span>
+<span class="giallo-l"><span>→ evalAll() / evalSpecialForm()</span></span>
+<span class="giallo-l"><span>→ finalize              (restore nulls, re-wrap peeled encoding, cache if CSE)</span></span></code></pre>
 <p>Fast path: <code>evalFlatNoNulls()</code> when inputs are flat/constant non-null and <code>supportsFlatNoNullsFastPath() == true</code>.</p>
 <h3 id="encoding-peeling-algorithm-velox-expr-expr-cpp-peeledencoding">Encoding Peeling Algorithm (velox/expr/Expr.cpp, PeeledEncoding)</h3>
 <p>Strips common wrappers before calling scalar functions:</p>
@@ -368,27 +373,24 @@ vector_size_t begin_, end_;    // cached range of set bits
 <p>For <code>transform</code>/<code>filter</code>/<code>reduce</code>/<code>array_sort</code>. Produces a <code>FunctionVector</code> whose <code>Callable</code> captures outer context: captured (non-argument) fields bound into a row of captures; lambda formal arguments supplied per-invocation by the higher-order function. HOF builds a flattened element <code>RowVector</code> + <code>SelectivityVector</code> over all elements, calls the captured <code>ExprSet</code> once — vectorized across all elements in one batch call, not per-element.</p>
 <h3 id="vectorfunction-vs-simplefunction">VectorFunction vs SimpleFunction</h3>
 <p><strong>SimpleFunction (template-based):</strong></p>
-<pre><code data-lang="cpp">template&lt;typename TExec&gt;
-struct MyFunc {
-  VELOX_DEFINE_FUNCTION_TYPES(TExec);
-  bool call(int64_t&amp; result, const int64_t&amp; a, const int64_t&amp; b) {
-    result = a + b;
-    return true;  // non-null
-  }
-};
-VELOX_REGISTER_FUNCTION(MyFunc, myFunc);
-</code></pre>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">template</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">typename</span><span class="z-entity z-name z-type"> TExec</span><span class="z-punctuation">&gt;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span class="z-entity z-name z-type"> MyFunc</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">  VELOX_DEFINE_FUNCTION_TYPES</span><span class="z-punctuation">(</span><span class="z-entity z-name z-type">TExec</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">  bool</span><span class="z-entity z-name z-function"> call</span><span class="z-punctuation">(</span><span class="z-storage z-type">int64_t</span><span class="z-storage z-modifier">&amp;</span><span class="z-variable z-parameter"> result</span><span class="z-punctuation">,</span><span class="z-storage z-modifier"> const</span><span class="z-storage z-type"> int64_t</span><span class="z-storage z-modifier">&amp;</span><span class="z-variable z-parameter"> a</span><span class="z-punctuation">,</span><span class="z-storage z-modifier"> const</span><span class="z-storage z-type"> int64_t</span><span class="z-storage z-modifier">&amp;</span><span class="z-variable z-parameter"> b</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>    result </span><span class="z-keyword z-operator">=</span><span> a </span><span class="z-keyword z-operator">+</span><span> b</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    return</span><span class="z-constant"> true</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> non-null</span></span>
+<span class="giallo-l"><span class="z-punctuation">  }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">VELOX_REGISTER_FUNCTION</span><span class="z-punctuation">(</span><span>MyFunc</span><span class="z-punctuation">,</span><span> myFunc</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre>
 <p>Velox generates vectorized loop, null handling, encoding normalization via template metaprogramming.</p>
 <p><strong>VectorFunction:</strong> direct vector access for functions needing it (e.g., <code>cardinality</code>, <code>map_keys</code>):</p>
-<pre><code data-lang="cpp">class MyVectorFunc : public exec::VectorFunction {
-  void apply(const SelectivityVector&amp; rows,
-             std::vector&lt;VectorPtr&gt;&amp; args,
-             const TypePtr&amp; outputType,
-             EvalCtx&amp; context,
-             VectorPtr&amp; result) const override;
-};
-</code></pre>
-<h3 id="codegen-llvm-xsimd">Codegen (LLVM / xsimd)</h3>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">class</span><span class="z-entity z-name z-type"> MyVectorFunc</span><span class="z-punctuation"> :</span><span class="z-storage z-type"> public</span><span class="z-entity z-name"> exec</span><span class="z-punctuation">::</span><span class="z-entity z-name z-type">VectorFunction</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">  void</span><span class="z-entity z-name z-function"> apply</span><span class="z-punctuation">(</span><span class="z-storage z-modifier">const</span><span class="z-entity z-name z-type"> SelectivityVector</span><span class="z-storage z-modifier">&amp;</span><span class="z-variable z-parameter"> rows</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-entity z-name">             std</span><span class="z-punctuation">::</span><span class="z-entity z-name z-type">vector</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">VectorPtr</span><span class="z-punctuation">&gt;</span><span class="z-storage z-modifier">&amp;</span><span class="z-variable z-parameter"> args</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">             const</span><span class="z-entity z-name z-type"> TypePtr</span><span class="z-storage z-modifier">&amp;</span><span class="z-variable z-parameter"> outputType</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">             EvalCtx</span><span class="z-storage z-modifier">&amp;</span><span class="z-variable z-parameter"> context</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">             VectorPtr</span><span class="z-storage z-modifier">&amp;</span><span class="z-variable z-parameter"> result</span><span class="z-punctuation">)</span><span class="z-storage z-modifier"> const</span><span class="z-storage z-modifier"> override</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span></code></pre><h3 id="codegen-llvm-xsimd">Codegen (LLVM / xsimd)</h3>
 <p>Optional expression codegen (<code>velox/experimental/codegen</code>): after expression compilation, a codegen pass emits LLVM IR for hot inner loops (arithmetic chains, cast chains), replacing the interpreted DAG walk with native machine code for the batch.</p>
 <p><strong>xsimd</strong> (header-only SIMD abstraction): used in hash table probing, string comparison, null checking. Explicit AVX2/AVX-512 paths in <code>Hashtable.cpp</code>, <code>VectorHasher.cpp</code>.</p>
 <hr />
@@ -399,31 +401,28 @@ VELOX_REGISTER_FUNCTION(MyFunc, myFunc);
 <li><code>StreamingAggregation</code> — pre-sorted input, single pass</li>
 </ul>
 <h3 id="aggregate-interface-velox-exec-aggregate-h">Aggregate Interface (velox/exec/Aggregate.h)</h3>
-<pre><code data-lang="cpp">class Aggregate {
-  // Placement-construct accumulators for new groups
-  virtual void initializeNewGroups(char** groups,
-                                   folly::Range&lt;const int32_t*&gt; indices) = 0;
-  // Partial/single-stage ingest
-  virtual void addRawInput(char** groups, const SelectivityVector&amp; rows,
-                           const std::vector&lt;VectorPtr&gt;&amp; args, bool mayPushdown) = 0;
-  // Final-stage merge
-  virtual void addIntermediateResults(char** groups, const SelectivityVector&amp; rows,
-                                      const std::vector&lt;VectorPtr&gt;&amp; args, bool mayPushdown) = 0;
-  // Output
-  virtual void extractValues(char** groups, int32_t numGroups, VectorPtr* result) = 0;
-  // Serialize intermediate state
-  virtual void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result) = 0;
-  // Fixed bytes per group in RowContainer
-  virtual int32_t accumulatorFixedWidthSize() const = 0;
-};
-</code></pre>
-<h3 id="hash-table-layout-velox-exec-hashtable-h">Hash Table Layout (velox/exec/HashTable.h)</h3>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">class</span><span class="z-entity z-name z-type"> Aggregate</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Placement-construct accumulators for new groups</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">  virtual</span><span class="z-storage z-type"> void</span><span class="z-entity z-name z-function"> initializeNewGroups</span><span class="z-punctuation">(</span><span class="z-storage z-type">char</span><span class="z-storage z-modifier">*</span><span class="z-storage z-modifier">*</span><span class="z-variable z-parameter"> groups</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-entity z-name">                                   folly</span><span class="z-punctuation">::</span><span class="z-entity z-name z-type">Range</span><span class="z-punctuation">&lt;</span><span class="z-storage z-modifier">const</span><span class="z-storage z-type"> int32_t</span><span class="z-keyword z-operator">*</span><span class="z-punctuation">&gt;</span><span class="z-variable z-parameter"> indices</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Partial/single-stage ingest</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">  virtual</span><span class="z-storage z-type"> void</span><span class="z-entity z-name z-function"> addRawInput</span><span class="z-punctuation">(</span><span class="z-storage z-type">char</span><span class="z-storage z-modifier">*</span><span class="z-storage z-modifier">*</span><span class="z-variable z-parameter"> groups</span><span class="z-punctuation">,</span><span class="z-storage z-modifier"> const</span><span class="z-entity z-name z-type"> SelectivityVector</span><span class="z-storage z-modifier">&amp;</span><span class="z-variable z-parameter"> rows</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">                           const</span><span class="z-entity z-name"> std</span><span class="z-punctuation">::</span><span class="z-entity z-name z-type">vector</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">VectorPtr</span><span class="z-punctuation">&gt;</span><span class="z-storage z-modifier">&amp;</span><span class="z-variable z-parameter"> args</span><span class="z-punctuation">,</span><span class="z-storage z-type"> bool</span><span class="z-variable z-parameter"> mayPushdown</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Final-stage merge</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">  virtual</span><span class="z-storage z-type"> void</span><span class="z-entity z-name z-function"> addIntermediateResults</span><span class="z-punctuation">(</span><span class="z-storage z-type">char</span><span class="z-storage z-modifier">*</span><span class="z-storage z-modifier">*</span><span class="z-variable z-parameter"> groups</span><span class="z-punctuation">,</span><span class="z-storage z-modifier"> const</span><span class="z-entity z-name z-type"> SelectivityVector</span><span class="z-storage z-modifier">&amp;</span><span class="z-variable z-parameter"> rows</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">                                      const</span><span class="z-entity z-name"> std</span><span class="z-punctuation">::</span><span class="z-entity z-name z-type">vector</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">VectorPtr</span><span class="z-punctuation">&gt;</span><span class="z-storage z-modifier">&amp;</span><span class="z-variable z-parameter"> args</span><span class="z-punctuation">,</span><span class="z-storage z-type"> bool</span><span class="z-variable z-parameter"> mayPushdown</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Output</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">  virtual</span><span class="z-storage z-type"> void</span><span class="z-entity z-name z-function"> extractValues</span><span class="z-punctuation">(</span><span class="z-storage z-type">char</span><span class="z-storage z-modifier">*</span><span class="z-storage z-modifier">*</span><span class="z-variable z-parameter"> groups</span><span class="z-punctuation">,</span><span class="z-storage z-type"> int32_t</span><span class="z-variable z-parameter"> numGroups</span><span class="z-punctuation">,</span><span class="z-entity z-name z-type"> VectorPtr</span><span class="z-storage z-modifier">*</span><span class="z-variable z-parameter"> result</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Serialize intermediate state</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">  virtual</span><span class="z-storage z-type"> void</span><span class="z-entity z-name z-function"> extractAccumulators</span><span class="z-punctuation">(</span><span class="z-storage z-type">char</span><span class="z-storage z-modifier">*</span><span class="z-storage z-modifier">*</span><span class="z-variable z-parameter"> groups</span><span class="z-punctuation">,</span><span class="z-storage z-type"> int32_t</span><span class="z-variable z-parameter"> numGroups</span><span class="z-punctuation">,</span><span class="z-entity z-name z-type"> VectorPtr</span><span class="z-storage z-modifier">*</span><span class="z-variable z-parameter"> result</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Fixed bytes per group in RowContainer</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">  virtual</span><span class="z-storage z-type"> int32_t</span><span class="z-entity z-name z-function"> accumulatorFixedWidthSize</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-storage z-modifier"> const</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span></code></pre><h3 id="hash-table-layout-velox-exec-hashtable-h">Hash Table Layout (velox/exec/HashTable.h)</h3>
 <p><strong>128-byte buckets, 16 slots each:</strong></p>
-<pre><code>[ 16 tag bytes (7-bit hash tags, 1 per slot) ]
-[ 16 × 6-byte row pointers → RowContainer ]
-[ 16 bytes unused padding ]
-= 128 bytes total
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>[ 16 tag bytes (7-bit hash tags, 1 per slot) ]</span></span>
+<span class="giallo-l"><span>[ 16 × 6-byte row pointers → RowContainer ]</span></span>
+<span class="giallo-l"><span>[ 16 bytes unused padding ]</span></span>
+<span class="giallo-l"><span>= 128 bytes total</span></span></code></pre>
 <p><strong>SIMD probe:</strong> all 16 tags loaded into one 128-bit register; <code>_mm_cmpeq_epi8</code> (SSE2) compares against broadcast probe tag — 16 slots checked in 1 instruction → 16-bit match mask. Matching slots' 6-byte pointers followed into <code>RowContainer</code> for full key comparison. Linear probing across buckets on no-match.</p>
 <p><strong>Hash modes:</strong></p>
 <ul>
@@ -434,17 +433,16 @@ VELOX_REGISTER_FUNCTION(MyFunc, myFunc);
 <p><strong>Interleaving / prefetch:</strong> multiple probe keys interleaved so multiple cache misses are in-flight simultaneously (memory-level parallelism). <code>ProbeState</code> carries per-row probe progress for the vectorized loop.</p>
 <h3 id="rowcontainer-row-layout-velox-exec-rowcontainer-h">RowContainer Row Layout (velox/exec/RowContainer.h)</h3>
 <p>Per-row layout (row-major slab):</p>
-<pre><code>1. Normalized key word (optional, kNormalizedKey mode only)
-2. Null flags: 1 bit per nullable column, packed (1 = null)
-3. Fixed-width data: 8 bytes per column
-   - Scalars ≤ 8 bytes: inline
-   - Strings/complex/&gt; 8 bytes: pointer/StringView into variable-width section
-4. Variable-width section: bytes in HashStringAllocator, referenced from fixed part
-5. Accumulators (aggregation mode only)
-6. Flag bits:
-   - free flag (row on free list)
-   - probed flag (build row matched; used for outer/anti/semi join result generation)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>1. Normalized key word (optional, kNormalizedKey mode only)</span></span>
+<span class="giallo-l"><span>2. Null flags: 1 bit per nullable column, packed (1 = null)</span></span>
+<span class="giallo-l"><span>3. Fixed-width data: 8 bytes per column</span></span>
+<span class="giallo-l"><span>   - Scalars ≤ 8 bytes: inline</span></span>
+<span class="giallo-l"><span>   - Strings/complex/&gt; 8 bytes: pointer/StringView into variable-width section</span></span>
+<span class="giallo-l"><span>4. Variable-width section: bytes in HashStringAllocator, referenced from fixed part</span></span>
+<span class="giallo-l"><span>5. Accumulators (aggregation mode only)</span></span>
+<span class="giallo-l"><span>6. Flag bits:</span></span>
+<span class="giallo-l"><span>   - free flag (row on free list)</span></span>
+<span class="giallo-l"><span>   - probed flag (build row matched; used for outer/anti/semi join result generation)</span></span></code></pre>
 <p>Free rows threaded on a free list using the row's own space.</p>
 <h3 id="accumulator-layouts">Accumulator Layouts</h3>
 <table><thead><tr><th>Function</th><th>Layout</th></tr></thead><tbody>
@@ -488,24 +486,22 @@ VELOX_REGISTER_FUNCTION(MyFunc, myFunc);
 <p><code>ExchangeOperator</code> (source) pulls <code>SerializedPage</code> objects from <code>ExchangeClient</code>, which holds multiple <code>ExchangeSource</code>s. <code>PrestoExchangeSource</code> issues HTTP requests returning <code>folly::SemiFuture</code>. <code>ExchangeOperator::isBlocked()</code> returns that future; driver yields until pages arrive.</p>
 <p><strong>Local exchange</strong> (same node, different threads): <code>LocalExchange</code> — lock-free multi-producer multi-consumer queue of <code>RowVector</code> pointers. No serialization.</p>
 <h3 id="serializedpage">SerializedPage</h3>
-<pre><code>SerializedPage {
-  codec:            CompressionKind  (NONE, LZ4, ZSTD, SNAPPY)
-  uncompressedSize: int32
-  data:             byte[]           // Presto page wire format
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>SerializedPage {</span></span>
+<span class="giallo-l"><span>  codec:            CompressionKind  (NONE, LZ4, ZSTD, SNAPPY)</span></span>
+<span class="giallo-l"><span>  uncompressedSize: int32</span></span>
+<span class="giallo-l"><span>  data:             byte[]           // Presto page wire format</span></span>
+<span class="giallo-l"><span>}</span></span></code></pre>
 <hr />
 <h2 id="connector-split-system">Connector / Split System</h2>
 <h3 id="hiveconnectorsplit-velox-connectors-hive">HiveConnectorSplit (velox/connectors/hive/)</h3>
-<pre><code data-lang="cpp">struct HiveConnectorSplit {
-  string    filePath;        // s3://bucket/path/part-00000.parquet
-  FileFormat fileFormat;     // PARQUET, DWRF, ORC, TEXT, Nimble
-  long      start;           // byte offset
-  long      length;          // byte length
-  map&lt;string,string&gt; partitionKeys;
-  optional&lt;TableBucketNumber&gt; tableBucketNumber;
-};
-</code></pre>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">struct</span><span class="z-entity z-name z-type"> HiveConnectorSplit</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>  string    filePath</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">        //</span><span class="z-comment"> s3://bucket/path/part-00000.parquet</span></span>
+<span class="giallo-l"><span>  FileFormat fileFormat</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">     //</span><span class="z-comment"> PARQUET, DWRF, ORC, TEXT, Nimble</span></span>
+<span class="giallo-l"><span class="z-storage z-type">  long</span><span>      start</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">           //</span><span class="z-comment"> byte offset</span></span>
+<span class="giallo-l"><span class="z-storage z-type">  long</span><span>      length</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">          //</span><span class="z-comment"> byte length</span></span>
+<span class="giallo-l"><span>  map</span><span class="z-keyword z-operator">&lt;</span><span>string</span><span class="z-punctuation">,</span><span>string</span><span class="z-keyword z-operator">&gt;</span><span> partitionKeys</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>  optional</span><span class="z-keyword z-operator">&lt;</span><span>TableBucketNumber</span><span class="z-keyword z-operator">&gt;</span><span> tableBucketNumber</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span></code></pre>
 <p><code>Task::addSplit()</code> enqueues splits; <code>TableScanOperator</code> dequeues and calls <code>HiveDataSource::addSplit()</code>, which constructs the reader, applies column pruning (<code>outputType</code>), and pushes <code>SubfieldFilters</code>.</p>
 <h3 id="dwioreader-interface-velox-dwio-common-reader-h">DwioReader Interface (velox/dwio/common/Reader.h)</h3>
 <p>Abstract <code>Reader</code>/<code>RowReader</code> (<code>createRowReader</code>, <code>next(size, result)</code>). <code>ParquetReader</code> implements it: reads footer/schema, iterates row groups, builds column readers, decodes pages, wraps as <code>FlatVector</code> or <code>DictionaryVector</code> (for DICT-encoded pages). DWRF/ORC implement the same interface → HiveDataSource is format-agnostic.</p>
@@ -580,20 +576,18 @@ VELOX_REGISTER_FUNCTION(MyFunc, myFunc);
 <h2 id="velox-in-spark-apache-gluten">Velox in Spark: Apache Gluten</h2>
 <p><strong>Apache Gluten</strong> (now an Apache TLP) offloads Spark SQL to Velox via Substrait.</p>
 <h3 id="execution-flow">Execution Flow</h3>
-<pre><code>Spark Driver (JVM)
-  Spark physical plan → Substrait plan (protobuf)
-         │
-         │ JNI: nativeCreateKernelWithIterator(substraitBytes)
-         ▼
-Velox Native (C++, loaded via JNI)
-  SubstraitToVeloxPlanConverter → PlanNode tree → velox::Task
-  Results returned as ColumnarBatch (Arrow C Data Interface)
-         │
-         ▼
-Spark Executor (JVM)
-  ColumnarBatch consumed by downstream Spark operators
-</code></pre>
-<h3 id="substrait-velox-node-mapping">Substrait → Velox Node Mapping</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Spark Driver (JVM)</span></span>
+<span class="giallo-l"><span>  Spark physical plan → Substrait plan (protobuf)</span></span>
+<span class="giallo-l"><span>         │</span></span>
+<span class="giallo-l"><span>         │ JNI: nativeCreateKernelWithIterator(substraitBytes)</span></span>
+<span class="giallo-l"><span>         ▼</span></span>
+<span class="giallo-l"><span>Velox Native (C++, loaded via JNI)</span></span>
+<span class="giallo-l"><span>  SubstraitToVeloxPlanConverter → PlanNode tree → velox::Task</span></span>
+<span class="giallo-l"><span>  Results returned as ColumnarBatch (Arrow C Data Interface)</span></span>
+<span class="giallo-l"><span>         │</span></span>
+<span class="giallo-l"><span>         ▼</span></span>
+<span class="giallo-l"><span>Spark Executor (JVM)</span></span>
+<span class="giallo-l"><span>  ColumnarBatch consumed by downstream Spark operators</span></span></code></pre><h3 id="substrait-velox-node-mapping">Substrait → Velox Node Mapping</h3>
 <table><thead><tr><th>Substrait RelType</th><th>Velox PlanNode</th></tr></thead><tbody>
 <tr><td><code>ReadRel</code></td><td><code>TableScanNode</code> / <code>ValuesNode</code></td></tr>
 <tr><td><code>FilterRel</code></td><td><code>FilterNode</code></td></tr>

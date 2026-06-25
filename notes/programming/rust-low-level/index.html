@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -102,8 +125,7 @@
 </ul>
 <hr />
 <h3 id="small-blue-diamond-manuallydrop-t">🔹 <code>ManuallyDrop&lt;T&gt;</code></h3>
-<pre><code data-lang="rust">use std::mem::ManuallyDrop;
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-keyword">use</span><span class="z-entity z-name"> std</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name">mem</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-type">ManuallyDrop</span><span class="z-punctuation">;</span></span></code></pre>
 <ul>
 <li>Prevents Rust from automatically running <code>Drop</code></li>
 <li>Lets you control <em>when</em> (or if) destruction happens</li>
@@ -116,9 +138,8 @@
 <li>Avoiding double-free</li>
 </ul>
 <p>Example:</p>
-<pre><code data-lang="rust">let x = ManuallyDrop::new(String::from(&quot;hi&quot;));
-// no destructor called automatically
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-storage z-type">let</span><span class="z-variable z-other"> x</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-type"> ManuallyDrop</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">new</span><span class="z-punctuation">(</span><span class="z-entity z-name">String</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">from</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">hi</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> no destructor called automatically</span></span></code></pre>
 <hr />
 <h3 id="small-blue-diamond-mem-forget">🔹 <code>mem::forget</code></h3>
 <ul>
@@ -147,8 +168,7 @@
 </ul>
 <hr />
 <h3 id="small-blue-diamond-addr-of-addr-of-mut">🔹 <code>addr_of!</code> / <code>addr_of_mut!</code></h3>
-<pre><code data-lang="rust">use std::ptr::addr_of;
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-keyword">use</span><span class="z-entity z-name"> std</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name">ptr</span><span class="z-keyword z-operator">::</span><span>addr_of</span><span class="z-punctuation">;</span></span></code></pre>
 <ul>
 <li>Gets field addresses <strong>without creating references</strong></li>
 <li>Avoids UB when struct is uninitialized or packed</li>
@@ -190,9 +210,8 @@
 <li>Used for newtypes</li>
 </ul>
 <p>Example:</p>
-<pre><code data-lang="rust">#[repr(transparent)]
-struct Page(u8);
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-punctuation">#</span><span class="z-punctuation">[</span><span>repr</span><span class="z-punctuation">(</span><span>transparent</span><span class="z-punctuation">)</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span class="z-entity z-name z-type"> Page</span><span class="z-punctuation">(</span><span class="z-entity z-name z-type">u8</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre>
 <hr />
 <h3 id="small-blue-diamond-repr-packed-repr-packed-n">🔹 <code>#[repr(packed)]</code> / <code>#[repr(packed(N))]</code></h3>
 <ul>
@@ -206,8 +225,7 @@ struct Page(u8);
 </ul>
 <hr />
 <h3 id="small-blue-diamond-offset-of">🔹 <code>offset_of!</code></h3>
-<pre><code data-lang="rust">use std::mem::offset_of;
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-keyword">use</span><span class="z-entity z-name"> std</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name">mem</span><span class="z-keyword z-operator">::</span><span>offset_of</span><span class="z-punctuation">;</span></span></code></pre>
 <ul>
 <li>Safe equivalent of C <code>offsetof</code></li>
 <li>Requires <code>repr(C)</code></li>
@@ -375,9 +393,7 @@ Use them only when you <em>fully understand the invariants</em>.</p>
 <h2 id="rotating-light-mem-transmute">🚨 <code>mem::transmute</code></h2>
 <h3 id="what-it-does">What it does</h3>
 <p>Reinterprets bits of one type as another.</p>
-<pre><code data-lang="rust">let x: u32 = unsafe { std::mem::transmute([0u8; 4]) };
-</code></pre>
-<h3 id="why-it-s-dangerous">Why it’s dangerous</h3>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-storage z-type">let</span><span class="z-variable z-other"> x</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u32</span><span class="z-keyword z-operator"> =</span><span class="z-keyword"> unsafe</span><span class="z-punctuation"> {</span><span class="z-entity z-name"> std</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name">mem</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">transmute</span><span class="z-punctuation">(</span><span class="z-punctuation">[</span><span class="z-constant">0</span><span class="z-entity z-name z-type">u8</span><span class="z-punctuation">;</span><span class="z-constant"> 4</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span><span class="z-punctuation"> }</span><span class="z-punctuation">;</span></span></code></pre><h3 id="why-it-s-dangerous">Why it’s dangerous</h3>
 <ul>
 <li>No size check at runtime</li>
 <li>No alignment check</li>
@@ -398,13 +414,11 @@ Use them only when you <em>fully understand the invariants</em>.</p>
 <h2 id="rotating-light-repr-packed">🚨 <code>#[repr(packed)]</code></h2>
 <h3 id="what-it-does-1">What it does</h3>
 <p>Removes all padding from a struct.</p>
-<pre><code data-lang="rust">#[repr(packed)]
-struct Header {
-    a: u8,
-    b: u32, // misaligned
-}
-</code></pre>
-<h3 id="why-it-s-dangerous-1">Why it’s dangerous</h3>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-punctuation">#</span><span class="z-punctuation">[</span><span>repr</span><span class="z-punctuation">(</span><span>packed</span><span class="z-punctuation">)</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span class="z-entity z-name z-type"> Header</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    a</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u8</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    b</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u32</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment"> //</span><span class="z-comment"> misaligned</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre><h3 id="why-it-s-dangerous-1">Why it’s dangerous</h3>
 <ul>
 <li>Accessing <code>b</code> via reference is <strong>UB</strong></li>
 <li>Generates misaligned loads</li>
@@ -416,9 +430,7 @@ struct Header {
 ✔ Never store pointers into packed fields</p>
 <hr />
 <h2 id="rotating-light-raw-pointer-arithmetic-ptr-add-ptr-offset">🚨 Raw pointer arithmetic (<code>ptr.add</code>, <code>ptr.offset</code>)</h2>
-<pre><code data-lang="rust">let p = base_ptr.add(offset);
-</code></pre>
-<h3 id="why-it-s-dangerous-2">Why it’s dangerous</h3>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-storage z-type">let</span><span class="z-variable z-other"> p</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> base_ptr</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">add</span><span class="z-punctuation">(</span><span class="z-variable z-other">offset</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre><h3 id="why-it-s-dangerous-2">Why it’s dangerous</h3>
 <ul>
 <li>No bounds checks</li>
 <li>No aliasing checks</li>
@@ -430,9 +442,7 @@ struct Header {
 ✔ Custom allocators</p>
 <hr />
 <h2 id="rotating-light-assume-init">🚨 <code>assume_init()</code></h2>
-<pre><code data-lang="rust">let v = unsafe { maybe.assume_init() };
-</code></pre>
-<h3 id="why-it-s-dangerous-3">Why it’s dangerous</h3>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-storage z-type">let</span><span class="z-variable z-other"> v</span><span class="z-keyword z-operator"> =</span><span class="z-keyword"> unsafe</span><span class="z-punctuation"> {</span><span class="z-variable z-other"> maybe</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">assume_init</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation"> }</span><span class="z-punctuation">;</span></span></code></pre><h3 id="why-it-s-dangerous-3">Why it’s dangerous</h3>
 <ul>
 <li>Compiler trusts you blindly</li>
 <li>UB if memory is not fully valid</li>
@@ -535,22 +545,20 @@ struct Header {
 <hr />
 <h2 id="compass-safe-patterns-important">🧭 SAFE PATTERNS (IMPORTANT)</h2>
 <h3 id="white-check-mark-unsafe-core-safe-wrapper">✅ Unsafe core + safe wrapper</h3>
-<pre><code data-lang="rust">unsafe fn parse_page(ptr: *const u8) -&gt; Page { ... }
-
-pub fn page_from_bytes(bytes: &amp;[u8]) -&gt; Page {
-    assert!(bytes.len() == PAGE_SIZE);
-    unsafe { parse_page(bytes.as_ptr()) }
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-keyword">unsafe</span><span class="z-keyword"> fn</span><span class="z-entity z-name z-function"> parse_page</span><span class="z-punctuation">(</span><span class="z-variable z-other">ptr</span><span class="z-keyword z-operator">:</span><span class="z-keyword z-operator"> *</span><span class="z-storage z-modifier">const</span><span class="z-entity z-name z-type"> u8</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> Page</span><span class="z-punctuation"> {</span><span class="z-keyword z-operator"> ...</span><span class="z-punctuation"> }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword">pub</span><span class="z-keyword"> fn</span><span class="z-entity z-name z-function"> page_from_bytes</span><span class="z-punctuation">(</span><span class="z-variable z-other">bytes</span><span class="z-keyword z-operator">:</span><span class="z-keyword z-operator"> &amp;</span><span class="z-punctuation">[</span><span class="z-entity z-name z-type">u8</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> Page</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    assert!</span><span class="z-punctuation">(</span><span class="z-variable z-other">bytes</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">len</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> ==</span><span class="z-constant"> PAGE_SIZE</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword">    unsafe</span><span class="z-punctuation"> {</span><span class="z-entity z-name z-function"> parse_page</span><span class="z-punctuation">(</span><span class="z-variable z-other">bytes</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">as_ptr</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation"> }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <hr />
 <h3 id="x-what-not-to-do">❌ What NOT to do</h3>
-<pre><code data-lang="rust">#[repr(packed)]
-struct Bad {
-    x: u32,
-}
-
-let r = &amp;bad.x; // UB
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-punctuation">#</span><span class="z-punctuation">[</span><span>repr</span><span class="z-punctuation">(</span><span>packed</span><span class="z-punctuation">)</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span class="z-entity z-name z-type"> Bad</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    x</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u32</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">let</span><span class="z-variable z-other"> r</span><span class="z-keyword z-operator"> =</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-other">bad</span><span class="z-keyword z-operator">.</span><span>x</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment"> //</span><span class="z-comment"> UB</span></span></code></pre>
 <hr />
 <h2 id="brain-rule-of-thumb-hierarchy">🧠 Rule of Thumb Hierarchy</h2>
 <p><strong>Prefer (in order):</strong></p>

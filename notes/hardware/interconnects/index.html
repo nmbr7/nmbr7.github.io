@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -116,15 +139,13 @@
 <hr />
 <h2 id="1-mental-model-and-7-tier-latency-cheat-sheet">1. Mental Model and 7-Tier Latency Cheat Sheet</h2>
 <p>The interconnect stack spans 9 orders of magnitude in latency and 4 orders of magnitude in bandwidth. Every order of magnitude up in latency forces a different protocol, encoding, error model, and software paradigm. Keep this picture in your head:</p>
-<pre><code>   ON-DIE        PACKAGE        BOARD          RACK          ROW       DC-WIDE       WAN
-    ~1 ns        ~5-10 ns      ~50-200 ns    ~500ns-1µs   ~1-3 µs   ~5-20 µs     1-200 ms
-   1 TB/s        2-4 TB/s      32-128 GB/s   25-400 GB/s  ...        ...         1-100 Gb/s
-  cache-          coherent     coherent or   non-coherent  packet    packet      TCP/QUIC
-  coherent       coherent      non-coherent  (RDMA verbs)  (RDMA/     (RDMA/
-  (snoopy        (UCIe/IFOP/                              UDP/IB)    Ethernet)
-   /MESI)        NVLink-C2C)
-</code></pre>
-<table><thead><tr><th>Tier</th><th>Distance</th><th>Typical Latency</th><th>Typical BW (point-to-point)</th><th>Coherent?</th><th>Example tech</th><th>Software paradigm</th></tr></thead><tbody>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>   ON-DIE        PACKAGE        BOARD          RACK          ROW       DC-WIDE       WAN</span></span>
+<span class="giallo-l"><span>    ~1 ns        ~5-10 ns      ~50-200 ns    ~500ns-1µs   ~1-3 µs   ~5-20 µs     1-200 ms</span></span>
+<span class="giallo-l"><span>   1 TB/s        2-4 TB/s      32-128 GB/s   25-400 GB/s  ...        ...         1-100 Gb/s</span></span>
+<span class="giallo-l"><span>  cache-          coherent     coherent or   non-coherent  packet    packet      TCP/QUIC</span></span>
+<span class="giallo-l"><span>  coherent       coherent      non-coherent  (RDMA verbs)  (RDMA/     (RDMA/</span></span>
+<span class="giallo-l"><span>  (snoopy        (UCIe/IFOP/                              UDP/IB)    Ethernet)</span></span>
+<span class="giallo-l"><span>   /MESI)        NVLink-C2C)</span></span></code></pre><table><thead><tr><th>Tier</th><th>Distance</th><th>Typical Latency</th><th>Typical BW (point-to-point)</th><th>Coherent?</th><th>Example tech</th><th>Software paradigm</th></tr></thead><tbody>
 <tr><td>1. On-die</td><td>&lt; 20 mm</td><td>1-3 ns</td><td>1-10 TB/s</td><td>yes</td><td>AXI/CHI, ring/mesh NoC</td><td>load/store</td></tr>
 <tr><td>1b. Chiplet (in-package)</td><td>1-30 mm</td><td>3-10 ns</td><td>1-4 TB/s</td><td>yes (mostly)</td><td>UCIe, IFOP, NVLink-C2C, AIB, BoW</td><td>load/store, coherent DMA</td></tr>
 <tr><td>2. Board</td><td>5-30 cm</td><td>50-200 ns</td><td>32-128 GB/s</td><td>yes (CXL) or no (PCIe)</td><td>PCIe gen5/6/7, CXL 2/3, NVLink, GMI3, xGMI</td><td>mmio, DMA, CXL.mem</td></tr>
@@ -152,15 +173,14 @@
 <tr><td><strong>CHI</strong></td><td>2014</td><td>Mesh/ring, server-class coherence</td><td>yes (directory or snoopy)</td><td>Packet-based, scales to hundreds of nodes</td></tr>
 </tbody></table>
 <p><strong>AXI4 channels (most-used variant on FPGA / DMA / accelerator):</strong></p>
-<pre><code>Master                                Slave
-  │                                     │
-  │ AW (write address)  ──────────────► │
-  │ W  (write data, burst, last) ─────► │
-  │ B  (write response, OKAY/SLVERR) ◄─ │
-  │                                     │
-  │ AR (read address) ────────────────► │
-  │ R  (read data + last + RESP) ◄───── │
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Master                                Slave</span></span>
+<span class="giallo-l"><span>  │                                     │</span></span>
+<span class="giallo-l"><span>  │ AW (write address)  ──────────────► │</span></span>
+<span class="giallo-l"><span>  │ W  (write data, burst, last) ─────► │</span></span>
+<span class="giallo-l"><span>  │ B  (write response, OKAY/SLVERR) ◄─ │</span></span>
+<span class="giallo-l"><span>  │                                     │</span></span>
+<span class="giallo-l"><span>  │ AR (read address) ────────────────► │</span></span>
+<span class="giallo-l"><span>  │ R  (read data + last + RESP) ◄───── │</span></span></code></pre>
 <p>The five channels are independent (separate VALID/READY handshakes), allowing reads and writes to interleave at the bus master's whim. Out-of-order ID semantics let masters issue many in-flight transactions and match responses by AWID/RID/BID.</p>
 <p><strong>CHI (Coherent Hub Interface):</strong> CHI is what Arm-based server chips (Neoverse N1/N2/V1/V2/V3, Ampere Altra, AWS Graviton 3/4) use as the on-die fabric. Key differences from ACE:</p>
 <ul>
@@ -212,16 +232,15 @@
 <tr><td><strong>UCIe 2.1</strong></td><td>Aug 2025</td><td>up to <strong>64 GT/s</strong></td><td>Adv</td><td>same</td><td>up to ~331 GB/s/mm</td><td>Doubles base data rate; refined for AI clusters</td></tr>
 </tbody></table>
 <p><strong>Layered architecture:</strong></p>
-<pre><code>+---------------------------------------------+
-|  Protocol Layer (PCIe, CXL, Streaming Raw)  |
-+---------------------------------------------+
-|  D2D Adapter (CRC, retry, link state mgmt)  |
-+---------------------------------------------+
-|  PHY (sideband + main band, lane training)  |
-+---------------------------------------------+
-|  Bumps / Interposer                          |
-+---------------------------------------------+
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>+---------------------------------------------+</span></span>
+<span class="giallo-l"><span>|  Protocol Layer (PCIe, CXL, Streaming Raw)  |</span></span>
+<span class="giallo-l"><span>+---------------------------------------------+</span></span>
+<span class="giallo-l"><span>|  D2D Adapter (CRC, retry, link state mgmt)  |</span></span>
+<span class="giallo-l"><span>+---------------------------------------------+</span></span>
+<span class="giallo-l"><span>|  PHY (sideband + main band, lane training)  |</span></span>
+<span class="giallo-l"><span>+---------------------------------------------+</span></span>
+<span class="giallo-l"><span>|  Bumps / Interposer                          |</span></span>
+<span class="giallo-l"><span>+---------------------------------------------+</span></span></code></pre>
 <p><strong>Standard vs Advanced packaging:</strong></p>
 <ul>
 <li><strong>Standard Package:</strong> Organic substrate (PCB-style routing, 110-100 µm bump pitch), reach up to 25 mm, requires retimers for longer distances. Cheaper, looser tolerances.</li>
@@ -329,31 +348,30 @@
 </tbody></table>
 <p><strong>NVLink Sharp (NVLS):</strong> In-switch reduction. Instead of every GPU sending data to a root and reducing serially, NVSwitch 3.0+ has dedicated reduction ALUs inside the switch silicon. AllReduce moves from O(N) message exchanges per GPU to O(log N) with the switch doing the math. For an N-GPU ring AllReduce on M bytes, the time model goes from <code>2(N-1)/N × M/B</code> (ring) to <code>M/B + α log N</code> (NVLS / tree). On 72-GPU NVL72 doing FP8 AllReduce on 64 GB of tensors, NVLS halves AllReduce time (and frees compute streams from waiting).</p>
 <p><strong>NVL72 — the 72-GPU rack-scale architecture:</strong></p>
-<pre><code>NVL72 Rack (single coherent NVLink domain — 72 B200 GPUs, 130 TB/s aggregate):
-+============================================================================+
-| Spine (NVLink interconnect — copper backplane, ~5000 cables, water cooled) |
-+============================================================================+
-| NVSwitch tray 9                                                              |
-| NVSwitch tray 8                                                              |
-| NVSwitch tray 7                                                              |
-| NVSwitch tray 6                                                              |
-| NVSwitch tray 5                                                              |
-| NVSwitch tray 4   ← 9 NVSwitch trays in middle of rack                       |
-| NVSwitch tray 3                                                              |
-| NVSwitch tray 2                                                              |
-| NVSwitch tray 1                                                              |
-+============================================================================+
-| Compute tray 18  (4 B200 GPUs + 2 Grace CPUs)                                |
-| Compute tray 17                                                              |
-| Compute tray 16                                                              |
-| Compute tray 15                                                              |
-| Compute tray 14                                                              |
-| ...                                                                          |
-| Compute tray 1  (4 B200 + 2 Grace via NVLink-C2C; 18 trays × 4 GPU = 72 GPU) |
-+============================================================================+
-| Power shelf + management                                                    |
-+============================================================================+
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>NVL72 Rack (single coherent NVLink domain — 72 B200 GPUs, 130 TB/s aggregate):</span></span>
+<span class="giallo-l"><span>+============================================================================+</span></span>
+<span class="giallo-l"><span>| Spine (NVLink interconnect — copper backplane, ~5000 cables, water cooled) |</span></span>
+<span class="giallo-l"><span>+============================================================================+</span></span>
+<span class="giallo-l"><span>| NVSwitch tray 9                                                              |</span></span>
+<span class="giallo-l"><span>| NVSwitch tray 8                                                              |</span></span>
+<span class="giallo-l"><span>| NVSwitch tray 7                                                              |</span></span>
+<span class="giallo-l"><span>| NVSwitch tray 6                                                              |</span></span>
+<span class="giallo-l"><span>| NVSwitch tray 5                                                              |</span></span>
+<span class="giallo-l"><span>| NVSwitch tray 4   ← 9 NVSwitch trays in middle of rack                       |</span></span>
+<span class="giallo-l"><span>| NVSwitch tray 3                                                              |</span></span>
+<span class="giallo-l"><span>| NVSwitch tray 2                                                              |</span></span>
+<span class="giallo-l"><span>| NVSwitch tray 1                                                              |</span></span>
+<span class="giallo-l"><span>+============================================================================+</span></span>
+<span class="giallo-l"><span>| Compute tray 18  (4 B200 GPUs + 2 Grace CPUs)                                |</span></span>
+<span class="giallo-l"><span>| Compute tray 17                                                              |</span></span>
+<span class="giallo-l"><span>| Compute tray 16                                                              |</span></span>
+<span class="giallo-l"><span>| Compute tray 15                                                              |</span></span>
+<span class="giallo-l"><span>| Compute tray 14                                                              |</span></span>
+<span class="giallo-l"><span>| ...                                                                          |</span></span>
+<span class="giallo-l"><span>| Compute tray 1  (4 B200 + 2 Grace via NVLink-C2C; 18 trays × 4 GPU = 72 GPU) |</span></span>
+<span class="giallo-l"><span>+============================================================================+</span></span>
+<span class="giallo-l"><span>| Power shelf + management                                                    |</span></span>
+<span class="giallo-l"><span>+============================================================================+</span></span></code></pre>
 <ul>
 <li><strong>18 compute trays</strong>, each with 2 Grace CPUs + 4 B200 GPUs (or 2 GB200 Superchips = 2 Grace + 4 B200)</li>
 <li><strong>9 NVSwitch trays</strong> at the middle of the rack, providing 130 TB/s aggregate bisection</li>
@@ -581,68 +599,64 @@ Cons: TCP overhead (slower start, complex congestion control) limits throughput 
 <p>UEC is the industry's bet that the next generation of AI scale-out fabrics will run on Ethernet, not IB.</p>
 <h3 id="5-8-topologies-ascii-diagrams">5.8 Topologies — ASCII Diagrams</h3>
 <p><strong>Two-tier Clos (Leaf-Spine) — typical DC topology:</strong></p>
-<pre><code>            ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐
-  Spine     │ S1   │ │ S2   │ │ S3   │ │ S4   │
-            └─┬─┬──┘ └─┬─┬──┘ └─┬─┬──┘ └─┬─┬──┘
-              │ │      │ │      │ │      │ │
-       ╔══════╪═╪══════╪═╪══════╪═╪══════╪═╪═════╗
-       ║      │ │      │ │      │ │      │ │     ║   Each leaf
-       ║    every leaf has 4 uplinks (1 to each spine) ║   ────────
-       ╚══════╪═╪══════╪═╪══════╪═╪══════╪═╪═════╝   ─ 32-64 server
-              │ │      │ │      │ │      │ │            downlinks
-            ┌─┴─┴──┐ ┌─┴─┴──┐ ┌─┴─┴──┐ ┌─┴─┴──┐         ─ 4-16 spine
-  Leaf      │ L1   │ │ L2   │ │ L3   │ │ L4   │           uplinks
-            └──┬───┘ └──┬───┘ └──┬───┘ └──┬───┘
-               │        │        │        │
-            servers  servers   servers   servers
-            (~32)    (~32)     (~32)     (~32)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>            ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐</span></span>
+<span class="giallo-l"><span>  Spine     │ S1   │ │ S2   │ │ S3   │ │ S4   │</span></span>
+<span class="giallo-l"><span>            └─┬─┬──┘ └─┬─┬──┘ └─┬─┬──┘ └─┬─┬──┘</span></span>
+<span class="giallo-l"><span>              │ │      │ │      │ │      │ │</span></span>
+<span class="giallo-l"><span>       ╔══════╪═╪══════╪═╪══════╪═╪══════╪═╪═════╗</span></span>
+<span class="giallo-l"><span>       ║      │ │      │ │      │ │      │ │     ║   Each leaf</span></span>
+<span class="giallo-l"><span>       ║    every leaf has 4 uplinks (1 to each spine) ║   ────────</span></span>
+<span class="giallo-l"><span>       ╚══════╪═╪══════╪═╪══════╪═╪══════╪═╪═════╝   ─ 32-64 server</span></span>
+<span class="giallo-l"><span>              │ │      │ │      │ │      │ │            downlinks</span></span>
+<span class="giallo-l"><span>            ┌─┴─┴──┐ ┌─┴─┴──┐ ┌─┴─┴──┐ ┌─┴─┴──┐         ─ 4-16 spine</span></span>
+<span class="giallo-l"><span>  Leaf      │ L1   │ │ L2   │ │ L3   │ │ L4   │           uplinks</span></span>
+<span class="giallo-l"><span>            └──┬───┘ └──┬───┘ └──┬───┘ └──┬───┘</span></span>
+<span class="giallo-l"><span>               │        │        │        │</span></span>
+<span class="giallo-l"><span>            servers  servers   servers   servers</span></span>
+<span class="giallo-l"><span>            (~32)    (~32)     (~32)     (~32)</span></span></code></pre>
 <p><strong>Three-tier fat-tree (Charles Leiserson 1985):</strong></p>
-<pre><code>                  Core (Super-spine)
-                ┌──┬──┬──┬──┬──┐
-                │  │  │  │  │  │
-        ┌───────┴──┴──┴──┴──┴──┴───────┐
-        │          full bisection      │
-   ┌────┴────┐  ┌────┴────┐  ┌────┴────┐
-   │ Spine 1 │  │ Spine 2 │  │ Spine 3 │
-   └─┬─┬─┬─┬─┘  └─┬─┬─┬─┬─┘  └─┬─┬─┬─┬─┘
-     │ │ │ │      │ │ │ │      │ │ │ │
-   ┌─┴─┐         ┌─┴─┐         ┌─┴─┐
-   │L1 │  ...    │L9 │  ...    │L17│  ...
-   └─┬─┘         └─┬─┘         └─┬─┘
-   servers       servers       servers
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                  Core (Super-spine)</span></span>
+<span class="giallo-l"><span>                ┌──┬──┬──┬──┬──┐</span></span>
+<span class="giallo-l"><span>                │  │  │  │  │  │</span></span>
+<span class="giallo-l"><span>        ┌───────┴──┴──┴──┴──┴──┴───────┐</span></span>
+<span class="giallo-l"><span>        │          full bisection      │</span></span>
+<span class="giallo-l"><span>   ┌────┴────┐  ┌────┴────┐  ┌────┴────┐</span></span>
+<span class="giallo-l"><span>   │ Spine 1 │  │ Spine 2 │  │ Spine 3 │</span></span>
+<span class="giallo-l"><span>   └─┬─┬─┬─┬─┘  └─┬─┬─┬─┬─┘  └─┬─┬─┬─┬─┘</span></span>
+<span class="giallo-l"><span>     │ │ │ │      │ │ │ │      │ │ │ │</span></span>
+<span class="giallo-l"><span>   ┌─┴─┐         ┌─┴─┐         ┌─┴─┐</span></span>
+<span class="giallo-l"><span>   │L1 │  ...    │L9 │  ...    │L17│  ...</span></span>
+<span class="giallo-l"><span>   └─┬─┘         └─┬─┘         └─┬─┘</span></span>
+<span class="giallo-l"><span>   servers       servers       servers</span></span></code></pre>
 <p><strong>Dragonfly+ (HPE Slingshot, Cray, IB Quantum-2 dragonfly mode):</strong></p>
-<pre><code>        ┌─────────── group 1 ──────────┐    ┌─────── group 2 ──────┐
-        │  ┌───┐  ┌───┐  ┌───┐  ┌───┐  │    │  ┌───┐ ┌───┐ ┌───┐   │
-        │  │S1 ├──┤S2 ├──┤S3 ├──┤S4 │  ◄════►  │S1 ├─┤S2 ├─┤S3 │.. │
-        │  └─┬─┘  └─┬─┘  └─┬─┘  └─┬─┘  │    │  └─┬─┘ └─┬─┘ └─┬─┘   │
-        │    │      │      │      │     │    │    │     │     │     │
-        │  servers  servers ...           │    │  ...                 │
-        │   (1 link to every other        │    │                      │
-        │    switch in same group)        │    │                      │
-        └─────────────────────────────────┘    └──────────────────────┘
-
-Topology: 3-tier
-  1. Within a group, switches fully meshed (1 hop)
-  2. Between groups, fewer long links (typically 1-4 per pair of groups, called &quot;global links&quot;)
-  3. To reach a faraway server: src_sw → src_group_egress_sw → dst_group_ingress_sw → dst_sw  (3 hops max)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>        ┌─────────── group 1 ──────────┐    ┌─────── group 2 ──────┐</span></span>
+<span class="giallo-l"><span>        │  ┌───┐  ┌───┐  ┌───┐  ┌───┐  │    │  ┌───┐ ┌───┐ ┌───┐   │</span></span>
+<span class="giallo-l"><span>        │  │S1 ├──┤S2 ├──┤S3 ├──┤S4 │  ◄════►  │S1 ├─┤S2 ├─┤S3 │.. │</span></span>
+<span class="giallo-l"><span>        │  └─┬─┘  └─┬─┘  └─┬─┘  └─┬─┘  │    │  └─┬─┘ └─┬─┘ └─┬─┘   │</span></span>
+<span class="giallo-l"><span>        │    │      │      │      │     │    │    │     │     │     │</span></span>
+<span class="giallo-l"><span>        │  servers  servers ...           │    │  ...                 │</span></span>
+<span class="giallo-l"><span>        │   (1 link to every other        │    │                      │</span></span>
+<span class="giallo-l"><span>        │    switch in same group)        │    │                      │</span></span>
+<span class="giallo-l"><span>        └─────────────────────────────────┘    └──────────────────────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Topology: 3-tier</span></span>
+<span class="giallo-l"><span>  1. Within a group, switches fully meshed (1 hop)</span></span>
+<span class="giallo-l"><span>  2. Between groups, fewer long links (typically 1-4 per pair of groups, called &quot;global links&quot;)</span></span>
+<span class="giallo-l"><span>  3. To reach a faraway server: src_sw → src_group_egress_sw → dst_group_ingress_sw → dst_sw  (3 hops max)</span></span></code></pre>
 <p>Dragonfly's advantage over fat-tree: ~30% fewer optical links for the same bisection. Disadvantage: requires <strong>adaptive routing</strong> — picking which global link to use based on congestion — to avoid traffic concentrating on a few global links. Cray's Cassini (Slingshot 11/12) and Mellanox Quantum-2 dragonfly mode both implement adaptive routing in switch silicon.</p>
 <p><strong>Rail-optimized topology (critical for AI):</strong></p>
-<pre><code>    GPU 0       GPU 1       GPU 2       GPU 3       (per server)
-   ┌──┴──┐    ┌──┴──┐    ┌──┴──┐    ┌──┴──┐
-   │NIC0 │    │NIC1 │    │NIC2 │    │NIC3 │
-   └──┬──┘    └──┬──┘    └──┬──┘    └──┬──┘
-      │          │          │          │
-   ┌──┴─────────────────────────────────┴──┐
-   │   Rail 0:  Leaf &quot;Rail-0&quot; connects     │
-   │   ALL servers&#39; NIC0 to same leaf      │  ← rail-optimized leaf-spine
-   │   Rail 1:  Leaf &quot;Rail-1&quot; connects all NIC1
-   │   Rail 2:  Leaf &quot;Rail-2&quot; connects all NIC2
-   │   Rail 3:  Leaf &quot;Rail-3&quot; connects all NIC3
-   └────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>    GPU 0       GPU 1       GPU 2       GPU 3       (per server)</span></span>
+<span class="giallo-l"><span>   ┌──┴──┐    ┌──┴──┐    ┌──┴──┐    ┌──┴──┐</span></span>
+<span class="giallo-l"><span>   │NIC0 │    │NIC1 │    │NIC2 │    │NIC3 │</span></span>
+<span class="giallo-l"><span>   └──┬──┘    └──┬──┘    └──┬──┘    └──┬──┘</span></span>
+<span class="giallo-l"><span>      │          │          │          │</span></span>
+<span class="giallo-l"><span>   ┌──┴─────────────────────────────────┴──┐</span></span>
+<span class="giallo-l"><span>   │   Rail 0:  Leaf &quot;Rail-0&quot; connects     │</span></span>
+<span class="giallo-l"><span>   │   ALL servers&#39; NIC0 to same leaf      │  ← rail-optimized leaf-spine</span></span>
+<span class="giallo-l"><span>   │   Rail 1:  Leaf &quot;Rail-1&quot; connects all NIC1</span></span>
+<span class="giallo-l"><span>   │   Rail 2:  Leaf &quot;Rail-2&quot; connects all NIC2</span></span>
+<span class="giallo-l"><span>   │   Rail 3:  Leaf &quot;Rail-3&quot; connects all NIC3</span></span>
+<span class="giallo-l"><span>   └────────────────────────────────────────┘</span></span></code></pre>
 <p>In rail-optimized topology, GPU-i on every server connects to the same leaf in "rail i". For AllReduce, where every GPU communicates only with the same rank on other servers (ring reduction stays within a rail), traffic never crosses rails — eliminating cross-rail congestion. NCCL with <code>NCCL_IB_HCA</code> set per-rail uses this naturally.</p>
 <h3 id="5-9-other-dc-network-topologies">5.9 Other DC Network Topologies</h3>
 <ul>
@@ -707,42 +721,41 @@ Topology: 3-tier
 <h2 id="7-tier-6-software-stacks">7. Tier 6 — Software Stacks</h2>
 <h3 id="7-1-libibverbs-verbs-api">7.1 libibverbs (Verbs API)</h3>
 <p>The core RDMA API on Linux, originally Mellanox/QLogic, now in <code>rdma-core</code> (https://github.com/linux-rdma/rdma-core). Header: <code>&lt;infiniband/verbs.h&gt;</code>. Object lifecycle:</p>
-<pre><code data-lang="c">struct ibv_context *ctx = ibv_open_device(dev);
-struct ibv_pd *pd = ibv_alloc_pd(ctx);
-struct ibv_mr *mr = ibv_reg_mr(pd, buf, len, IBV_ACCESS_LOCAL_WRITE |
-                                              IBV_ACCESS_REMOTE_READ |
-                                              IBV_ACCESS_REMOTE_WRITE);
-struct ibv_cq *cq = ibv_create_cq(ctx, depth, NULL, NULL, 0);
-struct ibv_qp_init_attr attr = {
-    .send_cq = cq, .recv_cq = cq,
-    .cap = { .max_send_wr = 64, .max_recv_wr = 64,
-             .max_send_sge = 4, .max_recv_sge = 4 },
-    .qp_type = IBV_QPT_RC,
-};
-struct ibv_qp *qp = ibv_create_qp(pd, &amp;attr);
-
-// transition: INIT → RTR (ready to receive) → RTS (ready to send)
-ibv_modify_qp(qp, &amp;qp_init_attr,
-              IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS);
-// ... (RTR / RTS transitions with remote_qpn, remote_lid)
-
-// Post a send WR
-struct ibv_send_wr swr = {
-    .wr_id = 1,
-    .opcode = IBV_WR_RDMA_WRITE,
-    .send_flags = IBV_SEND_SIGNALED,
-    .wr.rdma.remote_addr = remote_addr,
-    .wr.rdma.rkey = remote_rkey,
-    .sg_list = &amp;sge, .num_sge = 1,
-};
-struct ibv_send_wr *bad;
-ibv_post_send(qp, &amp;swr, &amp;bad);
-
-// Poll completion
-struct ibv_wc wc;
-while (ibv_poll_cq(cq, 1, &amp;wc) == 0) { /* spin */ }
-if (wc.status != IBV_WC_SUCCESS) { /* handle error */ }
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-storage z-type">struct</span><span> ibv_context </span><span class="z-keyword z-operator">*</span><span>ctx </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> ibv_open_device</span><span class="z-punctuation">(</span><span>dev</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span> ibv_pd </span><span class="z-keyword z-operator">*</span><span>pd </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> ibv_alloc_pd</span><span class="z-punctuation">(</span><span>ctx</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span> ibv_mr </span><span class="z-keyword z-operator">*</span><span>mr </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> ibv_reg_mr</span><span class="z-punctuation">(</span><span>pd</span><span class="z-punctuation">,</span><span> buf</span><span class="z-punctuation">,</span><span> len</span><span class="z-punctuation">,</span><span> IBV_ACCESS_LOCAL_WRITE </span><span class="z-keyword z-operator">|</span></span>
+<span class="giallo-l"><span>                                              IBV_ACCESS_REMOTE_READ </span><span class="z-keyword z-operator">|</span></span>
+<span class="giallo-l"><span>                                              IBV_ACCESS_REMOTE_WRITE</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span> ibv_cq </span><span class="z-keyword z-operator">*</span><span>cq </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> ibv_create_cq</span><span class="z-punctuation">(</span><span>ctx</span><span class="z-punctuation">,</span><span> depth</span><span class="z-punctuation">,</span><span class="z-constant"> NULL</span><span class="z-punctuation">,</span><span class="z-constant"> NULL</span><span class="z-punctuation">,</span><span class="z-constant"> 0</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span> ibv_qp_init_attr attr </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>    .send_cq </span><span class="z-keyword z-operator">=</span><span> cq</span><span class="z-punctuation">,</span><span> .recv_cq </span><span class="z-keyword z-operator">=</span><span> cq</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .cap </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> {</span><span> .max_send_wr </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 64</span><span class="z-punctuation">,</span><span> .max_recv_wr </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 64</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>             .max_send_sge </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 4</span><span class="z-punctuation">,</span><span> .max_recv_sge </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 4</span><span class="z-punctuation"> }</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .qp_type </span><span class="z-keyword z-operator">=</span><span> IBV_QPT_RC</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span> ibv_qp </span><span class="z-keyword z-operator">*</span><span>qp </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> ibv_create_qp</span><span class="z-punctuation">(</span><span>pd</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-parameter">attr</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> transition: INIT → RTR (ready to receive) → RTS (ready to send)</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">ibv_modify_qp</span><span class="z-punctuation">(</span><span>qp</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-parameter">qp_init_attr</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>              IBV_QP_STATE </span><span class="z-keyword z-operator">|</span><span> IBV_QP_PKEY_INDEX </span><span class="z-keyword z-operator">|</span><span> IBV_QP_PORT </span><span class="z-keyword z-operator">|</span><span> IBV_QP_ACCESS_FLAGS</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> ... (RTR / RTS transitions with remote_qpn, remote_lid)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Post a send WR</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span> ibv_send_wr swr </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>    .wr_id </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .opcode </span><span class="z-keyword z-operator">=</span><span> IBV_WR_RDMA_WRITE</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .send_flags </span><span class="z-keyword z-operator">=</span><span> IBV_SEND_SIGNALED</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .</span><span class="z-variable z-other">wr</span><span class="z-punctuation">.</span><span class="z-variable z-other">rdma</span><span class="z-punctuation">.</span><span class="z-variable z-other">remote_addr</span><span class="z-keyword z-operator"> =</span><span> remote_addr</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .</span><span class="z-variable z-other">wr</span><span class="z-punctuation">.</span><span class="z-variable z-other">rdma</span><span class="z-punctuation">.</span><span class="z-variable z-other">rkey</span><span class="z-keyword z-operator"> =</span><span> remote_rkey</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .sg_list </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-operator"> &amp;</span><span>sge</span><span class="z-punctuation">,</span><span> .num_sge </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span> ibv_send_wr </span><span class="z-keyword z-operator">*</span><span>bad</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">ibv_post_send</span><span class="z-punctuation">(</span><span>qp</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-parameter">swr</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-parameter">bad</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Poll completion</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span> ibv_wc wc</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">while</span><span class="z-punctuation"> (</span><span class="z-entity z-name z-function">ibv_poll_cq</span><span class="z-punctuation">(</span><span>cq</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-parameter">wc</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> ==</span><span class="z-constant"> 0</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span><span class="z-punctuation z-definition z-comment"> /*</span><span class="z-comment"> spin </span><span class="z-punctuation z-definition z-comment">*/</span><span class="z-punctuation"> }</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">if</span><span class="z-punctuation"> (</span><span>wc.status </span><span class="z-keyword z-operator">!=</span><span> IBV_WC_SUCCESS</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span><span class="z-punctuation z-definition z-comment"> /*</span><span class="z-comment"> handle error </span><span class="z-punctuation z-definition z-comment">*/</span><span class="z-punctuation"> }</span></span></code></pre>
 <p><strong>Cost of MR registration:</strong> <code>ibv_reg_mr()</code> pins pages, builds NIC translation tables, and (with strict IOMMU) sets IOTLB entries. For a 1 GB region, this can take 10s of milliseconds. Hot path apps register large MRs at startup and reuse them. <strong>ODP (On-Demand Paging)</strong> avoids the pinning by letting the NIC take a page fault (via PCIe ATS+PRI), translated by host kernel. Latency penalty: ~5-10 µs per fault. Use for sparse access patterns over very large regions.</p>
 <h3 id="7-2-rdma-core-librdmacm">7.2 rdma-core, librdmacm</h3>
 <p><strong>rdma-core</strong>: Single package containing libibverbs, librdmacm, libmlx5, etc. The reference RDMA userspace library.</p>
@@ -750,22 +763,21 @@ if (wc.status != IBV_WC_SUCCESS) { /* handle error */ }
 <h3 id="7-3-ucx-unified-communication-x">7.3 UCX — Unified Communication X</h3>
 <p>UCX (https://openucx.org/) is the unified software stack chosen by both <strong>NCCL</strong> and most modern <strong>MPI</strong> implementations.</p>
 <p>Layers:</p>
-<pre><code>┌─────────────────────────────────┐
-│ Applications  (MPI, NCCL, ...)  │
-└─────────────────────────────────┘
-            │
-┌─────────────────────────────────┐
-│ UCP   protocol layer            │  ← per-message protocol selection (eager/rendezvous), tag matching
-└─────────────────────────────────┘
-            │
-┌─────────────────────────────────┐
-│ UCT   transport layer           │  ← per-transport (verbs/RC, verbs/UD, DC, RDMA-CM, CUDA, ROCm, TCP)
-└─────────────────────────────────┘
-            │
-┌─────────────────────────────────┐
-│ UCS   services (config, mempool)│
-└─────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│ Applications  (MPI, NCCL, ...)  │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────┘</span></span>
+<span class="giallo-l"><span>            │</span></span>
+<span class="giallo-l"><span>┌─────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│ UCP   protocol layer            │  ← per-message protocol selection (eager/rendezvous), tag matching</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────┘</span></span>
+<span class="giallo-l"><span>            │</span></span>
+<span class="giallo-l"><span>┌─────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│ UCT   transport layer           │  ← per-transport (verbs/RC, verbs/UD, DC, RDMA-CM, CUDA, ROCm, TCP)</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────┘</span></span>
+<span class="giallo-l"><span>            │</span></span>
+<span class="giallo-l"><span>┌─────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│ UCS   services (config, mempool)│</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────┘</span></span></code></pre>
 <p>UCX automatically picks the fastest transport per peer (RC for short distances, DC for many-peer, GPU-Direct for intra-node GPU-to-GPU). UCX is used by:</p>
 <ul>
 <li><strong>NCCL</strong> (2.10+) — primary plugin</li>
@@ -882,18 +894,16 @@ if (wc.status != IBV_WC_SUCCESS) { /* handle error */ }
 <h3 id="8-1-silicon-photonics-fundamentals">8.1 Silicon Photonics Fundamentals</h3>
 <p>Silicon photonics is <strong>integrated photonic circuits</strong> on silicon (or SiGe) substrates — light modulators, waveguides, and photodetectors all in CMOS. The two dominant modulator topologies:</p>
 <p><strong>Mach-Zehnder Modulator (MZM):</strong></p>
-<pre><code>                   ┌─── arm 1 (active phase shift) ───┐
-   Light in ─────┤                                    ├──── Light out (mod amp = sin²(Δφ/2))
-                   └─── arm 2 (reference) ────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                   ┌─── arm 1 (active phase shift) ───┐</span></span>
+<span class="giallo-l"><span>   Light in ─────┤                                    ├──── Light out (mod amp = sin²(Δφ/2))</span></span>
+<span class="giallo-l"><span>                   └─── arm 2 (reference) ────────────┘</span></span></code></pre>
 <p>A Mach-Zehnder modulator splits the input light into two paths, applies a phase shift on one arm electrically (via thermo-optic or carrier-injection), and recombines. Output amplitude is <code>cos²(Δφ/2)</code> — full extinction is possible. Bandwidth: 50-100+ GHz on modern Si photonics. Power: ~mW per modulator. Used in commercial 400ZR/800ZR pluggables.</p>
 <p><strong>Microring Modulator:</strong></p>
-<pre><code>   Light in ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Light out
-                            │
-                          (ring resonator: small ring waveguide,
-                           heater on top, voltage shifts ring resonance,
-                           which absorbs / transmits the input)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>   Light in ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Light out</span></span>
+<span class="giallo-l"><span>                            │</span></span>
+<span class="giallo-l"><span>                          (ring resonator: small ring waveguide,</span></span>
+<span class="giallo-l"><span>                           heater on top, voltage shifts ring resonance,</span></span>
+<span class="giallo-l"><span>                           which absorbs / transmits the input)</span></span></code></pre>
 <p>A small (10-50 µm diameter) ring resonator coupled to a straight waveguide. When the ring is at resonance, it absorbs light at that wavelength (notch filter). Electrically tuning the resonance modulates input transmission. Much smaller and lower-power than MZM (~10s of µW per modulator), but narrow wavelength range (sensitive to temperature, requires active tuning). Used in dense WDM photonic chiplets (Ayar Labs, Lightmatter).</p>
 <p><strong>WDM / DWDM (Wavelength Division Multiplexing):</strong> Multiple optical signals at different wavelengths share one fiber. Per fiber:</p>
 <ul>
@@ -965,28 +975,26 @@ if (wc.status != IBV_WC_SUCCESS) { /* handle error */ }
 <p>RDMA verbs are the lingua franca of high-performance networking. Understanding the precise semantics is critical for correctness and performance.</p>
 <h3 id="9-1-two-sided-send-recv">9.1 Two-Sided: SEND / RECV</h3>
 <p>Like BSD sockets — both ends post WRs.</p>
-<pre><code data-lang="c">// Sender:
-struct ibv_send_wr swr = { .opcode = IBV_WR_SEND, /* ... */ };
-ibv_post_send(qp, &amp;swr, NULL);
-
-// Receiver — MUST have a RECV posted in advance:
-struct ibv_recv_wr rwr = { .wr_id = 1, .sg_list = &amp;sge, .num_sge = 1 };
-ibv_post_recv(qp, &amp;rwr, NULL);
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Sender:</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span> ibv_send_wr swr </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> {</span><span> .opcode </span><span class="z-keyword z-operator">=</span><span> IBV_WR_SEND</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment"> /*</span><span class="z-comment"> ... </span><span class="z-punctuation z-definition z-comment">*/</span><span class="z-punctuation"> }</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">ibv_post_send</span><span class="z-punctuation">(</span><span>qp</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-parameter">swr</span><span class="z-punctuation">,</span><span class="z-constant"> NULL</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Receiver — MUST have a RECV posted in advance:</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span> ibv_recv_wr rwr </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> {</span><span> .wr_id </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span> .sg_list </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-operator"> &amp;</span><span>sge</span><span class="z-punctuation">,</span><span> .num_sge </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 1</span><span class="z-punctuation"> }</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">ibv_post_recv</span><span class="z-punctuation">(</span><span>qp</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-parameter">rwr</span><span class="z-punctuation">,</span><span class="z-constant"> NULL</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre>
 <p>If no RECV is posted when SEND arrives → <strong>RNR NAK</strong> (Receiver Not Ready), sender retries with backoff. Tune <code>min_rnr_timer</code> and <code>retry_cnt</code> in QP attrs.</p>
 <p>Use for: message passing, control plane, RPC. Costs both ends a verb posting per message.</p>
 <h3 id="9-2-one-sided-write">9.2 One-Sided: WRITE</h3>
 <p>Sender pushes data into receiver's pre-registered memory <strong>without involving the receiver's CPU</strong>.</p>
-<pre><code data-lang="c">struct ibv_send_wr swr = {
-    .opcode = IBV_WR_RDMA_WRITE,
-    .wr.rdma.remote_addr = remote_buf_addr,
-    .wr.rdma.rkey = remote_mr-&gt;rkey,
-    .sg_list = &amp;sge,
-    .num_sge = 1,
-    .send_flags = IBV_SEND_SIGNALED,
-};
-ibv_post_send(qp, &amp;swr, NULL);
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-storage z-type">struct</span><span> ibv_send_wr swr </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>    .opcode </span><span class="z-keyword z-operator">=</span><span> IBV_WR_RDMA_WRITE</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .</span><span class="z-variable z-other">wr</span><span class="z-punctuation">.</span><span class="z-variable z-other">rdma</span><span class="z-punctuation">.</span><span class="z-variable z-other">remote_addr</span><span class="z-keyword z-operator"> =</span><span> remote_buf_addr</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .</span><span class="z-variable z-other">wr</span><span class="z-punctuation">.</span><span class="z-variable z-other">rdma</span><span class="z-punctuation">.</span><span class="z-variable z-other">rkey</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> remote_mr</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">rkey</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .sg_list </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-operator"> &amp;</span><span>sge</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .num_sge </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .send_flags </span><span class="z-keyword z-operator">=</span><span> IBV_SEND_SIGNALED</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">ibv_post_send</span><span class="z-punctuation">(</span><span>qp</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-parameter">swr</span><span class="z-punctuation">,</span><span class="z-constant"> NULL</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre>
 <p>The receiver's CPU is unaware until it polls memory or receives an out-of-band signal. Use cases:</p>
 <ul>
 <li>Distributed shared memory</li>
@@ -997,26 +1005,24 @@ ibv_post_send(qp, &amp;swr, NULL);
 <p><strong>WRITE_WITH_IMM</strong> is a variant that also includes a 32-bit "immediate" delivered in a CQE on the receiver side — combining one-sided data placement with a notification.</p>
 <h3 id="9-3-one-sided-read">9.3 One-Sided: READ</h3>
 <p>Sender pulls data from a remote registered memory region.</p>
-<pre><code data-lang="c">struct ibv_send_wr swr = { .opcode = IBV_WR_RDMA_READ, /* ... */ };
-ibv_post_send(qp, &amp;swr, NULL);
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-storage z-type">struct</span><span> ibv_send_wr swr </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> {</span><span> .opcode </span><span class="z-keyword z-operator">=</span><span> IBV_WR_RDMA_READ</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment"> /*</span><span class="z-comment"> ... </span><span class="z-punctuation z-definition z-comment">*/</span><span class="z-punctuation"> }</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">ibv_post_send</span><span class="z-punctuation">(</span><span>qp</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-parameter">swr</span><span class="z-punctuation">,</span><span class="z-constant"> NULL</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre>
 <p>Read latency is 2x WRITE (request flight + response flight), so for the same payload sizes WRITE is faster. But READ is sometimes the right semantic — "what is the current value at address X?"</p>
 <h3 id="9-4-atomic-fetchadd-cmpswap">9.4 ATOMIC: FetchAdd / CmpSwap</h3>
 <p>8-byte atomic operations on remote memory:</p>
-<pre><code data-lang="c">// FetchAdd: atomically fetch *remote and add value
-struct ibv_send_wr swr = {
-    .opcode = IBV_WR_ATOMIC_FETCH_AND_ADD,
-    .wr.atomic.remote_addr = addr,
-    .wr.atomic.rkey = rkey,
-    .wr.atomic.compare_add = value_to_add,
-    // ...
-};
-
-// CmpSwap: atomically compare and swap *remote
-swr.opcode = IBV_WR_ATOMIC_CMP_AND_SWP;
-swr.wr.atomic.compare_add = expected;
-swr.wr.atomic.swap = new_value;
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> FetchAdd: atomically fetch *remote and add value</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span> ibv_send_wr swr </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>    .opcode </span><span class="z-keyword z-operator">=</span><span> IBV_WR_ATOMIC_FETCH_AND_ADD</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .</span><span class="z-variable z-other">wr</span><span class="z-punctuation">.</span><span class="z-variable z-other">atomic</span><span class="z-punctuation">.</span><span class="z-variable z-other">remote_addr</span><span class="z-keyword z-operator"> =</span><span> addr</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .</span><span class="z-variable z-other">wr</span><span class="z-punctuation">.</span><span class="z-variable z-other">atomic</span><span class="z-punctuation">.</span><span class="z-variable z-other">rkey</span><span class="z-keyword z-operator"> =</span><span> rkey</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .</span><span class="z-variable z-other">wr</span><span class="z-punctuation">.</span><span class="z-variable z-other">atomic</span><span class="z-punctuation">.</span><span class="z-variable z-other">compare_add</span><span class="z-keyword z-operator"> =</span><span> value_to_add</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> ...</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> CmpSwap: atomically compare and swap *remote</span></span>
+<span class="giallo-l"><span>swr.opcode </span><span class="z-keyword z-operator">=</span><span> IBV_WR_ATOMIC_CMP_AND_SWP</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>swr.wr.atomic.compare_add </span><span class="z-keyword z-operator">=</span><span> expected</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>swr.wr.atomic.swap </span><span class="z-keyword z-operator">=</span><span> new_value</span><span class="z-punctuation">;</span></span></code></pre>
 <p><strong>On most NICs, atomics are slow.</strong> They take a separate path inside the NIC (vs the bulk WRITE/READ engine) and may serialize across the link. Throughput: ~1-10 M ops/s vs ~100 M ops/s for WRITEs. Used in lock-free distributed shared memory (FaRM, RAMCloud, LITE) carefully.</p>
 <p>ConnectX-6/7 supports <strong>enhanced atomics</strong> with better throughput, but they're still not free.</p>
 <h3 id="9-5-signaled-vs-unsignaled-completions">9.5 Signaled vs Unsignaled Completions</h3>
@@ -1053,8 +1059,7 @@ swr.wr.atomic.swap = new_value;
 <p>PFC + ECN tuning is dark magic. The fundamentals:</p>
 <h3 id="10-1-pfc-headroom">10.1 PFC Headroom</h3>
 <p>When a switch receives a PFC PAUSE from downstream, it must buffer all packets in flight on the wire + already-decoded-in-NIC packets, until the PAUSE clears. The minimum headroom buffer is:</p>
-<pre><code>   PFC_headroom = (max_packet_size) + (cable_RTT × link_rate / 8)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>   PFC_headroom = (max_packet_size) + (cable_RTT × link_rate / 8)</span></span></code></pre>
 <ul>
 <li>For a 100m DAC link at 100 Gbps: <code>RTT ≈ 1 µs</code> → headroom ≈ 12.5 KB + 1500B MTU = ~14 KB.</li>
 <li>For a 200m fiber at 400 Gbps: <code>RTT ≈ 2 µs</code> → ~100 KB.</li>
@@ -1180,19 +1185,18 @@ swr.wr.atomic.swap = new_value;
 <h3 id="13-3-cxl-cache-hdm-db-back-invalidation">13.3 CXL.cache HDM-DB (Back-Invalidation)</h3>
 <p>In CXL 2.0 / HDM-H (host-managed coherence), the device's caches are tracked by the host. The host must allocate directory space proportional to total device cache.</p>
 <p>In CXL 3.0 HDM-DB, the device tracks its own caches. When the device wants to write a line, it issues a <strong>Back-Invalidation (BI)</strong> to evict any cached copies on the host:</p>
-<pre><code>Host CPU                       CXL Type-2 Device
-   │                                  │
-   │  LD address X (.mem read) ──────►│  (line cached on host LLC)
-   │                                  │
-   │                            (device wants to write X)
-   │ ◄────────────── BI: invalidate X │
-   │ (drops host cached copy)         │
-   │ ───────────── BI Ack ───────────►│
-   │                                  │
-   │                            (device writes X)
-   │                                  │
-   │  LD address X (.mem read) ──────►│  (returns new value)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Host CPU                       CXL Type-2 Device</span></span>
+<span class="giallo-l"><span>   │                                  │</span></span>
+<span class="giallo-l"><span>   │  LD address X (.mem read) ──────►│  (line cached on host LLC)</span></span>
+<span class="giallo-l"><span>   │                                  │</span></span>
+<span class="giallo-l"><span>   │                            (device wants to write X)</span></span>
+<span class="giallo-l"><span>   │ ◄────────────── BI: invalidate X │</span></span>
+<span class="giallo-l"><span>   │ (drops host cached copy)         │</span></span>
+<span class="giallo-l"><span>   │ ───────────── BI Ack ───────────►│</span></span>
+<span class="giallo-l"><span>   │                                  │</span></span>
+<span class="giallo-l"><span>   │                            (device writes X)</span></span>
+<span class="giallo-l"><span>   │                                  │</span></span>
+<span class="giallo-l"><span>   │  LD address X (.mem read) ──────►│  (returns new value)</span></span></code></pre>
 <p>This pattern works for any Type-2 device or fabric-attached coherent memory pool. Critical for CXL 3.0 disaggregated coherent memory pools (GFAM): the memory device tracks all host caches; hosts only react to BI messages.</p>
 <hr />
 <h2 id="14-bandwidth-math-bisection-bw-oversubscription">14. Bandwidth Math, Bisection BW, Oversubscription</h2>
@@ -1210,16 +1214,13 @@ swr.wr.atomic.swap = new_value;
 <p>A 3:1 oversubscription means cross-rack traffic gets 1/3 the bandwidth of intra-rack. AllReduce hitting that boundary suffers; rack-locality of training jobs is critical.</p>
 <h3 id="14-3-allreduce-time-models">14.3 AllReduce Time Models</h3>
 <p>For a ring AllReduce on N nodes with message size M and per-node BW B:</p>
-<pre><code>   T_ring = 2(N-1)/N × M/B + (2N-2) × α
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>   T_ring = 2(N-1)/N × M/B + (2N-2) × α</span></span></code></pre>
 <p>where α is per-hop latency. For large M, dominated by the bandwidth term ≈ 2 × M/B.</p>
 <p>For a tree AllReduce (log N depth):</p>
-<pre><code>   T_tree = 2 log_2(N) × (M/B + α)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>   T_tree = 2 log_2(N) × (M/B + α)</span></span></code></pre>
 <p>Dominated by latency for large N; better for small messages.</p>
 <p>For SHARP / NVLS in-network reduction:</p>
-<pre><code>   T_sharp = M/B + α × log_2(N)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>   T_sharp = M/B + α × log_2(N)</span></span></code></pre>
 <p>Approximately <strong>half</strong> the ring time at large M. Latency tier dominates for small M.</p>
 <h3 id="14-4-clos-network-formula">14.4 Clos Network Formula</h3>
 <p>For a 3-tier Clos with k-port switches at every tier:</p>
@@ -1331,45 +1332,40 @@ swr.wr.atomic.swap = new_value;
 <hr />
 <h2 id="18-practical-skills-commands-and-benchmarks">18. Practical Skills — Commands and Benchmarks</h2>
 <h3 id="18-1-topology-discovery">18.1 Topology Discovery</h3>
-<pre><code data-lang="bash"># PCIe tree
-lspci -tvvv                 # Tree view of PCI bus
-lspci -vv                   # Verbose per-device (BARs, capabilities, AER)
-lspci -nn | grep -i mell    # Find Mellanox / NVIDIA NICs
-
-# Hardware topology (NUMA + PCIe + cores)
-lstopo                      # Graphical (PDF/PNG output)
-lstopo --of console         # Text
-hwloc-ls                    # Same as lstopo --of console
-hwloc-distrib 8             # Suggest CPU set for 8-way parallelism
-
-# NUMA placement
-cat /sys/bus/pci/devices/0000:01:00.0/numa_node     # NIC&#39;s NUMA node
-numactl -H                                           # NUMA topology
-</code></pre>
-<h3 id="18-2-infiniband-inspection">18.2 InfiniBand Inspection</h3>
-<pre><code data-lang="bash">ibstat                      # Per-HCA status (LID, state, port speeds)
-ibv_devinfo -v              # Verbose verbs device info
-ibportstate 1 1             # Port state for HCA 1, port 1
-iblinkinfo                  # All links + remote endpoint
-ibhosts                     # Discover all HCAs
-ibroute                     # Per-switch routing table
-saquery -t Node             # Subnet Admin query: list all nodes
-</code></pre>
-<h3 id="18-3-rdma-benchmarks-perftest">18.3 RDMA Benchmarks (perftest)</h3>
-<pre><code data-lang="bash"># Server
-ib_send_bw -d mlx5_0                    # Send bandwidth
-ib_send_lat -d mlx5_0                   # Send latency
-ib_write_bw -d mlx5_0 --report_gbits    # RDMA write bandwidth, Gbit/s
-ib_write_lat -d mlx5_0                  # RDMA write latency
-ib_read_lat -d mlx5_0                   # RDMA read latency
-ib_atomic_lat -d mlx5_0                 # Atomic op latency
-
-# Client (other side)
-ib_write_bw -d mlx5_0 -q 4 -x 3 server_ip --report_gbits
-#   -q 4 : 4 QPs (parallel)
-#   -x 3 : GID index (RoCEv2)
-#   -F   : skip CPU frequency check (recommended on shared nodes)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="shellscript"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> PCIe tree</span></span>
+<span class="giallo-l"><span class="z-entity z-name">lspci</span><span class="z-constant"> -</span><span class="z-constant">tvvv</span><span class="z-punctuation z-definition z-comment">                 #</span><span class="z-comment"> Tree view of PCI bus</span></span>
+<span class="giallo-l"><span class="z-entity z-name">lspci</span><span class="z-constant"> -</span><span class="z-constant">vv</span><span class="z-punctuation z-definition z-comment">                   #</span><span class="z-comment"> Verbose per-device (BARs, capabilities, AER)</span></span>
+<span class="giallo-l"><span class="z-entity z-name">lspci</span><span class="z-constant"> -</span><span class="z-constant">nn</span><span class="z-keyword z-operator"> |</span><span class="z-entity z-name"> grep</span><span class="z-constant"> -</span><span class="z-constant">i</span><span class="z-string"> mell</span><span class="z-punctuation z-definition z-comment">    #</span><span class="z-comment"> Find Mellanox / NVIDIA NICs</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Hardware topology (NUMA + PCIe + cores)</span></span>
+<span class="giallo-l"><span class="z-entity z-name">lstopo</span><span class="z-punctuation z-definition z-comment">                      #</span><span class="z-comment"> Graphical (PDF/PNG output)</span></span>
+<span class="giallo-l"><span class="z-entity z-name">lstopo</span><span class="z-constant"> -</span><span class="z-constant">-of</span><span class="z-string"> console</span><span class="z-punctuation z-definition z-comment">         #</span><span class="z-comment"> Text</span></span>
+<span class="giallo-l"><span class="z-entity z-name">hwloc-ls</span><span class="z-punctuation z-definition z-comment">                    #</span><span class="z-comment"> Same as lstopo --of console</span></span>
+<span class="giallo-l"><span class="z-entity z-name">hwloc-distrib</span><span class="z-constant"> 8</span><span class="z-punctuation z-definition z-comment">             #</span><span class="z-comment"> Suggest CPU set for 8-way parallelism</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> NUMA placement</span></span>
+<span class="giallo-l"><span class="z-entity z-name">cat</span><span class="z-string"> /sys/bus/pci/devices/0000:01:00.0/numa_node</span><span class="z-punctuation z-definition z-comment">     #</span><span class="z-comment"> NIC&#39;s NUMA node</span></span>
+<span class="giallo-l"><span class="z-entity z-name">numactl</span><span class="z-constant"> -</span><span class="z-constant">H</span><span class="z-punctuation z-definition z-comment">                                           #</span><span class="z-comment"> NUMA topology</span></span></code></pre><h3 id="18-2-infiniband-inspection">18.2 InfiniBand Inspection</h3>
+<pre class="giallo z-code"><code data-lang="shellscript"><span class="giallo-l"><span class="z-entity z-name">ibstat</span><span class="z-punctuation z-definition z-comment">                      #</span><span class="z-comment"> Per-HCA status (LID, state, port speeds)</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ibv_devinfo</span><span class="z-constant"> -</span><span class="z-constant">v</span><span class="z-punctuation z-definition z-comment">              #</span><span class="z-comment"> Verbose verbs device info</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ibportstate</span><span class="z-constant"> 1</span><span class="z-constant"> 1</span><span class="z-punctuation z-definition z-comment">             #</span><span class="z-comment"> Port state for HCA 1, port 1</span></span>
+<span class="giallo-l"><span class="z-entity z-name">iblinkinfo</span><span class="z-punctuation z-definition z-comment">                  #</span><span class="z-comment"> All links + remote endpoint</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ibhosts</span><span class="z-punctuation z-definition z-comment">                     #</span><span class="z-comment"> Discover all HCAs</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ibroute</span><span class="z-punctuation z-definition z-comment">                     #</span><span class="z-comment"> Per-switch routing table</span></span>
+<span class="giallo-l"><span class="z-entity z-name">saquery</span><span class="z-constant"> -</span><span class="z-constant">t</span><span class="z-string"> Node</span><span class="z-punctuation z-definition z-comment">             #</span><span class="z-comment"> Subnet Admin query: list all nodes</span></span></code></pre><h3 id="18-3-rdma-benchmarks-perftest">18.3 RDMA Benchmarks (perftest)</h3>
+<pre class="giallo z-code"><code data-lang="shellscript"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Server</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ib_send_bw</span><span class="z-constant"> -</span><span class="z-constant">d</span><span class="z-string"> mlx5_0</span><span class="z-punctuation z-definition z-comment">                    #</span><span class="z-comment"> Send bandwidth</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ib_send_lat</span><span class="z-constant"> -</span><span class="z-constant">d</span><span class="z-string"> mlx5_0</span><span class="z-punctuation z-definition z-comment">                   #</span><span class="z-comment"> Send latency</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ib_write_bw</span><span class="z-constant"> -</span><span class="z-constant">d</span><span class="z-string"> mlx5_0</span><span class="z-constant"> -</span><span class="z-constant">-report_gbits</span><span class="z-punctuation z-definition z-comment">    #</span><span class="z-comment"> RDMA write bandwidth, Gbit/s</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ib_write_lat</span><span class="z-constant"> -</span><span class="z-constant">d</span><span class="z-string"> mlx5_0</span><span class="z-punctuation z-definition z-comment">                  #</span><span class="z-comment"> RDMA write latency</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ib_read_lat</span><span class="z-constant"> -</span><span class="z-constant">d</span><span class="z-string"> mlx5_0</span><span class="z-punctuation z-definition z-comment">                   #</span><span class="z-comment"> RDMA read latency</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ib_atomic_lat</span><span class="z-constant"> -</span><span class="z-constant">d</span><span class="z-string"> mlx5_0</span><span class="z-punctuation z-definition z-comment">                 #</span><span class="z-comment"> Atomic op latency</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Client (other side)</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ib_write_bw</span><span class="z-constant"> -</span><span class="z-constant">d</span><span class="z-string"> mlx5_0</span><span class="z-constant"> -</span><span class="z-constant">q</span><span class="z-constant"> 4</span><span class="z-constant"> -</span><span class="z-constant">x</span><span class="z-constant"> 3</span><span class="z-string"> server_ip</span><span class="z-constant"> -</span><span class="z-constant">-report_gbits</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment">   -q 4 : 4 QPs (parallel)</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment">   -x 3 : GID index (RoCEv2)</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment">   -F   : skip CPU frequency check (recommended on shared nodes)</span></span></code></pre>
 <p>Expected on a tuned ConnectX-7 NDR (400 Gb/s):</p>
 <ul>
 <li><code>ib_send_lat</code>: ~1.0-1.2 µs</li>
@@ -1377,81 +1373,73 @@ ib_write_bw -d mlx5_0 -q 4 -x 3 server_ip --report_gbits
 <li><code>ib_read_lat</code>: ~1.5-2 µs (round-trip cost)</li>
 </ul>
 <h3 id="18-4-nic-tuning">18.4 NIC Tuning</h3>
-<pre><code data-lang="bash"># Driver info
-ethtool -i eth0                         # Driver, version, firmware
-
-# Ring buffer sizes
-ethtool -g eth0                         # Current + max ring sizes
-ethtool -G eth0 rx 8192 tx 8192         # Set ring sizes
-
-# Queue count
-ethtool -l eth0                         # Current + max queues
-ethtool -L eth0 combined 32             # Set 32 combined queues
-
-# Coalesce (interrupt moderation)
-ethtool -c eth0                         # Current
-ethtool -C eth0 rx-usecs 16 tx-usecs 16 # Per 16 µs or N pkts
-
-# Offloads
-ethtool -k eth0                         # Current offloads
-ethtool -K eth0 tx-checksumming on rx-checksumming on tso on lro on
-
-# Mellanox-specific: DCB / RoCE
-mlnx_qos -i eth0                        # Show DCB config
-mlnx_qos -i eth0 --pfc 0,0,0,1,0,0,0,0  # PFC on priority 3 only
-mlnx_qos -i eth0 --trust dscp           # Use DSCP for priority (vs PCP)
-
-# Mellanox firmware tools
-mst start                               # Bring up mstflint device tree
-mlxconfig -d /dev/mst/mt4119_pciconf0 q # Query firmware config
-mlxlink -d mlx5_0 -p 1                  # Port-level link info: speed, FEC, errors
-mlxlink -d mlx5_0 -p 1 --rx_fec_active  # RX FEC mode
-</code></pre>
-<h3 id="18-5-nccl-diagnostics">18.5 NCCL Diagnostics</h3>
-<pre><code data-lang="bash"># Run NCCL-tests
-git clone https://github.com/NVIDIA/nccl-tests
-cd nccl-tests &amp;&amp; make MPI=1 CUDA_HOME=/usr/local/cuda
-mpirun -np 8 ./build/all_reduce_perf -b 8 -e 8G -f 2 -g 1
-
-# Debug logging
-NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,COLL,P2P,NET mpirun ...
-
-# Topology dump
-NCCL_TOPO_DUMP_FILE=/tmp/topo.xml mpirun ...
-
-# Force specific transport
-NCCL_NET_GDR_LEVEL=PHB mpirun ...       # GPU-Direct RDMA only same PHB
-NCCL_IB_HCA=mlx5_0,mlx5_1 mpirun ...    # Use only these HCAs (rail-aware)
-NCCL_IB_GID_INDEX=3 mpirun ...          # RoCEv2 GID
-NCCL_P2P_DISABLE=1 mpirun ...           # Disable NVLink (debug)
-NCCL_ALGO=Tree mpirun ...               # Force tree AllReduce
-NCCL_COLLNET_ENABLE=1 mpirun ...        # Enable SHARP
-</code></pre>
-<h3 id="18-6-cxl">18.6 CXL</h3>
-<pre><code data-lang="bash">cxl list                                # List CXL devices
-cxl list -v                             # Verbose: capacity, partitions
-cxl create-region -d decoder0.0 -m mem0 # Create memory region
-cxl reconfigure-system                  # After topology change
-daxctl list                             # DAX devices (CXL memory exposed as devdax)
-daxctl reconfigure-device dax0.0 -m system-ram  # Make CXL mem into NUMA node
-ndctl list                              # PMEM/NVDIMM (parallel structure)
-</code></pre>
-<h3 id="18-7-pcie-performance-counters">18.7 PCIe Performance Counters</h3>
-<pre><code data-lang="bash"># Uncore PMU events (Intel; Sapphire Rapids+ has iio_*)
-perf stat -e uncore_iio_0/event=0x83,umask=0x04/ ...   # IIO inbound bytes
-perf stat -e uncore_iio_*/event=0x83/ ...              # All IIO devices
-
-# Intel PCM (Performance Counter Monitor)
-pcm                                      # Live CPU/memory/PCIe view
-pcm-pcie                                 # Per-device PCIe BW
-
-# AER errors
-lspci -vv | grep -i -A 5 &quot;Advanced Error&quot;
-
-# PCIe link speed/width (current vs max)
-lspci -vv -s 0000:01:00.0 | grep -i &quot;lnksta\|lnkcap&quot;
-</code></pre>
-<h3 id="18-8-standard-benchmarks">18.8 Standard Benchmarks</h3>
+<pre class="giallo z-code"><code data-lang="shellscript"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Driver info</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ethtool</span><span class="z-constant"> -</span><span class="z-constant">i</span><span class="z-string"> eth0</span><span class="z-punctuation z-definition z-comment">                         #</span><span class="z-comment"> Driver, version, firmware</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Ring buffer sizes</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ethtool</span><span class="z-constant"> -</span><span class="z-constant">g</span><span class="z-string"> eth0</span><span class="z-punctuation z-definition z-comment">                         #</span><span class="z-comment"> Current + max ring sizes</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ethtool</span><span class="z-constant"> -</span><span class="z-constant">G</span><span class="z-string"> eth0</span><span class="z-string"> rx</span><span class="z-constant"> 8192</span><span class="z-string"> tx</span><span class="z-constant"> 8192</span><span class="z-punctuation z-definition z-comment">         #</span><span class="z-comment"> Set ring sizes</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Queue count</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ethtool</span><span class="z-constant"> -</span><span class="z-constant">l</span><span class="z-string"> eth0</span><span class="z-punctuation z-definition z-comment">                         #</span><span class="z-comment"> Current + max queues</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ethtool</span><span class="z-constant"> -</span><span class="z-constant">L</span><span class="z-string"> eth0</span><span class="z-string"> combined</span><span class="z-constant"> 32</span><span class="z-punctuation z-definition z-comment">             #</span><span class="z-comment"> Set 32 combined queues</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Coalesce (interrupt moderation)</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ethtool</span><span class="z-constant"> -</span><span class="z-constant">c</span><span class="z-string"> eth0</span><span class="z-punctuation z-definition z-comment">                         #</span><span class="z-comment"> Current</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ethtool</span><span class="z-constant"> -</span><span class="z-constant">C</span><span class="z-string"> eth0</span><span class="z-string"> rx-usecs</span><span class="z-constant"> 16</span><span class="z-string"> tx-usecs</span><span class="z-constant"> 16</span><span class="z-punctuation z-definition z-comment"> #</span><span class="z-comment"> Per 16 µs or N pkts</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Offloads</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ethtool</span><span class="z-constant"> -</span><span class="z-constant">k</span><span class="z-string"> eth0</span><span class="z-punctuation z-definition z-comment">                         #</span><span class="z-comment"> Current offloads</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ethtool</span><span class="z-constant"> -</span><span class="z-constant">K</span><span class="z-string"> eth0</span><span class="z-string"> tx-checksumming</span><span class="z-string"> on</span><span class="z-string"> rx-checksumming</span><span class="z-string"> on</span><span class="z-string"> tso</span><span class="z-string"> on</span><span class="z-string"> lro</span><span class="z-string"> on</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Mellanox-specific: DCB / RoCE</span></span>
+<span class="giallo-l"><span class="z-entity z-name">mlnx_qos</span><span class="z-constant"> -</span><span class="z-constant">i</span><span class="z-string"> eth0</span><span class="z-punctuation z-definition z-comment">                        #</span><span class="z-comment"> Show DCB config</span></span>
+<span class="giallo-l"><span class="z-entity z-name">mlnx_qos</span><span class="z-constant"> -</span><span class="z-constant">i</span><span class="z-string"> eth0</span><span class="z-constant"> -</span><span class="z-constant">-pfc</span><span class="z-string"> 0,0,0,1,0,0,0,0</span><span class="z-punctuation z-definition z-comment">  #</span><span class="z-comment"> PFC on priority 3 only</span></span>
+<span class="giallo-l"><span class="z-entity z-name">mlnx_qos</span><span class="z-constant"> -</span><span class="z-constant">i</span><span class="z-string"> eth0</span><span class="z-constant"> -</span><span class="z-constant">-trust</span><span class="z-string"> dscp</span><span class="z-punctuation z-definition z-comment">           #</span><span class="z-comment"> Use DSCP for priority (vs PCP)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Mellanox firmware tools</span></span>
+<span class="giallo-l"><span class="z-entity z-name">mst</span><span class="z-string"> start</span><span class="z-punctuation z-definition z-comment">                               #</span><span class="z-comment"> Bring up mstflint device tree</span></span>
+<span class="giallo-l"><span class="z-entity z-name">mlxconfig</span><span class="z-constant"> -</span><span class="z-constant">d</span><span class="z-string"> /dev/mst/mt4119_pciconf0</span><span class="z-string"> q</span><span class="z-punctuation z-definition z-comment"> #</span><span class="z-comment"> Query firmware config</span></span>
+<span class="giallo-l"><span class="z-entity z-name">mlxlink</span><span class="z-constant"> -</span><span class="z-constant">d</span><span class="z-string"> mlx5_0</span><span class="z-constant"> -</span><span class="z-constant">p</span><span class="z-constant"> 1</span><span class="z-punctuation z-definition z-comment">                  #</span><span class="z-comment"> Port-level link info: speed, FEC, errors</span></span>
+<span class="giallo-l"><span class="z-entity z-name">mlxlink</span><span class="z-constant"> -</span><span class="z-constant">d</span><span class="z-string"> mlx5_0</span><span class="z-constant"> -</span><span class="z-constant">p</span><span class="z-constant"> 1</span><span class="z-constant"> -</span><span class="z-constant">-rx_fec_active</span><span class="z-punctuation z-definition z-comment">  #</span><span class="z-comment"> RX FEC mode</span></span></code></pre><h3 id="18-5-nccl-diagnostics">18.5 NCCL Diagnostics</h3>
+<pre class="giallo z-code"><code data-lang="shellscript"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Run NCCL-tests</span></span>
+<span class="giallo-l"><span class="z-entity z-name">git</span><span class="z-string"> clone</span><span class="z-string"> https://github.com/NVIDIA/nccl-tests</span></span>
+<span class="giallo-l"><span class="z-support z-function z-builtin">cd</span><span class="z-string"> nccl-tests</span><span class="z-punctuation"> &amp;&amp;</span><span class="z-entity z-name"> make</span><span class="z-string"> MPI=</span><span class="z-constant">1</span><span class="z-string"> CUDA_HOME=/usr/local/cuda</span></span>
+<span class="giallo-l"><span class="z-entity z-name">mpirun</span><span class="z-constant"> -</span><span class="z-constant">np</span><span class="z-constant"> 8</span><span class="z-string"> ./build/all_reduce_perf</span><span class="z-constant"> -</span><span class="z-constant">b</span><span class="z-constant"> 8</span><span class="z-constant"> -</span><span class="z-constant">e</span><span class="z-string"> 8G</span><span class="z-constant"> -</span><span class="z-constant">f</span><span class="z-constant"> 2</span><span class="z-constant"> -</span><span class="z-constant">g</span><span class="z-constant"> 1</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Debug logging</span></span>
+<span class="giallo-l"><span class="z-variable z-other">NCCL_DEBUG</span><span class="z-keyword z-operator">=</span><span class="z-string">I</span><span class="z-string">N</span><span class="z-string">F</span><span class="z-string">O</span><span class="z-variable z-other"> NCCL_DEBUG_SUBSYS</span><span class="z-keyword z-operator">=</span><span class="z-string">I</span><span class="z-string">N</span><span class="z-string">I</span><span class="z-string">T</span><span class="z-string">,</span><span class="z-string">C</span><span class="z-string">O</span><span class="z-string">L</span><span class="z-string">L</span><span class="z-string">,</span><span class="z-string">P</span><span class="z-string">2</span><span class="z-string">P</span><span class="z-string">,</span><span class="z-string">N</span><span class="z-string">E</span><span class="z-string">T</span><span class="z-entity z-name"> mpirun</span><span class="z-string"> ...</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Topology dump</span></span>
+<span class="giallo-l"><span class="z-variable z-other">NCCL_TOPO_DUMP_FILE</span><span class="z-keyword z-operator">=</span><span class="z-string">/</span><span class="z-string">t</span><span class="z-string">m</span><span class="z-string">p</span><span class="z-string">/</span><span class="z-string">t</span><span class="z-string">o</span><span class="z-string">p</span><span class="z-string">o</span><span class="z-string">.</span><span class="z-string">x</span><span class="z-string">m</span><span class="z-string">l</span><span class="z-entity z-name"> mpirun</span><span class="z-string"> ...</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Force specific transport</span></span>
+<span class="giallo-l"><span class="z-variable z-other">NCCL_NET_GDR_LEVEL</span><span class="z-keyword z-operator">=</span><span class="z-string">P</span><span class="z-string">H</span><span class="z-string">B</span><span class="z-entity z-name"> mpirun</span><span class="z-string"> ...</span><span class="z-punctuation z-definition z-comment">       #</span><span class="z-comment"> GPU-Direct RDMA only same PHB</span></span>
+<span class="giallo-l"><span class="z-variable z-other">NCCL_IB_HCA</span><span class="z-keyword z-operator">=</span><span class="z-string">m</span><span class="z-string">l</span><span class="z-string">x</span><span class="z-string">5</span><span class="z-string">_</span><span class="z-string">0</span><span class="z-string">,</span><span class="z-string">m</span><span class="z-string">l</span><span class="z-string">x</span><span class="z-string">5</span><span class="z-string">_</span><span class="z-string">1</span><span class="z-entity z-name"> mpirun</span><span class="z-string"> ...</span><span class="z-punctuation z-definition z-comment">    #</span><span class="z-comment"> Use only these HCAs (rail-aware)</span></span>
+<span class="giallo-l"><span class="z-variable z-other">NCCL_IB_GID_INDEX</span><span class="z-keyword z-operator">=</span><span class="z-string">3</span><span class="z-entity z-name"> mpirun</span><span class="z-string"> ...</span><span class="z-punctuation z-definition z-comment">          #</span><span class="z-comment"> RoCEv2 GID</span></span>
+<span class="giallo-l"><span class="z-variable z-other">NCCL_P2P_DISABLE</span><span class="z-keyword z-operator">=</span><span class="z-string">1</span><span class="z-entity z-name"> mpirun</span><span class="z-string"> ...</span><span class="z-punctuation z-definition z-comment">           #</span><span class="z-comment"> Disable NVLink (debug)</span></span>
+<span class="giallo-l"><span class="z-variable z-other">NCCL_ALGO</span><span class="z-keyword z-operator">=</span><span class="z-string">T</span><span class="z-string">r</span><span class="z-string">e</span><span class="z-string">e</span><span class="z-entity z-name"> mpirun</span><span class="z-string"> ...</span><span class="z-punctuation z-definition z-comment">               #</span><span class="z-comment"> Force tree AllReduce</span></span>
+<span class="giallo-l"><span class="z-variable z-other">NCCL_COLLNET_ENABLE</span><span class="z-keyword z-operator">=</span><span class="z-string">1</span><span class="z-entity z-name"> mpirun</span><span class="z-string"> ...</span><span class="z-punctuation z-definition z-comment">        #</span><span class="z-comment"> Enable SHARP</span></span></code></pre><h3 id="18-6-cxl">18.6 CXL</h3>
+<pre class="giallo z-code"><code data-lang="shellscript"><span class="giallo-l"><span class="z-entity z-name">cxl</span><span class="z-string"> list</span><span class="z-punctuation z-definition z-comment">                                #</span><span class="z-comment"> List CXL devices</span></span>
+<span class="giallo-l"><span class="z-entity z-name">cxl</span><span class="z-string"> list</span><span class="z-constant"> -</span><span class="z-constant">v</span><span class="z-punctuation z-definition z-comment">                             #</span><span class="z-comment"> Verbose: capacity, partitions</span></span>
+<span class="giallo-l"><span class="z-entity z-name">cxl</span><span class="z-string"> create-region</span><span class="z-constant"> -</span><span class="z-constant">d</span><span class="z-string"> decoder0.0</span><span class="z-constant"> -</span><span class="z-constant">m</span><span class="z-string"> mem0</span><span class="z-punctuation z-definition z-comment"> #</span><span class="z-comment"> Create memory region</span></span>
+<span class="giallo-l"><span class="z-entity z-name">cxl</span><span class="z-string"> reconfigure-system</span><span class="z-punctuation z-definition z-comment">                  #</span><span class="z-comment"> After topology change</span></span>
+<span class="giallo-l"><span class="z-entity z-name">daxctl</span><span class="z-string"> list</span><span class="z-punctuation z-definition z-comment">                             #</span><span class="z-comment"> DAX devices (CXL memory exposed as devdax)</span></span>
+<span class="giallo-l"><span class="z-entity z-name">daxctl</span><span class="z-string"> reconfigure-device</span><span class="z-string"> dax0.0</span><span class="z-constant"> -</span><span class="z-constant">m</span><span class="z-string"> system-ram</span><span class="z-punctuation z-definition z-comment">  #</span><span class="z-comment"> Make CXL mem into NUMA node</span></span>
+<span class="giallo-l"><span class="z-entity z-name">ndctl</span><span class="z-string"> list</span><span class="z-punctuation z-definition z-comment">                              #</span><span class="z-comment"> PMEM/NVDIMM (parallel structure)</span></span></code></pre><h3 id="18-7-pcie-performance-counters">18.7 PCIe Performance Counters</h3>
+<pre class="giallo z-code"><code data-lang="shellscript"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Uncore PMU events (Intel; Sapphire Rapids+ has iio_*)</span></span>
+<span class="giallo-l"><span class="z-entity z-name">perf</span><span class="z-string"> stat</span><span class="z-constant"> -</span><span class="z-constant">e</span><span class="z-string"> uncore_iio_0/event=0x83,umask=0x04/</span><span class="z-string"> ...</span><span class="z-punctuation z-definition z-comment">   #</span><span class="z-comment"> IIO inbound bytes</span></span>
+<span class="giallo-l"><span class="z-entity z-name">perf</span><span class="z-string"> stat</span><span class="z-constant"> -</span><span class="z-constant">e</span><span class="z-string"> uncore_iio_</span><span class="z-variable">*</span><span class="z-string">/event=0x83/</span><span class="z-string"> ...</span><span class="z-punctuation z-definition z-comment">              #</span><span class="z-comment"> All IIO devices</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Intel PCM (Performance Counter Monitor)</span></span>
+<span class="giallo-l"><span class="z-entity z-name">pcm</span><span class="z-punctuation z-definition z-comment">                                      #</span><span class="z-comment"> Live CPU/memory/PCIe view</span></span>
+<span class="giallo-l"><span class="z-entity z-name">pcm-pcie</span><span class="z-punctuation z-definition z-comment">                                 #</span><span class="z-comment"> Per-device PCIe BW</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> AER errors</span></span>
+<span class="giallo-l"><span class="z-entity z-name">lspci</span><span class="z-constant"> -</span><span class="z-constant">vv</span><span class="z-keyword z-operator"> |</span><span class="z-entity z-name"> grep</span><span class="z-constant"> -</span><span class="z-constant">i</span><span class="z-constant"> -</span><span class="z-constant">A</span><span class="z-constant"> 5</span><span class="z-punctuation"> &quot;</span><span class="z-string">Advanced Error</span><span class="z-punctuation">&quot;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> PCIe link speed/width (current vs max)</span></span>
+<span class="giallo-l"><span class="z-entity z-name">lspci</span><span class="z-constant"> -</span><span class="z-constant">vv</span><span class="z-constant"> -</span><span class="z-constant">s</span><span class="z-string"> 0000:01:00.0</span><span class="z-keyword z-operator"> |</span><span class="z-entity z-name"> grep</span><span class="z-constant"> -</span><span class="z-constant">i</span><span class="z-punctuation"> &quot;</span><span class="z-string">lnksta\|lnkcap</span><span class="z-punctuation">&quot;</span></span></code></pre><h3 id="18-8-standard-benchmarks">18.8 Standard Benchmarks</h3>
 <table><thead><tr><th>Benchmark</th><th>What it measures</th><th>Command</th></tr></thead><tbody>
 <tr><td><strong>OSU</strong></td><td>MPI point-to-point + collectives</td><td><code>osu_latency</code>, <code>osu_bw</code>, <code>osu_allreduce</code></td></tr>
 <tr><td><strong>NCCL-tests</strong></td><td>NCCL GPU collectives</td><td><code>all_reduce_perf</code>, <code>all_gather_perf</code></td></tr>

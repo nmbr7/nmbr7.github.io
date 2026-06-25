@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -805,14 +828,12 @@
 <p>Apache Iceberg is an <strong>open table format</strong> for huge analytic datasets. It sits between the query engine and the storage layer (files on S3, HDFS, etc.), providing a metadata layer that enables ACID transactions, schema evolution, time travel, and efficient query planning on data lakes.</p>
 <h3 id="architecture-metadata-layers">Architecture: Metadata Layers</h3>
 <p>Iceberg's architecture is a hierarchy of metadata files:</p>
-<pre><code>Catalog (pointer to current metadata)
-  -&gt; Metadata File (JSON)
-    -&gt; Snapshot (represents table state at a point in time)
-      -&gt; Manifest List (Avro file listing all manifests in a snapshot)
-        -&gt; Manifest Files (Avro files listing data files with per-file statistics)
-          -&gt; Data Files (Parquet, ORC, or Avro)
-</code></pre>
-<h4 id="catalog">Catalog</h4>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Catalog (pointer to current metadata)</span></span>
+<span class="giallo-l"><span>  -&gt; Metadata File (JSON)</span></span>
+<span class="giallo-l"><span>    -&gt; Snapshot (represents table state at a point in time)</span></span>
+<span class="giallo-l"><span>      -&gt; Manifest List (Avro file listing all manifests in a snapshot)</span></span>
+<span class="giallo-l"><span>        -&gt; Manifest Files (Avro files listing data files with per-file statistics)</span></span>
+<span class="giallo-l"><span>          -&gt; Data Files (Parquet, ORC, or Avro)</span></span></code></pre><h4 id="catalog">Catalog</h4>
 <ul>
 <li>Points to the current metadata file location. Implementations: Hive Metastore, AWS Glue, Nessie (Git-like catalog), REST Catalog, JDBC Catalog.</li>
 </ul>
@@ -1189,24 +1210,22 @@
 <li><strong>Fixed memory footprint:</strong> Memory usage is deterministic and bounded at startup.</li>
 </ul>
 <h3 id="data-model">Data Model</h3>
-<pre><code>Account:
-  - id (128-bit)
-  - debits_pending, debits_posted
-  - credits_pending, credits_posted
-  - user_data (128-bit, 64-bit, 32-bit fields for application use)
-  - ledger (uint32), code (uint16)
-  - flags (linked transfers, balance checks)
-
-Transfer:
-  - id (128-bit)
-  - debit_account_id, credit_account_id
-  - amount (uint128)
-  - pending_id (for two-phase transfers)
-  - user_data fields
-  - ledger, code
-  - flags (linked, pending, void, post, balancing)
-</code></pre>
-<h3 id="two-phase-transfers">Two-Phase Transfers</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Account:</span></span>
+<span class="giallo-l"><span>  - id (128-bit)</span></span>
+<span class="giallo-l"><span>  - debits_pending, debits_posted</span></span>
+<span class="giallo-l"><span>  - credits_pending, credits_posted</span></span>
+<span class="giallo-l"><span>  - user_data (128-bit, 64-bit, 32-bit fields for application use)</span></span>
+<span class="giallo-l"><span>  - ledger (uint32), code (uint16)</span></span>
+<span class="giallo-l"><span>  - flags (linked transfers, balance checks)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Transfer:</span></span>
+<span class="giallo-l"><span>  - id (128-bit)</span></span>
+<span class="giallo-l"><span>  - debit_account_id, credit_account_id</span></span>
+<span class="giallo-l"><span>  - amount (uint128)</span></span>
+<span class="giallo-l"><span>  - pending_id (for two-phase transfers)</span></span>
+<span class="giallo-l"><span>  - user_data fields</span></span>
+<span class="giallo-l"><span>  - ledger, code</span></span>
+<span class="giallo-l"><span>  - flags (linked, pending, void, post, balancing)</span></span></code></pre><h3 id="two-phase-transfers">Two-Phase Transfers</h3>
 <ul>
 <li><strong>Pending transfers:</strong> Reserve (hold) funds without completing the transfer.</li>
 <li><strong>Post/void:</strong> Later post (complete) or void (cancel) the pending transfer.</li>

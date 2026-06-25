@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -102,38 +125,36 @@
 <hr />
 <h2 id="1-pipeline-overview">1. Pipeline Overview</h2>
 <p>A modern superscalar OoO processor executes instructions out of program order to hide latency and exploit instruction-level parallelism (ILP). The pipeline has three logical phases: <strong>in-order frontend</strong> (fetch, decode, rename), <strong>out-of-order engine</strong> (issue, execute), and <strong>in-order backend</strong> (commit/retire).</p>
-<pre><code>In-Order Frontend
-┌──────────┐   ┌───────────┐   ┌──────────┐   ┌──────────┐   ┌────────┐
-│  Fetch   │──▶│ Predecode │──▶│  Decode  │──▶│  Rename  │──▶│ Alloc  │
-│ (BPred + │   │  (µop     │   │ (µop     │   │  (RAT +  │   │ (ROB + │
-│  I-cache)│   │  split)   │   │  crack)  │   │  PRF)    │   │  IQ)   │
-└──────────┘   └───────────┘   └──────────┘   └──────────┘   └────────┘
-                                                                    │
-                                        Out-of-Order Engine         │
-                              ┌─────────────────────────────────────┘
-                              ▼
-                    ┌──────────────────┐
-                    │   Issue Queue    │──▶ Wakeup/Select
-                    │ (Reservation     │
-                    │  Stations)       │
-                    └──────────────────┘
-                              │
-              ┌───────────────┼───────────────────┐
-              ▼               ▼                   ▼
-         ┌─────────┐   ┌───────────┐      ┌───────────┐
-         │  INT    │   │   FP/     │      │  Load /   │
-         │  ALU    │   │   SIMD    │      │  Store    │
-         │  Units  │   │  Units    │      │  Units    │
-         └─────────┘   └───────────┘      └───────────┘
-              │               │                   │
-              └───────────────┴───────────────────┘
-                              │ Writeback
-                              ▼
-                    ┌──────────────────┐
-                    │   ROB Retire     │ (in-order commit)
-                    └──────────────────┘
-</code></pre>
-<h3 id="pipeline-width-comparison">Pipeline Width Comparison</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>In-Order Frontend</span></span>
+<span class="giallo-l"><span>┌──────────┐   ┌───────────┐   ┌──────────┐   ┌──────────┐   ┌────────┐</span></span>
+<span class="giallo-l"><span>│  Fetch   │──▶│ Predecode │──▶│  Decode  │──▶│  Rename  │──▶│ Alloc  │</span></span>
+<span class="giallo-l"><span>│ (BPred + │   │  (µop     │   │ (µop     │   │  (RAT +  │   │ (ROB + │</span></span>
+<span class="giallo-l"><span>│  I-cache)│   │  split)   │   │  crack)  │   │  PRF)    │   │  IQ)   │</span></span>
+<span class="giallo-l"><span>└──────────┘   └───────────┘   └──────────┘   └──────────┘   └────────┘</span></span>
+<span class="giallo-l"><span>                                                                    │</span></span>
+<span class="giallo-l"><span>                                        Out-of-Order Engine         │</span></span>
+<span class="giallo-l"><span>                              ┌─────────────────────────────────────┘</span></span>
+<span class="giallo-l"><span>                              ▼</span></span>
+<span class="giallo-l"><span>                    ┌──────────────────┐</span></span>
+<span class="giallo-l"><span>                    │   Issue Queue    │──▶ Wakeup/Select</span></span>
+<span class="giallo-l"><span>                    │ (Reservation     │</span></span>
+<span class="giallo-l"><span>                    │  Stations)       │</span></span>
+<span class="giallo-l"><span>                    └──────────────────┘</span></span>
+<span class="giallo-l"><span>                              │</span></span>
+<span class="giallo-l"><span>              ┌───────────────┼───────────────────┐</span></span>
+<span class="giallo-l"><span>              ▼               ▼                   ▼</span></span>
+<span class="giallo-l"><span>         ┌─────────┐   ┌───────────┐      ┌───────────┐</span></span>
+<span class="giallo-l"><span>         │  INT    │   │   FP/     │      │  Load /   │</span></span>
+<span class="giallo-l"><span>         │  ALU    │   │   SIMD    │      │  Store    │</span></span>
+<span class="giallo-l"><span>         │  Units  │   │  Units    │      │  Units    │</span></span>
+<span class="giallo-l"><span>         └─────────┘   └───────────┘      └───────────┘</span></span>
+<span class="giallo-l"><span>              │               │                   │</span></span>
+<span class="giallo-l"><span>              └───────────────┴───────────────────┘</span></span>
+<span class="giallo-l"><span>                              │ Writeback</span></span>
+<span class="giallo-l"><span>                              ▼</span></span>
+<span class="giallo-l"><span>                    ┌──────────────────┐</span></span>
+<span class="giallo-l"><span>                    │   ROB Retire     │ (in-order commit)</span></span>
+<span class="giallo-l"><span>                    └──────────────────┘</span></span></code></pre><h3 id="pipeline-width-comparison">Pipeline Width Comparison</h3>
 <table><thead><tr><th>Microarch</th><th style="text-align: right">Fetch</th><th style="text-align: right">Decode</th><th style="text-align: right">Rename</th><th style="text-align: right">Issue</th><th style="text-align: right">Retire</th><th style="text-align: right">ROB</th><th style="text-align: right">PRF-INT</th><th style="text-align: right">PRF-FP</th></tr></thead><tbody>
 <tr><td>Apple M1 Firestorm</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">8</td><td style="text-align: right">~350</td><td style="text-align: right">~360</td><td style="text-align: right">~384</td></tr>
 <tr><td>Apple M2 Avalanche</td><td style="text-align: right">9</td><td style="text-align: right">9</td><td style="text-align: right">9</td><td style="text-align: right">9</td><td style="text-align: right">8</td><td style="text-align: right">~370</td><td style="text-align: right">~390</td><td style="text-align: right">~400</td></tr>
@@ -230,18 +251,17 @@ Centralized storage for all in-flight values. PRF-INT and PRF-FP are separate (d
 FIFO of available physical register IDs. Allocate at rename, free at retire (after freeing the old physical reg that the instruction overwrites).</p>
 <h3 id="3-2-rob-reorder-buffer">3.2 ROB (Reorder Buffer)</h3>
 <p>Circular buffer indexed by ROB tail (alloc) and ROB head (retire). Each entry contains:</p>
-<pre><code>struct ROBEntry {
-    uint64_t  pc;           // instruction PC for precise exceptions
-    uint8_t   phys_dest;    // new physical destination register
-    uint8_t   old_phys;     // previous physical reg (freed at commit)
-    bool      completed;    // execution finished
-    bool      store;        // is this a store (needs SQ drain at commit)
-    bool      load;         // is this a load (for replay tracking)
-    bool      branch;       // is this a branch
-    bool      exception;    // fault pending
-    uint8_t   exception_code;
-};
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>struct ROBEntry {</span></span>
+<span class="giallo-l"><span>    uint64_t  pc;           // instruction PC for precise exceptions</span></span>
+<span class="giallo-l"><span>    uint8_t   phys_dest;    // new physical destination register</span></span>
+<span class="giallo-l"><span>    uint8_t   old_phys;     // previous physical reg (freed at commit)</span></span>
+<span class="giallo-l"><span>    bool      completed;    // execution finished</span></span>
+<span class="giallo-l"><span>    bool      store;        // is this a store (needs SQ drain at commit)</span></span>
+<span class="giallo-l"><span>    bool      load;         // is this a load (for replay tracking)</span></span>
+<span class="giallo-l"><span>    bool      branch;       // is this a branch</span></span>
+<span class="giallo-l"><span>    bool      exception;    // fault pending</span></span>
+<span class="giallo-l"><span>    uint8_t   exception_code;</span></span>
+<span class="giallo-l"><span>};</span></span></code></pre>
 <p><strong>Retirement:</strong> Instructions retire in-order from ROB head. On completion (completed=true at head), free old_phys, advance head. Exceptions trigger precise replay from faulting PC.</p>
 <p><strong>ROB Sizing Rationale:</strong><br />
 To find MLP = N outstanding cache misses while executing at IPC=W, need ROB ≥ N × latency_per_miss_in_cycles × W / N = latency × W. For 200-cycle DRAM, 8-wide retire: ROB ≥ 200 × 8 / 10 (assuming 10% memory instructions) ≈ 160 minimum. In practice, larger is always better — 500+ ROB lets the CPU overlap many independent DRAM accesses.</p>
@@ -310,23 +330,22 @@ LQ and SQ use CAM for address lookup (compare load address against all SQ entrie
 <p><strong>Store Sets (Chrysos &amp; Emer, ISCA 1998):</strong><br />
 Hardware learns which (load PC, store PC) pairs historically conflict. Maintains SSIT (Store Set ID Table) and LFST (Last Fetched Store Table). Loads predicted to conflict with specific stores stall until those stores compute addresses. Eliminates most replays at cost of some unnecessary stalls.</p>
 <h3 id="6-4-cache-hierarchy">6.4 Cache Hierarchy</h3>
-<pre><code>                    ┌─────────────┐
-         P-core     │  L1I Cache  │  64KB–192KB, VIPT, 4-cycle
-                    │  L1D Cache  │  32KB–128KB, VIPT, 4-cycle
-                    └──────┬──────┘
-                           │
-                    ┌──────▼──────┐
-         Per-core   │  L2 Cache   │  512KB–16MB, PIPT, 12–15 cycle
-                    └──────┬──────┘
-                           │
-                    ┌──────▼──────┐
-         Shared     │  L3 Cache   │  8MB–128MB, PIPT, 40–60 cycle
-                    └──────┬──────┘
-                           │
-                    ┌──────▼──────┐
-                    │    DRAM     │  DDR5/LPDDR5X/HBM3, 80–200 cycle
-                    └─────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                    ┌─────────────┐</span></span>
+<span class="giallo-l"><span>         P-core     │  L1I Cache  │  64KB–192KB, VIPT, 4-cycle</span></span>
+<span class="giallo-l"><span>                    │  L1D Cache  │  32KB–128KB, VIPT, 4-cycle</span></span>
+<span class="giallo-l"><span>                    └──────┬──────┘</span></span>
+<span class="giallo-l"><span>                           │</span></span>
+<span class="giallo-l"><span>                    ┌──────▼──────┐</span></span>
+<span class="giallo-l"><span>         Per-core   │  L2 Cache   │  512KB–16MB, PIPT, 12–15 cycle</span></span>
+<span class="giallo-l"><span>                    └──────┬──────┘</span></span>
+<span class="giallo-l"><span>                           │</span></span>
+<span class="giallo-l"><span>                    ┌──────▼──────┐</span></span>
+<span class="giallo-l"><span>         Shared     │  L3 Cache   │  8MB–128MB, PIPT, 40–60 cycle</span></span>
+<span class="giallo-l"><span>                    └──────┬──────┘</span></span>
+<span class="giallo-l"><span>                           │</span></span>
+<span class="giallo-l"><span>                    ┌──────▼──────┐</span></span>
+<span class="giallo-l"><span>                    │    DRAM     │  DDR5/LPDDR5X/HBM3, 80–200 cycle</span></span>
+<span class="giallo-l"><span>                    └─────────────┘</span></span></code></pre>
 <p><strong>Per-Microarch Numbers:</strong></p>
 <table><thead><tr><th>Microarch</th><th>L1I</th><th>L1D</th><th>L2</th><th>L3</th></tr></thead><tbody>
 <tr><td>Apple M1 P-core</td><td>192KB</td><td>128KB</td><td>12MB (cluster, 4P shared)</td><td>—</td></tr>
@@ -357,12 +376,11 @@ Track outstanding cache misses, coalesce multiple accesses to same line. MLP = n
 </tbody></table>
 <p>Modern CPUs tier prefetchers: simple stride prefetcher in L1, complex SMS/Bingo/RL-based in L2/LLC hardware. Apple M-series aggressive prefetcher is effective even on pointer-chasing (uses large stride at cache-line granularity with lookahead).</p>
 <h3 id="6-6-tlb-hierarchy">6.6 TLB Hierarchy</h3>
-<pre><code>ITLB:  64–192 entries, fully associative, 1 cycle hit
-DTLB:  64–96 entries, fully associative, 1 cycle hit
-L2TLB: 1K–8K entries, 4–8 way set-assoc, 8–12 cycle hit
-PWC:   Page Walker Cache — caches PML4/PDPT/PD intermediate table entries
-       Eliminates 1–3 of 4 memory accesses during page walk on miss
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>ITLB:  64–192 entries, fully associative, 1 cycle hit</span></span>
+<span class="giallo-l"><span>DTLB:  64–96 entries, fully associative, 1 cycle hit</span></span>
+<span class="giallo-l"><span>L2TLB: 1K–8K entries, 4–8 way set-assoc, 8–12 cycle hit</span></span>
+<span class="giallo-l"><span>PWC:   Page Walker Cache — caches PML4/PDPT/PD intermediate table entries</span></span>
+<span class="giallo-l"><span>       Eliminates 1–3 of 4 memory accesses during page walk on miss</span></span></code></pre>
 <p><strong>Huge Pages:</strong> 2MB and 1GB pages (x86), 2MB and 1GB (ARM). Single DTLB entry covers 2MB instead of 4KB → 512× coverage improvement. Critical for large heap applications (JVM, databases). OS transparent huge page (THP) daemon or <code>madvise(MADV_HUGEPAGE)</code>.</p>
 <p><strong>AMD Coalesced TLBs (Zen 4+):</strong> Single DTLB entry can cover 2MB range when 512 consecutive 4KB pages are physically contiguous. No software change needed; hardware detects the pattern.</p>
 <p><strong>TLB Shootdown:</strong> When a page mapping changes, must invalidate TLB entries on all cores. x86: software IPI + INVLPG on each core. ARM: broadcast TLBI instruction. AMD Zen 4 enterprise: hardware page table walker with reduced shootdown cost. High cost in VM environments with frequent <code>mmap</code>/<code>munmap</code>.</p>
@@ -574,27 +592,25 @@ hwloc topology detection → bind threads to cores on same NUMA node as memory a
 <hr />
 <h2 id="10-noc-and-cache-coherence">10. NoC and Cache Coherence</h2>
 <h3 id="10-1-interconnect-topologies">10.1 Interconnect Topologies</h3>
-<pre><code>Ring (≤16 cores):
-  C0 — C1 — C2 — C3 — ... — C15 — (back to C0)
-  Bisection BW: 2× ring link width
-  Pros: simple, low latency for neighboring nodes
-  Cons: diameter grows with N, congestion at high core counts
-
-2D Mesh (16–128 cores):
-  C0 — C1 — C2 — C3
-  |    |    |    |
-  C4 — C5 — C6 — C7
-  |    |    |    |
-  ...
-  Bisection BW: 4 × (N/2) links along cut
-  Pros: scales well, used in Sapphire Rapids (60 tiles), Neoverse N2, Graviton 3
-  Cons: corner-to-corner latency O(√N)
-
-Torus:
-  Mesh + wrap-around links → maximum hop count halved
-  Used in custom HPC ASICs, Fujitsu A64FX, IBM Blue Gene
-</code></pre>
-<h3 id="10-2-cache-coherence-protocols">10.2 Cache Coherence Protocols</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Ring (≤16 cores):</span></span>
+<span class="giallo-l"><span>  C0 — C1 — C2 — C3 — ... — C15 — (back to C0)</span></span>
+<span class="giallo-l"><span>  Bisection BW: 2× ring link width</span></span>
+<span class="giallo-l"><span>  Pros: simple, low latency for neighboring nodes</span></span>
+<span class="giallo-l"><span>  Cons: diameter grows with N, congestion at high core counts</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>2D Mesh (16–128 cores):</span></span>
+<span class="giallo-l"><span>  C0 — C1 — C2 — C3</span></span>
+<span class="giallo-l"><span>  |    |    |    |</span></span>
+<span class="giallo-l"><span>  C4 — C5 — C6 — C7</span></span>
+<span class="giallo-l"><span>  |    |    |    |</span></span>
+<span class="giallo-l"><span>  ...</span></span>
+<span class="giallo-l"><span>  Bisection BW: 4 × (N/2) links along cut</span></span>
+<span class="giallo-l"><span>  Pros: scales well, used in Sapphire Rapids (60 tiles), Neoverse N2, Graviton 3</span></span>
+<span class="giallo-l"><span>  Cons: corner-to-corner latency O(√N)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Torus:</span></span>
+<span class="giallo-l"><span>  Mesh + wrap-around links → maximum hop count halved</span></span>
+<span class="giallo-l"><span>  Used in custom HPC ASICs, Fujitsu A64FX, IBM Blue Gene</span></span></code></pre><h3 id="10-2-cache-coherence-protocols">10.2 Cache Coherence Protocols</h3>
 <p><strong>MESI states:</strong></p>
 <ul>
 <li><strong>M</strong> (Modified): dirty, exclusive. Cache has only copy, memory stale.</li>
@@ -623,18 +639,17 @@ Scales beyond snoopy broadcast. Each cache line has a directory entry listing wh
 <hr />
 <h2 id="11-power-and-frequency">11. Power and Frequency</h2>
 <h3 id="11-1-power-model">11.1 Power Model</h3>
-<pre><code>P_total = P_dynamic + P_static
-
-P_dynamic = α × C × V² × f
-  α: activity factor (fraction of transistors switching per cycle, ~0.1–0.3)
-  C: total gate capacitance
-  V: supply voltage
-  f: frequency
-
-P_static (leakage) = I_leak × V
-  Grows with temperature, node scaling (worse at smaller nodes)
-  At 3nm: leakage ≈ 15–30% of total power
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>P_total = P_dynamic + P_static</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>P_dynamic = α × C × V² × f</span></span>
+<span class="giallo-l"><span>  α: activity factor (fraction of transistors switching per cycle, ~0.1–0.3)</span></span>
+<span class="giallo-l"><span>  C: total gate capacitance</span></span>
+<span class="giallo-l"><span>  V: supply voltage</span></span>
+<span class="giallo-l"><span>  f: frequency</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>P_static (leakage) = I_leak × V</span></span>
+<span class="giallo-l"><span>  Grows with temperature, node scaling (worse at smaller nodes)</span></span>
+<span class="giallo-l"><span>  At 3nm: leakage ≈ 15–30% of total power</span></span></code></pre>
 <p><strong>Voltage-frequency (VF) curve:</strong> Frequency increases ~linearly with voltage. Power increases quadratically. At 5nm, typical core: 1.0V → 3.5 GHz, 1.2V → 5.0 GHz, 1.3V → 5.5 GHz (rough estimates; varies by design and binning).</p>
 <h3 id="11-2-boost-algorithms">11.2 Boost Algorithms</h3>
 <p><strong>Intel Turbo Boost / Thermal Velocity Boost (TVB):</strong><br />
@@ -679,31 +694,29 @@ Chisel, most advanced open-source OoO RISC-V. 6-wide decode, TAGE-SC-L, SMS pref
 <p><strong>Rocket Chip:</strong><br />
 Chisel, in-order, 5-stage, modular. Best starting point for learning pipeline discipline, cache interface, TLB, and Linux boot before adding OoO complexity. Includes TileLink interconnect, which scales to multi-core.</p>
 <h3 id="12-3-simulation-and-verification-toolchain">12.3 Simulation and Verification Toolchain</h3>
-<pre><code>Layer          Tool                   Purpose
-─────────────────────────────────────────────────────────────────
-ISA golden     Spike (RISC-V)         Fast functional reference model for co-simulation
-RTL sim (OSS)  Verilator              Cycle-accurate C++ model, 10–100× faster than event-driven
-RTL sim (comm) Synopsys VCS / Cadence Xcelium  Industry standard; needed for complex UVM testbenches
-Full system    QEMU + DPI cosim       Device models + CPU RTL via VPI/DPI bridge
-Arch-level     gem5 (Binkert 2011)    Configurable OoO model, branch predictors, caches; good for design space exploration before RTL
-Formal (OSS)   SymbiYosys + Yosys    Bounded model checking, property checking with SVA/PSL
-Formal (comm)  JasperGold / VC Formal Full formal verification, equivalence checking
-Coverage       gcov/lcov (sw), SystemVerilog functional coverage (hw)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Layer          Tool                   Purpose</span></span>
+<span class="giallo-l"><span>─────────────────────────────────────────────────────────────────</span></span>
+<span class="giallo-l"><span>ISA golden     Spike (RISC-V)         Fast functional reference model for co-simulation</span></span>
+<span class="giallo-l"><span>RTL sim (OSS)  Verilator              Cycle-accurate C++ model, 10–100× faster than event-driven</span></span>
+<span class="giallo-l"><span>RTL sim (comm) Synopsys VCS / Cadence Xcelium  Industry standard; needed for complex UVM testbenches</span></span>
+<span class="giallo-l"><span>Full system    QEMU + DPI cosim       Device models + CPU RTL via VPI/DPI bridge</span></span>
+<span class="giallo-l"><span>Arch-level     gem5 (Binkert 2011)    Configurable OoO model, branch predictors, caches; good for design space exploration before RTL</span></span>
+<span class="giallo-l"><span>Formal (OSS)   SymbiYosys + Yosys    Bounded model checking, property checking with SVA/PSL</span></span>
+<span class="giallo-l"><span>Formal (comm)  JasperGold / VC Formal Full formal verification, equivalence checking</span></span>
+<span class="giallo-l"><span>Coverage       gcov/lcov (sw), SystemVerilog functional coverage (hw)</span></span></code></pre>
 <p><strong>Co-simulation pattern (Spike + Verilator):</strong><br />
 Each cycle, check that RTL core's register state matches Spike. Divergence → log differing instruction + state → root cause. This catches RTL bugs that don't manifest as crashes.</p>
 <h3 id="12-4-physical-design-flow-open-source-path">12.4 Physical Design Flow (Open-Source Path)</h3>
-<pre><code>Step            OSS Tool              Commercial Equivalent
-──────────────────────────────────────────────────────────────
-RTL → Netlist   Yosys + ABC           Synopsys Design Compiler / Cadence Genus
-Floorplan       OpenROAD              Cadence Innovus / Synopsys ICC2
-Place &amp; Route   OpenROAD (TritonRoute) Innovus / ICC2
-STA             OpenSTA               Synopsys PrimeTime
-DRC/LVS         KLayout + Magic       Mentor Calibre
-GDS streaming   KLayout               Cadence Virtuoso
-PDK (free)      SKY130 (130nm)        TSMC N3/N5 (commercial)
-               GF180MCU (180nm)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Step            OSS Tool              Commercial Equivalent</span></span>
+<span class="giallo-l"><span>──────────────────────────────────────────────────────────────</span></span>
+<span class="giallo-l"><span>RTL → Netlist   Yosys + ABC           Synopsys Design Compiler / Cadence Genus</span></span>
+<span class="giallo-l"><span>Floorplan       OpenROAD              Cadence Innovus / Synopsys ICC2</span></span>
+<span class="giallo-l"><span>Place &amp; Route   OpenROAD (TritonRoute) Innovus / ICC2</span></span>
+<span class="giallo-l"><span>STA             OpenSTA               Synopsys PrimeTime</span></span>
+<span class="giallo-l"><span>DRC/LVS         KLayout + Magic       Mentor Calibre</span></span>
+<span class="giallo-l"><span>GDS streaming   KLayout               Cadence Virtuoso</span></span>
+<span class="giallo-l"><span>PDK (free)      SKY130 (130nm)        TSMC N3/N5 (commercial)</span></span>
+<span class="giallo-l"><span>               GF180MCU (180nm)</span></span></code></pre>
 <p><strong>Critical path from RTL to GDS:</strong></p>
 <ol>
 <li>Synthesis: map RTL → standard cell library gates; optimize for speed/area/power; generate gate-level netlist</li>
@@ -732,35 +745,34 @@ PDK (free)      SKY130 (130nm)        TSMC N3/N5 (commercial)
 <tr><td>IMEC industrial</td><td>full reticle</td><td style="text-align: right">$1M+</td><td>TSMC N3/N2</td><td>2–3 years</td></tr>
 </tbody></table>
 <h3 id="12-7-practical-build-order">12.7 Practical Build Order</h3>
-<pre><code>Step  What                         Why / Validation Gate
-────────────────────────────────────────────────────────────────
-1.    In-order 5-stage RISC-V      Establish pipeline discipline, hazard handling, TLB,
-      (Rocket-derived or NaxRiscv  L1 cache with MSHR. Boot Linux on QEMU+Verilator.
-      in-order variant)
-
-2.    Add physical register file   Understand precise exceptions, RRAT, free list.
-      + ROB (keep in-order issue)  Validate co-sim against Spike.
-
-3.    Add issue queue + wakeup/    Most complex part. Start: unified 32-entry, 1 exec port.
-      select (single port)        Expand to distributed 64-entry per cluster, then 4 ports.
-
-4.    Add L1D/L2 cache MSHR       Single-core cache coherence, store queue, STLF.
-      + store queue               Run memory ordering torture tests (litmus tests).
-
-5.    Add branch predictor         Start: gshare 8K entries. Then TAGE 4 components.
-                                   Measure MPKI on SPEC CPU traces.
-
-6.    Add hardware prefetcher      Stride prefetcher first. Measure DRAM BW utilization.
-
-7.    Multi-core + MESI snoopy     2–4 cores, ring interconnect, snoopy coherence.
-      coherence                   Run concurrent litmus tests, coherence stress tests.
-
-8.    FPGA synthesis + Linux boot  Full validation: compile kernel, run benchmarks,
-                                   achieve coremark/dhrystone targets.
-
-9.    Performance profiling        Tune ROB/PRF/IQ sizing via gem5 design space exploration.
-      + tuning                    Target specific SPEC CPU workloads.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Step  What                         Why / Validation Gate</span></span>
+<span class="giallo-l"><span>────────────────────────────────────────────────────────────────</span></span>
+<span class="giallo-l"><span>1.    In-order 5-stage RISC-V      Establish pipeline discipline, hazard handling, TLB,</span></span>
+<span class="giallo-l"><span>      (Rocket-derived or NaxRiscv  L1 cache with MSHR. Boot Linux on QEMU+Verilator.</span></span>
+<span class="giallo-l"><span>      in-order variant)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>2.    Add physical register file   Understand precise exceptions, RRAT, free list.</span></span>
+<span class="giallo-l"><span>      + ROB (keep in-order issue)  Validate co-sim against Spike.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>3.    Add issue queue + wakeup/    Most complex part. Start: unified 32-entry, 1 exec port.</span></span>
+<span class="giallo-l"><span>      select (single port)        Expand to distributed 64-entry per cluster, then 4 ports.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>4.    Add L1D/L2 cache MSHR       Single-core cache coherence, store queue, STLF.</span></span>
+<span class="giallo-l"><span>      + store queue               Run memory ordering torture tests (litmus tests).</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>5.    Add branch predictor         Start: gshare 8K entries. Then TAGE 4 components.</span></span>
+<span class="giallo-l"><span>                                   Measure MPKI on SPEC CPU traces.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>6.    Add hardware prefetcher      Stride prefetcher first. Measure DRAM BW utilization.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>7.    Multi-core + MESI snoopy     2–4 cores, ring interconnect, snoopy coherence.</span></span>
+<span class="giallo-l"><span>      coherence                   Run concurrent litmus tests, coherence stress tests.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>8.    FPGA synthesis + Linux boot  Full validation: compile kernel, run benchmarks,</span></span>
+<span class="giallo-l"><span>                                   achieve coremark/dhrystone targets.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>9.    Performance profiling        Tune ROB/PRF/IQ sizing via gem5 design space exploration.</span></span>
+<span class="giallo-l"><span>      + tuning                    Target specific SPEC CPU workloads.</span></span></code></pre>
 <hr />
 <h2 id="13-key-references">13. Key References</h2>
 <ol>

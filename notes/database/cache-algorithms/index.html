@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -86,25 +109,24 @@
 mechanism descriptions: data-structure layouts, invariants, pseudocode, complexity,
 and where each algorithm is actually deployed.</p>
 <p>The document is structured as:</p>
-<pre><code>0.  Mental model and decision framework
-1.  Theoretical foundations (Belady, Mattson, Denning)
-2.  Classical eviction (FIFO, LRU, CLOCK, SLRU, LFU)
-3.  Recency-frequency hybrids (LRU-K, 2Q, MQ, ARC, CAR/CART, LIRS, CLOCK-Pro)
-4.  TinyLFU family (TinyLFU, W-TinyLFU, Caffeine internals)
-5.  Modern lazy-promotion family (FIFO-Reinsertion, S3-FIFO, SIEVE, QD-LP)
-6.  Cost/size-aware (GreedyDual, GDSF, LFUDA, Hyperbolic, LHD)
-7.  Flash-aware (CFLRU and family)
-8.  Admission policies (Bloom doorkeeper, AdaptSize, FlashShield)
-9.  Learned / ML caching (LeCaR, Cacheus, LRB, HALP, GL-Cache, 3L-Cache)
-10. Buffer-manager-specific (WATT, PostgreSQL clock-sweep, MGLRU)
-11. LLM KV-cache eviction (H2O, StreamingLLM, PagedAttention/vLLM)
-12. Prefetching (sequential, stride, AMP, Mithril, Pythia)
-13. Simulators (libCacheSim, Caffeine simulator, PyMimircache)
-14. Standard traces and benchmarks
-15. Evaluation methodology (MRC construction, SHARDS, Counter Stacks)
-16. Decision matrix and recommendations
-17. References
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>0.  Mental model and decision framework</span></span>
+<span class="giallo-l"><span>1.  Theoretical foundations (Belady, Mattson, Denning)</span></span>
+<span class="giallo-l"><span>2.  Classical eviction (FIFO, LRU, CLOCK, SLRU, LFU)</span></span>
+<span class="giallo-l"><span>3.  Recency-frequency hybrids (LRU-K, 2Q, MQ, ARC, CAR/CART, LIRS, CLOCK-Pro)</span></span>
+<span class="giallo-l"><span>4.  TinyLFU family (TinyLFU, W-TinyLFU, Caffeine internals)</span></span>
+<span class="giallo-l"><span>5.  Modern lazy-promotion family (FIFO-Reinsertion, S3-FIFO, SIEVE, QD-LP)</span></span>
+<span class="giallo-l"><span>6.  Cost/size-aware (GreedyDual, GDSF, LFUDA, Hyperbolic, LHD)</span></span>
+<span class="giallo-l"><span>7.  Flash-aware (CFLRU and family)</span></span>
+<span class="giallo-l"><span>8.  Admission policies (Bloom doorkeeper, AdaptSize, FlashShield)</span></span>
+<span class="giallo-l"><span>9.  Learned / ML caching (LeCaR, Cacheus, LRB, HALP, GL-Cache, 3L-Cache)</span></span>
+<span class="giallo-l"><span>10. Buffer-manager-specific (WATT, PostgreSQL clock-sweep, MGLRU)</span></span>
+<span class="giallo-l"><span>11. LLM KV-cache eviction (H2O, StreamingLLM, PagedAttention/vLLM)</span></span>
+<span class="giallo-l"><span>12. Prefetching (sequential, stride, AMP, Mithril, Pythia)</span></span>
+<span class="giallo-l"><span>13. Simulators (libCacheSim, Caffeine simulator, PyMimircache)</span></span>
+<span class="giallo-l"><span>14. Standard traces and benchmarks</span></span>
+<span class="giallo-l"><span>15. Evaluation methodology (MRC construction, SHARDS, Counter Stacks)</span></span>
+<span class="giallo-l"><span>16. Decision matrix and recommendations</span></span>
+<span class="giallo-l"><span>17. References</span></span></code></pre>
 <hr />
 <h2 id="0-mental-model-and-decision-framework">0. Mental model and decision framework</h2>
 <p>Every cache replacement policy is a heuristic approximation of Belady's
@@ -113,14 +135,13 @@ state-of-the-art research is essentially a 60-year history of attempts to
 estimate "next reuse time" under different workload characteristics.</p>
 <h3 id="four-orthogonal-axes">Four orthogonal axes</h3>
 <p>A useful taxonomy decomposes any modern policy into four design axes:</p>
-<pre><code>                  ┌───── Signal ─────┐  ┌── Granularity ──┐  ┌── Action ──┐  ┌── Adaptivity ──┐
-recency  ──┐      │ recency / age    │  │ object          │  │ promote    │  │ static         │
-frequency ──┼──►  │ frequency        │  │ block / page    │  │ demote     │  │ workload-tuned │
-size     ──┤      │ size             │  │ group / class   │  │ admit      │  │ online-learned │
-cost     ──┤      │ cost             │  │ region / shard  │  │ evict      │  │ ML-mixture     │
-ML feats ──┘      │ derived features │  └─────────────────┘  └────────────┘  └────────────────┘
-                  └──────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                  ┌───── Signal ─────┐  ┌── Granularity ──┐  ┌── Action ──┐  ┌── Adaptivity ──┐</span></span>
+<span class="giallo-l"><span>recency  ──┐      │ recency / age    │  │ object          │  │ promote    │  │ static         │</span></span>
+<span class="giallo-l"><span>frequency ──┼──►  │ frequency        │  │ block / page    │  │ demote     │  │ workload-tuned │</span></span>
+<span class="giallo-l"><span>size     ──┤      │ size             │  │ group / class   │  │ admit      │  │ online-learned │</span></span>
+<span class="giallo-l"><span>cost     ──┤      │ cost             │  │ region / shard  │  │ evict      │  │ ML-mixture     │</span></span>
+<span class="giallo-l"><span>ML feats ──┘      │ derived features │  └─────────────────┘  └────────────┘  └────────────────┘</span></span>
+<span class="giallo-l"><span>                  └──────────────────┘</span></span></code></pre>
 <p>Most "new" algorithms are simply a particular point in this 4-D space.
 For example:</p>
 <ul>
@@ -170,8 +191,7 @@ principle says programs concentrate references over short windows.</p>
 <h3 id="1-2-belady-s-opt-min-1966">1.2 Belady's OPT / MIN (1966)</h3>
 <p><strong>Paper</strong>: L. A. Belady, "A Study of Replacement Algorithms for a
 Virtual-Storage Computer", IBM Systems Journal 5(2), 1966.</p>
-<pre><code>OPT:  on miss, evict the page whose next reference is furthest in the future.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>OPT:  on miss, evict the page whose next reference is furthest in the future.</span></span></code></pre>
 <p>OPT is <em>optimal</em> (minimum number of misses on any reference string) and
 infeasible online (requires future knowledge). It is the upper-bound oracle
 in every empirical evaluation. Belady &amp; Palermo 1974 proved equivalence
@@ -207,16 +227,15 @@ consistently), and OPT satisfy it; FIFO and CLOCK do not.</p>
 <h3 id="2-1-fifo">2.1 FIFO</h3>
 <p><strong>Mechanism</strong>: a singly-linked queue of resident items. Insert at tail,
 evict from head. Hits do nothing.</p>
-<pre><code>struct fifo {
-    list&lt;Item&gt; queue;
-    hashmap&lt;Key, list::iterator&gt; index;
-};
-op get(k):  return index.contains(k) ? index[k]-&gt;value : MISS
-op put(k, v):
-    if |queue| == capacity:  evict_head();
-    queue.push_back(Item{k,v});
-    index[k] = queue.tail();
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>struct fifo {</span></span>
+<span class="giallo-l"><span>    list&lt;Item&gt; queue;</span></span>
+<span class="giallo-l"><span>    hashmap&lt;Key, list::iterator&gt; index;</span></span>
+<span class="giallo-l"><span>};</span></span>
+<span class="giallo-l"><span>op get(k):  return index.contains(k) ? index[k]-&gt;value : MISS</span></span>
+<span class="giallo-l"><span>op put(k, v):</span></span>
+<span class="giallo-l"><span>    if |queue| == capacity:  evict_head();</span></span>
+<span class="giallo-l"><span>    queue.push_back(Item{k,v});</span></span>
+<span class="giallo-l"><span>    index[k] = queue.tail();</span></span></code></pre>
 <ul>
 <li><strong>Time</strong>: O(1) per op.</li>
 <li><strong>Space</strong>: O(c) pointers + values.</li>
@@ -231,11 +250,10 @@ SIEVE, etc.</li>
 <h3 id="2-2-lru-least-recently-used">2.2 LRU (Least Recently Used)</h3>
 <p><strong>Mechanism</strong>: doubly-linked list + hash map. Hit ⇒ move-to-front. Miss
 ⇒ insert-at-front, drop-from-tail.</p>
-<pre><code>on hit(k):       move node(k) to head
-on miss(k):
-    if size == cap:  evict tail
-    insert k at head
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>on hit(k):       move node(k) to head</span></span>
+<span class="giallo-l"><span>on miss(k):</span></span>
+<span class="giallo-l"><span>    if size == cap:  evict tail</span></span>
+<span class="giallo-l"><span>    insert k at head</span></span></code></pre>
 <ul>
 <li><strong>Time</strong>: O(1) per op (assuming hash table).</li>
 <li><strong>Space</strong>: O(c) plus 2 pointers per entry.</li>
@@ -252,14 +270,13 @@ MIT Project MAC Memo M-384, 1968.</p>
 <em>reference</em> bit. A "hand" rotates clockwise. To find a victim, scan
 forward: if ref-bit=1 clear it and advance; if ref-bit=0 evict. Hit just
 sets ref-bit to 1.</p>
-<pre><code>hand = 0
-on hit(k):       frame[idx(k)].ref = 1
-on miss(k):
-    while frames[hand].ref == 1:
-        frames[hand].ref = 0
-        hand = (hand + 1) % cap
-    evict frames[hand]; install k at frames[hand]; hand = (hand+1) % cap
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>hand = 0</span></span>
+<span class="giallo-l"><span>on hit(k):       frame[idx(k)].ref = 1</span></span>
+<span class="giallo-l"><span>on miss(k):</span></span>
+<span class="giallo-l"><span>    while frames[hand].ref == 1:</span></span>
+<span class="giallo-l"><span>        frames[hand].ref = 0</span></span>
+<span class="giallo-l"><span>        hand = (hand + 1) % cap</span></span>
+<span class="giallo-l"><span>    evict frames[hand]; install k at frames[hand]; hand = (hand+1) % cap</span></span></code></pre>
 <ul>
 <li><strong>Time</strong>: amortised O(1).</li>
 <li><strong>Space</strong>: 1 ref-bit per frame.</li>
@@ -273,13 +290,12 @@ PostgreSQL clock-sweep, etc.</li>
 System Performance", IEEE Computer 27(3), 1994.</p>
 <p><strong>Mechanism</strong>: two LRU lists — <strong>probationary</strong> and <strong>protected</strong> — with
 a configurable split (often 20%/80%).</p>
-<pre><code>Probationary (newcomers and demoted)        Protected (proven hot)
-[ tail -------------------- head ]    [ tail -------------------- head ]
-                       │                                      │
-new misses go to    head of prob              hit in prob promotes to head of
-                                              protected (may demote prot tail
-                                              back to prob head)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Probationary (newcomers and demoted)        Protected (proven hot)</span></span>
+<span class="giallo-l"><span>[ tail -------------------- head ]    [ tail -------------------- head ]</span></span>
+<span class="giallo-l"><span>                       │                                      │</span></span>
+<span class="giallo-l"><span>new misses go to    head of prob              hit in prob promotes to head of</span></span>
+<span class="giallo-l"><span>                                              protected (may demote prot tail</span></span>
+<span class="giallo-l"><span>                                              back to prob head)</span></span></code></pre>
 <ul>
 <li><strong>Time</strong>: O(1).</li>
 <li><strong>Space</strong>: O(c) plus list pointers.</li>
@@ -303,9 +319,8 @@ halve all counters, <em>or</em> use <strong>LFUDA</strong> (LFU with Dynamic Agi
 Arlitt, Cherkasova, Dilley, Friedrich, Jin, "Evaluating content
 management techniques for web proxy caches", Performance Eval Review
 2000):</p>
-<pre><code>on insert/reaccess:  counter = cache_age + freq
-on eviction:         cache_age = max(cache_age, evicted.counter)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>on insert/reaccess:  counter = cache_age + freq</span></span>
+<span class="giallo-l"><span>on eviction:         cache_age = max(cache_age, evicted.counter)</span></span></code></pre>
 <p>Cache age is monotone non-decreasing and bounded below by the minimum
 counter, ensuring stale highly-counted items eventually age out. LFUDA is
 a common baseline for byte hit ratio in CDN literature.</p>
@@ -347,21 +362,20 @@ period need tuning.</li>
 <li><strong>A1out</strong>: FIFO of <em>ghost</em> (key-only) entries recently kicked out of
 A1in (size <code>Kout</code>, typically 50% of cache).</li>
 </ul>
-<pre><code>on hit(k):
-    if k in Am:    move-to-MRU in Am
-    elif k in A1in: do nothing                 # stay in FIFO order
-    elif k in A1out:
-        # ghost hit — second sighting, promote
-        install k in Am MRU; drop k from A1out
-
-on miss(k):
-    if k in A1out:                              # not in cache but ghost-known
-        reclaim victim; install k as MRU of Am; remove ghost
-    else:
-        if |A1in| == Kin:  victim = head(A1in); push victim.key into A1out
-        else if cache full: victim = LRU of Am
-        push k into A1in; remember victim
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>on hit(k):</span></span>
+<span class="giallo-l"><span>    if k in Am:    move-to-MRU in Am</span></span>
+<span class="giallo-l"><span>    elif k in A1in: do nothing                 # stay in FIFO order</span></span>
+<span class="giallo-l"><span>    elif k in A1out:</span></span>
+<span class="giallo-l"><span>        # ghost hit — second sighting, promote</span></span>
+<span class="giallo-l"><span>        install k in Am MRU; drop k from A1out</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>on miss(k):</span></span>
+<span class="giallo-l"><span>    if k in A1out:                              # not in cache but ghost-known</span></span>
+<span class="giallo-l"><span>        reclaim victim; install k as MRU of Am; remove ghost</span></span>
+<span class="giallo-l"><span>    else:</span></span>
+<span class="giallo-l"><span>        if |A1in| == Kin:  victim = head(A1in); push victim.key into A1out</span></span>
+<span class="giallo-l"><span>        else if cache full: victim = LRU of Am</span></span>
+<span class="giallo-l"><span>        push k into A1in; remember victim</span></span></code></pre>
 <ul>
 <li><strong>Time</strong>: O(1) all operations.</li>
 <li><strong>Space</strong>: <code>cap + Kout</code> keys (<code>Kout</code> are ghost-only, no data).</li>
@@ -394,39 +408,37 @@ original paper (across all 7 alternatives).</li>
 <p>The seminal modern algorithm. IBM patent encumbrance forced ZFS to
 implement it (then patent expired ~2020).</p>
 <p><strong>Mechanism</strong>: four LRU lists, total size 2c:</p>
-<pre><code>       L1 (recency)               L2 (frequency)
-[ T1  | B1 ]               [ B2 |  T2  ]
-  ↑ resident (T1+T2 = c)         ↑ ghost (B1+B2 ≤ c)
-
-T1: items seen once recently      (resident)
-T2: items seen ≥ 2 times          (resident)
-B1: ghosts evicted from T1        (key only)
-B2: ghosts evicted from T2        (key only)
-p : target size for T1, adapts online (0 ≤ p ≤ c)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>       L1 (recency)               L2 (frequency)</span></span>
+<span class="giallo-l"><span>[ T1  | B1 ]               [ B2 |  T2  ]</span></span>
+<span class="giallo-l"><span>  ↑ resident (T1+T2 = c)         ↑ ghost (B1+B2 ≤ c)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>T1: items seen once recently      (resident)</span></span>
+<span class="giallo-l"><span>T2: items seen ≥ 2 times          (resident)</span></span>
+<span class="giallo-l"><span>B1: ghosts evicted from T1        (key only)</span></span>
+<span class="giallo-l"><span>B2: ghosts evicted from T2        (key only)</span></span>
+<span class="giallo-l"><span>p : target size for T1, adapts online (0 ≤ p ≤ c)</span></span></code></pre>
 <p>Adaptive parameter <code>p</code> is the <em>target</em> size of T1. Hits in B1 (a
 ghost-confirmed recency item proved useful) increase <code>p</code>; hits in B2
 decrease <code>p</code>.</p>
-<pre><code>on access(k):
-    Case I  (T1 ∪ T2 hit):  move k to MRU of T2          # promote
-    Case II (B1 ghost hit): p = min(p + δ1, c)            # favour recency
-                            REPLACE; move k to MRU of T2
-    Case III (B2 ghost hit): p = max(p - δ2, 0)           # favour frequency
-                            REPLACE; move k to MRU of T2
-    Case IV (true miss):
-        if |L1| == c:    evict from T1 or B1 ; REPLACE
-        else if |L1|+|L2| ≥ c: evict from B2; REPLACE
-        install k in MRU of T1
-
-REPLACE():
-    if (|T1| ≥ 1 and (|T1| &gt; p or (k ∈ B2 and |T1| == p))):
-        demote LRU of T1 to MRU of B1; evict its data
-    else:
-        demote LRU of T2 to MRU of B2; evict its data
-
-δ1 = max(|B2|/|B1|, 1)
-δ2 = max(|B1|/|B2|, 1)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>on access(k):</span></span>
+<span class="giallo-l"><span>    Case I  (T1 ∪ T2 hit):  move k to MRU of T2          # promote</span></span>
+<span class="giallo-l"><span>    Case II (B1 ghost hit): p = min(p + δ1, c)            # favour recency</span></span>
+<span class="giallo-l"><span>                            REPLACE; move k to MRU of T2</span></span>
+<span class="giallo-l"><span>    Case III (B2 ghost hit): p = max(p - δ2, 0)           # favour frequency</span></span>
+<span class="giallo-l"><span>                            REPLACE; move k to MRU of T2</span></span>
+<span class="giallo-l"><span>    Case IV (true miss):</span></span>
+<span class="giallo-l"><span>        if |L1| == c:    evict from T1 or B1 ; REPLACE</span></span>
+<span class="giallo-l"><span>        else if |L1|+|L2| ≥ c: evict from B2; REPLACE</span></span>
+<span class="giallo-l"><span>        install k in MRU of T1</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>REPLACE():</span></span>
+<span class="giallo-l"><span>    if (|T1| ≥ 1 and (|T1| &gt; p or (k ∈ B2 and |T1| == p))):</span></span>
+<span class="giallo-l"><span>        demote LRU of T1 to MRU of B1; evict its data</span></span>
+<span class="giallo-l"><span>    else:</span></span>
+<span class="giallo-l"><span>        demote LRU of T2 to MRU of B2; evict its data</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>δ1 = max(|B2|/|B1|, 1)</span></span>
+<span class="giallo-l"><span>δ2 = max(|B1|/|B2|, 1)</span></span></code></pre>
 <ul>
 <li><strong>Time</strong>: O(1) — every operation is a constant number of list moves.</li>
 <li><strong>Space</strong>: 2c keys (half ghost), c values.</li>
@@ -443,14 +455,13 @@ move an item to the MRU position.</p>
 <p><strong>CAR (Clock with Adaptive Replacement)</strong>: replaces ARC's T1 and T2 LRU
 lists with two <strong>CLOCK lists</strong>, retaining B1 and B2 ghost LRU lists for
 adaptation. Same <code>p</code> adaptation rule as ARC.</p>
-<pre><code>T1 = CLOCK list of recency items (1-bit ref per slot)
-T2 = CLOCK list of frequency items (1-bit ref per slot)
-B1 = LRU ghost (recency)
-B2 = LRU ghost (frequency)
-
-on hit:  just set ref-bit (no list movement, no lock)
-on eviction: rotate hand on the appropriate clock until ref=0
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>T1 = CLOCK list of recency items (1-bit ref per slot)</span></span>
+<span class="giallo-l"><span>T2 = CLOCK list of frequency items (1-bit ref per slot)</span></span>
+<span class="giallo-l"><span>B1 = LRU ghost (recency)</span></span>
+<span class="giallo-l"><span>B2 = LRU ghost (frequency)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>on hit:  just set ref-bit (no list movement, no lock)</span></span>
+<span class="giallo-l"><span>on eviction: rotate hand on the appropriate clock until ref=0</span></span></code></pre>
 <p><strong>CART (CAR with Temporal filtering)</strong>: addresses a CAR pathology where
 short-burst correlated references (one transaction touching a page twice
 in 100ms) wrongly promote pages to T2. Adds a temporal filter — an item
@@ -492,18 +503,17 @@ typically 1% of cache).</li>
 pruning, the algorithm performs a <strong>stack pruning</strong> — remove
 non-LIR blocks from the bottom of S until a LIR is exposed.</li>
 </ul>
-<pre><code>on access(k):
-    case k is LIR:
-        move k to top of S; if k was at bottom, prune S
-    case k is HIR and in S:                 # ghost hit OR resident HIR in S
-        change k to LIR
-        move LIR at bottom of S to HIR (push to MRU of Q); prune S
-        if k was resident HIR (in Q): remove from Q
-        else: bring k into memory from disk
-    case k is HIR and not in S:             # new or long-gone
-        if cache full: evict LRU of Q (resident HIR)
-        bring k into memory, add to Q tail, add to top of S as HIR
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>on access(k):</span></span>
+<span class="giallo-l"><span>    case k is LIR:</span></span>
+<span class="giallo-l"><span>        move k to top of S; if k was at bottom, prune S</span></span>
+<span class="giallo-l"><span>    case k is HIR and in S:                 # ghost hit OR resident HIR in S</span></span>
+<span class="giallo-l"><span>        change k to LIR</span></span>
+<span class="giallo-l"><span>        move LIR at bottom of S to HIR (push to MRU of Q); prune S</span></span>
+<span class="giallo-l"><span>        if k was resident HIR (in Q): remove from Q</span></span>
+<span class="giallo-l"><span>        else: bring k into memory from disk</span></span>
+<span class="giallo-l"><span>    case k is HIR and not in S:             # new or long-gone</span></span>
+<span class="giallo-l"><span>        if cache full: evict LRU of Q (resident HIR)</span></span>
+<span class="giallo-l"><span>        bring k into memory, add to Q tail, add to top of S as HIR</span></span></code></pre>
 <ul>
 <li><strong>Time</strong>: O(1) amortised (stack pruning is amortised constant).</li>
 <li><strong>Space</strong>: cache + ghost entries in S.</li>
@@ -525,10 +535,9 @@ winner on a given workload.</li>
 <p>CLOCK-Pro is to LIRS what CAR is to ARC: a clock-based, lock-friendly
 approximation of LIRS.</p>
 <p><strong>Three hands</strong> on a single circular list:</p>
-<pre><code>HAND_HOT   — finds hot pages, ages them down if not recently referenced
-HAND_COLD  — finds cold pages to evict
-HAND_TEST  — sweeps non-resident cold ghosts past their test period
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>HAND_HOT   — finds hot pages, ages them down if not recently referenced</span></span>
+<span class="giallo-l"><span>HAND_COLD  — finds cold pages to evict</span></span>
+<span class="giallo-l"><span>HAND_TEST  — sweeps non-resident cold ghosts past their test period</span></span></code></pre>
 <p>Block states:</p>
 <ul>
 <li><strong>hot</strong> (= LIR equivalent): always resident.</li>
@@ -537,16 +546,15 @@ HAND_TEST  — sweeps non-resident cold ghosts past their test period
 <em>during</em> this period, it is promoted to hot (which forces a hot page
 somewhere in the ring to demote to cold).</li>
 </ul>
-<pre><code>on access(k):
-    if resident:    ref-bit ← 1
-    else:           # miss
-        if k is cold-ghost in ring:
-            promote: turn k hot; pick a hot to demote
-        else:
-            install k as cold-resident, ref-bit=0
-        run HAND_COLD until a cold ref=0 is found, evict
-        adjust HAND_HOT and HAND_TEST as needed
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>on access(k):</span></span>
+<span class="giallo-l"><span>    if resident:    ref-bit ← 1</span></span>
+<span class="giallo-l"><span>    else:           # miss</span></span>
+<span class="giallo-l"><span>        if k is cold-ghost in ring:</span></span>
+<span class="giallo-l"><span>            promote: turn k hot; pick a hot to demote</span></span>
+<span class="giallo-l"><span>        else:</span></span>
+<span class="giallo-l"><span>            install k as cold-resident, ref-bit=0</span></span>
+<span class="giallo-l"><span>        run HAND_COLD until a cold ref=0 is found, evict</span></span>
+<span class="giallo-l"><span>        adjust HAND_HOT and HAND_TEST as needed</span></span></code></pre>
 <ul>
 <li><strong>Time</strong>: amortised O(1).</li>
 <li><strong>Space</strong>: hot+cold resident + cold-ghost = roughly 2c slots.</li>
@@ -580,20 +588,19 @@ CMS. (Halves CMS update cost since 80%+ of web objects are one-hit.)</li>
 window), halve all CMS counters and reset the doorkeeper. This is the
 <em>fresh-CMS</em> trick that bounds memory while letting frequencies decay.</li>
 </ul>
-<pre><code>estimate_freq(k):
-    f_main = min over rows of CMS[row][hash_row(k)]
-    f_door = 1 if k in doorkeeper else 0
-    return f_main + f_door
-
-on access(k):
-    if k in doorkeeper:           CMS_increment(k)
-    else:                         doorkeeper.add(k)
-    sample_count += 1
-    if sample_count == W:         CMS *= 0.5; doorkeeper.reset()
-
-admit(new, victim):
-    return estimate_freq(new) &gt; estimate_freq(victim)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>estimate_freq(k):</span></span>
+<span class="giallo-l"><span>    f_main = min over rows of CMS[row][hash_row(k)]</span></span>
+<span class="giallo-l"><span>    f_door = 1 if k in doorkeeper else 0</span></span>
+<span class="giallo-l"><span>    return f_main + f_door</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>on access(k):</span></span>
+<span class="giallo-l"><span>    if k in doorkeeper:           CMS_increment(k)</span></span>
+<span class="giallo-l"><span>    else:                         doorkeeper.add(k)</span></span>
+<span class="giallo-l"><span>    sample_count += 1</span></span>
+<span class="giallo-l"><span>    if sample_count == W:         CMS *= 0.5; doorkeeper.reset()</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>admit(new, victim):</span></span>
+<span class="giallo-l"><span>    return estimate_freq(new) &gt; estimate_freq(victim)</span></span></code></pre>
 <ul>
 <li><strong>Space</strong>: bits/object ≈ 8 (4-bit counters × ≥2 cache-size's worth of
 sketch entries to maintain accuracy). Empirically Caffeine uses 8 bytes
@@ -607,16 +614,15 @@ beat ARC on web/CDN traces.</li>
 <p>The eviction policy in Ben Manes's <strong>Caffeine</strong> library (and by transitive
 adoption: Cassandra, HBase, Kafka, Solr, Neo4j, Druid, Apache Beam …).</p>
 <p><strong>Architecture</strong>:</p>
-<pre><code>                              admission decision (TinyLFU)
-       ┌─ Window LRU ─┐   ┌────►────┐
-miss → │ ~1% capacity │ → │compare? │── admitted → Probationary segment (SLRU)
-       │ LRU eviction │   │  freq   │
-       └──────────────┘   └────►────┘
-                          rejected
-                                                     SLRU main (~99%):
-                                                     - probationary (~20% of main)
-                                                     - protected    (~80% of main)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                              admission decision (TinyLFU)</span></span>
+<span class="giallo-l"><span>       ┌─ Window LRU ─┐   ┌────►────┐</span></span>
+<span class="giallo-l"><span>miss → │ ~1% capacity │ → │compare? │── admitted → Probationary segment (SLRU)</span></span>
+<span class="giallo-l"><span>       │ LRU eviction │   │  freq   │</span></span>
+<span class="giallo-l"><span>       └──────────────┘   └────►────┘</span></span>
+<span class="giallo-l"><span>                          rejected</span></span>
+<span class="giallo-l"><span>                                                     SLRU main (~99%):</span></span>
+<span class="giallo-l"><span>                                                     - probationary (~20% of main)</span></span>
+<span class="giallo-l"><span>                                                     - protected    (~80% of main)</span></span></code></pre>
 <ul>
 <li><strong>Window</strong>: small admission LRU absorbs burstiness.</li>
 <li><strong>TinyLFU admission</strong>: an item evicted from window is admitted to
@@ -627,8 +633,7 @@ the current SLRU LRU victim.</li>
 is sampled periodically; the window grows/shrinks in the direction of
 the last beneficial step; step size decays toward convergence.</li>
 </ul>
-<pre><code>hit_rate_t = recorded; if Δhit &gt; 0, repeat last move; else reverse and shrink step
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>hit_rate_t = recorded; if Δhit &gt; 0, repeat last move; else reverse and shrink step</span></span></code></pre>
 <ul>
 <li><strong>Performance</strong>: matches or beats ARC, LIRS, LFU on the standard ARC
 traces; within 99% of Belady on real-world workloads.</li>
@@ -671,37 +676,35 @@ by 4.3% on average across CloudPhysics, MSR, FIU, Twitter traces.</p>
 <h3 id="5-2-s3-fifo-yang-zhang-yue-rashmi-sosp-2023">5.2 S3-FIFO (Yang, Zhang, Yue, Rashmi, SOSP 2023)</h3>
 <p>The production-grade member of the QD-LP family.</p>
 <p><strong>Three FIFO queues</strong>:</p>
-<pre><code>┌─ S (Small) ──┐    ┌──────── M (Main) ────────┐
-│  10% of c    │    │       90% of c           │
-│   FIFO       │    │  FIFO + reinsertion      │
-└──────────────┘    └──────────────────────────┘
-                                                 
-┌─ G (Ghost) ──┐
-│  ≈ |M| keys, │
-│  no data     │
-└──────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─ S (Small) ──┐    ┌──────── M (Main) ────────┐</span></span>
+<span class="giallo-l"><span>│  10% of c    │    │       90% of c           │</span></span>
+<span class="giallo-l"><span>│   FIFO       │    │  FIFO + reinsertion      │</span></span>
+<span class="giallo-l"><span>└──────────────┘    └──────────────────────────┘</span></span>
+<span class="giallo-l"><span>                                                 </span></span>
+<span class="giallo-l"><span>┌─ G (Ghost) ──┐</span></span>
+<span class="giallo-l"><span>│  ≈ |M| keys, │</span></span>
+<span class="giallo-l"><span>│  no data     │</span></span>
+<span class="giallo-l"><span>└──────────────┘</span></span></code></pre>
 <p><strong>Per-object</strong> state: 2-bit access counter (saturating, max value 3).</p>
-<pre><code>INSERT(k):
-    if k.key was in G:  install k into M (head), counter=0
-    else:               install k into S (head), counter=0
-
-ACCESS hit(k):          counter = min(counter+1, 3)         # 2 bits only
-
-EVICT (when cache full):
-    while |S| &gt; size_S:
-        x = tail(S)
-        if x.counter &gt; 0:                        # earned its keep
-            re-insert x into M (head); x.counter = 0
-        else:                                    # one-hit-wonder
-            remove x from S; add ghost(x.key) to G; drop oldest ghost if |G| &gt; |M|
-    while |M| &gt; size_M:
-        x = tail(M)
-        if x.counter &gt; 0:
-            x.counter -= 1; reinsert x at head(M)   # lazy promotion
-        else:
-            evict x  ; add ghost(x.key) to G; drop oldest ghost if |G| &gt; |M|
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>INSERT(k):</span></span>
+<span class="giallo-l"><span>    if k.key was in G:  install k into M (head), counter=0</span></span>
+<span class="giallo-l"><span>    else:               install k into S (head), counter=0</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>ACCESS hit(k):          counter = min(counter+1, 3)         # 2 bits only</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>EVICT (when cache full):</span></span>
+<span class="giallo-l"><span>    while |S| &gt; size_S:</span></span>
+<span class="giallo-l"><span>        x = tail(S)</span></span>
+<span class="giallo-l"><span>        if x.counter &gt; 0:                        # earned its keep</span></span>
+<span class="giallo-l"><span>            re-insert x into M (head); x.counter = 0</span></span>
+<span class="giallo-l"><span>        else:                                    # one-hit-wonder</span></span>
+<span class="giallo-l"><span>            remove x from S; add ghost(x.key) to G; drop oldest ghost if |G| &gt; |M|</span></span>
+<span class="giallo-l"><span>    while |M| &gt; size_M:</span></span>
+<span class="giallo-l"><span>        x = tail(M)</span></span>
+<span class="giallo-l"><span>        if x.counter &gt; 0:</span></span>
+<span class="giallo-l"><span>            x.counter -= 1; reinsert x at head(M)   # lazy promotion</span></span>
+<span class="giallo-l"><span>        else:</span></span>
+<span class="giallo-l"><span>            evict x  ; add ghost(x.key) to G; drop oldest ghost if |G| &gt; |M|</span></span></code></pre>
 <ul>
 <li><strong>Time</strong>: O(1) per op; <strong>lock-free reads</strong> by design — the hit path is
 a single atomic counter increment.</li>
@@ -724,22 +727,21 @@ parameters. Despite this, it beats W-TinyLFU on most web workloads.</p>
 <li>A single pointer <code>hand</code> into the list.</li>
 <li>1 bit <code>visited</code> per object.</li>
 </ul>
-<pre><code>get(k):
-    if k in cache:  k.visited = 1; return HIT
-    else:           insert_and_maybe_evict(k); return MISS
-
-insert_and_maybe_evict(k):
-    if cache full:  evict()
-    push k to HEAD of L with visited=0; hash[k] = node
-
-evict():
-    while hand.visited == 1:
-        hand.visited = 0          # second chance
-        hand = hand.prev or TAIL  # move toward older
-    victim = hand
-    hand = hand.prev or TAIL
-    unlink victim; remove from hash
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>get(k):</span></span>
+<span class="giallo-l"><span>    if k in cache:  k.visited = 1; return HIT</span></span>
+<span class="giallo-l"><span>    else:           insert_and_maybe_evict(k); return MISS</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>insert_and_maybe_evict(k):</span></span>
+<span class="giallo-l"><span>    if cache full:  evict()</span></span>
+<span class="giallo-l"><span>    push k to HEAD of L with visited=0; hash[k] = node</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>evict():</span></span>
+<span class="giallo-l"><span>    while hand.visited == 1:</span></span>
+<span class="giallo-l"><span>        hand.visited = 0          # second chance</span></span>
+<span class="giallo-l"><span>        hand = hand.prev or TAIL  # move toward older</span></span>
+<span class="giallo-l"><span>    victim = hand</span></span>
+<span class="giallo-l"><span>    hand = hand.prev or TAIL</span></span>
+<span class="giallo-l"><span>    unlink victim; remove from hash</span></span></code></pre>
 <p>Key contrast with CLOCK: hand moves from TAIL → HEAD (old to new). When
 an item is touched, it <strong>stays in its current position</strong> in L — no
 move-to-front, no list mutation on hit. Only the bit changes, atomically.</p>
@@ -798,14 +800,13 @@ hit, reset <code>H(i) = cost(i)</code>.</p>
 <code>H'(i) = H(i) + L</code>. Then "subtracting min H from everyone" becomes "set
 L = L + min H' (and the new minimum becomes 0 by definition)". O(log c)
 with a priority queue keyed on <code>H'</code>.</p>
-<pre><code>on miss(k):
-    while size_used + size(k) &gt; C:
-        v = argmin_i H&#39;(i)
-        L = H&#39;(v); evict v
-    H&#39;(k) = cost(k) + L; admit k
-on hit(k):
-    H&#39;(k) = cost(k) + L            # full credit restored
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>on miss(k):</span></span>
+<span class="giallo-l"><span>    while size_used + size(k) &gt; C:</span></span>
+<span class="giallo-l"><span>        v = argmin_i H&#39;(i)</span></span>
+<span class="giallo-l"><span>        L = H&#39;(v); evict v</span></span>
+<span class="giallo-l"><span>    H&#39;(k) = cost(k) + L; admit k</span></span>
+<span class="giallo-l"><span>on hit(k):</span></span>
+<span class="giallo-l"><span>    H&#39;(k) = cost(k) + L            # full credit restored</span></span></code></pre>
 <ul>
 <li><strong>Time</strong>: O(log c) per op.</li>
 <li><strong>Property</strong>: provably <strong>k/(k − h + 1)-competitive</strong> for weighted
@@ -817,8 +818,7 @@ FIFO (when cost is set on admission only).</li>
 proxy/CDN economics.</p>
 <h3 id="6-3-gdsf-greedy-dual-size-frequency-cherkasova-hp-tr-1998">6.3 GDSF — Greedy-Dual-Size-Frequency (Cherkasova, HP TR 1998)</h3>
 <p><strong>Formula</strong>:</p>
-<pre><code>H(i) = freq(i) · cost(i) / size(i)  +  L
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>H(i) = freq(i) · cost(i) / size(i)  +  L</span></span></code></pre>
 <p>Where <code>L</code> is the global aging counter as in GreedyDual. <code>freq(i)</code> is the
 running access count of <code>i</code>. On every access, the formula is recomputed
 with the new freq.</p>
@@ -836,8 +836,7 @@ flash-photo CDN uses GDSF as one of its first-class policies.</li>
 Eviction uses <strong>random sampling</strong> (like Redis): sample <code>n</code> items,
 compute each item's <em>current</em> priority, evict the worst.</p>
 <p><strong>Priority function</strong>:</p>
-<pre><code>priority(i) = n_i / (t − t_i^enter)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>priority(i) = n_i / (t − t_i^enter)</span></span></code></pre>
 <p>where <code>n_i</code> is the access count and <code>t_i^enter</code> is the time <code>i</code> entered
 the cache. The denominator grows with age, so the per-second access
 rate is the priority. <strong>Hyperbolic</strong> because the cumulative hit rate
@@ -868,9 +867,8 @@ Postgres-compatible caching plugins.</p>
 </ul>
 <h3 id="6-5-lhd-least-hit-density-beckmann-chen-cidon-nsdi-2018">6.5 LHD — Least Hit Density (Beckmann, Chen, Cidon, NSDI 2018)</h3>
 <p>A statistically rigorous reformulation. Object's value:</p>
-<pre><code>hit_density(i) = Pr[next access happens within remaining cache lifetime]
-                 / expected size · lifetime
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>hit_density(i) = Pr[next access happens within remaining cache lifetime]</span></span>
+<span class="giallo-l"><span>                 / expected size · lifetime</span></span></code></pre>
 <p>LHD computes this from conditional probabilities derived from <strong>observed
 reuse-time distribution</strong> binned by class (<code>class</code> = object features
 like size, type, frequency bucket).</p>
@@ -902,12 +900,11 @@ under-perform.</p>
 pages from the clean-first region first (a clean drop has no write
 cost). Only if no clean page exists in the clean-first region, fall
 back to LRU eviction.</p>
-<pre><code>LRU list:  [ MRU ────── working ────── │ ── clean-first ── LRU ]
-evict():
-    scan clean-first region from LRU toward MRU
-    if a clean page found → evict it
-    else → evict LRU
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>LRU list:  [ MRU ────── working ────── │ ── clean-first ── LRU ]</span></span>
+<span class="giallo-l"><span>evict():</span></span>
+<span class="giallo-l"><span>    scan clean-first region from LRU toward MRU</span></span>
+<span class="giallo-l"><span>    if a clean page found → evict it</span></span>
+<span class="giallo-l"><span>    else → evict LRU</span></span></code></pre>
 <ul>
 <li><strong>Result</strong> (paper): 28.4% reduction in swap replacement cost vs LRU.</li>
 <li><strong>Variants</strong>:
@@ -955,12 +952,11 @@ from recent traffic.</li>
 <li>Use the model to compute predicted OHR for many <code>T</code> values.</li>
 <li>Hill-climb <code>T</code> toward optimum every reconfiguration period.</li>
 </ul>
-<pre><code>every Δt seconds:
-    snapshot recent request size and popularity dist
-    for T in candidate set:
-        OHR_pred[T] = run Markov chain on model
-    T = argmax OHR_pred
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>every Δt seconds:</span></span>
+<span class="giallo-l"><span>    snapshot recent request size and popularity dist</span></span>
+<span class="giallo-l"><span>    for T in candidate set:</span></span>
+<span class="giallo-l"><span>        OHR_pred[T] = run Markov chain on model</span></span>
+<span class="giallo-l"><span>    T = argmax OHR_pred</span></span></code></pre>
 <ul>
 <li><strong>Empirical</strong>: 30–48% higher OHR than Nginx, 47–91% higher than
 Varnish on a large CDN trace.</li>
@@ -998,15 +994,14 @@ to its weight. Use that expert's victim.</li>
 expert that chose it gets penalised.</li>
 <li>Update weights via the <strong>multiplicative weights / Hedge</strong> algorithm.</li>
 </ul>
-<pre><code>w_LRU = 0.5; w_LFU = 0.5
-on miss:
-    sample expert e ∈ {LRU, LFU} with prob proportional to (w_LRU, w_LFU)
-    victim = e.pick()
-    push victim into ghost FIFO (key + which expert evicted it)
-on later miss of a ghost:
-    blame expert e_blamed; w_{e_blamed} *= exp(-η · regret)
-    renormalise
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>w_LRU = 0.5; w_LFU = 0.5</span></span>
+<span class="giallo-l"><span>on miss:</span></span>
+<span class="giallo-l"><span>    sample expert e ∈ {LRU, LFU} with prob proportional to (w_LRU, w_LFU)</span></span>
+<span class="giallo-l"><span>    victim = e.pick()</span></span>
+<span class="giallo-l"><span>    push victim into ghost FIFO (key + which expert evicted it)</span></span>
+<span class="giallo-l"><span>on later miss of a ghost:</span></span>
+<span class="giallo-l"><span>    blame expert e_blamed; w_{e_blamed} *= exp(-η · regret)</span></span>
+<span class="giallo-l"><span>    renormalise</span></span></code></pre>
 <ul>
 <li><strong>Empirical</strong>: outperforms ARC by up to 18× on small caches relative
 to working set.</li>
@@ -1148,13 +1143,12 @@ cost asymmetry.</li>
 <h3 id="10-1-postgresql-clock-sweep-buffer-ring">10.1 PostgreSQL clock-sweep + buffer ring</h3>
 <p>PostgreSQL's <code>shared_buffers</code> uses CLOCK with a 3-bit (formerly 2-bit)
 <strong>usage_count</strong> per buffer:</p>
-<pre><code>on access(buf):    buf.usage_count = min(buf.usage_count + 1, 5)
-on sweep(buf):     if pinned: skip
-                   else if buf.usage_count &gt; 0: buf.usage_count--; advance
-                   else: this is the victim
-
-nextVictimBuffer  — global rotating index
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>on access(buf):    buf.usage_count = min(buf.usage_count + 1, 5)</span></span>
+<span class="giallo-l"><span>on sweep(buf):     if pinned: skip</span></span>
+<span class="giallo-l"><span>                   else if buf.usage_count &gt; 0: buf.usage_count--; advance</span></span>
+<span class="giallo-l"><span>                   else: this is the victim</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>nextVictimBuffer  — global rotating index</span></span></code></pre>
 <p><strong>Buffer ring</strong> strategy for bulk operations (sequential scans,
 COPY, VACUUM): use a small private ring of 256KB–16MB so a single
 large scan does not evict the entire shared cache. Detected
@@ -1469,13 +1463,12 @@ MRC algorithm in <em>constant</em> space.</p>
 the decision is keyed on the object, the same items are consistently
 included or excluded — preserving inter-reference patterns within the
 sample.</p>
-<pre><code>threshold T  — sampling intensity (e.g. T = 1% of hash range)
-for each ref(k):
-    if hash(k) &lt; T:  feed to exact MRC algorithm scaled by 1/(T/MAX)
-
-To run in constant space:  if memory pressure → lower T further;
-re-scale previously-seen sample counts accordingly.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>threshold T  — sampling intensity (e.g. T = 1% of hash range)</span></span>
+<span class="giallo-l"><span>for each ref(k):</span></span>
+<span class="giallo-l"><span>    if hash(k) &lt; T:  feed to exact MRC algorithm scaled by 1/(T/MAX)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>To run in constant space:  if memory pressure → lower T further;</span></span>
+<span class="giallo-l"><span>re-scale previously-seen sample counts accordingly.</span></span></code></pre>
 <ul>
 <li><strong>Empirical</strong>: at 0.1% sampling rate, the approximate MRC is within
 0.02 of exact on average. Production-deployable.</li>
@@ -1530,13 +1523,11 @@ throughput / moderate hit ratio; complex policies (LRB) at high hit ratio
 </tbody></table>
 <h3 id="16-2-implementation-cheat-sheet">16.2 Implementation cheat sheet</h3>
 <p>If you must implement <em>one</em> eviction policy in 2026:</p>
-<pre><code>- If you control the hit path and need scalability:        SIEVE
-- If you want best hit ratio at the cost of complexity:    W-TinyLFU
-- If you have ghost queues and want simplicity + headroom: S3-FIFO
-- If your workload is OLTP-like (DB pages):                LRU-2 or WATT
-- If sizes vary wildly (CDN):                              GDSF or LHD or LRB
-</code></pre>
-<h3 id="16-3-anti-patterns">16.3 Anti-patterns</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>- If you control the hit path and need scalability:        SIEVE</span></span>
+<span class="giallo-l"><span>- If you want best hit ratio at the cost of complexity:    W-TinyLFU</span></span>
+<span class="giallo-l"><span>- If you have ghost queues and want simplicity + headroom: S3-FIFO</span></span>
+<span class="giallo-l"><span>- If your workload is OLTP-like (DB pages):                LRU-2 or WATT</span></span>
+<span class="giallo-l"><span>- If sizes vary wildly (CDN):                              GDSF or LHD or LRB</span></span></code></pre><h3 id="16-3-anti-patterns">16.3 Anti-patterns</h3>
 <ul>
 <li><strong>Pure LRU under scan workloads</strong>: one large query trashes the cache.</li>
 <li><strong>Pure LFU without aging</strong>: stale formerly-hot keys never leave.</li>

@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -213,12 +236,10 @@
 </ul>
 <p><strong>Full re-clone</strong>: If pg_rewind fails (e.g., the divergence point WAL is no longer available, or the database is corrupted), Patroni falls back to a full pg_basebackup from the new primary. This is slow for large databases.</p>
 <p>Patroni configuration for this:</p>
-<pre><code data-lang="yaml">postgresql:
-  use_pg_rewind: true
-  parameters:
-    wal_log_hints: &quot;on&quot;
-</code></pre>
-<h3 id="3-4-timeline-handling">3.4 Timeline Handling</h3>
+<pre class="giallo z-code"><code data-lang="yaml"><span class="giallo-l"><span class="z-entity z-name z-tag">p</span><span class="z-entity z-name z-tag">ostgresql</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  u</span><span class="z-entity z-name z-tag">se_pg_rewind</span><span class="z-punctuation">:</span><span class="z-constant"> true</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  p</span><span class="z-entity z-name z-tag">arameters</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">    w</span><span class="z-entity z-name z-tag">al_log_hints</span><span class="z-punctuation">:</span><span class="z-punctuation"> &quot;</span><span class="z-string">on</span><span class="z-punctuation">&quot;</span></span></code></pre><h3 id="3-4-timeline-handling">3.4 Timeline Handling</h3>
 <p>PostgreSQL increments the timeline ID on every promote. Patroni tracks the cluster's timeline history in the DCS (<code>/service/{cluster_name}/history</code>). When evaluating failover candidates, Patroni ensures that the candidate is on the correct timeline. A replica that somehow diverged to a different timeline (e.g., due to a misconfigured WAL archive) will be rejected as a candidate.</p>
 <p>After promotion, the new primary starts on a new timeline (e.g., timeline 2 if the old primary was on timeline 1). All replicas must follow the new timeline, which PostgreSQL handles automatically via timeline history files during streaming replication.</p>
 <hr />
@@ -246,15 +267,13 @@
 <li>Avoids the need to set <code>wal_keep_size</code> (or the deprecated <code>wal_keep_segments</code>) to artificially high values.</li>
 </ul>
 <p>Configuration:</p>
-<pre><code data-lang="yaml">postgresql:
-  use_slots: true  # default is true
-</code></pre>
+<pre class="giallo z-code"><code data-lang="yaml"><span class="giallo-l"><span class="z-entity z-name z-tag">p</span><span class="z-entity z-name z-tag">ostgresql</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  u</span><span class="z-entity z-name z-tag">se_slots</span><span class="z-punctuation">:</span><span class="z-constant"> true</span><span class="z-punctuation z-definition z-comment">  #</span><span class="z-comment"> default is true</span></span></code></pre>
 <p><strong>Risk</strong>: If a replica is down for a long time, its replication slot will cause WAL accumulation on the primary, potentially filling the disk. Patroni mitigates this with <code>max_replication_slots</code> and by dropping slots for replicas that have been removed from the cluster.</p>
 <h3 id="4-4-cascading-replication">4.4 Cascading Replication</h3>
 <p>Patroni supports cascading replication via the <code>replicatefrom</code> tag. A replica can be configured to stream from another replica rather than the primary:</p>
-<pre><code data-lang="yaml">tags:
-  replicatefrom: node2
-</code></pre>
+<pre class="giallo z-code"><code data-lang="yaml"><span class="giallo-l"><span class="z-entity z-name z-tag">t</span><span class="z-entity z-name z-tag">ags</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  r</span><span class="z-entity z-name z-tag">eplicatefrom</span><span class="z-punctuation">:</span><span class="z-string"> n</span><span class="z-string">ode2</span></span></code></pre>
 <p>This reduces the primary's connection and network overhead for large clusters. However, the cascading replica's lag is additive (its own lag plus the upstream replica's lag), and if the intermediate replica fails, the downstream replica loses its replication source. Patroni does not currently auto-reroute cascading replicas when the intermediate node fails.</p>
 <hr />
 <h2 id="5-configuration-management">5. Configuration Management</h2>
@@ -268,24 +287,23 @@
 <li><strong>Subsequent nodes</strong> find an existing cluster in the DCS. They do NOT run initdb. Instead, they create a replica using <code>pg_basebackup</code> (or a custom method) from the current primary.</li>
 </ol>
 <p>The bootstrap section of <code>patroni.yml</code> controls the <code>initdb</code> parameters and the initial DCS-stored configuration:</p>
-<pre><code data-lang="yaml">bootstrap:
-  dcs:
-    ttl: 30
-    loop_wait: 10
-    retry_timeout: 10
-    maximum_lag_on_failover: 1048576  # 1MB
-    postgresql:
-      use_pg_rewind: true
-      use_slots: true
-      parameters:
-        max_connections: 100
-        max_wal_senders: 10
-        wal_level: replica
-        hot_standby: &quot;on&quot;
-  initdb:
-    - encoding: UTF8
-    - data-checksums
-</code></pre>
+<pre class="giallo z-code"><code data-lang="yaml"><span class="giallo-l"><span class="z-entity z-name z-tag">b</span><span class="z-entity z-name z-tag">ootstrap</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  d</span><span class="z-entity z-name z-tag">cs</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">    t</span><span class="z-entity z-name z-tag">tl</span><span class="z-punctuation">:</span><span class="z-constant"> 30</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">    l</span><span class="z-entity z-name z-tag">oop_wait</span><span class="z-punctuation">:</span><span class="z-constant"> 10</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">    r</span><span class="z-entity z-name z-tag">etry_timeout</span><span class="z-punctuation">:</span><span class="z-constant"> 10</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">    m</span><span class="z-entity z-name z-tag">aximum_lag_on_failover</span><span class="z-punctuation">:</span><span class="z-constant"> 1048576</span><span class="z-punctuation z-definition z-comment">  #</span><span class="z-comment"> 1MB</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">    p</span><span class="z-entity z-name z-tag">ostgresql</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">      u</span><span class="z-entity z-name z-tag">se_pg_rewind</span><span class="z-punctuation">:</span><span class="z-constant"> true</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">      u</span><span class="z-entity z-name z-tag">se_slots</span><span class="z-punctuation">:</span><span class="z-constant"> true</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">      p</span><span class="z-entity z-name z-tag">arameters</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">        m</span><span class="z-entity z-name z-tag">ax_connections</span><span class="z-punctuation">:</span><span class="z-constant"> 100</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">        m</span><span class="z-entity z-name z-tag">ax_wal_senders</span><span class="z-punctuation">:</span><span class="z-constant"> 10</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">        w</span><span class="z-entity z-name z-tag">al_level</span><span class="z-punctuation">:</span><span class="z-string"> r</span><span class="z-string">eplica</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">        h</span><span class="z-entity z-name z-tag">ot_standby</span><span class="z-punctuation">:</span><span class="z-punctuation"> &quot;</span><span class="z-string">on</span><span class="z-punctuation">&quot;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  i</span><span class="z-entity z-name z-tag">nitdb</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-punctuation">    -</span><span class="z-entity z-name z-tag"> e</span><span class="z-entity z-name z-tag">ncoding</span><span class="z-punctuation">:</span><span class="z-string"> U</span><span class="z-string">TF8</span></span>
+<span class="giallo-l"><span class="z-punctuation">    -</span><span class="z-string"> d</span><span class="z-string">ata-checksums</span></span></code></pre>
 <p><strong>Critical point</strong>: The <code>bootstrap.dcs</code> section is only applied on <strong>initial cluster creation</strong>. Once the cluster exists, the DCS-stored configuration is the authoritative source. Modifying <code>bootstrap.dcs</code> in <code>patroni.yml</code> on an existing cluster has <strong>no effect</strong>.</p>
 <h3 id="5-2-dcs-stored-dynamic-configuration-vs-local-configuration">5.2 DCS-Stored (Dynamic) Configuration vs Local Configuration</h3>
 <p>Patroni has a two-level configuration model:</p>
@@ -322,9 +340,8 @@
 <li><code>PUT /config</code>: Replaces the entire DCS-stored configuration.</li>
 </ul>
 <p>Example: Changing a PostgreSQL parameter cluster-wide:</p>
-<pre><code>PATCH /config
-{&quot;postgresql&quot;: {&quot;parameters&quot;: {&quot;work_mem&quot;: &quot;256MB&quot;}}}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>PATCH /config</span></span>
+<span class="giallo-l"><span>{&quot;postgresql&quot;: {&quot;parameters&quot;: {&quot;work_mem&quot;: &quot;256MB&quot;}}}</span></span></code></pre>
 <p>This updates the DCS, and all Patroni nodes pick up the change on their next loop iteration and reload PostgreSQL if the parameter is a runtime-reloadable GUC.</p>
 <hr />
 <h2 id="6-rest-api-monitoring">6. REST API &amp; Monitoring</h2>
@@ -361,26 +378,25 @@
 </tbody></table>
 <h3 id="6-2-load-balancer-integration">6.2 Load Balancer Integration</h3>
 <p><strong>HAProxy</strong> is the most common load balancer used with Patroni. The pattern:</p>
-<pre><code># In haproxy.cfg
-listen postgres-primary
-    bind *:5000
-    option httpchk GET /primary
-    http-check expect status 200
-    default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
-    server node1 10.0.0.1:5432 maxconn 100 check port 8008
-    server node2 10.0.0.2:5432 maxconn 100 check port 8008
-    server node3 10.0.0.3:5432 maxconn 100 check port 8008
-
-listen postgres-replica
-    bind *:5001
-    balance roundrobin
-    option httpchk GET /replica
-    http-check expect status 200
-    default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
-    server node1 10.0.0.1:5432 maxconn 100 check port 8008
-    server node2 10.0.0.2:5432 maxconn 100 check port 8008
-    server node3 10.0.0.3:5432 maxconn 100 check port 8008
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span># In haproxy.cfg</span></span>
+<span class="giallo-l"><span>listen postgres-primary</span></span>
+<span class="giallo-l"><span>    bind *:5000</span></span>
+<span class="giallo-l"><span>    option httpchk GET /primary</span></span>
+<span class="giallo-l"><span>    http-check expect status 200</span></span>
+<span class="giallo-l"><span>    default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions</span></span>
+<span class="giallo-l"><span>    server node1 10.0.0.1:5432 maxconn 100 check port 8008</span></span>
+<span class="giallo-l"><span>    server node2 10.0.0.2:5432 maxconn 100 check port 8008</span></span>
+<span class="giallo-l"><span>    server node3 10.0.0.3:5432 maxconn 100 check port 8008</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>listen postgres-replica</span></span>
+<span class="giallo-l"><span>    bind *:5001</span></span>
+<span class="giallo-l"><span>    balance roundrobin</span></span>
+<span class="giallo-l"><span>    option httpchk GET /replica</span></span>
+<span class="giallo-l"><span>    http-check expect status 200</span></span>
+<span class="giallo-l"><span>    default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions</span></span>
+<span class="giallo-l"><span>    server node1 10.0.0.1:5432 maxconn 100 check port 8008</span></span>
+<span class="giallo-l"><span>    server node2 10.0.0.2:5432 maxconn 100 check port 8008</span></span>
+<span class="giallo-l"><span>    server node3 10.0.0.3:5432 maxconn 100 check port 8008</span></span></code></pre>
 <p><strong>Key HAProxy settings</strong>:</p>
 <ul>
 <li><code>inter 3s</code>: Health check interval. Must be less than Patroni's <code>loop_wait</code> to detect failovers quickly.</li>
@@ -435,15 +451,14 @@ listen postgres-replica
 <h2 id="8-backup-restore-integration">8. Backup &amp; Restore Integration</h2>
 <h3 id="8-1-bootstrap-from-backup">8.1 Bootstrap from Backup</h3>
 <p>Patroni can create a new cluster (or a standby cluster) by restoring from a backup rather than running <code>initdb</code>. This is the <code>bootstrap.method</code> configuration:</p>
-<pre><code data-lang="yaml">bootstrap:
-  method: pgbackrest
-  pgbackrest:
-    command: pgbackrest --stanza=main --delta restore
-    keep_existing_recovery_conf: true
-    no_params: true
-    recovery_conf:
-      restore_command: pgbackrest --stanza=main archive-get %f %p
-</code></pre>
+<pre class="giallo z-code"><code data-lang="yaml"><span class="giallo-l"><span class="z-entity z-name z-tag">b</span><span class="z-entity z-name z-tag">ootstrap</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  m</span><span class="z-entity z-name z-tag">ethod</span><span class="z-punctuation">:</span><span class="z-string"> p</span><span class="z-string">gbackrest</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  p</span><span class="z-entity z-name z-tag">gbackrest</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">    c</span><span class="z-entity z-name z-tag">ommand</span><span class="z-punctuation">:</span><span class="z-string"> p</span><span class="z-string">gbackrest --stanza=main --delta restore</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">    k</span><span class="z-entity z-name z-tag">eep_existing_recovery_conf</span><span class="z-punctuation">:</span><span class="z-constant"> true</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">    n</span><span class="z-entity z-name z-tag">o_params</span><span class="z-punctuation">:</span><span class="z-constant"> true</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">    r</span><span class="z-entity z-name z-tag">ecovery_conf</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">      r</span><span class="z-entity z-name z-tag">estore_command</span><span class="z-punctuation">:</span><span class="z-string"> p</span><span class="z-string">gbackrest --stanza=main archive-get %f %p</span></span></code></pre>
 <p>Supported backup tools:</p>
 <ul>
 <li><strong>pgBackRest</strong>: Best-in-class for production. Supports delta restore, S3/GCS/Azure backends, parallel restore, and incremental backup.</li>
@@ -453,27 +468,25 @@ listen postgres-replica
 </ul>
 <h3 id="8-2-creating-replicas-from-backups">8.2 Creating Replicas from Backups</h3>
 <p>By default, Patroni creates replicas using <code>pg_basebackup</code> from the current primary. For large databases, this is slow and puts load on the primary. Alternative methods:</p>
-<pre><code data-lang="yaml">postgresql:
-  create_replica_methods:
-    - pgbackrest
-    - basebackup
-  pgbackrest:
-    command: pgbackrest --stanza=main --delta restore
-    keep_data: true
-    no_master: true  # does not need to connect to the primary
-</code></pre>
+<pre class="giallo z-code"><code data-lang="yaml"><span class="giallo-l"><span class="z-entity z-name z-tag">p</span><span class="z-entity z-name z-tag">ostgresql</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  c</span><span class="z-entity z-name z-tag">reate_replica_methods</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-punctuation">    -</span><span class="z-string"> p</span><span class="z-string">gbackrest</span></span>
+<span class="giallo-l"><span class="z-punctuation">    -</span><span class="z-string"> b</span><span class="z-string">asebackup</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  p</span><span class="z-entity z-name z-tag">gbackrest</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">    c</span><span class="z-entity z-name z-tag">ommand</span><span class="z-punctuation">:</span><span class="z-string"> p</span><span class="z-string">gbackrest --stanza=main --delta restore</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">    k</span><span class="z-entity z-name z-tag">eep_data</span><span class="z-punctuation">:</span><span class="z-constant"> true</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">    n</span><span class="z-entity z-name z-tag">o_master</span><span class="z-punctuation">:</span><span class="z-constant"> true</span><span class="z-punctuation z-definition z-comment">  #</span><span class="z-comment"> does not need to connect to the primary</span></span></code></pre>
 <p>With this configuration, Patroni first tries to create a replica by restoring from a pgBackRest backup, which is fetched from the backup repository (S3, etc.) without touching the primary. If that fails, it falls back to <code>pg_basebackup</code>. The <code>no_master: true</code> flag means the method does not require a running primary, which is useful when bootstrapping a whole cluster from backups.</p>
 <h3 id="8-3-standby-clusters">8.3 Standby Clusters</h3>
 <p>Patroni supports <strong>standby clusters</strong> -- an entire cluster that replicates from another Patroni cluster (or any PostgreSQL primary). The standby cluster has its own leader (the "standby_leader") which is in recovery, replicating from the remote primary. Replicas in the standby cluster replicate from the standby_leader.</p>
-<pre><code data-lang="yaml">bootstrap:
-  dcs:
-    standby_cluster:
-      host: primary-cluster-vip
-      port: 5432
-      primary_slot_name: standby_cluster_slot
-      create_replica_methods:
-        - basebackup
-</code></pre>
+<pre class="giallo z-code"><code data-lang="yaml"><span class="giallo-l"><span class="z-entity z-name z-tag">b</span><span class="z-entity z-name z-tag">ootstrap</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  d</span><span class="z-entity z-name z-tag">cs</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">    s</span><span class="z-entity z-name z-tag">tandby_cluster</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">      h</span><span class="z-entity z-name z-tag">ost</span><span class="z-punctuation">:</span><span class="z-string"> p</span><span class="z-string">rimary-cluster-vip</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">      p</span><span class="z-entity z-name z-tag">ort</span><span class="z-punctuation">:</span><span class="z-constant"> 5432</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">      p</span><span class="z-entity z-name z-tag">rimary_slot_name</span><span class="z-punctuation">:</span><span class="z-string"> s</span><span class="z-string">tandby_cluster_slot</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">      c</span><span class="z-entity z-name z-tag">reate_replica_methods</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-punctuation">        -</span><span class="z-string"> b</span><span class="z-string">asebackup</span></span></code></pre>
 <p>This enables multi-region DR setups where the standby cluster can be promoted to a full primary cluster if the primary region fails.</p>
 <hr />
 <h2 id="9-kubernetes-deployment">9. Kubernetes Deployment</h2>
@@ -527,11 +540,9 @@ listen postgres-replica
 <hr />
 <h2 id="10-operational-patterns">10. Operational Patterns</h2>
 <h3 id="10-1-planned-switchover">10.1 Planned Switchover</h3>
-<pre><code>patronictl switchover --master node1 --candidate node2 --scheduled &quot;2026-03-27T02:00:00&quot;
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>patronictl switchover --master node1 --candidate node2 --scheduled &quot;2026-03-27T02:00:00&quot;</span></span></code></pre>
 <p>Or immediate:</p>
-<pre><code>patronictl switchover
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>patronictl switchover</span></span></code></pre>
 <p>Steps:</p>
 <ol>
 <li>Patroni verifies the candidate is healthy and caught up.</li>
@@ -541,8 +552,7 @@ listen postgres-replica
 <li>Typical downtime: 5-30 seconds depending on checkpoint duration and connection draining.</li>
 </ol>
 <h3 id="10-2-maintenance-mode-pause">10.2 Maintenance Mode (Pause)</h3>
-<pre><code>patronictl pause
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>patronictl pause</span></span></code></pre>
 <p>When paused:</p>
 <ul>
 <li>Patroni continues to renew the leader key (keeping the current primary as primary).</li>
@@ -551,15 +561,11 @@ listen postgres-replica
 <li>Useful for: Manual PostgreSQL maintenance (major version upgrades, extension installations, manual replication changes), DCS maintenance, debugging.</li>
 </ul>
 <p>Resume with:</p>
-<pre><code>patronictl resume
-</code></pre>
-<h3 id="10-3-reinitialize">10.3 Reinitialize</h3>
-<pre><code>patronictl reinitialize node3
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>patronictl resume</span></span></code></pre><h3 id="10-3-reinitialize">10.3 Reinitialize</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>patronictl reinitialize node3</span></span></code></pre>
 <p>Wipes the replica's data directory and re-creates it from the primary (via pg_basebackup or custom method). Used when a replica is corrupted or too far behind to catch up via streaming.</p>
 <h3 id="10-4-scheduled-restarts">10.4 Scheduled Restarts</h3>
-<pre><code>patronictl restart cluster_name --scheduled &quot;2026-03-27T03:00:00&quot;
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>patronictl restart cluster_name --scheduled &quot;2026-03-27T03:00:00&quot;</span></span></code></pre>
 <p>Patroni restarts PostgreSQL on the specified node at the scheduled time. Useful for applying GUC changes that require a restart (e.g., <code>shared_buffers</code>, <code>max_connections</code>).</p>
 <p>When restarting the primary, Patroni can optionally perform a switchover first to minimize downtime (restart the primary as a replica, then switch back).</p>
 <h3 id="10-5-tags-for-controlling-node-behavior">10.5 Tags for Controlling Node Behavior</h3>
@@ -572,10 +578,8 @@ listen postgres-replica
 <tr><td><code>failover_priority: N</code></td><td>Priority for failover candidate selection (0 = never failover, higher = preferred)</td></tr>
 </tbody></table>
 <p>These tags are set in the local <code>patroni.yml</code> or via the REST API:</p>
-<pre><code>PATCH /config
-{&quot;tags&quot;: {&quot;nofailover&quot;: true}}
-</code></pre>
-<h3 id="10-6-handling-network-partitions">10.6 Handling Network Partitions</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>PATCH /config</span></span>
+<span class="giallo-l"><span>{&quot;tags&quot;: {&quot;nofailover&quot;: true}}</span></span></code></pre><h3 id="10-6-handling-network-partitions">10.6 Handling Network Partitions</h3>
 <p>Consider a 3-node cluster where node1 (primary) becomes network-partitioned from the DCS but can still reach PostgreSQL clients:</p>
 <ol>
 <li>node1's Patroni cannot renew the leader key. The key expires.</li>

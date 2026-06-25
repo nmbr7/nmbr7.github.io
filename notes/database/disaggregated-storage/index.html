@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -86,85 +109,81 @@
 <h2 id="1-foundations">1. Foundations</h2>
 <h3 id="1-1-what-disaggregation-means">1.1 What Disaggregation Means</h3>
 <p>Disaggregated storage separates a database into <strong>independently scalable tiers</strong> — typically compute and storage — connected by a network instead of a local bus. Compute nodes become stateless (or nearly so), and durable state lives in a shared, elastic storage service.</p>
-<pre><code>Traditional (Monolithic):          Disaggregated:
-
-  ┌──────────────────┐              ┌──────────┐  ┌──────────┐
-  │     Compute      │              │ Compute  │  │ Compute  │  ... (elastic)
-  │  ┌────────────┐  │              │ (stateless│  │ (stateless│
-  │  │ Buffer Pool│  │              │  + cache) │  │  + cache) │
-  │  ├────────────┤  │              └─────┬─────┘  └─────┬─────┘
-  │  │   WAL      │  │                    │              │
-  │  ├────────────┤  │                    └──────┬───────┘
-  │  │ Data Files │  │                           │ Network
-  │  └────────────┘  │              ┌────────────┴────────────┐
-  │   Local Disk     │              │   Shared Storage Layer   │
-  └──────────────────┘              │ (elastic, durable, shared)│
-                                    └──────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Traditional (Monolithic):          Disaggregated:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  ┌──────────────────┐              ┌──────────┐  ┌──────────┐</span></span>
+<span class="giallo-l"><span>  │     Compute      │              │ Compute  │  │ Compute  │  ... (elastic)</span></span>
+<span class="giallo-l"><span>  │  ┌────────────┐  │              │ (stateless│  │ (stateless│</span></span>
+<span class="giallo-l"><span>  │  │ Buffer Pool│  │              │  + cache) │  │  + cache) │</span></span>
+<span class="giallo-l"><span>  │  ├────────────┤  │              └─────┬─────┘  └─────┬─────┘</span></span>
+<span class="giallo-l"><span>  │  │   WAL      │  │                    │              │</span></span>
+<span class="giallo-l"><span>  │  ├────────────┤  │                    └──────┬───────┘</span></span>
+<span class="giallo-l"><span>  │  │ Data Files │  │                           │ Network</span></span>
+<span class="giallo-l"><span>  │  └────────────┘  │              ┌────────────┴────────────┐</span></span>
+<span class="giallo-l"><span>  │   Local Disk     │              │   Shared Storage Layer   │</span></span>
+<span class="giallo-l"><span>  └──────────────────┘              │ (elastic, durable, shared)│</span></span>
+<span class="giallo-l"><span>                                    └──────────────────────────┘</span></span></code></pre>
 <p>The key insight: in cloud environments, <strong>storage and compute have different scaling curves</strong>. A read-heavy analytics query needs more CPU but the same storage. A data archival workload needs more storage but minimal CPU. Coupling them wastes resources.</p>
 <h3 id="1-2-historical-evolution">1.2 Historical Evolution</h3>
-<pre><code>Era         Architecture        Example              Characteristic
-──────────  ──────────────────  ────────────────────  ─────────────────────
-1980s       Shared-Nothing      Teradata, Gamma      Each node owns its data
-                                                     partition. Scale by
-                                                     adding nodes.
-
-1990s       Shared-Disk         Oracle RAC            All nodes access shared
-                                                     SAN/NAS. Complex cache
-                                                     coherence (Global Lock
-                                                     Manager).
-
-2000s       Shared-Nothing      Google Bigtable,      Scale-out for web.
-            (2nd gen)           Cassandra, HBase      Partition + replicate.
-
-2010s       Disaggregated       Aurora (2015),        Separate compute from
-                                Snowflake (2014),     storage. Network is the
-                                Socrates (2019)       new bus.
-
-2020s       Multi-tier          Aurora DSQL,          Disaggregate further:
-            Disaggregation      GaussDB, Neon,        compute, log, memory,
-                                PolarDB-MP            and storage as separate
-                                                     tiers.
-</code></pre>
-<h3 id="1-3-three-architecture-models">1.3 Three Architecture Models</h3>
-<pre><code>┌─────────────────────────────────────────────────────────────────┐
-│                    Shared-Nothing                                │
-│                                                                  │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐                        │
-│  │Node 1   │  │Node 2   │  │Node 3   │  Each node owns         │
-│  │Compute  │  │Compute  │  │Compute  │  its data partition.     │
-│  │Storage  │  │Storage  │  │Storage  │  No shared state.        │
-│  │(part 1) │  │(part 2) │  │(part 3) │  Resharding = pain.      │
-│  └─────────┘  └─────────┘  └─────────┘                        │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                     Shared-Disk                                  │
-│                                                                  │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐                        │
-│  │Compute 1│  │Compute 2│  │Compute 3│  All nodes see           │
-│  └────┬────┘  └────┬────┘  └────┬────┘  entire dataset.        │
-│       └────────────┼────────────┘       Global lock manager.    │
-│            ┌───────┴───────┐            Cache coherence is       │
-│            │  Shared SAN   │            complex.                 │
-│            └───────────────┘                                    │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                   Disaggregated                                  │
-│                                                                  │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐                        │
-│  │Compute 1│  │Compute 2│  │Compute 3│  Compute scales          │
-│  │(+cache) │  │(+cache) │  │(+cache) │  independently.          │
-│  └────┬────┘  └────┬────┘  └────┬────┘  Storage scales          │
-│       └────────────┼────────────┘       independently.          │
-│            ┌───────┴───────┐            &quot;Smart&quot; storage does     │
-│            │ Smart Storage │            more than just store.    │
-│            │  (log apply,  │                                    │
-│            │  page serve)  │                                    │
-│            └───────────────┘                                    │
-└─────────────────────────────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Era         Architecture        Example              Characteristic</span></span>
+<span class="giallo-l"><span>──────────  ──────────────────  ────────────────────  ─────────────────────</span></span>
+<span class="giallo-l"><span>1980s       Shared-Nothing      Teradata, Gamma      Each node owns its data</span></span>
+<span class="giallo-l"><span>                                                     partition. Scale by</span></span>
+<span class="giallo-l"><span>                                                     adding nodes.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>1990s       Shared-Disk         Oracle RAC            All nodes access shared</span></span>
+<span class="giallo-l"><span>                                                     SAN/NAS. Complex cache</span></span>
+<span class="giallo-l"><span>                                                     coherence (Global Lock</span></span>
+<span class="giallo-l"><span>                                                     Manager).</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>2000s       Shared-Nothing      Google Bigtable,      Scale-out for web.</span></span>
+<span class="giallo-l"><span>            (2nd gen)           Cassandra, HBase      Partition + replicate.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>2010s       Disaggregated       Aurora (2015),        Separate compute from</span></span>
+<span class="giallo-l"><span>                                Snowflake (2014),     storage. Network is the</span></span>
+<span class="giallo-l"><span>                                Socrates (2019)       new bus.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>2020s       Multi-tier          Aurora DSQL,          Disaggregate further:</span></span>
+<span class="giallo-l"><span>            Disaggregation      GaussDB, Neon,        compute, log, memory,</span></span>
+<span class="giallo-l"><span>                                PolarDB-MP            and storage as separate</span></span>
+<span class="giallo-l"><span>                                                     tiers.</span></span></code></pre><h3 id="1-3-three-architecture-models">1.3 Three Architecture Models</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                    Shared-Nothing                                │</span></span>
+<span class="giallo-l"><span>│                                                                  │</span></span>
+<span class="giallo-l"><span>│  ┌─────────┐  ┌─────────┐  ┌─────────┐                        │</span></span>
+<span class="giallo-l"><span>│  │Node 1   │  │Node 2   │  │Node 3   │  Each node owns         │</span></span>
+<span class="giallo-l"><span>│  │Compute  │  │Compute  │  │Compute  │  its data partition.     │</span></span>
+<span class="giallo-l"><span>│  │Storage  │  │Storage  │  │Storage  │  No shared state.        │</span></span>
+<span class="giallo-l"><span>│  │(part 1) │  │(part 2) │  │(part 3) │  Resharding = pain.      │</span></span>
+<span class="giallo-l"><span>│  └─────────┘  └─────────┘  └─────────┘                        │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────────────────────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>┌─────────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                     Shared-Disk                                  │</span></span>
+<span class="giallo-l"><span>│                                                                  │</span></span>
+<span class="giallo-l"><span>│  ┌─────────┐  ┌─────────┐  ┌─────────┐                        │</span></span>
+<span class="giallo-l"><span>│  │Compute 1│  │Compute 2│  │Compute 3│  All nodes see           │</span></span>
+<span class="giallo-l"><span>│  └────┬────┘  └────┬────┘  └────┬────┘  entire dataset.        │</span></span>
+<span class="giallo-l"><span>│       └────────────┼────────────┘       Global lock manager.    │</span></span>
+<span class="giallo-l"><span>│            ┌───────┴───────┐            Cache coherence is       │</span></span>
+<span class="giallo-l"><span>│            │  Shared SAN   │            complex.                 │</span></span>
+<span class="giallo-l"><span>│            └───────────────┘                                    │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────────────────────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>┌─────────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                   Disaggregated                                  │</span></span>
+<span class="giallo-l"><span>│                                                                  │</span></span>
+<span class="giallo-l"><span>│  ┌─────────┐  ┌─────────┐  ┌─────────┐                        │</span></span>
+<span class="giallo-l"><span>│  │Compute 1│  │Compute 2│  │Compute 3│  Compute scales          │</span></span>
+<span class="giallo-l"><span>│  │(+cache) │  │(+cache) │  │(+cache) │  independently.          │</span></span>
+<span class="giallo-l"><span>│  └────┬────┘  └────┬────┘  └────┬────┘  Storage scales          │</span></span>
+<span class="giallo-l"><span>│       └────────────┼────────────┘       independently.          │</span></span>
+<span class="giallo-l"><span>│            ┌───────┴───────┐            &quot;Smart&quot; storage does     │</span></span>
+<span class="giallo-l"><span>│            │ Smart Storage │            more than just store.    │</span></span>
+<span class="giallo-l"><span>│            │  (log apply,  │                                    │</span></span>
+<span class="giallo-l"><span>│            │  page serve)  │                                    │</span></span>
+<span class="giallo-l"><span>│            └───────────────┘                                    │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────────────────────┘</span></span></code></pre>
 <p><strong>Key difference from shared-disk:</strong> in disaggregated systems, the storage layer is "smart" — it understands database semantics (log records, pages, transactions) rather than just providing raw block I/O. This is what enables Aurora's "the log is the database."</p>
 <h3 id="1-4-why-cloud-economics-drove-disaggregation">1.4 Why Cloud Economics Drove Disaggregation</h3>
 <table><thead><tr><th>Factor</th><th>Monolithic</th><th>Disaggregated</th></tr></thead><tbody>
@@ -180,130 +199,118 @@
 <h2 id="2-disaggregated-oltp-architectures">2. Disaggregated OLTP Architectures</h2>
 <h3 id="2-1-taxonomy">2.1 Taxonomy</h3>
 <p>The transactional.blog taxonomy (based on analysis of Aurora, Socrates, Taurus, PolarDB, Neon) identifies three architectural patterns for disaggregated OLTP:</p>
-<pre><code>Pattern 1: Partitioned WAL (Aurora)
-  - WAL distributed across storage node quorums
-  - Each storage partition independently applies log
-  - Complex LSN tracking (VCL, CPL, SCL)
-
-Pattern 2: Centralized Log Service (Socrates, Neon)
-  - Dedicated log service receives and durably stores WAL
-  - Log forwarded to page servers for page materialization
-  - Cleaner separation of durability from page serving
-
-Pattern 3: Distributed Filesystem (PolarDB/PolarFS)
-  - POSIX-like filesystem over RDMA network
-  - Minimal database modification — storage looks &quot;local&quot;
-  - Trades software complexity for hardware investment
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Pattern 1: Partitioned WAL (Aurora)</span></span>
+<span class="giallo-l"><span>  - WAL distributed across storage node quorums</span></span>
+<span class="giallo-l"><span>  - Each storage partition independently applies log</span></span>
+<span class="giallo-l"><span>  - Complex LSN tracking (VCL, CPL, SCL)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Pattern 2: Centralized Log Service (Socrates, Neon)</span></span>
+<span class="giallo-l"><span>  - Dedicated log service receives and durably stores WAL</span></span>
+<span class="giallo-l"><span>  - Log forwarded to page servers for page materialization</span></span>
+<span class="giallo-l"><span>  - Cleaner separation of durability from page serving</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Pattern 3: Distributed Filesystem (PolarDB/PolarFS)</span></span>
+<span class="giallo-l"><span>  - POSIX-like filesystem over RDMA network</span></span>
+<span class="giallo-l"><span>  - Minimal database modification — storage looks &quot;local&quot;</span></span>
+<span class="giallo-l"><span>  - Trades software complexity for hardware investment</span></span></code></pre>
 <hr />
 <h2 id="3-amazon-aurora">3. Amazon Aurora</h2>
 <h3 id="3-1-architecture-overview">3.1 Architecture Overview</h3>
 <p>Aurora (Verbitski et al., SIGMOD 2017) is the canonical disaggregated OLTP database. Its fundamental insight: <strong>the log is the database</strong>.</p>
-<pre><code>                        ┌──────────────┐
-                        │   Primary    │
-                        │  (MySQL/PG)  │
-                        └──────┬───────┘
-                               │ Redo log records only
-                               │ (no dirty pages shipped)
-            ┌──────────────────┼──────────────────┐
-            │                  │                   │
-       ┌────┴────┐       ┌────┴────┐        ┌────┴────┐
-       │  AZ 1   │       │  AZ 2   │        │  AZ 3   │
-       │┌───┐┌───┐│      │┌───┐┌───┐│       │┌───┐┌───┐│
-       ││ S ││ S ││      ││ S ││ S ││       ││ S ││ S ││
-       │└───┘└───┘│      │└───┘└───┘│       │└───┘└───┘│
-       └──────────┘      └──────────┘       └──────────┘
-           6 copies across 3 AZs
-           Write quorum: 4/6
-           Read quorum: 3/6
-</code></pre>
-<h3 id="3-2-key-design-decisions">3.2 Key Design Decisions</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                        ┌──────────────┐</span></span>
+<span class="giallo-l"><span>                        │   Primary    │</span></span>
+<span class="giallo-l"><span>                        │  (MySQL/PG)  │</span></span>
+<span class="giallo-l"><span>                        └──────┬───────┘</span></span>
+<span class="giallo-l"><span>                               │ Redo log records only</span></span>
+<span class="giallo-l"><span>                               │ (no dirty pages shipped)</span></span>
+<span class="giallo-l"><span>            ┌──────────────────┼──────────────────┐</span></span>
+<span class="giallo-l"><span>            │                  │                   │</span></span>
+<span class="giallo-l"><span>       ┌────┴────┐       ┌────┴────┐        ┌────┴────┐</span></span>
+<span class="giallo-l"><span>       │  AZ 1   │       │  AZ 2   │        │  AZ 3   │</span></span>
+<span class="giallo-l"><span>       │┌───┐┌───┐│      │┌───┐┌───┐│       │┌───┐┌───┐│</span></span>
+<span class="giallo-l"><span>       ││ S ││ S ││      ││ S ││ S ││       ││ S ││ S ││</span></span>
+<span class="giallo-l"><span>       │└───┘└───┘│      │└───┘└───┘│       │└───┘└───┘│</span></span>
+<span class="giallo-l"><span>       └──────────┘      └──────────┘       └──────────┘</span></span>
+<span class="giallo-l"><span>           6 copies across 3 AZs</span></span>
+<span class="giallo-l"><span>           Write quorum: 4/6</span></span>
+<span class="giallo-l"><span>           Read quorum: 3/6</span></span></code></pre><h3 id="3-2-key-design-decisions">3.2 Key Design Decisions</h3>
 <p><strong>Only ship redo logs, not pages.</strong> Traditional MySQL/PostgreSQL ships dirty pages, double-write buffers, and checkpoint data to disk. Aurora ships only the WAL redo log records to storage. The storage layer applies redo to materialize pages.</p>
 <p><strong>Write amplification comparison:</strong></p>
-<pre><code>Traditional MySQL (mirrored):
-  Redo log      ──→ EBS (write 1)
-  Binlog        ──→ EBS (write 2)
-  Data pages    ──→ EBS (write 3)
-  Double-write  ──→ EBS (write 4)
-  FRM metadata  ──→ EBS (write 5)
-  × 2 (mirror)  = ~10 writes per mutation
-
-Aurora:
-  Redo log      ──→ Storage (write 1, 6 copies)
-  Storage applies redo to pages internally
-  = 1 logical write (6 physical for durability)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Traditional MySQL (mirrored):</span></span>
+<span class="giallo-l"><span>  Redo log      ──→ EBS (write 1)</span></span>
+<span class="giallo-l"><span>  Binlog        ──→ EBS (write 2)</span></span>
+<span class="giallo-l"><span>  Data pages    ──→ EBS (write 3)</span></span>
+<span class="giallo-l"><span>  Double-write  ──→ EBS (write 4)</span></span>
+<span class="giallo-l"><span>  FRM metadata  ──→ EBS (write 5)</span></span>
+<span class="giallo-l"><span>  × 2 (mirror)  = ~10 writes per mutation</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Aurora:</span></span>
+<span class="giallo-l"><span>  Redo log      ──→ Storage (write 1, 6 copies)</span></span>
+<span class="giallo-l"><span>  Storage applies redo to pages internally</span></span>
+<span class="giallo-l"><span>  = 1 logical write (6 physical for durability)</span></span></code></pre>
 <p>The network I/O reduction is dramatic: Aurora sends ~6× fewer bytes across the network than a mirrored MySQL deployment.</p>
 <p><strong>Protection Groups (PGs):</strong> The database volume is partitioned into 10GB segments. Each segment is replicated 6 ways into a <strong>Protection Group</strong> spread across 3 AZs (2 copies per AZ).</p>
 <h3 id="3-3-quorum-model">3.3 Quorum Model</h3>
-<pre><code>Quorum parameters:
-  V = 6   (total copies)
-  Vw = 4  (write quorum)
-  Vr = 3  (read quorum)
-
-  Vw + Vr &gt; V  (ensures read sees latest write)
-  Vw &gt; V/2     (ensures no conflicting writes)
-
-Tolerates:
-  - Loss of entire AZ (2 nodes) + 1 more: still read (3 left ≥ Vr)
-  - Loss of entire AZ (2 nodes): still write (4 left ≥ Vw)
-</code></pre>
-<h3 id="3-4-log-sequence-numbers">3.4 Log Sequence Numbers</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Quorum parameters:</span></span>
+<span class="giallo-l"><span>  V = 6   (total copies)</span></span>
+<span class="giallo-l"><span>  Vw = 4  (write quorum)</span></span>
+<span class="giallo-l"><span>  Vr = 3  (read quorum)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Vw + Vr &gt; V  (ensures read sees latest write)</span></span>
+<span class="giallo-l"><span>  Vw &gt; V/2     (ensures no conflicting writes)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Tolerates:</span></span>
+<span class="giallo-l"><span>  - Loss of entire AZ (2 nodes) + 1 more: still read (3 left ≥ Vr)</span></span>
+<span class="giallo-l"><span>  - Loss of entire AZ (2 nodes): still write (4 left ≥ Vw)</span></span></code></pre><h3 id="3-4-log-sequence-numbers">3.4 Log Sequence Numbers</h3>
 <p>Aurora uses a hierarchy of LSNs to track consistency:</p>
-<pre><code>VCL (Volume Complete LSN):
-  Highest LSN for which ALL prior log records have been received
-  by ALL storage nodes in the quorum.
-
-CPL (Consistency Point LSN):
-  Highest LSN that represents a transaction-consistent boundary
-  (mini-transaction completion). Recovery truncates to the highest
-  CPL ≤ VCL.
-
-VDL (Volume Durable LSN):
-  Highest CPL ≤ VCL. This is the effective recovery point.
-
-SCL (Segment Complete LSN):
-  Per-segment version of VCL. Tracks completeness per PG.
-</code></pre>
-<h3 id="3-5-crash-recovery">3.5 Crash Recovery</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>VCL (Volume Complete LSN):</span></span>
+<span class="giallo-l"><span>  Highest LSN for which ALL prior log records have been received</span></span>
+<span class="giallo-l"><span>  by ALL storage nodes in the quorum.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>CPL (Consistency Point LSN):</span></span>
+<span class="giallo-l"><span>  Highest LSN that represents a transaction-consistent boundary</span></span>
+<span class="giallo-l"><span>  (mini-transaction completion). Recovery truncates to the highest</span></span>
+<span class="giallo-l"><span>  CPL ≤ VCL.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>VDL (Volume Durable LSN):</span></span>
+<span class="giallo-l"><span>  Highest CPL ≤ VCL. This is the effective recovery point.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>SCL (Segment Complete LSN):</span></span>
+<span class="giallo-l"><span>  Per-segment version of VCL. Tracks completeness per PG.</span></span></code></pre><h3 id="3-5-crash-recovery">3.5 Crash Recovery</h3>
 <p>Aurora's recovery is fundamentally different from traditional databases. Traditional PostgreSQL/MySQL replays WAL from the last checkpoint — recovery time depends on checkpoint interval. Aurora's storage nodes <strong>continuously apply redo in the background</strong>, so recovery is just determining the VDL via a quorum read.</p>
-<pre><code>Traditional recovery:
-  1. Find last checkpoint on disk
-  2. Replay WAL from checkpoint to end (~minutes for large DBs)
-  3. Undo uncommitted transactions
-
-Aurora recovery:
-  1. Read SCLs from all storage nodes (quorum read)
-  2. Compute VCL from SCLs
-  3. Determine VDL = highest CPL ≤ VCL
-  4. Truncate any log records above VDL
-  5. Done (~10 seconds, regardless of DB size)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Traditional recovery:</span></span>
+<span class="giallo-l"><span>  1. Find last checkpoint on disk</span></span>
+<span class="giallo-l"><span>  2. Replay WAL from checkpoint to end (~minutes for large DBs)</span></span>
+<span class="giallo-l"><span>  3. Undo uncommitted transactions</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Aurora recovery:</span></span>
+<span class="giallo-l"><span>  1. Read SCLs from all storage nodes (quorum read)</span></span>
+<span class="giallo-l"><span>  2. Compute VCL from SCLs</span></span>
+<span class="giallo-l"><span>  3. Determine VDL = highest CPL ≤ VCL</span></span>
+<span class="giallo-l"><span>  4. Truncate any log records above VDL</span></span>
+<span class="giallo-l"><span>  5. Done (~10 seconds, regardless of DB size)</span></span></code></pre>
 <p>No redo replay needed — storage already has the pages. Recovery time is constant regardless of database size.</p>
 <h3 id="3-6-gossip-based-repair">3.6 Gossip-Based Repair</h3>
 <p>When a storage node misses log records (e.g., after a transient failure), Aurora uses a <strong>peer-to-peer gossip protocol</strong> within each Protection Group to fill gaps:</p>
-<pre><code>Storage node detects gap:
-  &quot;I have SCL=150, but peer reports SCL=200&quot;
-
-Gossip repair:
-  1. Node identifies missing log records (LSN 151-200)
-  2. Requests records from peers in the same PG
-  3. Peers send missing records directly (peer-to-peer)
-  4. Node applies records and advances its SCL
-
-Benefit: No load on compute for repairs.
-         10 GB segment repair in ~10 seconds.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Storage node detects gap:</span></span>
+<span class="giallo-l"><span>  &quot;I have SCL=150, but peer reports SCL=200&quot;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Gossip repair:</span></span>
+<span class="giallo-l"><span>  1. Node identifies missing log records (LSN 151-200)</span></span>
+<span class="giallo-l"><span>  2. Requests records from peers in the same PG</span></span>
+<span class="giallo-l"><span>  3. Peers send missing records directly (peer-to-peer)</span></span>
+<span class="giallo-l"><span>  4. Node applies records and advances its SCL</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Benefit: No load on compute for repairs.</span></span>
+<span class="giallo-l"><span>         10 GB segment repair in ~10 seconds.</span></span></code></pre>
 <p>This reduces the probability of needing a full segment rebuild, keeping the write quorum available even during partial failures.</p>
 <h3 id="3-7-read-replicas">3.7 Read Replicas</h3>
 <p>Aurora read replicas share the <strong>same storage layer</strong> — no data copy needed. The primary ships a stream of log records to replicas for cache invalidation. Replica lag is typically &lt;20ms (vs. seconds for traditional MySQL replication).</p>
-<pre><code>Primary:  buffer pool → apply mutations → ship redo to storage
-                                        → ship redo to replicas
-
-Replica:  buffer pool → receive redo → invalidate/update cached pages
-                                     → read pages from shared storage
-</code></pre>
-<h3 id="3-8-aurora-dsql-2024">3.8 Aurora DSQL (2024)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Primary:  buffer pool → apply mutations → ship redo to storage</span></span>
+<span class="giallo-l"><span>                                        → ship redo to replicas</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Replica:  buffer pool → receive redo → invalidate/update cached pages</span></span>
+<span class="giallo-l"><span>                                     → read pages from shared storage</span></span></code></pre><h3 id="3-8-aurora-dsql-2024">3.8 Aurora DSQL (2024)</h3>
 <p>Amazon's latest disaggregated database, announced at re:Invent 2024, GA mid-2025. Fully disaggregated into independent components:</p>
 <ul>
 <li><strong>Query processor</strong>: parses/plans/executes SQL</li>
@@ -316,38 +323,36 @@ Replica:  buffer pool → receive redo → invalidate/update cached pages
 <h2 id="4-microsoft-socrates-azure-sql-hyperscale">4. Microsoft Socrates (Azure SQL Hyperscale)</h2>
 <h3 id="4-1-architecture">4.1 Architecture</h3>
 <p>Socrates (Antonopoulos et al., SIGMOD 2019) separates Azure SQL into <strong>four tiers</strong>:</p>
-<pre><code>┌───────────────────────────────────────────────────────┐
-│ Tier 1: Compute                                        │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐            │
-│  │ Primary  │  │Secondary │  │Secondary │  ...        │
-│  │(read/write│  │(read-only│  │(read-only│             │
-│  │  +RBPEX) │  │  +RBPEX) │  │  +RBPEX) │             │
-│  └─────┬────┘  └─────┬────┘  └─────┬────┘            │
-│        │              │              │                  │
-├────────┼──────────────┼──────────────┼──────────────────┤
-│ Tier 2: Log Service                                     │
-│  ┌─────┴──────────────┴──────────────┴─────┐           │
-│  │  Landing Zone (Azure Premium Storage)    │           │
-│  │  XLOG process (routes WAL)               │           │
-│  │  ──→ Page Servers                        │           │
-│  │  ──→ Long-term log storage (XStore)      │           │
-│  └─────────────────────┬───────────────────┘           │
-│                        │                                │
-├────────────────────────┼────────────────────────────────┤
-│ Tier 3: Page Servers                                    │
-│  ┌───────────┐  ┌───────────┐  ┌───────────┐          │
-│  │Page Server│  │Page Server│  │Page Server│           │
-│  │(partition │  │(partition │  │(partition │           │
-│  │ of data)  │  │ of data)  │  │ of data)  │           │
-│  │  +RBPEX   │  │  +RBPEX   │  │  +RBPEX   │           │
-│  └───────────┘  └───────────┘  └───────────┘           │
-│                                                         │
-├─────────────────────────────────────────────────────────┤
-│ Tier 4: XStore (Azure Blob Storage)                     │
-│  Long-term durable storage for log + data snapshots     │
-└─────────────────────────────────────────────────────────┘
-</code></pre>
-<h3 id="4-2-key-components">4.2 Key Components</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌───────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│ Tier 1: Compute                                        │</span></span>
+<span class="giallo-l"><span>│  ┌──────────┐  ┌──────────┐  ┌──────────┐            │</span></span>
+<span class="giallo-l"><span>│  │ Primary  │  │Secondary │  │Secondary │  ...        │</span></span>
+<span class="giallo-l"><span>│  │(read/write│  │(read-only│  │(read-only│             │</span></span>
+<span class="giallo-l"><span>│  │  +RBPEX) │  │  +RBPEX) │  │  +RBPEX) │             │</span></span>
+<span class="giallo-l"><span>│  └─────┬────┘  └─────┬────┘  └─────┬────┘            │</span></span>
+<span class="giallo-l"><span>│        │              │              │                  │</span></span>
+<span class="giallo-l"><span>├────────┼──────────────┼──────────────┼──────────────────┤</span></span>
+<span class="giallo-l"><span>│ Tier 2: Log Service                                     │</span></span>
+<span class="giallo-l"><span>│  ┌─────┴──────────────┴──────────────┴─────┐           │</span></span>
+<span class="giallo-l"><span>│  │  Landing Zone (Azure Premium Storage)    │           │</span></span>
+<span class="giallo-l"><span>│  │  XLOG process (routes WAL)               │           │</span></span>
+<span class="giallo-l"><span>│  │  ──→ Page Servers                        │           │</span></span>
+<span class="giallo-l"><span>│  │  ──→ Long-term log storage (XStore)      │           │</span></span>
+<span class="giallo-l"><span>│  └─────────────────────┬───────────────────┘           │</span></span>
+<span class="giallo-l"><span>│                        │                                │</span></span>
+<span class="giallo-l"><span>├────────────────────────┼────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│ Tier 3: Page Servers                                    │</span></span>
+<span class="giallo-l"><span>│  ┌───────────┐  ┌───────────┐  ┌───────────┐          │</span></span>
+<span class="giallo-l"><span>│  │Page Server│  │Page Server│  │Page Server│           │</span></span>
+<span class="giallo-l"><span>│  │(partition │  │(partition │  │(partition │           │</span></span>
+<span class="giallo-l"><span>│  │ of data)  │  │ of data)  │  │ of data)  │           │</span></span>
+<span class="giallo-l"><span>│  │  +RBPEX   │  │  +RBPEX   │  │  +RBPEX   │           │</span></span>
+<span class="giallo-l"><span>│  └───────────┘  └───────────┘  └───────────┘           │</span></span>
+<span class="giallo-l"><span>│                                                         │</span></span>
+<span class="giallo-l"><span>├─────────────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│ Tier 4: XStore (Azure Blob Storage)                     │</span></span>
+<span class="giallo-l"><span>│  Long-term durable storage for log + data snapshots     │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────────────┘</span></span></code></pre><h3 id="4-2-key-components">4.2 Key Components</h3>
 <p><strong>RBPEX (Resilient Buffer Pool Extension):</strong> A local SSD cache on both compute nodes and page servers. Acts as a warm cache that survives process restarts (but not machine failures). Eliminates cold-start penalty after failover. Based on Hekaton (SQL Server's in-memory engine) for recovery.</p>
 <p><strong>Landing Zone:</strong> WAL records land in Azure Premium Storage (low latency, high durability). The XLOG process reads from the landing zone and fans out to page servers and long-term storage.</p>
 <p><strong>Page Servers:</strong> Each page server owns a partition of the database. It applies WAL records to reconstruct pages. When a compute node needs a page not in its buffer pool, it fetches from the page server.</p>
@@ -364,30 +369,28 @@ Replica:  buffer pool → receive redo → invalidate/update cached pages
 <h2 id="5-neon-serverless-postgres">5. Neon (Serverless Postgres)</h2>
 <h3 id="5-1-architecture">5.1 Architecture</h3>
 <p>Neon separates PostgreSQL into stateless compute and durable storage, connected by WAL streaming. Written in Rust (storage layer).</p>
-<pre><code>┌──────────────────────────────────────────────────────┐
-│                  Compute Layer                        │
-│  ┌───────────────┐  ┌───────────────┐               │
-│  │ PostgreSQL    │  │ PostgreSQL    │  ... (elastic)  │
-│  │ (unmodified)  │  │ (read replica)│               │
-│  │ + neon_smgr   │  │ + neon_smgr   │               │
-│  └───────┬───────┘  └───────┬───────┘               │
-│          │ WAL               │ page reads             │
-├──────────┼───────────────────┼────────────────────────┤
-│          │ Storage Layer     │                        │
-│  ┌───────┴───────┐  ┌───────┴──────┐                │
-│  │  Safekeepers  │  │  Pageserver  │                │
-│  │ (WAL durability│  │ (page mater- │                │
-│  │  via Paxos)   │  │  ialization)  │                │
-│  └───────┬───────┘  └───────┬──────┘                │
-│          │                   │                        │
-│  ┌───────┴───────────────────┴──────┐                │
-│  │      Object Storage (S3)         │                │
-│  │  (immutable page history +       │                │
-│  │   WAL archive)                   │                │
-│  └──────────────────────────────────┘                │
-└──────────────────────────────────────────────────────┘
-</code></pre>
-<h3 id="5-2-components">5.2 Components</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌──────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                  Compute Layer                        │</span></span>
+<span class="giallo-l"><span>│  ┌───────────────┐  ┌───────────────┐               │</span></span>
+<span class="giallo-l"><span>│  │ PostgreSQL    │  │ PostgreSQL    │  ... (elastic)  │</span></span>
+<span class="giallo-l"><span>│  │ (unmodified)  │  │ (read replica)│               │</span></span>
+<span class="giallo-l"><span>│  │ + neon_smgr   │  │ + neon_smgr   │               │</span></span>
+<span class="giallo-l"><span>│  └───────┬───────┘  └───────┬───────┘               │</span></span>
+<span class="giallo-l"><span>│          │ WAL               │ page reads             │</span></span>
+<span class="giallo-l"><span>├──────────┼───────────────────┼────────────────────────┤</span></span>
+<span class="giallo-l"><span>│          │ Storage Layer     │                        │</span></span>
+<span class="giallo-l"><span>│  ┌───────┴───────┐  ┌───────┴──────┐                │</span></span>
+<span class="giallo-l"><span>│  │  Safekeepers  │  │  Pageserver  │                │</span></span>
+<span class="giallo-l"><span>│  │ (WAL durability│  │ (page mater- │                │</span></span>
+<span class="giallo-l"><span>│  │  via Paxos)   │  │  ialization)  │                │</span></span>
+<span class="giallo-l"><span>│  └───────┬───────┘  └───────┬──────┘                │</span></span>
+<span class="giallo-l"><span>│          │                   │                        │</span></span>
+<span class="giallo-l"><span>│  ┌───────┴───────────────────┴──────┐                │</span></span>
+<span class="giallo-l"><span>│  │      Object Storage (S3)         │                │</span></span>
+<span class="giallo-l"><span>│  │  (immutable page history +       │                │</span></span>
+<span class="giallo-l"><span>│  │   WAL archive)                   │                │</span></span>
+<span class="giallo-l"><span>│  └──────────────────────────────────┘                │</span></span>
+<span class="giallo-l"><span>└──────────────────────────────────────────────────────┘</span></span></code></pre><h3 id="5-2-components">5.2 Components</h3>
 <p><strong>Safekeepers (WAL durability):</strong></p>
 <ul>
 <li>Receive WAL from compute via streaming replication protocol</li>
@@ -410,68 +413,63 @@ Replica:  buffer pool → receive redo → invalidate/update cached pages
 <li>Provides effectively infinite storage</li>
 </ul>
 <h3 id="5-3-read-and-write-paths">5.3 Read and Write Paths</h3>
-<pre><code>Write path:
-  1. Compute applies changes to shared buffers (in memory)
-  2. WAL streamed to safekeepers
-  3. Commit acknowledged once Paxos quorum reached
-  4. Pageserver asynchronously materializes pages
-  5. Layer files uploaded to S3
-
-Read path (cache hit):
-  1. Compute reads from local buffer pool → done
-
-Read path (cache miss):
-  1. Compute requests page at LSN from pageserver (via neon_smgr)
-  2. Pageserver checks cache → if miss, reconstruct from
-     base image + WAL replay up to requested LSN
-  3. Return page to compute
-</code></pre>
-<h3 id="5-4-pageserver-storage-internals">5.4 Pageserver Storage Internals</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Write path:</span></span>
+<span class="giallo-l"><span>  1. Compute applies changes to shared buffers (in memory)</span></span>
+<span class="giallo-l"><span>  2. WAL streamed to safekeepers</span></span>
+<span class="giallo-l"><span>  3. Commit acknowledged once Paxos quorum reached</span></span>
+<span class="giallo-l"><span>  4. Pageserver asynchronously materializes pages</span></span>
+<span class="giallo-l"><span>  5. Layer files uploaded to S3</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Read path (cache hit):</span></span>
+<span class="giallo-l"><span>  1. Compute reads from local buffer pool → done</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Read path (cache miss):</span></span>
+<span class="giallo-l"><span>  1. Compute requests page at LSN from pageserver (via neon_smgr)</span></span>
+<span class="giallo-l"><span>  2. Pageserver checks cache → if miss, reconstruct from</span></span>
+<span class="giallo-l"><span>     base image + WAL replay up to requested LSN</span></span>
+<span class="giallo-l"><span>  3. Return page to compute</span></span></code></pre><h3 id="5-4-pageserver-storage-internals">5.4 Pageserver Storage Internals</h3>
 <p>The pageserver stores data in <strong>layer files</strong> organized in an LSM-like structure:</p>
-<pre><code>Layer types:
-  ImageLayer:  Snapshot of ALL keys in a range at ONE specific LSN
-               (equivalent to a base image / checkpoint)
-
-  DeltaLayer:  Collection of WAL records/page images in a range of LSNs
-               for a range of keys (equivalent to incremental changes)
-
-Layer organization (LSM-like):
-  L0: DeltaLayers covering full key range, narrow LSN range
-      (incoming WAL gets written here first)
-
-  L1: After compaction — DeltaLayers covering narrow key range,
-      full LSN range (reshuffled for locality)
-
-  Image layers created periodically for each key range
-  (avoids long reconstruction chains)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Layer types:</span></span>
+<span class="giallo-l"><span>  ImageLayer:  Snapshot of ALL keys in a range at ONE specific LSN</span></span>
+<span class="giallo-l"><span>               (equivalent to a base image / checkpoint)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  DeltaLayer:  Collection of WAL records/page images in a range of LSNs</span></span>
+<span class="giallo-l"><span>               for a range of keys (equivalent to incremental changes)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Layer organization (LSM-like):</span></span>
+<span class="giallo-l"><span>  L0: DeltaLayers covering full key range, narrow LSN range</span></span>
+<span class="giallo-l"><span>      (incoming WAL gets written here first)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  L1: After compaction — DeltaLayers covering narrow key range,</span></span>
+<span class="giallo-l"><span>      full LSN range (reshuffled for locality)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Image layers created periodically for each key range</span></span>
+<span class="giallo-l"><span>  (avoids long reconstruction chains)</span></span></code></pre>
 <p><strong>GetPage@LSN reconstruction:</strong></p>
-<pre><code>Request: GetPage(page_id=42, lsn=500)
-
-1. Search layer map for page 42:
-   - Find latest ImageLayer for page 42 at or before LSN 500
-     → Found: ImageLayer at LSN 300 (base image)
-   - Find all DeltaLayers between LSN 300 and LSN 500
-     → Found: Delta at LSN 350, Delta at LSN 480
-
-2. Reconstruct:
-   base_page = ImageLayer.get(page_42, LSN=300)
-   page = apply(Delta@350, base_page)
-   page = apply(Delta@480, page)
-   return page  // page as of LSN 500
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Request: GetPage(page_id=42, lsn=500)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>1. Search layer map for page 42:</span></span>
+<span class="giallo-l"><span>   - Find latest ImageLayer for page 42 at or before LSN 500</span></span>
+<span class="giallo-l"><span>     → Found: ImageLayer at LSN 300 (base image)</span></span>
+<span class="giallo-l"><span>   - Find all DeltaLayers between LSN 300 and LSN 500</span></span>
+<span class="giallo-l"><span>     → Found: Delta at LSN 350, Delta at LSN 480</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>2. Reconstruct:</span></span>
+<span class="giallo-l"><span>   base_page = ImageLayer.get(page_42, LSN=300)</span></span>
+<span class="giallo-l"><span>   page = apply(Delta@350, base_page)</span></span>
+<span class="giallo-l"><span>   page = apply(Delta@480, page)</span></span>
+<span class="giallo-l"><span>   return page  // page as of LSN 500</span></span></code></pre>
 <p><strong>WAL redo process (security):</strong> each tenant gets a <strong>separate WAL redo process</strong> that runs in a seccomp sandbox. The process cannot access the filesystem or network — it communicates with the pageserver only through a pipe. This isolates tenant data and limits the blast radius of bugs in PostgreSQL's WAL replay code.</p>
 <p><strong>Compaction:</strong> L0 → L1 compaction reshuffles data so each L1 file covers the full LSN range but only part of the key space. Compaction also materializes page images (collapsing delta chains) and drops obsolete page versions beyond the retention window.</p>
 <h3 id="5-5-branching">5.5 Branching</h3>
 <p>Neon's killer feature: <strong>instant database branching</strong> via copy-on-write.</p>
-<pre><code>Timeline (main):  LSN 100 ──→ LSN 200 ──→ LSN 300 ──→ ...
-                                 │
-                                 │ branch (instant, zero-copy)
-                                 ▼
-Timeline (dev):                  LSN 200 ──→ LSN 201 ──→ ...
-                                 (new writes diverge,
-                                  old pages shared via COW)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Timeline (main):  LSN 100 ──→ LSN 200 ──→ LSN 300 ──→ ...</span></span>
+<span class="giallo-l"><span>                                 │</span></span>
+<span class="giallo-l"><span>                                 │ branch (instant, zero-copy)</span></span>
+<span class="giallo-l"><span>                                 ▼</span></span>
+<span class="giallo-l"><span>Timeline (dev):                  LSN 200 ──→ LSN 201 ──→ ...</span></span>
+<span class="giallo-l"><span>                                 (new writes diverge,</span></span>
+<span class="giallo-l"><span>                                  old pages shared via COW)</span></span></code></pre>
 <p>Because all page history is immutable in S3, branching just creates a new timeline pointer — no data is copied. Divergent writes go to new layer files.</p>
 <h3 id="5-6-how-it-differs-from-aurora">5.6 How It Differs from Aurora</h3>
 <table><thead><tr><th>Dimension</th><th>Aurora</th><th>Neon</th></tr></thead><tbody>
@@ -487,43 +485,40 @@ Timeline (dev):                  LSN 200 ──→ LSN 201 ──→ ...
 <h2 id="6-snowflake">6. Snowflake</h2>
 <h3 id="6-1-architecture">6.1 Architecture</h3>
 <p>Snowflake (Dageville et al., SIGMOD 2016) is a disaggregated OLAP data warehouse with three layers:</p>
-<pre><code>┌──────────────────────────────────────────────────────┐
-│ Layer 1: Cloud Services                               │
-│  ┌─────────────────────────────────────────────┐     │
-│  │  Query optimizer, metadata, authentication,  │     │
-│  │  access control, transaction management      │     │
-│  └─────────────────────────────────────────────┘     │
-├──────────────────────────────────────────────────────┤
-│ Layer 2: Virtual Warehouses (Compute)                 │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
-│  │    VW 1  │  │    VW 2  │  │    VW 3  │  ...     │
-│  │ (XS-4XL) │  │ (XS-4XL) │  │ (XS-4XL) │          │
-│  │ +SSD cache│  │ +SSD cache│  │ +SSD cache│          │
-│  └─────┬────┘  └─────┬────┘  └─────┬────┘          │
-│        └──────────────┼──────────────┘               │
-│                       │                               │
-├───────────────────────┼───────────────────────────────┤
-│ Layer 3: Centralized Storage                          │
-│  ┌────────────────────┴──────────────────────┐       │
-│  │  S3 / GCS / Azure Blob Storage            │       │
-│  │  Immutable micro-partitions (columnar)     │       │
-│  └───────────────────────────────────────────┘       │
-└──────────────────────────────────────────────────────┘
-</code></pre>
-<h3 id="6-2-key-design-decisions">6.2 Key Design Decisions</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌──────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│ Layer 1: Cloud Services                               │</span></span>
+<span class="giallo-l"><span>│  ┌─────────────────────────────────────────────┐     │</span></span>
+<span class="giallo-l"><span>│  │  Query optimizer, metadata, authentication,  │     │</span></span>
+<span class="giallo-l"><span>│  │  access control, transaction management      │     │</span></span>
+<span class="giallo-l"><span>│  └─────────────────────────────────────────────┘     │</span></span>
+<span class="giallo-l"><span>├──────────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│ Layer 2: Virtual Warehouses (Compute)                 │</span></span>
+<span class="giallo-l"><span>│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │</span></span>
+<span class="giallo-l"><span>│  │    VW 1  │  │    VW 2  │  │    VW 3  │  ...     │</span></span>
+<span class="giallo-l"><span>│  │ (XS-4XL) │  │ (XS-4XL) │  │ (XS-4XL) │          │</span></span>
+<span class="giallo-l"><span>│  │ +SSD cache│  │ +SSD cache│  │ +SSD cache│          │</span></span>
+<span class="giallo-l"><span>│  └─────┬────┘  └─────┬────┘  └─────┬────┘          │</span></span>
+<span class="giallo-l"><span>│        └──────────────┼──────────────┘               │</span></span>
+<span class="giallo-l"><span>│                       │                               │</span></span>
+<span class="giallo-l"><span>├───────────────────────┼───────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│ Layer 3: Centralized Storage                          │</span></span>
+<span class="giallo-l"><span>│  ┌────────────────────┴──────────────────────┐       │</span></span>
+<span class="giallo-l"><span>│  │  S3 / GCS / Azure Blob Storage            │       │</span></span>
+<span class="giallo-l"><span>│  │  Immutable micro-partitions (columnar)     │       │</span></span>
+<span class="giallo-l"><span>│  └───────────────────────────────────────────┘       │</span></span>
+<span class="giallo-l"><span>└──────────────────────────────────────────────────────┘</span></span></code></pre><h3 id="6-2-key-design-decisions">6.2 Key Design Decisions</h3>
 <p><strong>Micro-partitions:</strong> Data is stored as immutable, compressed, columnar files (50-500MB each). No in-place updates. Mutations create new micro-partitions and tombstone old ones.</p>
 <p><strong>Virtual Warehouses (VWs):</strong> MPP compute clusters that can be independently started, stopped, and resized. Multiple VWs can query the same data simultaneously without interference. Each VW has a local SSD cache for hot micro-partitions.</p>
 <p><strong>No data shuffling:</strong> because storage is shared, adding a new VW doesn't require moving data. It just starts reading from S3.</p>
 <h3 id="6-3-time-travel-and-zero-copy-cloning">6.3 Time Travel and Zero-Copy Cloning</h3>
 <p>Because micro-partitions are immutable, Snowflake retains previous versions:</p>
-<pre><code>Time T1:  Table A = {partition1, partition2, partition3}
-Time T2:  UPDATE → Table A = {partition1, partition2&#39;, partition3}
-          (partition2 is retained for time travel)
-
-CLONE:    Table B = clone(Table A)
-          → Table B points to same partitions (zero-copy)
-          → Future mutations create new partitions per table
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Time T1:  Table A = {partition1, partition2, partition3}</span></span>
+<span class="giallo-l"><span>Time T2:  UPDATE → Table A = {partition1, partition2&#39;, partition3}</span></span>
+<span class="giallo-l"><span>          (partition2 is retained for time travel)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>CLONE:    Table B = clone(Table A)</span></span>
+<span class="giallo-l"><span>          → Table B points to same partitions (zero-copy)</span></span>
+<span class="giallo-l"><span>          → Future mutations create new partitions per table</span></span></code></pre>
 <p>Time travel allows querying data <strong>as of</strong> any point within a configurable retention window (default 1 day, up to 90 days on Enterprise).</p>
 <h3 id="6-4-why-snowflake-disaggregation-works-for-olap">6.4 Why Snowflake Disaggregation Works for OLAP</h3>
 <p>OLAP workloads are read-heavy with large sequential scans. The S3 bandwidth (hundreds of GB/s aggregate) matches the access pattern. Write latency to S3 (10-100ms) is acceptable because OLAP writes are infrequent batch loads, not individual transactions.</p>
@@ -532,23 +527,21 @@ CLONE:    Table B = clone(Table A)
 <h2 id="7-polardb-alibaba">7. PolarDB (Alibaba)</h2>
 <h3 id="7-1-architecture">7.1 Architecture</h3>
 <p>PolarDB uses a shared-storage architecture connected via RDMA, with PolarFS as the distributed filesystem.</p>
-<pre><code>┌──────────────────────────────────────────────────────┐
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
-│  │ Primary  │  │ Read-Only│  │ Read-Only│  ...      │
-│  │(MySQL/PG)│  │ Replica  │  │ Replica  │           │
-│  └─────┬────┘  └─────┬────┘  └─────┬────┘          │
-│        └──────────────┼──────────────┘               │
-│                       │  25Gbps RDMA                  │
-│        ┌──────────────┴──────────────┐               │
-│        │         PolarFS             │               │
-│        │  (User-space distributed    │               │
-│        │   filesystem over RDMA)     │               │
-│        │  + NVMe SSDs + Optane       │               │
-│        │  + ParallelRaft consensus   │               │
-│        └─────────────────────────────┘               │
-└──────────────────────────────────────────────────────┘
-</code></pre>
-<h3 id="7-2-polarfs">7.2 PolarFS</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌──────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │</span></span>
+<span class="giallo-l"><span>│  │ Primary  │  │ Read-Only│  │ Read-Only│  ...      │</span></span>
+<span class="giallo-l"><span>│  │(MySQL/PG)│  │ Replica  │  │ Replica  │           │</span></span>
+<span class="giallo-l"><span>│  └─────┬────┘  └─────┬────┘  └─────┬────┘          │</span></span>
+<span class="giallo-l"><span>│        └──────────────┼──────────────┘               │</span></span>
+<span class="giallo-l"><span>│                       │  25Gbps RDMA                  │</span></span>
+<span class="giallo-l"><span>│        ┌──────────────┴──────────────┐               │</span></span>
+<span class="giallo-l"><span>│        │         PolarFS             │               │</span></span>
+<span class="giallo-l"><span>│        │  (User-space distributed    │               │</span></span>
+<span class="giallo-l"><span>│        │   filesystem over RDMA)     │               │</span></span>
+<span class="giallo-l"><span>│        │  + NVMe SSDs + Optane       │               │</span></span>
+<span class="giallo-l"><span>│        │  + ParallelRaft consensus   │               │</span></span>
+<span class="giallo-l"><span>│        └─────────────────────────────┘               │</span></span>
+<span class="giallo-l"><span>└──────────────────────────────────────────────────────┘</span></span></code></pre><h3 id="7-2-polarfs">7.2 PolarFS</h3>
 <p>PolarFS (Cao et al., VLDB 2018) is a user-space distributed filesystem designed for minimal latency:</p>
 <p><strong>Key technologies:</strong></p>
 <ul>
@@ -578,29 +571,27 @@ CLONE:    Table B = clone(Table A)
 <h2 id="8-google-alloydb">8. Google AlloyDB</h2>
 <h3 id="8-1-architecture">8.1 Architecture</h3>
 <p>AlloyDB is Google's PostgreSQL-compatible database with disaggregated storage, built on Google's infrastructure.</p>
-<pre><code>┌──────────────────────────────────────────────────────┐
-│  ┌─────────────┐  ┌─────────────┐                   │
-│  │  Primary    │  │ Read Pool   │  ... (elastic)     │
-│  │ (Postgres)  │  │ (Postgres)  │                    │
-│  │ +buffer pool│  │ +ultra-fast  │                    │
-│  │ +ultra-fast │  │   cache     │                    │
-│  │   cache     │  └──────┬──────┘                    │
-│  └──────┬──────┘         │                           │
-│         │ WAL            │ page reads                 │
-│  ┌──────┴────────────────┴──────┐                    │
-│  │  Intelligent Storage Service  │                    │
-│  │  ┌───────────────────────┐   │                    │
-│  │  │ Log Processing Service │   │                    │
-│  │  │ (applies WAL → pages)  │   │                    │
-│  │  └───────────┬───────────┘   │                    │
-│  │  ┌───────────┴───────────┐   │                    │
-│  │  │ Block Storage          │   │                    │
-│  │  │ (materialized pages)   │   │                    │
-│  │  └───────────────────────┘   │                    │
-│  └──────────────────────────────┘                    │
-└──────────────────────────────────────────────────────┘
-</code></pre>
-<h3 id="8-2-key-design">8.2 Key Design</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌──────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│  ┌─────────────┐  ┌─────────────┐                   │</span></span>
+<span class="giallo-l"><span>│  │  Primary    │  │ Read Pool   │  ... (elastic)     │</span></span>
+<span class="giallo-l"><span>│  │ (Postgres)  │  │ (Postgres)  │                    │</span></span>
+<span class="giallo-l"><span>│  │ +buffer pool│  │ +ultra-fast  │                    │</span></span>
+<span class="giallo-l"><span>│  │ +ultra-fast │  │   cache     │                    │</span></span>
+<span class="giallo-l"><span>│  │   cache     │  └──────┬──────┘                    │</span></span>
+<span class="giallo-l"><span>│  └──────┬──────┘         │                           │</span></span>
+<span class="giallo-l"><span>│         │ WAL            │ page reads                 │</span></span>
+<span class="giallo-l"><span>│  ┌──────┴────────────────┴──────┐                    │</span></span>
+<span class="giallo-l"><span>│  │  Intelligent Storage Service  │                    │</span></span>
+<span class="giallo-l"><span>│  │  ┌───────────────────────┐   │                    │</span></span>
+<span class="giallo-l"><span>│  │  │ Log Processing Service │   │                    │</span></span>
+<span class="giallo-l"><span>│  │  │ (applies WAL → pages)  │   │                    │</span></span>
+<span class="giallo-l"><span>│  │  └───────────┬───────────┘   │                    │</span></span>
+<span class="giallo-l"><span>│  │  ┌───────────┴───────────┐   │                    │</span></span>
+<span class="giallo-l"><span>│  │  │ Block Storage          │   │                    │</span></span>
+<span class="giallo-l"><span>│  │  │ (materialized pages)   │   │                    │</span></span>
+<span class="giallo-l"><span>│  │  └───────────────────────┘   │                    │</span></span>
+<span class="giallo-l"><span>│  └──────────────────────────────┘                    │</span></span>
+<span class="giallo-l"><span>└──────────────────────────────────────────────────────┘</span></span></code></pre><h3 id="8-2-key-design">8.2 Key Design</h3>
 <p><strong>Log Processing Service (LPS):</strong> Receives WAL from primary, processes log records, and generates materialized data blocks. Writes are acknowledged as soon as WAL is persisted to regional storage — block materialization is asynchronous (similar to Aurora).</p>
 <p><strong>The storage service itself is disaggregated:</strong> block storage (pages) scales separately from log processing (WAL application). This enables the LPS to be scaled independently based on write throughput.</p>
 <p><strong>Multi-tier caching:</strong></p>
@@ -614,47 +605,43 @@ CLONE:    Table B = clone(Table A)
 <h2 id="9-google-spanner-and-colossus">9. Google Spanner and Colossus</h2>
 <h3 id="9-1-spanner-architecture">9.1 Spanner Architecture</h3>
 <p>Spanner (Corbett et al., OSDI 2012) is Google's globally-distributed database, running on Colossus (the successor to GFS).</p>
-<pre><code>┌──────────────────────────────────────────────────────┐
-│  Zone 1 (≈ datacenter)                                │
-│  ┌─────────────────────────────────────────────┐     │
-│  │  Spanserver                                  │     │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐     │     │
-│  │  │ Tablet  │  │ Tablet  │  │ Tablet  │     │     │
-│  │  │(B-tree +│  │(B-tree +│  │(B-tree +│     │     │
-│  │  │  WAL on │  │  WAL on │  │  WAL on │     │     │
-│  │  │Colossus)│  │Colossus)│  │Colossus)│     │     │
-│  │  │+ Paxos  │  │+ Paxos  │  │+ Paxos  │     │     │
-│  │  │ group   │  │ group   │  │ group   │     │     │
-│  │  └─────────┘  └─────────┘  └─────────┘     │     │
-│  └─────────────────────────────────────────────┘     │
-│  ┌─────────────────────────────────────────────┐     │
-│  │  Colossus (distributed filesystem)           │     │
-│  │  (successor to GFS, 1MB chunks, D-servers)   │     │
-│  └─────────────────────────────────────────────┘     │
-└──────────────────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌──────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│  Zone 1 (≈ datacenter)                                │</span></span>
+<span class="giallo-l"><span>│  ┌─────────────────────────────────────────────┐     │</span></span>
+<span class="giallo-l"><span>│  │  Spanserver                                  │     │</span></span>
+<span class="giallo-l"><span>│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐     │     │</span></span>
+<span class="giallo-l"><span>│  │  │ Tablet  │  │ Tablet  │  │ Tablet  │     │     │</span></span>
+<span class="giallo-l"><span>│  │  │(B-tree +│  │(B-tree +│  │(B-tree +│     │     │</span></span>
+<span class="giallo-l"><span>│  │  │  WAL on │  │  WAL on │  │  WAL on │     │     │</span></span>
+<span class="giallo-l"><span>│  │  │Colossus)│  │Colossus)│  │Colossus)│     │     │</span></span>
+<span class="giallo-l"><span>│  │  │+ Paxos  │  │+ Paxos  │  │+ Paxos  │     │     │</span></span>
+<span class="giallo-l"><span>│  │  │ group   │  │ group   │  │ group   │     │     │</span></span>
+<span class="giallo-l"><span>│  │  └─────────┘  └─────────┘  └─────────┘     │     │</span></span>
+<span class="giallo-l"><span>│  └─────────────────────────────────────────────┘     │</span></span>
+<span class="giallo-l"><span>│  ┌─────────────────────────────────────────────┐     │</span></span>
+<span class="giallo-l"><span>│  │  Colossus (distributed filesystem)           │     │</span></span>
+<span class="giallo-l"><span>│  │  (successor to GFS, 1MB chunks, D-servers)   │     │</span></span>
+<span class="giallo-l"><span>│  └─────────────────────────────────────────────┘     │</span></span>
+<span class="giallo-l"><span>└──────────────────────────────────────────────────────┘</span></span></code></pre>
 <p><strong>Data model:</strong> tables are divided by primary key ranges into <strong>splits</strong>. Each split is managed by a <strong>Paxos group</strong> with replicas across zones (typically 3 or 5 replicas). Each replica stores its tablet as a B-tree-like structure + WAL on Colossus.</p>
 <h3 id="9-2-truetime">9.2 TrueTime</h3>
 <p>Spanner's key innovation is <strong>TrueTime</strong>, an API that returns a time interval <code>[earliest, latest]</code> guaranteed to contain the true current time:</p>
-<pre><code>TrueTime API:
-  TT.now()    → TTinterval [earliest, latest]
-  TT.after(t) → true if t has definitely passed
-  TT.before(t)→ true if t has definitely not arrived
-
-Implementation:
-  GPS receivers + atomic clocks in each datacenter
-  GPS provides absolute time, atomic clocks provide stability
-  Each corrects for the other&#39;s failure modes
-  Typical uncertainty (ε): ~1-7ms
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>TrueTime API:</span></span>
+<span class="giallo-l"><span>  TT.now()    → TTinterval [earliest, latest]</span></span>
+<span class="giallo-l"><span>  TT.after(t) → true if t has definitely passed</span></span>
+<span class="giallo-l"><span>  TT.before(t)→ true if t has definitely not arrived</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Implementation:</span></span>
+<span class="giallo-l"><span>  GPS receivers + atomic clocks in each datacenter</span></span>
+<span class="giallo-l"><span>  GPS provides absolute time, atomic clocks provide stability</span></span>
+<span class="giallo-l"><span>  Each corrects for the other&#39;s failure modes</span></span>
+<span class="giallo-l"><span>  Typical uncertainty (ε): ~1-7ms</span></span></code></pre>
 <p><strong>Commit-wait protocol:</strong> after assigning a commit timestamp <code>s</code>, the leader waits until <code>TT.after(s)</code> is true before revealing the write. This guarantees that any subsequent transaction will see this write — providing <strong>external consistency</strong> (linearizability) without centralized coordination.</p>
-<pre><code>Commit:
-  1. Acquire locks
-  2. s = TT.now().latest   (assign timestamp)
-  3. Wait until TT.after(s) (commit-wait, ~2ε ≈ 2-14ms)
-  4. Release locks, reveal commit
-</code></pre>
-<h3 id="9-3-colossus">9.3 Colossus</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Commit:</span></span>
+<span class="giallo-l"><span>  1. Acquire locks</span></span>
+<span class="giallo-l"><span>  2. s = TT.now().latest   (assign timestamp)</span></span>
+<span class="giallo-l"><span>  3. Wait until TT.after(s) (commit-wait, ~2ε ≈ 2-14ms)</span></span>
+<span class="giallo-l"><span>  4. Release locks, reveal commit</span></span></code></pre><h3 id="9-3-colossus">9.3 Colossus</h3>
 <p>Colossus is the successor to the Google File System (GFS, Ghemawat et al., SOSP 2003):</p>
 <ul>
 <li><strong>Chunk size</strong>: 1MB (vs. 64MB in GFS) — better tail latency for small reads</li>
@@ -666,219 +653,201 @@ Implementation:
 <hr />
 <h2 id="10-foundationdb-unbundled-architecture">10. FoundationDB: Unbundled Architecture</h2>
 <p>FoundationDB (Zhou et al., SIGMOD 2021) takes disaggregation to an extreme by unbundling the database into many independent roles:</p>
-<pre><code>┌──────────────────────────────────────────────────────┐
-│ Control Plane (Paxos):                                │
-│  Coordinators → ClusterController → recruits:         │
-│                                                       │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
-│  │Sequencer │  │ Proxies  │  │Resolvers │           │
-│  │(timestamp│  │(tx proc) │  │(conflict │           │
-│  │ oracle)  │  │          │  │ detect)  │           │
-│  └──────────┘  └────┬─────┘  └──────────┘          │
-│                      │                               │
-│ Data Plane:          │                               │
-│  ┌───────────────────┴──────────────────┐           │
-│  │  Log Servers (WAL, f+1 replicas)     │           │
-│  └───────────────────┬──────────────────┘           │
-│                      │ async                         │
-│  ┌───────────────────┴──────────────────┐           │
-│  │  Storage Servers (materialized data)  │           │
-│  └──────────────────────────────────────┘           │
-└──────────────────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌──────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│ Control Plane (Paxos):                                │</span></span>
+<span class="giallo-l"><span>│  Coordinators → ClusterController → recruits:         │</span></span>
+<span class="giallo-l"><span>│                                                       │</span></span>
+<span class="giallo-l"><span>│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │</span></span>
+<span class="giallo-l"><span>│  │Sequencer │  │ Proxies  │  │Resolvers │           │</span></span>
+<span class="giallo-l"><span>│  │(timestamp│  │(tx proc) │  │(conflict │           │</span></span>
+<span class="giallo-l"><span>│  │ oracle)  │  │          │  │ detect)  │           │</span></span>
+<span class="giallo-l"><span>│  └──────────┘  └────┬─────┘  └──────────┘          │</span></span>
+<span class="giallo-l"><span>│                      │                               │</span></span>
+<span class="giallo-l"><span>│ Data Plane:          │                               │</span></span>
+<span class="giallo-l"><span>│  ┌───────────────────┴──────────────────┐           │</span></span>
+<span class="giallo-l"><span>│  │  Log Servers (WAL, f+1 replicas)     │           │</span></span>
+<span class="giallo-l"><span>│  └───────────────────┬──────────────────┘           │</span></span>
+<span class="giallo-l"><span>│                      │ async                         │</span></span>
+<span class="giallo-l"><span>│  ┌───────────────────┴──────────────────┐           │</span></span>
+<span class="giallo-l"><span>│  │  Storage Servers (materialized data)  │           │</span></span>
+<span class="giallo-l"><span>│  └──────────────────────────────────────┘           │</span></span>
+<span class="giallo-l"><span>└──────────────────────────────────────────────────────┘</span></span></code></pre>
 <p><strong>Key insight:</strong> log servers and storage servers are separate roles. Log servers provide durability (f+1 replicas, not quorum-based). Storage servers asynchronously consume the log to materialize data. If any component fails, the ClusterController reconfigures the entire system in &lt;5 seconds.</p>
 <p>This is disaggregation taken further than Aurora — not just compute vs. storage, but <strong>every database function is a separate, independently scalable service</strong>.</p>
 <hr />
 <h2 id="11-tidb-range-based-disaggregation">11. TiDB: Range-Based Disaggregation</h2>
 <h3 id="11-1-architecture">11.1 Architecture</h3>
 <p>TiDB separates SQL processing from distributed storage via TiKV.</p>
-<pre><code>┌──────────────────────────────────────────────────────┐
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
-│  │  TiDB    │  │  TiDB    │  │  TiDB    │  (SQL)   │
-│  │ (compute)│  │ (compute)│  │ (compute)│           │
-│  └─────┬────┘  └─────┬────┘  └─────┬────┘          │
-│        └──────────────┼──────────────┘               │
-│                       │                               │
-│  ┌────────────────────┴─────────────────────┐        │
-│  │              TiKV (Storage)               │        │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  │        │
-│  │  │ Region1 │  │ Region2 │  │ Region3 │  │        │
-│  │  │(Raft grp│  │(Raft grp│  │(Raft grp│  │        │
-│  │  │ 3 repls)│  │ 3 repls)│  │ 3 repls)│  │        │
-│  │  └─────────┘  └─────────┘  └─────────┘  │        │
-│  └──────────────────────────────────────────┘        │
-│                                                       │
-│  ┌──────────────────────────────────────────┐        │
-│  │          TiFlash (Columnar Replicas)      │        │
-│  │  Raft-learner replication from TiKV       │        │
-│  │  Columnar storage for OLAP queries        │        │
-│  └──────────────────────────────────────────┘        │
-└──────────────────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌──────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │</span></span>
+<span class="giallo-l"><span>│  │  TiDB    │  │  TiDB    │  │  TiDB    │  (SQL)   │</span></span>
+<span class="giallo-l"><span>│  │ (compute)│  │ (compute)│  │ (compute)│           │</span></span>
+<span class="giallo-l"><span>│  └─────┬────┘  └─────┬────┘  └─────┬────┘          │</span></span>
+<span class="giallo-l"><span>│        └──────────────┼──────────────┘               │</span></span>
+<span class="giallo-l"><span>│                       │                               │</span></span>
+<span class="giallo-l"><span>│  ┌────────────────────┴─────────────────────┐        │</span></span>
+<span class="giallo-l"><span>│  │              TiKV (Storage)               │        │</span></span>
+<span class="giallo-l"><span>│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  │        │</span></span>
+<span class="giallo-l"><span>│  │  │ Region1 │  │ Region2 │  │ Region3 │  │        │</span></span>
+<span class="giallo-l"><span>│  │  │(Raft grp│  │(Raft grp│  │(Raft grp│  │        │</span></span>
+<span class="giallo-l"><span>│  │  │ 3 repls)│  │ 3 repls)│  │ 3 repls)│  │        │</span></span>
+<span class="giallo-l"><span>│  │  └─────────┘  └─────────┘  └─────────┘  │        │</span></span>
+<span class="giallo-l"><span>│  └──────────────────────────────────────────┘        │</span></span>
+<span class="giallo-l"><span>│                                                       │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────────────────────────────────┐        │</span></span>
+<span class="giallo-l"><span>│  │          TiFlash (Columnar Replicas)      │        │</span></span>
+<span class="giallo-l"><span>│  │  Raft-learner replication from TiKV       │        │</span></span>
+<span class="giallo-l"><span>│  │  Columnar storage for OLAP queries        │        │</span></span>
+<span class="giallo-l"><span>│  └──────────────────────────────────────────┘        │</span></span>
+<span class="giallo-l"><span>└──────────────────────────────────────────────────────┘</span></span></code></pre>
 <p><strong>Key difference from Aurora:</strong> TiKV uses <strong>range-based sharding with per-range Raft groups</strong> (Multi-Raft). Each range ("Region", ~96MB) has its own Raft group with 3 replicas. This is distributed consensus at the storage layer, not quorum I/O.</p>
 <p><strong>TiFlash</strong> adds HTAP capability: columnar replicas receive updates via Raft learner protocol, enabling real-time analytics on transactional data without ETL.</p>
 <hr />
 <h2 id="12-gaussdb-huawei">12. GaussDB (Huawei)</h2>
 <p>GaussDB (VLDB 2024) introduces <strong>three-tier disaggregation</strong>: compute, memory, and storage as separate layers.</p>
-<pre><code>┌──────────────────────────────────────────────────────┐
-│  Compute Layer (transaction processing)               │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
-│  │Compute 1 │  │Compute 2 │  │Compute 3 │ (multi-   │
-│  │(primary) │  │(primary) │  │(primary) │  primary)  │
-│  └─────┬────┘  └─────┬────┘  └─────┬────┘          │
-│        └──────────────┼──────────────┘               │
-│                       │                               │
-│  Memory Layer (global buffer pool + lock manager)     │
-│  ┌────────────────────┴─────────────────────┐        │
-│  │  Disaggregated shared memory (RDMA)       │        │
-│  │  - Global buffer management               │        │
-│  │  - Global lock management                 │        │
-│  │  - Page ownership + affinity routing      │        │
-│  └──────────────────────┬───────────────────┘        │
-│                         │                             │
-│  Storage Layer (page + log persistence)               │
-│  ┌──────────────────────┴───────────────────┐        │
-│  │  Distributed storage (pages + WAL)        │        │
-│  └──────────────────────────────────────────┘        │
-└──────────────────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌──────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│  Compute Layer (transaction processing)               │</span></span>
+<span class="giallo-l"><span>│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │</span></span>
+<span class="giallo-l"><span>│  │Compute 1 │  │Compute 2 │  │Compute 3 │ (multi-   │</span></span>
+<span class="giallo-l"><span>│  │(primary) │  │(primary) │  │(primary) │  primary)  │</span></span>
+<span class="giallo-l"><span>│  └─────┬────┘  └─────┬────┘  └─────┬────┘          │</span></span>
+<span class="giallo-l"><span>│        └──────────────┼──────────────┘               │</span></span>
+<span class="giallo-l"><span>│                       │                               │</span></span>
+<span class="giallo-l"><span>│  Memory Layer (global buffer pool + lock manager)     │</span></span>
+<span class="giallo-l"><span>│  ┌────────────────────┴─────────────────────┐        │</span></span>
+<span class="giallo-l"><span>│  │  Disaggregated shared memory (RDMA)       │        │</span></span>
+<span class="giallo-l"><span>│  │  - Global buffer management               │        │</span></span>
+<span class="giallo-l"><span>│  │  - Global lock management                 │        │</span></span>
+<span class="giallo-l"><span>│  │  - Page ownership + affinity routing      │        │</span></span>
+<span class="giallo-l"><span>│  └──────────────────────┬───────────────────┘        │</span></span>
+<span class="giallo-l"><span>│                         │                             │</span></span>
+<span class="giallo-l"><span>│  Storage Layer (page + log persistence)               │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────────────┴───────────────────┐        │</span></span>
+<span class="giallo-l"><span>│  │  Distributed storage (pages + WAL)        │        │</span></span>
+<span class="giallo-l"><span>│  └──────────────────────────────────────────┘        │</span></span>
+<span class="giallo-l"><span>└──────────────────────────────────────────────────────┘</span></span></code></pre>
 <p><strong>Key innovation:</strong> the memory layer is a separate tier. Pages are logically partitioned and assigned ownership to compute nodes. If a query touches pages owned by another node, ownership is transferred. A smart routing layer captures data affinity to minimize page transfers.</p>
 <p><strong>Recovery:</strong> two-tier checkpoint recovery (memory + storage). Memory checkpoints + on-demand page recovery significantly reduce failover time.</p>
 <hr />
 <h2 id="13-key-design-patterns">13. Key Design Patterns</h2>
 <h3 id="13-1-the-log-is-the-database-aurora-pattern">13.1 "The Log Is the Database" (Aurora Pattern)</h3>
 <p>The compute node treats the storage layer as a log endpoint. Only redo log records cross the network. The storage layer applies redo to reconstruct pages.</p>
-<pre><code>Compute:   page mutation → generate redo → ship to storage → done
-Storage:   receive redo → apply to base page → serve page requests
-
-Benefit:   Minimal network I/O (log records are tiny vs. full pages)
-Trade-off: Storage must be &quot;smart&quot; (understand log format)
-</code></pre>
-<h3 id="13-2-separation-of-wal-service-from-page-storage">13.2 Separation of WAL Service from Page Storage</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Compute:   page mutation → generate redo → ship to storage → done</span></span>
+<span class="giallo-l"><span>Storage:   receive redo → apply to base page → serve page requests</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Benefit:   Minimal network I/O (log records are tiny vs. full pages)</span></span>
+<span class="giallo-l"><span>Trade-off: Storage must be &quot;smart&quot; (understand log format)</span></span></code></pre><h3 id="13-2-separation-of-wal-service-from-page-storage">13.2 Separation of WAL Service from Page Storage</h3>
 <p>Socrates and Neon separate WAL durability from page materialization:</p>
-<pre><code>Compute → WAL Service (fast, durable)  → Page Servers (materialization)
-                                        → Object Store (archive)
-
-Benefit:   WAL service can be optimized for latency (Premium SSD, NVRAM)
-           Page servers can be optimized for throughput
-Trade-off: Additional tier adds complexity and potential latency
-</code></pre>
-<h3 id="13-3-cache-hierarchy-in-disaggregated-systems">13.3 Cache Hierarchy in Disaggregated Systems</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Compute → WAL Service (fast, durable)  → Page Servers (materialization)</span></span>
+<span class="giallo-l"><span>                                        → Object Store (archive)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Benefit:   WAL service can be optimized for latency (Premium SSD, NVRAM)</span></span>
+<span class="giallo-l"><span>           Page servers can be optimized for throughput</span></span>
+<span class="giallo-l"><span>Trade-off: Additional tier adds complexity and potential latency</span></span></code></pre><h3 id="13-3-cache-hierarchy-in-disaggregated-systems">13.3 Cache Hierarchy in Disaggregated Systems</h3>
 <p>Every disaggregated system uses multi-level caching to hide storage latency:</p>
-<pre><code>Level 1: Buffer Pool (RAM, ~10-100GB)
-  Hit time: nanoseconds
-  Managed by database engine
-
-Level 2: Local SSD Cache (NVMe, ~1-10TB)
-  Hit time: microseconds
-  Socrates: RBPEX
-  AlloyDB:  Ultra-fast cache
-  Snowflake: VW local SSD cache
-
-Level 3: Remote Storage (page servers, storage nodes)
-  Hit time: sub-millisecond (RDMA) to milliseconds (TCP)
-
-Level 4: Object Store (S3/GCS/Azure Blob)
-  Hit time: 10-100ms
-  Used for cold data, archival, time travel
-</code></pre>
-<h3 id="13-4-lease-based-coordination">13.4 Lease-Based Coordination</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Level 1: Buffer Pool (RAM, ~10-100GB)</span></span>
+<span class="giallo-l"><span>  Hit time: nanoseconds</span></span>
+<span class="giallo-l"><span>  Managed by database engine</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Level 2: Local SSD Cache (NVMe, ~1-10TB)</span></span>
+<span class="giallo-l"><span>  Hit time: microseconds</span></span>
+<span class="giallo-l"><span>  Socrates: RBPEX</span></span>
+<span class="giallo-l"><span>  AlloyDB:  Ultra-fast cache</span></span>
+<span class="giallo-l"><span>  Snowflake: VW local SSD cache</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Level 3: Remote Storage (page servers, storage nodes)</span></span>
+<span class="giallo-l"><span>  Hit time: sub-millisecond (RDMA) to milliseconds (TCP)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Level 4: Object Store (S3/GCS/Azure Blob)</span></span>
+<span class="giallo-l"><span>  Hit time: 10-100ms</span></span>
+<span class="giallo-l"><span>  Used for cold data, archival, time travel</span></span></code></pre><h3 id="13-4-lease-based-coordination">13.4 Lease-Based Coordination</h3>
 <p>Disaggregated systems use leases to manage ownership and prevent split-brain:</p>
-<pre><code>Primary compute holds lease:
-  - If lease expires, primary cannot write
-  - Failover candidate acquires new lease
-  - Lease prevents two primaries from writing simultaneously
-
-Storage nodes hold page leases:
-  - Ensures only one page server serves a given page range
-  - Prevents split-brain page serving after reconfig
-</code></pre>
-<h3 id="13-5-near-data-processing-pushdown">13.5 Near-Data Processing (Pushdown)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Primary compute holds lease:</span></span>
+<span class="giallo-l"><span>  - If lease expires, primary cannot write</span></span>
+<span class="giallo-l"><span>  - Failover candidate acquires new lease</span></span>
+<span class="giallo-l"><span>  - Lease prevents two primaries from writing simultaneously</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Storage nodes hold page leases:</span></span>
+<span class="giallo-l"><span>  - Ensures only one page server serves a given page range</span></span>
+<span class="giallo-l"><span>  - Prevents split-brain page serving after reconfig</span></span></code></pre><h3 id="13-5-near-data-processing-pushdown">13.5 Near-Data Processing (Pushdown)</h3>
 <p>Pushing computation to the storage layer reduces network transfer:</p>
-<pre><code>Without pushdown:
-  Storage ──→ [full pages] ──→ Compute (filter here)
-  Network cost: high
-
-With pushdown:
-  Storage (filter here) ──→ [matching rows only] ──→ Compute
-  Network cost: low
-
-Examples:
-  - Aurora: storage-level page coalescing
-  - PolarDB: FPGA-based filter pushdown to SSDs
-  - Snowflake: micro-partition pruning before scan
-  - TiKV: coprocessor pushdown for simple predicates
-</code></pre>
-<h3 id="13-6-cache-coherence-in-disaggregated-systems">13.6 Cache Coherence in Disaggregated Systems</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Without pushdown:</span></span>
+<span class="giallo-l"><span>  Storage ──→ [full pages] ──→ Compute (filter here)</span></span>
+<span class="giallo-l"><span>  Network cost: high</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>With pushdown:</span></span>
+<span class="giallo-l"><span>  Storage (filter here) ──→ [matching rows only] ──→ Compute</span></span>
+<span class="giallo-l"><span>  Network cost: low</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Examples:</span></span>
+<span class="giallo-l"><span>  - Aurora: storage-level page coalescing</span></span>
+<span class="giallo-l"><span>  - PolarDB: FPGA-based filter pushdown to SSDs</span></span>
+<span class="giallo-l"><span>  - Snowflake: micro-partition pruning before scan</span></span>
+<span class="giallo-l"><span>  - TiKV: coprocessor pushdown for simple predicates</span></span></code></pre><h3 id="13-6-cache-coherence-in-disaggregated-systems">13.6 Cache Coherence in Disaggregated Systems</h3>
 <p>When multiple compute nodes cache pages from shared storage, maintaining coherence is a fundamental challenge. Six approaches have emerged:</p>
-<pre><code>Approach                  System           Mechanism
-────────────────────────  ──────────────── ───────────────────────────────
-Single-writer             Aurora           Only primary writes; replicas
-                                           receive invalidations via log
-                                           stream. No coherence needed.
-
-Lease-based invalidation  Socrates         Compute holds page lease;
-                                           storage pushes invalidation
-                                           when page is modified.
-
-RDMA-based                PolarDB-MP       Buffer fusion via RDMA. Direct
-                                           memory reads across nodes.
-                                           Distributed locking.
-
-CXL hardware coherence    PolarDB-CXL      Cache-coherent shared memory
-                                           across machines via CXL.
-                                           Hardware handles coherence.
-
-SELCC (VLDB 2025)         Research          Shared-Exclusive Latch Cache
-                                           Coherence. Embeds ownership
-                                           metadata in RDMA latch word.
-                                           No computation on memory side.
-
-Federated coherence       Research (2025)   Argues CXL snooping/directory
-                                           will not scale. Proposes
-                                           software-managed coherence
-                                           domains with cross-domain
-                                           protocols.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Approach                  System           Mechanism</span></span>
+<span class="giallo-l"><span>────────────────────────  ──────────────── ───────────────────────────────</span></span>
+<span class="giallo-l"><span>Single-writer             Aurora           Only primary writes; replicas</span></span>
+<span class="giallo-l"><span>                                           receive invalidations via log</span></span>
+<span class="giallo-l"><span>                                           stream. No coherence needed.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Lease-based invalidation  Socrates         Compute holds page lease;</span></span>
+<span class="giallo-l"><span>                                           storage pushes invalidation</span></span>
+<span class="giallo-l"><span>                                           when page is modified.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>RDMA-based                PolarDB-MP       Buffer fusion via RDMA. Direct</span></span>
+<span class="giallo-l"><span>                                           memory reads across nodes.</span></span>
+<span class="giallo-l"><span>                                           Distributed locking.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>CXL hardware coherence    PolarDB-CXL      Cache-coherent shared memory</span></span>
+<span class="giallo-l"><span>                                           across machines via CXL.</span></span>
+<span class="giallo-l"><span>                                           Hardware handles coherence.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>SELCC (VLDB 2025)         Research          Shared-Exclusive Latch Cache</span></span>
+<span class="giallo-l"><span>                                           Coherence. Embeds ownership</span></span>
+<span class="giallo-l"><span>                                           metadata in RDMA latch word.</span></span>
+<span class="giallo-l"><span>                                           No computation on memory side.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Federated coherence       Research (2025)   Argues CXL snooping/directory</span></span>
+<span class="giallo-l"><span>                                           will not scale. Proposes</span></span>
+<span class="giallo-l"><span>                                           software-managed coherence</span></span>
+<span class="giallo-l"><span>                                           domains with cross-domain</span></span>
+<span class="giallo-l"><span>                                           protocols.</span></span></code></pre>
 <p>SELCC achieves coherence without any computation at the remote memory side — ownership metadata is embedded directly in the RDMA latch word, enabling cache management via RDMA atomic operations. This is important because disaggregated memory nodes are often compute-limited.</p>
 <hr />
 <h2 id="14-storage-layer-technologies">14. Storage Layer Technologies</h2>
 <h3 id="14-1-cloud-object-storage-as-substrate">14.1 Cloud Object Storage as Substrate</h3>
-<pre><code>Service          Latency (first byte)   Throughput         Cost/GB/mo
-───────────────  ─────────────────────  ─────────────────  ──────────
-S3 Standard      50-200ms               Aggregate: TB/s+   ~$0.023
-S3 Express       Single-digit ms        10× S3 Standard    ~$0.16
-GCS Standard     50-200ms               Similar to S3      ~$0.020
-Azure Blob       50-200ms               Similar to S3      ~$0.018
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Service          Latency (first byte)   Throughput         Cost/GB/mo</span></span>
+<span class="giallo-l"><span>───────────────  ─────────────────────  ─────────────────  ──────────</span></span>
+<span class="giallo-l"><span>S3 Standard      50-200ms               Aggregate: TB/s+   ~$0.023</span></span>
+<span class="giallo-l"><span>S3 Express       Single-digit ms        10× S3 Standard    ~$0.16</span></span>
+<span class="giallo-l"><span>GCS Standard     50-200ms               Similar to S3      ~$0.020</span></span>
+<span class="giallo-l"><span>Azure Blob       50-200ms               Similar to S3      ~$0.018</span></span></code></pre>
 <p><strong>S3 Express One Zone (2023):</strong> a significant development — up to 10× lower latency than S3 Standard. Enables object storage as a viable tier for lower-latency workloads (e.g., Iceberg metadata, hot data in lakehouses).</p>
 <h3 id="14-2-rdma">14.2 RDMA</h3>
 <p>Remote Direct Memory Access enables ~1-5μs latency reads/writes across the network, bypassing the OS. Used by PolarDB, GaussDB, and CXL-based systems.</p>
-<pre><code>Traditional network path:        RDMA path:
-  App → kernel → TCP → NIC →     App → RDMA verb → NIC → wire
-  wire → NIC → TCP → kernel →    wire → NIC → App memory (DMA)
-  App
-  Latency: 50-500μs              Latency: 1-5μs
-</code></pre>
-<h3 id="14-3-cxl-compute-express-link">14.3 CXL (Compute Express Link)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Traditional network path:        RDMA path:</span></span>
+<span class="giallo-l"><span>  App → kernel → TCP → NIC →     App → RDMA verb → NIC → wire</span></span>
+<span class="giallo-l"><span>  wire → NIC → TCP → kernel →    wire → NIC → App memory (DMA)</span></span>
+<span class="giallo-l"><span>  App</span></span>
+<span class="giallo-l"><span>  Latency: 50-500μs              Latency: 1-5μs</span></span></code></pre><h3 id="14-3-cxl-compute-express-link">14.3 CXL (Compute Express Link)</h3>
 <p>CXL is a cache-coherent interconnect enabling memory disaggregation at the hardware level:</p>
-<pre><code>CXL 1.0 (2019): Cache coherence + memory semantics for accelerators
-CXL 2.0 (2022): Memory pooling via CXL Switch
-CXL 3.0 (2023): Multi-level switching, rack-scale memory pools
-CXL 4.0 (2025): Enhanced fabric, improved latency
-
-                 ┌────────┐    ┌────────┐
-                 │ CPU 1  │    │ CPU 2  │
-                 └───┬────┘    └───┬────┘
-                     │  CXL        │  CXL
-                 ┌───┴─────────────┴───┐
-                 │     CXL Switch      │
-                 └───┬─────┬─────┬─────┘
-                     │     │     │
-                 ┌───┴─┐ ┌┴───┐ ┌┴───┐
-                 │DRAM │ │DRAM│ │DRAM│  (memory pool)
-                 └─────┘ └────┘ └────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>CXL 1.0 (2019): Cache coherence + memory semantics for accelerators</span></span>
+<span class="giallo-l"><span>CXL 2.0 (2022): Memory pooling via CXL Switch</span></span>
+<span class="giallo-l"><span>CXL 3.0 (2023): Multi-level switching, rack-scale memory pools</span></span>
+<span class="giallo-l"><span>CXL 4.0 (2025): Enhanced fabric, improved latency</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>                 ┌────────┐    ┌────────┐</span></span>
+<span class="giallo-l"><span>                 │ CPU 1  │    │ CPU 2  │</span></span>
+<span class="giallo-l"><span>                 └───┬────┘    └───┬────┘</span></span>
+<span class="giallo-l"><span>                     │  CXL        │  CXL</span></span>
+<span class="giallo-l"><span>                 ┌───┴─────────────┴───┐</span></span>
+<span class="giallo-l"><span>                 │     CXL Switch      │</span></span>
+<span class="giallo-l"><span>                 └───┬─────┬─────┬─────┘</span></span>
+<span class="giallo-l"><span>                     │     │     │</span></span>
+<span class="giallo-l"><span>                 ┌───┴─┐ ┌┴───┐ ┌┴───┐</span></span>
+<span class="giallo-l"><span>                 │DRAM │ │DRAM│ │DRAM│  (memory pool)</span></span>
+<span class="giallo-l"><span>                 └─────┘ └────┘ └────┘</span></span></code></pre>
 <p><strong>For databases:</strong> CXL enables shared buffer pools across compute nodes with cache-coherent memory access. PolarDB-CXL demonstrated direct buffer pool access across machines, eliminating the per-page latency of RDMA-based approaches. CXL achieves 3.8× speedup over 200G RDMA.</p>
 <hr />
 <h2 id="15-advantages-and-trade-offs">15. Advantages and Trade-offs</h2>
@@ -914,31 +883,27 @@ CXL 4.0 (2025): Enhanced fabric, improved latency
 <h2 id="16-emerging-trends">16. Emerging Trends</h2>
 <h3 id="16-1-serverless-disaggregated-scale-to-zero">16.1 Serverless + Disaggregated (Scale-to-Zero)</h3>
 <p>Neon and Aurora Serverless represent the convergence: compute scales to zero, storage persists independently. User pays nothing when idle.</p>
-<pre><code>Idle:     Storage ✓ (persistent, cheap)   Compute ✗ (scaled to zero)
-Active:   Storage ✓                       Compute ✓ (spun up in seconds)
-</code></pre>
-<h3 id="16-2-lakehouse-architecture">16.2 Lakehouse Architecture</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Idle:     Storage ✓ (persistent, cheap)   Compute ✗ (scaled to zero)</span></span>
+<span class="giallo-l"><span>Active:   Storage ✓                       Compute ✓ (spun up in seconds)</span></span></code></pre><h3 id="16-2-lakehouse-architecture">16.2 Lakehouse Architecture</h3>
 <p>The lakehouse pattern applies disaggregation to analytics: open table formats (Iceberg, Delta Lake, Hudi) sit on object storage, and arbitrary compute engines (Spark, Trino, Flink, DuckDB) query the data independently.</p>
-<pre><code>Compute engines (disaggregated, interchangeable):
-  ┌───────┐  ┌───────┐  ┌───────┐  ┌───────┐
-  │ Spark │  │ Trino │  │ Flink │  │DuckDB │
-  └───┬───┘  └───┬───┘  └───┬───┘  └───┬───┘
-      └──────────┼──────────┼──────────┘
-                 │
-  ┌──────────────┴──────────────┐
-  │  Open Table Format Layer    │
-  │  (Iceberg / Delta / Hudi)   │
-  │  - Schema, partitioning     │
-  │  - ACID transactions        │
-  │  - Time travel, branching   │
-  └──────────────┬──────────────┘
-                 │
-  ┌──────────────┴──────────────┐
-  │  Object Storage (S3/GCS)    │
-  │  Parquet / ORC files        │
-  └─────────────────────────────┘
-</code></pre>
-<h3 id="16-3-cxl-memory-pooling">16.3 CXL Memory Pooling</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Compute engines (disaggregated, interchangeable):</span></span>
+<span class="giallo-l"><span>  ┌───────┐  ┌───────┐  ┌───────┐  ┌───────┐</span></span>
+<span class="giallo-l"><span>  │ Spark │  │ Trino │  │ Flink │  │DuckDB │</span></span>
+<span class="giallo-l"><span>  └───┬───┘  └───┬───┘  └───┬───┘  └───┬───┘</span></span>
+<span class="giallo-l"><span>      └──────────┼──────────┼──────────┘</span></span>
+<span class="giallo-l"><span>                 │</span></span>
+<span class="giallo-l"><span>  ┌──────────────┴──────────────┐</span></span>
+<span class="giallo-l"><span>  │  Open Table Format Layer    │</span></span>
+<span class="giallo-l"><span>  │  (Iceberg / Delta / Hudi)   │</span></span>
+<span class="giallo-l"><span>  │  - Schema, partitioning     │</span></span>
+<span class="giallo-l"><span>  │  - ACID transactions        │</span></span>
+<span class="giallo-l"><span>  │  - Time travel, branching   │</span></span>
+<span class="giallo-l"><span>  └──────────────┬──────────────┘</span></span>
+<span class="giallo-l"><span>                 │</span></span>
+<span class="giallo-l"><span>  ┌──────────────┴──────────────┐</span></span>
+<span class="giallo-l"><span>  │  Object Storage (S3/GCS)    │</span></span>
+<span class="giallo-l"><span>  │  Parquet / ORC files        │</span></span>
+<span class="giallo-l"><span>  └─────────────────────────────┘</span></span></code></pre><h3 id="16-3-cxl-memory-pooling">16.3 CXL Memory Pooling</h3>
 <p>CXL 2.0+ enables <strong>memory disaggregation</strong>: CPUs access a shared memory pool over the CXL fabric. This is a step beyond storage disaggregation — now even RAM is a shared, elastic resource.</p>
 <p>Database implications:</p>
 <ul>
@@ -1003,42 +968,41 @@ Active:   Storage ✓                       Compute ✓ (spun up in seconds)
 </ol>
 <hr />
 <h2 id="18-system-comparison-matrix">18. System Comparison Matrix</h2>
-<pre><code>System          Type   Storage Model          Compute-Storage    WAL Model          Replication
-                                              Link
-──────────────  ─────  ─────────────────────  ─────────────────  ─────────────────  ──────────────
-Aurora          OLTP   Smart storage (log→    TCP/IP             Partitioned WAL    Quorum (4/6)
-                       page materialization)                     across PGs
-
-Socrates        OLTP   Landing zone + page    TCP/IP + local SSD Log service →     Log replication
-                       servers + XStore                          page servers        to secondaries
-
-Neon            OLTP   Safekeepers + page-    TCP/IP + S3        Safekeepers        Paxos (WAL)
-                       server + S3                               (Paxos quorum)
-
-PolarDB         OLTP   PolarFS (distributed   RDMA (25Gbps)     Shared log via     ParallelRaft
-                       filesystem)                               PolarFS
-
-AlloyDB         OLTP   Intelligent storage    Google internal    LPS processes      Regional
-                       (LPS + block store)    network            WAL → blocks       replication
-
-Spanner         OLTP   B-trees + WAL on       Google internal    Per-split Paxos    Paxos (per split,
-                       Colossus (GFS v2)      network            log                cross-region)
-
-Snowflake       OLAP   S3/GCS/Azure Blob      TCP/IP            N/A (batch loads)  Object store
-                       (micro-partitions)                                           replication
-
-TiDB/TiKV       HTAP   Range-sharded Raft     TCP/IP            Per-range Raft     Multi-Raft
-                       groups                                    log                (3 replicas)
-
-FoundationDB    OLTP   Log servers + storage  TCP/IP             f+1 log servers    f+1 (eager
-                       servers (unbundled)                                          reconfiguration)
-
-GaussDB         OLTP   Memory layer + storage  RDMA              Multi-primary      Memory + storage
-                       layer (3-tier)                             WAL                checkpoints
-
-Aurora DSQL     OLTP   Journal + crossbar     AWS internal       Journal service    Multi-region
-                       (fully disaggregated)                                        active-active
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>System          Type   Storage Model          Compute-Storage    WAL Model          Replication</span></span>
+<span class="giallo-l"><span>                                              Link</span></span>
+<span class="giallo-l"><span>──────────────  ─────  ─────────────────────  ─────────────────  ─────────────────  ──────────────</span></span>
+<span class="giallo-l"><span>Aurora          OLTP   Smart storage (log→    TCP/IP             Partitioned WAL    Quorum (4/6)</span></span>
+<span class="giallo-l"><span>                       page materialization)                     across PGs</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Socrates        OLTP   Landing zone + page    TCP/IP + local SSD Log service →     Log replication</span></span>
+<span class="giallo-l"><span>                       servers + XStore                          page servers        to secondaries</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Neon            OLTP   Safekeepers + page-    TCP/IP + S3        Safekeepers        Paxos (WAL)</span></span>
+<span class="giallo-l"><span>                       server + S3                               (Paxos quorum)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>PolarDB         OLTP   PolarFS (distributed   RDMA (25Gbps)     Shared log via     ParallelRaft</span></span>
+<span class="giallo-l"><span>                       filesystem)                               PolarFS</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>AlloyDB         OLTP   Intelligent storage    Google internal    LPS processes      Regional</span></span>
+<span class="giallo-l"><span>                       (LPS + block store)    network            WAL → blocks       replication</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Spanner         OLTP   B-trees + WAL on       Google internal    Per-split Paxos    Paxos (per split,</span></span>
+<span class="giallo-l"><span>                       Colossus (GFS v2)      network            log                cross-region)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Snowflake       OLAP   S3/GCS/Azure Blob      TCP/IP            N/A (batch loads)  Object store</span></span>
+<span class="giallo-l"><span>                       (micro-partitions)                                           replication</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>TiDB/TiKV       HTAP   Range-sharded Raft     TCP/IP            Per-range Raft     Multi-Raft</span></span>
+<span class="giallo-l"><span>                       groups                                    log                (3 replicas)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>FoundationDB    OLTP   Log servers + storage  TCP/IP             f+1 log servers    f+1 (eager</span></span>
+<span class="giallo-l"><span>                       servers (unbundled)                                          reconfiguration)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>GaussDB         OLTP   Memory layer + storage  RDMA              Multi-primary      Memory + storage</span></span>
+<span class="giallo-l"><span>                       layer (3-tier)                             WAL                checkpoints</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Aurora DSQL     OLTP   Journal + crossbar     AWS internal       Journal service    Multi-region</span></span>
+<span class="giallo-l"><span>                       (fully disaggregated)                                        active-active</span></span></code></pre>
 <hr />
 <h2 id="see-also">See Also</h2>
 <ul>

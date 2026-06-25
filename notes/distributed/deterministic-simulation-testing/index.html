@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -86,29 +109,26 @@
 <h2 id="1-foundations">1. Foundations</h2>
 <h3 id="1-1-what-dst-is">1.1 What DST Is</h3>
 <p>DST runs an entire distributed system — multiple nodes, network, disk, clocks — inside a single-threaded, deterministic process. All sources of non-determinism (I/O, time, scheduling, random numbers) are replaced with controlled, seed-driven simulations. Given the same seed, the system executes the <strong>exact same sequence of events</strong> every time.</p>
-<pre><code>Traditional Testing:                    DST:
-  Real nodes, real network               All nodes in one process
-  Real clocks, real disk                 Simulated clock, simulated disk
-  Non-deterministic scheduling           Deterministic scheduling (PRNG)
-  Bugs may not reproduce                 Bugs always reproduce (same seed)
-  Hours per scenario                     Milliseconds per scenario
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Traditional Testing:                    DST:</span></span>
+<span class="giallo-l"><span>  Real nodes, real network               All nodes in one process</span></span>
+<span class="giallo-l"><span>  Real clocks, real disk                 Simulated clock, simulated disk</span></span>
+<span class="giallo-l"><span>  Non-deterministic scheduling           Deterministic scheduling (PRNG)</span></span>
+<span class="giallo-l"><span>  Bugs may not reproduce                 Bugs always reproduce (same seed)</span></span>
+<span class="giallo-l"><span>  Hours per scenario                     Milliseconds per scenario</span></span></code></pre>
 <p>Formally (Tornow, 2024): a system S with initial state σ and runtime R is deterministic if:</p>
-<pre><code>∀ σ ∈ Σ : | traces(S, σ, R) | = 1
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>∀ σ ∈ Σ : | traces(S, σ, R) | = 1</span></span></code></pre>
 <p>That is, for every initial state, there exists exactly one possible trace of external events. DST achieves this by replacing the non-deterministic runtime R with a deterministic simulator R_sim seeded by a PRNG.</p>
 <h3 id="1-2-the-core-insight">1.2 The Core Insight</h3>
 <p>All non-determinism in software comes from a small number of sources:</p>
-<pre><code>Source                  Solution in DST
-─────────────────────   ──────────────────────────────
-Thread scheduling       Single-threaded event loop
-Wall clock time         Simulated clock (discrete advances)
-Network I/O             Simulated network (in-process)
-Disk I/O                Simulated filesystem (in-memory)
-Random numbers          Seeded PRNG
-OS signals/interrupts   Not simulated (or intercepted)
-Hardware interrupts     Not simulated (or hypervisor)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Source                  Solution in DST</span></span>
+<span class="giallo-l"><span>─────────────────────   ──────────────────────────────</span></span>
+<span class="giallo-l"><span>Thread scheduling       Single-threaded event loop</span></span>
+<span class="giallo-l"><span>Wall clock time         Simulated clock (discrete advances)</span></span>
+<span class="giallo-l"><span>Network I/O             Simulated network (in-process)</span></span>
+<span class="giallo-l"><span>Disk I/O                Simulated filesystem (in-memory)</span></span>
+<span class="giallo-l"><span>Random numbers          Seeded PRNG</span></span>
+<span class="giallo-l"><span>OS signals/interrupts   Not simulated (or intercepted)</span></span>
+<span class="giallo-l"><span>Hardware interrupts     Not simulated (or hypervisor)</span></span></code></pre>
 <p>If you control all of these, execution becomes a deterministic function of the seed. This enables:</p>
 <ul>
 <li><strong>Perfect reproducibility</strong>: re-run any bug with the same seed</li>
@@ -145,34 +165,33 @@ Hardware interrupts     Not simulated (or hypervisor)
 <li><code>wait()</code> suspends an actor until a Future resolves (non-blocking, cooperative)</li>
 </ul>
 <p><strong>Key constructs:</strong></p>
-<pre><code data-lang="cpp">// ACTOR: declares an asynchronous function (compiled to a state machine)
-ACTOR Future&lt;int&gt; fetchAndAdd(Database db, Key key, int delta) {
-    state int current = wait(db.get(key));     // suspend until get() completes
-    wait(db.set(key, current + delta));        // suspend until set() completes
-    return current + delta;
-}
-
-// state keyword: variable survives across wait() calls
-// (local vars do NOT survive wait — Flow rewrites actors as classes)
-
-// choose...when: wait on multiple futures
-ACTOR void handleRequests(ServerInterface si) {
-    state int count = 0;
-    loop {
-        choose {
-            when(int x = waitNext(si.addCount.getFuture())) {
-                count += x;
-            }
-            when(Promise&lt;int&gt; r = waitNext(si.getCount.getFuture())) {
-                r.send(count);
-            }
-        }
-    }
-}
-
-// PromiseStream&lt;T&gt; / FutureStream&lt;T&gt;: multiple async messages
-// waitNext(): wait for next stream value
-</code></pre>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> ACTOR: declares an asynchronous function (compiled to a state machine)</span></span>
+<span class="giallo-l"><span>ACTOR Future</span><span class="z-keyword z-operator">&lt;</span><span class="z-storage z-type">int</span><span class="z-keyword z-operator">&gt;</span><span class="z-entity z-name z-function"> fetchAndAdd</span><span class="z-punctuation">(</span><span>Database db</span><span class="z-punctuation">,</span><span> Key key</span><span class="z-punctuation">,</span><span class="z-storage z-type"> int</span><span> delta</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>    state</span><span class="z-storage z-type"> int</span><span> current </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> wait</span><span class="z-punctuation">(</span><span class="z-variable z-other">db</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">get</span><span class="z-punctuation">(</span><span>key</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">     //</span><span class="z-comment"> suspend until get() completes</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    wait</span><span class="z-punctuation">(</span><span class="z-variable z-other">db</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">set</span><span class="z-punctuation">(</span><span>key</span><span class="z-punctuation">,</span><span> current </span><span class="z-keyword z-operator">+</span><span> delta</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">        //</span><span class="z-comment"> suspend until set() completes</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    return</span><span> current </span><span class="z-keyword z-operator">+</span><span> delta</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> state keyword: variable survives across wait() calls</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> (local vars do NOT survive wait — Flow rewrites actors as classes)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> choose...when: wait on multiple futures</span></span>
+<span class="giallo-l"><span>ACTOR</span><span class="z-storage z-type"> void</span><span class="z-entity z-name z-function"> handleRequests</span><span class="z-punctuation">(</span><span>ServerInterface si</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>    state</span><span class="z-storage z-type"> int</span><span> count </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>    loop </span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span>        choose </span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">            when</span><span class="z-punctuation">(</span><span class="z-storage z-type">int</span><span> x </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> waitNext</span><span class="z-punctuation">(</span><span class="z-variable z-other">si</span><span class="z-punctuation">.</span><span class="z-variable z-other">addCount</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">getFuture</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>                count </span><span class="z-keyword z-operator">+=</span><span> x</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">            }</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">            when</span><span class="z-punctuation">(</span><span>Promise</span><span class="z-keyword z-operator">&lt;</span><span class="z-storage z-type">int</span><span class="z-keyword z-operator">&gt;</span><span> r </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> waitNext</span><span class="z-punctuation">(</span><span class="z-variable z-other">si</span><span class="z-punctuation">.</span><span class="z-variable z-other">getCount</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">getFuture</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">                r</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">send</span><span class="z-punctuation">(</span><span>count</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">            }</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> PromiseStream&lt;T&gt; / FutureStream&lt;T&gt;: multiple async messages</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> waitNext(): wait for next stream value</span></span></code></pre>
 <p><strong>Why Flow enables DST:</strong></p>
 <ul>
 <li>All I/O goes through abstract interfaces (<code>INetwork</code>, <code>IAsyncFile</code>)</li>
@@ -181,44 +200,41 @@ ACTOR void handleRequests(ServerInterface si) {
 <li>In simulation: the event loop is replaced with a time-stepped simulator (<code>Sim2</code>)</li>
 <li>Same binary, two runtimes:</li>
 </ul>
-<pre><code>Production mode:   App → INetwork → Net2 (real TCP/epoll)
-                   App → IAsyncFile → AsyncFileNonDurable (real disk)
-
-Simulation mode:   App → INetwork → Sim2 (simulated network)
-                   App → IAsyncFile → SimAsyncFile (simulated disk)
-</code></pre>
-<h3 id="2-3-the-simulator-architecture">2.3 The Simulator Architecture</h3>
-<pre><code>┌─────────────────────────────────────────────────┐
-│              Single OS Process                   │
-│                                                  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
-│  │ Process 1│  │ Process 2│  │ Process 3│ ...   │
-│  │ (actors) │  │ (actors) │  │ (actors) │       │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘      │
-│       │              │              │            │
-│  ┌────┴──────────────┴──────────────┴────┐      │
-│  │         Simulated Network              │      │
-│  │  (latency, reordering, drops,          │      │
-│  │   partitions, connection failures)     │      │
-│  └────────────────┬──────────────────────┘      │
-│                   │                              │
-│  ┌────────────────┴──────────────────────┐      │
-│  │         Simulated Disk                 │      │
-│  │  (latency, torn writes, corruption,    │      │
-│  │   space exhaustion, power loss)        │      │
-│  └────────────────┬──────────────────────┘      │
-│                   │                              │
-│  ┌────────────────┴──────────────────────┐      │
-│  │         Simulated Clock                │      │
-│  │  (discrete advances, clock skew)       │      │
-│  └────────────────┬──────────────────────┘      │
-│                   │                              │
-│  ┌────────────────┴──────────────────────┐      │
-│  │         Deterministic Scheduler        │      │
-│  │  (seeded PRNG, priority queue)         │      │
-│  └───────────────────────────────────────┘      │
-└─────────────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Production mode:   App → INetwork → Net2 (real TCP/epoll)</span></span>
+<span class="giallo-l"><span>                   App → IAsyncFile → AsyncFileNonDurable (real disk)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Simulation mode:   App → INetwork → Sim2 (simulated network)</span></span>
+<span class="giallo-l"><span>                   App → IAsyncFile → SimAsyncFile (simulated disk)</span></span></code></pre><h3 id="2-3-the-simulator-architecture">2.3 The Simulator Architecture</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│              Single OS Process                   │</span></span>
+<span class="giallo-l"><span>│                                                  │</span></span>
+<span class="giallo-l"><span>│  ┌──────────┐  ┌──────────┐  ┌──────────┐      │</span></span>
+<span class="giallo-l"><span>│  │ Process 1│  │ Process 2│  │ Process 3│ ...   │</span></span>
+<span class="giallo-l"><span>│  │ (actors) │  │ (actors) │  │ (actors) │       │</span></span>
+<span class="giallo-l"><span>│  └────┬─────┘  └────┬─────┘  └────┬─────┘      │</span></span>
+<span class="giallo-l"><span>│       │              │              │            │</span></span>
+<span class="giallo-l"><span>│  ┌────┴──────────────┴──────────────┴────┐      │</span></span>
+<span class="giallo-l"><span>│  │         Simulated Network              │      │</span></span>
+<span class="giallo-l"><span>│  │  (latency, reordering, drops,          │      │</span></span>
+<span class="giallo-l"><span>│  │   partitions, connection failures)     │      │</span></span>
+<span class="giallo-l"><span>│  └────────────────┬──────────────────────┘      │</span></span>
+<span class="giallo-l"><span>│                   │                              │</span></span>
+<span class="giallo-l"><span>│  ┌────────────────┴──────────────────────┐      │</span></span>
+<span class="giallo-l"><span>│  │         Simulated Disk                 │      │</span></span>
+<span class="giallo-l"><span>│  │  (latency, torn writes, corruption,    │      │</span></span>
+<span class="giallo-l"><span>│  │   space exhaustion, power loss)        │      │</span></span>
+<span class="giallo-l"><span>│  └────────────────┬──────────────────────┘      │</span></span>
+<span class="giallo-l"><span>│                   │                              │</span></span>
+<span class="giallo-l"><span>│  ┌────────────────┴──────────────────────┐      │</span></span>
+<span class="giallo-l"><span>│  │         Simulated Clock                │      │</span></span>
+<span class="giallo-l"><span>│  │  (discrete advances, clock skew)       │      │</span></span>
+<span class="giallo-l"><span>│  └────────────────┬──────────────────────┘      │</span></span>
+<span class="giallo-l"><span>│                   │                              │</span></span>
+<span class="giallo-l"><span>│  ┌────────────────┴──────────────────────┐      │</span></span>
+<span class="giallo-l"><span>│  │         Deterministic Scheduler        │      │</span></span>
+<span class="giallo-l"><span>│  │  (seeded PRNG, priority queue)         │      │</span></span>
+<span class="giallo-l"><span>│  └───────────────────────────────────────┘      │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────┘</span></span></code></pre>
 <p><strong>What gets simulated:</strong></p>
 <ul>
 <li>Machine count, type, drive performance, storage capacity</li>
@@ -232,30 +248,28 @@ Simulation mode:   App → INetwork → Sim2 (simulated network)
 <p><strong>Scale</strong>: FoundationDB claims roughly <strong>one trillion CPU-hours</strong> of cumulative simulation testing.</p>
 <h3 id="2-4-buggify-cooperative-fault-injection">2.4 BUGGIFY: Cooperative Fault Injection</h3>
 <p><code>BUGGIFY</code> is a macro that injects faults <strong>only in simulation mode</strong>. In production builds, <code>BUGGIFY</code> always evaluates to false.</p>
-<pre><code data-lang="cpp">// In FoundationDB source code:
-if (BUGGIFY) {
-    // Only executes during simulation testing
-    wait(delay(deterministicRandom()-&gt;random01() * 10));  // random delay
-}
-
-if (BUGGIFY) {
-    throw io_error();  // simulate I/O failure
-}
-
-// BUGGIFY_WITH_PROB(p): fire with probability p
-if (BUGGIFY_WITH_PROB(0.01)) {
-    // 1% chance in simulation
-    connection.close();
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> In FoundationDB source code:</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">if</span><span class="z-punctuation"> (</span><span>BUGGIFY</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Only executes during simulation testing</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    wait</span><span class="z-punctuation">(</span><span class="z-entity z-name z-function">delay</span><span class="z-punctuation">(</span><span class="z-entity z-name z-function">deterministicRandom</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">-&gt;</span><span class="z-entity z-name z-function">random01</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> *</span><span class="z-constant"> 10</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> random delay</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">if</span><span class="z-punctuation"> (</span><span>BUGGIFY</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    throw</span><span class="z-entity z-name z-function"> io_error</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> simulate I/O failure</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> BUGGIFY_WITH_PROB(p): fire with probability p</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">if</span><span class="z-punctuation"> (</span><span class="z-entity z-name z-function">BUGGIFY_WITH_PROB</span><span class="z-punctuation">(</span><span class="z-constant">0</span><span class="z-constant">.</span><span class="z-constant">01</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> 1% chance in simulation</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    connection</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">close</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <p><strong>Why BUGGIFY is powerful</strong>: developers sprinkle <code>BUGGIFY</code> throughout the codebase at every point where something unusual could happen. This creates a cooperative fault injection system where the code itself knows its own failure modes. Over time, the codebase accumulates thousands of BUGGIFY sites covering edge cases that external fault injection could never target.</p>
 <h3 id="2-5-swarm-testing">2.5 Swarm Testing</h3>
 <p>FoundationDB uses <strong>swarm testing</strong> (Chen et al., ISSTA 2012): instead of running every test with all features enabled, each test run randomly enables/disables a subset of features and BUGGIFY sites. This dramatically increases coverage by exploring different regions of the state space.</p>
-<pre><code>Run 1: BUGGIFY sites {A, C, F} enabled, features {X, Z} on
-Run 2: BUGGIFY sites {B, D, E} enabled, features {Y} on
-Run 3: BUGGIFY sites {A, B, F} enabled, features {X, Y, Z} on
-...
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Run 1: BUGGIFY sites {A, C, F} enabled, features {X, Z} on</span></span>
+<span class="giallo-l"><span>Run 2: BUGGIFY sites {B, D, E} enabled, features {Y} on</span></span>
+<span class="giallo-l"><span>Run 3: BUGGIFY sites {A, B, F} enabled, features {X, Y, Z} on</span></span>
+<span class="giallo-l"><span>...</span></span></code></pre>
 <p><strong>"Swizzle-clogging"</strong>: a stress pattern that randomly stops and unclogs machine network connections to surface deep, rare bugs in connection management.</p>
 <h3 id="2-6-will-wilson-s-strange-loop-talk-2014">2.6 Will Wilson's Strange Loop Talk (2014)</h3>
 <p>The talk that introduced DST to the broader software community. Key claims:</p>
@@ -276,27 +290,25 @@ Run 3: BUGGIFY sites {A, B, F} enabled, features {X, Y, Z} on
 <li>Process scheduling order</li>
 <li>Workload generation</li>
 </ul>
-<pre><code data-lang="rust">// Pseudocode
-fn simulate(seed: u64, steps: usize) {
-    let mut rng = StdRng::seed_from_u64(seed);
-    let mut clock = SimulatedClock::new();
-    let mut network = SimulatedNetwork::new(&amp;mut rng);
-    let mut disk = SimulatedDisk::new(&amp;mut rng);
-    let mut scheduler = DeterministicScheduler::new(&amp;mut rng);
-
-    let cluster = spawn_cluster(&amp;scheduler, &amp;network, &amp;disk, &amp;clock);
-
-    for _ in 0..steps {
-        scheduler.run_next_event(&amp;mut clock);
-        inject_faults(&amp;mut rng, &amp;mut network, &amp;mut disk);
-        check_invariants(&amp;cluster);
-    }
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Pseudocode</span></span>
+<span class="giallo-l"><span class="z-keyword">fn</span><span class="z-entity z-name z-function"> simulate</span><span class="z-punctuation">(</span><span class="z-variable z-other">seed</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u64</span><span class="z-punctuation">,</span><span class="z-variable z-other"> steps</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-storage z-modifier"> mut</span><span class="z-variable z-other"> rng</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-type"> StdRng</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">seed_from_u64</span><span class="z-punctuation">(</span><span class="z-variable z-other">seed</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-storage z-modifier"> mut</span><span class="z-variable z-other"> clock</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-type"> SimulatedClock</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">new</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-storage z-modifier"> mut</span><span class="z-variable z-other"> network</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-type"> SimulatedNetwork</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">new</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-storage z-modifier">mut</span><span class="z-variable z-other"> rng</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-storage z-modifier"> mut</span><span class="z-variable z-other"> disk</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-type"> SimulatedDisk</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">new</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-storage z-modifier">mut</span><span class="z-variable z-other"> rng</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-storage z-modifier"> mut</span><span class="z-variable z-other"> scheduler</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-type"> DeterministicScheduler</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">new</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-storage z-modifier">mut</span><span class="z-variable z-other"> rng</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-variable z-other"> cluster</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-function"> spawn_cluster</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-variable z-other">scheduler</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-other">network</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-other">disk</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-other">clock</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">    for</span><span class="z-variable z-other"> _</span><span class="z-keyword"> in</span><span class="z-constant"> 0</span><span class="z-keyword z-operator">..</span><span class="z-variable z-other">steps</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        scheduler</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">run_next_event</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-storage z-modifier">mut</span><span class="z-variable z-other"> clock</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">        inject_faults</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-storage z-modifier">mut</span><span class="z-variable z-other"> rng</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-storage z-modifier">mut</span><span class="z-variable z-other"> network</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-storage z-modifier">mut</span><span class="z-variable z-other"> disk</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">        check_invariants</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-variable z-other">cluster</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <p><strong>Step 2: Replace real I/O with simulated I/O</strong></p>
-<pre><code>Real I/O path:        App → syscall → kernel → hardware
-Simulated I/O path:   App → simulated interface → in-process event queue
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Real I/O path:        App → syscall → kernel → hardware</span></span>
+<span class="giallo-l"><span>Simulated I/O path:   App → simulated interface → in-process event queue</span></span></code></pre>
 <p>The simulated network delivers messages via an in-memory priority queue ordered by simulated delivery time. The simulated disk writes to in-memory buffers with optional fault injection (torn writes, corruption).</p>
 <p><strong>Step 3: Simulated clock</strong></p>
 <p>Time does not advance with the wall clock. Instead, time advances discretely when:</p>
@@ -309,27 +321,25 @@ Simulated I/O path:   App → simulated interface → in-process event queue
 <p>All "nodes" run as coroutines/actors in a single thread. The scheduler controls which coroutine runs next using the seeded PRNG. This eliminates OS thread scheduling non-determinism entirely.</p>
 <h3 id="3-2-fault-injection">3.2 Fault Injection</h3>
 <p>A typical DST framework injects:</p>
-<pre><code>Category          Faults Injected
-─────────────     ──────────────────────────────────────────
-Network           Message delay, drop, reorder, duplicate
-                  Connection reset, timeout
-                  Network partition (asymmetric, symmetric)
-                  Bandwidth throttling
-Disk              Read/write latency spikes
-                  Torn writes (partial page writes)
-                  Bit corruption (bit rot)
-                  Space exhaustion (ENOSPC)
-                  I/O errors (EIO)
-Process           Crash at any point (SIGKILL simulation)
-                  Slow process (freeze for N seconds)
-                  Reboot with recovery
-Clock             Clock skew between nodes
-                  Clock jumps (NTP correction)
-                  Monotonic clock violations
-Datacenter        Full DC failure (all nodes in a DC crash)
-                  DC network isolation
-</code></pre>
-<h3 id="3-3-invariant-checking-test-oracles">3.3 Invariant Checking (Test Oracles)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Category          Faults Injected</span></span>
+<span class="giallo-l"><span>─────────────     ──────────────────────────────────────────</span></span>
+<span class="giallo-l"><span>Network           Message delay, drop, reorder, duplicate</span></span>
+<span class="giallo-l"><span>                  Connection reset, timeout</span></span>
+<span class="giallo-l"><span>                  Network partition (asymmetric, symmetric)</span></span>
+<span class="giallo-l"><span>                  Bandwidth throttling</span></span>
+<span class="giallo-l"><span>Disk              Read/write latency spikes</span></span>
+<span class="giallo-l"><span>                  Torn writes (partial page writes)</span></span>
+<span class="giallo-l"><span>                  Bit corruption (bit rot)</span></span>
+<span class="giallo-l"><span>                  Space exhaustion (ENOSPC)</span></span>
+<span class="giallo-l"><span>                  I/O errors (EIO)</span></span>
+<span class="giallo-l"><span>Process           Crash at any point (SIGKILL simulation)</span></span>
+<span class="giallo-l"><span>                  Slow process (freeze for N seconds)</span></span>
+<span class="giallo-l"><span>                  Reboot with recovery</span></span>
+<span class="giallo-l"><span>Clock             Clock skew between nodes</span></span>
+<span class="giallo-l"><span>                  Clock jumps (NTP correction)</span></span>
+<span class="giallo-l"><span>                  Monotonic clock violations</span></span>
+<span class="giallo-l"><span>Datacenter        Full DC failure (all nodes in a DC crash)</span></span>
+<span class="giallo-l"><span>                  DC network isolation</span></span></code></pre><h3 id="3-3-invariant-checking-test-oracles">3.3 Invariant Checking (Test Oracles)</h3>
 <p>DST is only useful if you can check that the system behaves correctly. Common invariant classes:</p>
 <p><strong>Safety properties</strong> (nothing bad happens):</p>
 <ul>
@@ -360,16 +370,15 @@ Datacenter        Full DC failure (all nodes in a DC crash)
 <p><strong>Core thesis</strong>: FoundationDB proved DST works, but required building a custom language (Flow) and simulator. Antithesis makes DST work for <strong>any software</strong> by operating at the hypervisor level.</p>
 <h3 id="4-2-the-determinator-deterministic-hypervisor">4.2 The Determinator (Deterministic Hypervisor)</h3>
 <p>Instead of requiring applications to be rewritten for a simulator, Antithesis runs unmodified software inside a <strong>deterministic hypervisor</strong> built on top of FreeBSD's bhyve.</p>
-<pre><code>FoundationDB approach:           Antithesis approach:
-
-  App (Flow actors)                App (any language)
-      │                                │
-  Sim2 (simulated runtime)            OS (Linux, unmodified)
-      │                                │
-  Host OS                          The Determinator (det. hypervisor)
-                                       │
-                                   Host OS
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>FoundationDB approach:           Antithesis approach:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  App (Flow actors)                App (any language)</span></span>
+<span class="giallo-l"><span>      │                                │</span></span>
+<span class="giallo-l"><span>  Sim2 (simulated runtime)            OS (Linux, unmodified)</span></span>
+<span class="giallo-l"><span>      │                                │</span></span>
+<span class="giallo-l"><span>  Host OS                          The Determinator (det. hypervisor)</span></span>
+<span class="giallo-l"><span>                                       │</span></span>
+<span class="giallo-l"><span>                                   Host OS</span></span></code></pre>
 <p><strong>How it achieves determinism:</strong></p>
 <ul>
 <li>Controls CPU instruction scheduling (deterministic virtual CPU)</li>
@@ -388,10 +397,9 @@ Datacenter        Full DC failure (all nodes in a DC crash)
 </ul>
 <h3 id="4-4-sometimes-always-never-assertions">4.4 Sometimes / Always / Never Assertions</h3>
 <p>Antithesis introduces a three-valued assertion model:</p>
-<pre><code>always(condition)     // Must be true in every execution (safety)
-sometimes(condition)  // Must be true in at least one execution (coverage)
-never(condition)      // Must be false in every execution (safety)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>always(condition)     // Must be true in every execution (safety)</span></span>
+<span class="giallo-l"><span>sometimes(condition)  // Must be true in at least one execution (coverage)</span></span>
+<span class="giallo-l"><span>never(condition)      // Must be false in every execution (safety)</span></span></code></pre>
 <p><code>sometimes</code> is the key innovation: it catches <strong>coverage gaps</strong>. If <code>sometimes(leader_elected_after_partition_heals)</code> never fires across millions of runs, your test workload isn't exercising that scenario — even though your code handles it.</p>
 <h3 id="4-5-notable-users">4.5 Notable Users</h3>
 <table><thead><tr><th>Company</th><th>What they test</th><th>Result</th></tr></thead><tbody>
@@ -434,58 +442,55 @@ never(condition)      // Must be false in every execution (safety)
 <li>Tests both safety AND liveness (system must make progress, not just avoid errors)</li>
 <li>Single-threaded in production too — no simulation tax for threading</li>
 </ul>
-<pre><code>VOPR Architecture:
-  ┌─────────────────────────────────────────┐
-  │          Single Zig Process              │
-  │                                          │
-  │  ┌────────┐ ┌────────┐ ┌────────┐      │
-  │  │Replica1│ │Replica2│ │Replica3│      │
-  │  └───┬────┘ └───┬────┘ └───┬────┘      │
-  │      │          │          │            │
-  │  ┌───┴──────────┴──────────┴───┐        │
-  │  │   Network Simulator          │        │
-  │  │ (drops, delays, partitions,  │        │
-  │  │  reordering, duplication)    │        │
-  │  └─────────────┬───────────────┘        │
-  │                │                         │
-  │  ┌─────────────┴───────────────┐        │
-  │  │   Storage Simulator          │        │
-  │  │ (torn writes, corruption,    │        │
-  │  │  latency, sector faults)     │        │
-  │  └─────────────┬───────────────┘        │
-  │                │                         │
-  │  ┌─────────────┴───────────────┐        │
-  │  │   State Checker              │        │
-  │  │ (AEGIS-128L checksums,       │        │
-  │  │  linearizability, liveness)  │        │
-  │  └─────────────────────────────┘        │
-  └─────────────────────────────────────────┘
-</code></pre>
-<h3 id="5-3-turmoil-rust-tokio-network-simulation">5.3 Turmoil (Rust, Tokio network simulation)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>VOPR Architecture:</span></span>
+<span class="giallo-l"><span>  ┌─────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>  │          Single Zig Process              │</span></span>
+<span class="giallo-l"><span>  │                                          │</span></span>
+<span class="giallo-l"><span>  │  ┌────────┐ ┌────────┐ ┌────────┐      │</span></span>
+<span class="giallo-l"><span>  │  │Replica1│ │Replica2│ │Replica3│      │</span></span>
+<span class="giallo-l"><span>  │  └───┬────┘ └───┬────┘ └───┬────┘      │</span></span>
+<span class="giallo-l"><span>  │      │          │          │            │</span></span>
+<span class="giallo-l"><span>  │  ┌───┴──────────┴──────────┴───┐        │</span></span>
+<span class="giallo-l"><span>  │  │   Network Simulator          │        │</span></span>
+<span class="giallo-l"><span>  │  │ (drops, delays, partitions,  │        │</span></span>
+<span class="giallo-l"><span>  │  │  reordering, duplication)    │        │</span></span>
+<span class="giallo-l"><span>  │  └─────────────┬───────────────┘        │</span></span>
+<span class="giallo-l"><span>  │                │                         │</span></span>
+<span class="giallo-l"><span>  │  ┌─────────────┴───────────────┐        │</span></span>
+<span class="giallo-l"><span>  │  │   Storage Simulator          │        │</span></span>
+<span class="giallo-l"><span>  │  │ (torn writes, corruption,    │        │</span></span>
+<span class="giallo-l"><span>  │  │  latency, sector faults)     │        │</span></span>
+<span class="giallo-l"><span>  │  └─────────────┬───────────────┘        │</span></span>
+<span class="giallo-l"><span>  │                │                         │</span></span>
+<span class="giallo-l"><span>  │  ┌─────────────┴───────────────┐        │</span></span>
+<span class="giallo-l"><span>  │  │   State Checker              │        │</span></span>
+<span class="giallo-l"><span>  │  │ (AEGIS-128L checksums,       │        │</span></span>
+<span class="giallo-l"><span>  │  │  linearizability, liveness)  │        │</span></span>
+<span class="giallo-l"><span>  │  └─────────────────────────────┘        │</span></span>
+<span class="giallo-l"><span>  └─────────────────────────────────────────┘</span></span></code></pre><h3 id="5-3-turmoil-rust-tokio-network-simulation">5.3 Turmoil (Rust, Tokio network simulation)</h3>
 <p>An importable Rust crate from the Tokio project. Provides deterministic execution by running multiple concurrent hosts within a single thread.</p>
-<pre><code data-lang="rust">use turmoil::Builder;
-
-#[test]
-fn test_partition_recovery() {
-    let mut sim = Builder::new().build();
-
-    sim.host(&quot;node-1&quot;, || async { /* node logic */ });
-    sim.host(&quot;node-2&quot;, || async { /* node logic */ });
-    sim.host(&quot;node-3&quot;, || async { /* node logic */ });
-
-    // Partition node-1 from the others
-    sim.partition(&quot;node-1&quot;, &quot;node-2&quot;);
-    sim.partition(&quot;node-1&quot;, &quot;node-3&quot;);
-
-    sim.run().unwrap();
-
-    // Heal the partition
-    sim.repair(&quot;node-1&quot;, &quot;node-2&quot;);
-    sim.repair(&quot;node-1&quot;, &quot;node-3&quot;);
-
-    sim.run().unwrap();
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-keyword">use</span><span class="z-entity z-name"> turmoil</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-type">Builder</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation">#</span><span class="z-punctuation">[</span><span>test</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span class="z-keyword">fn</span><span class="z-entity z-name z-function"> test_partition_recovery</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-storage z-modifier"> mut</span><span class="z-variable z-other"> sim</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-type"> Builder</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">new</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">build</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-variable z-other">    sim</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">host</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">node-1</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">,</span><span class="z-keyword z-operator z-logical"> |</span><span class="z-keyword z-operator z-logical">|</span><span class="z-keyword"> async</span><span class="z-punctuation"> {</span><span class="z-comment"> /*</span><span class="z-comment"> node logic </span><span class="z-comment">*/</span><span class="z-punctuation"> }</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    sim</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">host</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">node-2</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">,</span><span class="z-keyword z-operator z-logical"> |</span><span class="z-keyword z-operator z-logical">|</span><span class="z-keyword"> async</span><span class="z-punctuation"> {</span><span class="z-comment"> /*</span><span class="z-comment"> node logic </span><span class="z-comment">*/</span><span class="z-punctuation"> }</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    sim</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">host</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">node-3</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">,</span><span class="z-keyword z-operator z-logical"> |</span><span class="z-keyword z-operator z-logical">|</span><span class="z-keyword"> async</span><span class="z-punctuation"> {</span><span class="z-comment"> /*</span><span class="z-comment"> node logic </span><span class="z-comment">*/</span><span class="z-punctuation"> }</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Partition node-1 from the others</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    sim</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">partition</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">node-1</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">,</span><span class="z-punctuation"> &quot;</span><span class="z-string">node-2</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    sim</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">partition</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">node-1</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">,</span><span class="z-punctuation"> &quot;</span><span class="z-string">node-3</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-variable z-other">    sim</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">run</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">unwrap</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Heal the partition</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    sim</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">repair</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">node-1</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">,</span><span class="z-punctuation"> &quot;</span><span class="z-string">node-2</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    sim</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">repair</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">node-1</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">,</span><span class="z-punctuation"> &quot;</span><span class="z-string">node-3</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-variable z-other">    sim</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">run</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">unwrap</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <p><strong>Limitations:</strong></p>
 <ul>
 <li>Only simulates networking. Filesystem and other I/O are not simulated</li>
@@ -494,23 +499,21 @@ fn test_partition_recovery() {
 </ul>
 <h3 id="5-4-madsim-rust-full-async-runtime-replacement">5.4 MadSim (Rust, full async runtime replacement)</h3>
 <p>MadSim (Magical Deterministic Simulator) replaces the entire async runtime.</p>
-<pre><code>Production mode:  App → Tokio Runtime → OS
-Simulation mode:  App → MadSim Runtime → Simulated {Network, Time, Random, FS}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Production mode:  App → Tokio Runtime → OS</span></span>
+<span class="giallo-l"><span>Simulation mode:  App → MadSim Runtime → Simulated {Network, Time, Random, FS}</span></span></code></pre>
 <p><strong>Key technique: libc interception.</strong> Overloads <code>gettimeofday</code>, <code>clock_gettime</code>, <code>getrandom</code>, and <code>sysconf</code> at link time to control time and randomness at the OS level:</p>
-<pre><code data-lang="rust">// MadSim overrides libc symbols at link time
-#[no_mangle]
-pub unsafe extern &quot;C&quot; fn clock_gettime(
-    clk_id: libc::clockid_t,
-    tp: *mut libc::timespec,
-) -&gt; libc::c_int {
-    // Return simulated time instead of real time
-    let sim_time = SIMULATOR.with(|s| s.borrow().current_time());
-    (*tp).tv_sec = sim_time.as_secs() as i64;
-    (*tp).tv_nsec = sim_time.subsec_nanos() as i64;
-    0
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> MadSim overrides libc symbols at link time</span></span>
+<span class="giallo-l"><span class="z-punctuation">#</span><span class="z-punctuation">[</span><span>no_mangle</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span class="z-keyword">pub</span><span class="z-keyword"> unsafe</span><span class="z-storage z-type"> extern</span><span class="z-punctuation"> &quot;</span><span class="z-string">C</span><span class="z-punctuation">&quot;</span><span class="z-keyword"> fn</span><span class="z-entity z-name z-function"> clock_gettime</span><span class="z-punctuation">(</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    clk_id</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name"> libc</span><span class="z-keyword z-operator">::</span><span class="z-variable z-other">clockid_t</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    tp</span><span class="z-keyword z-operator">:</span><span class="z-keyword z-operator"> *</span><span class="z-storage z-modifier">mut</span><span class="z-entity z-name"> libc</span><span class="z-keyword z-operator">::</span><span class="z-variable z-other">timespec</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name"> libc</span><span class="z-keyword z-operator">::</span><span class="z-variable z-other">c_int</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Return simulated time instead of real time</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-variable z-other"> sim_time</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> SIMULATOR</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">with</span><span class="z-punctuation">(</span><span class="z-keyword z-operator z-logical">|</span><span class="z-variable z-other">s</span><span class="z-keyword z-operator z-logical">|</span><span class="z-variable z-other"> s</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">borrow</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">current_time</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    (</span><span class="z-keyword z-operator">*</span><span class="z-variable z-other">tp</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">.</span><span>tv_sec </span><span class="z-keyword z-operator">=</span><span class="z-variable z-other"> sim_time</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">as_secs</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword"> as</span><span class="z-entity z-name z-type"> i64</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    (</span><span class="z-keyword z-operator">*</span><span class="z-variable z-other">tp</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">.</span><span>tv_nsec </span><span class="z-keyword z-operator">=</span><span class="z-variable z-other"> sim_time</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">subsec_nanos</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword"> as</span><span class="z-entity z-name z-type"> i64</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-constant">    0</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <p><strong>Features:</strong></p>
 <ul>
 <li>API-compatible with Tokio (change <code>Cargo.toml</code>, not code)</li>
@@ -551,31 +554,30 @@ pub unsafe extern &quot;C&quot; fn clock_gettime(
 <p>Tyler Neely's claim: "Simulators give implementations that Jepsen will not find bugs in."</p>
 <h3 id="5-7-polar-signals-rust-state-machine-approach">5.7 Polar Signals (Rust, state machine approach)</h3>
 <p>Instead of using a deterministic runtime, Polar Signals modeled core components as <strong>explicit state machines</strong>:</p>
-<pre><code data-lang="rust">enum NodeAction {
-    SendMessage { to: NodeId, msg: Message },
-    WriteToDisk { key: Key, value: Value },
-    SetTimer { duration: Duration, callback: TimerId },
-}
-
-trait StateMachine {
-    fn handle_event(&amp;mut self, event: Event) -&gt; Vec&lt;NodeAction&gt;;
-}
-
-// The simulator drives state machines directly:
-fn simulate(seed: u64, steps: usize) {
-    let mut rng = StdRng::seed_from_u64(seed);
-    let mut nodes: Vec&lt;Box&lt;dyn StateMachine&gt;&gt; = create_cluster();
-    let mut event_queue: BinaryHeap&lt;TimedEvent&gt; = BinaryHeap::new();
-
-    for _ in 0..steps {
-        let event = event_queue.pop().unwrap();
-        let actions = nodes[event.target].handle_event(event.payload);
-        for action in actions {
-            schedule_action(&amp;mut event_queue, action, &amp;mut rng);
-        }
-    }
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-storage z-type">enum</span><span class="z-entity z-name z-type"> NodeAction</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">    SendMessage</span><span class="z-punctuation"> {</span><span class="z-variable z-other"> to</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> NodeId</span><span class="z-punctuation">,</span><span class="z-variable z-other"> msg</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> Message</span><span class="z-punctuation"> }</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">    WriteToDisk</span><span class="z-punctuation"> {</span><span class="z-variable z-other"> key</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> Key</span><span class="z-punctuation">,</span><span class="z-variable z-other"> value</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> Value</span><span class="z-punctuation"> }</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">    SetTimer</span><span class="z-punctuation"> {</span><span class="z-variable z-other"> duration</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> Duration</span><span class="z-punctuation">,</span><span class="z-variable z-other"> callback</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> TimerId</span><span class="z-punctuation"> }</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">trait</span><span class="z-entity z-name z-type"> StateMachine</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword">    fn</span><span class="z-entity z-name z-function"> handle_event</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-storage z-modifier">mut</span><span class="z-variable"> self</span><span class="z-punctuation">,</span><span class="z-variable z-other"> event</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> Event</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> Vec</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">NodeAction</span><span class="z-punctuation">&gt;</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> The simulator drives state machines directly:</span></span>
+<span class="giallo-l"><span class="z-keyword">fn</span><span class="z-entity z-name z-function"> simulate</span><span class="z-punctuation">(</span><span class="z-variable z-other">seed</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u64</span><span class="z-punctuation">,</span><span class="z-variable z-other"> steps</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-storage z-modifier"> mut</span><span class="z-variable z-other"> rng</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-type"> StdRng</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">seed_from_u64</span><span class="z-punctuation">(</span><span class="z-variable z-other">seed</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-storage z-modifier"> mut</span><span class="z-variable z-other"> nodes</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> Vec</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">Box</span><span class="z-punctuation">&lt;</span><span class="z-keyword">dyn</span><span class="z-entity z-name z-type"> StateMachine</span><span class="z-punctuation">&gt;</span><span class="z-punctuation">&gt;</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-function"> create_cluster</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-storage z-modifier"> mut</span><span class="z-variable z-other"> event_queue</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> BinaryHeap</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">TimedEvent</span><span class="z-punctuation">&gt;</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-type"> BinaryHeap</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">new</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">    for</span><span class="z-variable z-other"> _</span><span class="z-keyword"> in</span><span class="z-constant"> 0</span><span class="z-keyword z-operator">..</span><span class="z-variable z-other">steps</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">        let</span><span class="z-variable z-other"> event</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> event_queue</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">pop</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">unwrap</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">        let</span><span class="z-variable z-other"> actions</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> nodes</span><span class="z-punctuation">[</span><span class="z-variable z-other">event</span><span class="z-keyword z-operator">.</span><span>target</span><span class="z-punctuation">]</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">handle_event</span><span class="z-punctuation">(</span><span class="z-variable z-other">event</span><span class="z-keyword z-operator">.</span><span>payload</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        for</span><span class="z-variable z-other"> action</span><span class="z-keyword"> in</span><span class="z-variable z-other"> actions</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">            schedule_action</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-storage z-modifier">mut</span><span class="z-variable z-other"> event_queue</span><span class="z-punctuation">,</span><span class="z-variable z-other"> action</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-storage z-modifier">mut</span><span class="z-variable z-other"> rng</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <p><strong>Pro:</strong> inherently deterministic — a pure function from (state, event) → (new_state, actions). No runtime hacks, no libc overrides.
 <strong>Con:</strong> requires restructuring all code as state machines. Loses ability to test "real" async code paths.</p>
 <h3 id="5-8-gosim-go">5.8 Gosim (Go)</h3>
@@ -614,71 +616,65 @@ fn simulate(seed: u64, steps: usize) {
 <hr />
 <h2 id="6-comparison-with-other-testing-approaches">6. Comparison with Other Testing Approaches</h2>
 <h3 id="6-1-dst-vs-jepsen">6.1 DST vs. Jepsen</h3>
-<pre><code>                DST                              Jepsen
-                ───                              ─────
-Approach:       White-box simulation             Black-box fault injection
-                (runs inside simulator)          (runs on real cluster)
-Tests:          Real code, simulated env         Real code, real env
-Faults:         Simulated (precise control)      Real (iptables, kill -9)
-Determinism:    Yes (seed-based)                 No (real OS non-determinism)
-Reproducibility:Perfect                          Approximate (retry)
-Speed:          1000s of scenarios/sec           1-10 scenarios/hour
-Setup:          High (must integrate simulator)  Medium (Docker + Jepsen)
-Finds real I/O: No (except Antithesis)           Yes
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                DST                              Jepsen</span></span>
+<span class="giallo-l"><span>                ───                              ─────</span></span>
+<span class="giallo-l"><span>Approach:       White-box simulation             Black-box fault injection</span></span>
+<span class="giallo-l"><span>                (runs inside simulator)          (runs on real cluster)</span></span>
+<span class="giallo-l"><span>Tests:          Real code, simulated env         Real code, real env</span></span>
+<span class="giallo-l"><span>Faults:         Simulated (precise control)      Real (iptables, kill -9)</span></span>
+<span class="giallo-l"><span>Determinism:    Yes (seed-based)                 No (real OS non-determinism)</span></span>
+<span class="giallo-l"><span>Reproducibility:Perfect                          Approximate (retry)</span></span>
+<span class="giallo-l"><span>Speed:          1000s of scenarios/sec           1-10 scenarios/hour</span></span>
+<span class="giallo-l"><span>Setup:          High (must integrate simulator)  Medium (Docker + Jepsen)</span></span>
+<span class="giallo-l"><span>Finds real I/O: No (except Antithesis)           Yes</span></span></code></pre>
 <p><strong>When to use Jepsen:</strong> to validate that your system works in the real world with real OS, real network stacks, and real disk behavior. Jepsen is a <strong>validation tool</strong>. DST is a <strong>development tool</strong> that finds bugs before deployment.</p>
 <p><strong>Convergence:</strong> Jepsen 0.3.10 added support for running inside Antithesis, enabling deterministic replay of Jepsen scenarios.</p>
 <h3 id="6-2-dst-vs-tla-model-checking">6.2 DST vs. TLA+ / Model Checking</h3>
-<pre><code>                DST                              TLA+ / Model Checking
-                ───                              ────────────────────
-Tests:          Implementation (real code)       Specification (model)
-Language:       Production language               TLA+, P, Alloy
-Exhaustive:     No (random sampling)             Yes (within state bound)
-Finds impl bugs:Yes                              No (spec may be correct,
-                                                     impl may diverge)
-Finds design:   Sometimes                        Yes (finds spec bugs)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                DST                              TLA+ / Model Checking</span></span>
+<span class="giallo-l"><span>                ───                              ────────────────────</span></span>
+<span class="giallo-l"><span>Tests:          Implementation (real code)       Specification (model)</span></span>
+<span class="giallo-l"><span>Language:       Production language               TLA+, P, Alloy</span></span>
+<span class="giallo-l"><span>Exhaustive:     No (random sampling)             Yes (within state bound)</span></span>
+<span class="giallo-l"><span>Finds impl bugs:Yes                              No (spec may be correct,</span></span>
+<span class="giallo-l"><span>                                                     impl may diverge)</span></span>
+<span class="giallo-l"><span>Finds design:   Sometimes                        Yes (finds spec bugs)</span></span></code></pre>
 <p><strong>Complementary:</strong> TLA+ finds design bugs (the algorithm is wrong). DST finds implementation bugs (the code doesn't match the algorithm). Use both: TLA+ to verify the design, DST to verify the implementation. Amazon describes this dual approach (Newcombe et al., CACM 2015).</p>
 <h3 id="6-3-dst-vs-property-based-testing-quickcheck">6.3 DST vs. Property-Based Testing / QuickCheck</h3>
-<pre><code>                DST                              Property-Based Testing
-                ───                              ──────────────────────
-Scope:          Full system integration          Unit/component level
-Inputs:         Fault schedules + workloads      Input data
-Shrinking:      Seed-based (limited)             Automatic (QuickCheck)
-Finds:          Distributed/concurrent bugs      Logic bugs, edge cases
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                DST                              Property-Based Testing</span></span>
+<span class="giallo-l"><span>                ───                              ──────────────────────</span></span>
+<span class="giallo-l"><span>Scope:          Full system integration          Unit/component level</span></span>
+<span class="giallo-l"><span>Inputs:         Fault schedules + workloads      Input data</span></span>
+<span class="giallo-l"><span>Shrinking:      Seed-based (limited)             Automatic (QuickCheck)</span></span>
+<span class="giallo-l"><span>Finds:          Distributed/concurrent bugs      Logic bugs, edge cases</span></span></code></pre>
 <p>Natural complements. Many DST frameworks use PBT internally. TigerBeetle's VOPR is essentially a property-based test at the system level.</p>
 <h3 id="6-4-dst-vs-chaos-engineering">6.4 DST vs. Chaos Engineering</h3>
-<pre><code>                DST                              Chaos Engineering
-                ───                              ─────────────────
-Environment:    Simulated                        Production / staging
-Determinism:    Yes                              No
-Safety:         Zero risk (simulation)           Real risk
-Scope:          Correctness testing              Operational resilience
-Faults:         Precise, reproducible            Coarse, probabilistic
-Used by:        Developers during development    SREs in production
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                DST                              Chaos Engineering</span></span>
+<span class="giallo-l"><span>                ───                              ─────────────────</span></span>
+<span class="giallo-l"><span>Environment:    Simulated                        Production / staging</span></span>
+<span class="giallo-l"><span>Determinism:    Yes                              No</span></span>
+<span class="giallo-l"><span>Safety:         Zero risk (simulation)           Real risk</span></span>
+<span class="giallo-l"><span>Scope:          Correctness testing              Operational resilience</span></span>
+<span class="giallo-l"><span>Faults:         Precise, reproducible            Coarse, probabilistic</span></span>
+<span class="giallo-l"><span>Used by:        Developers during development    SREs in production</span></span></code></pre>
 <p>Chaos engineering (Chaos Monkey, LitmusChaos, Gremlin) tests <strong>operational resilience</strong>: can the system survive real failures? DST tests <strong>correctness</strong>: does the system produce correct results under failures? Different questions.</p>
 <h3 id="6-5-dst-vs-formal-verification-coq-dafny-verus">6.5 DST vs. Formal Verification (Coq, Dafny, Verus)</h3>
-<pre><code>                DST                              Formal Verification
-                ───                              ────────────────────
-Guarantee:      Statistical confidence           Mathematical proof
-Cost:           High (simulator)                 Very high (proof effort)
-Scope:          Full system                      Usually single component
-Real code:      Yes                              Depends (Verus = Rust)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                DST                              Formal Verification</span></span>
+<span class="giallo-l"><span>                ───                              ────────────────────</span></span>
+<span class="giallo-l"><span>Guarantee:      Statistical confidence           Mathematical proof</span></span>
+<span class="giallo-l"><span>Cost:           High (simulator)                 Very high (proof effort)</span></span>
+<span class="giallo-l"><span>Scope:          Full system                      Usually single component</span></span>
+<span class="giallo-l"><span>Real code:      Yes                              Depends (Verus = Rust)</span></span></code></pre>
 <p>IronFleet (Dafny), Verdi (Coq), and Verus (Rust) have formally verified distributed systems, but proof effort is enormous and doesn't extend to third-party dependencies.</p>
 <h3 id="6-6-summary-matrix">6.6 Summary Matrix</h3>
-<pre><code>           Design  Impl   Ops    Repro-     Cost       Scope
-           Bugs    Bugs   Bugs   ducible
-─────────  ──────  ─────  ─────  ────────   ─────────  ──────────
-DST        Some    Yes    No     Yes        Very High  Full system
-Jepsen     No      Yes    Some   No         Medium     Full system
-TLA+       Yes     No     No     N/A        High       Design only
-PBT        No      Yes    No     Yes        Low        Component
-Chaos      No      No     Yes    No         Low        Operations
-Formal     Yes     Dep.   No     N/A        Very High  Component
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>           Design  Impl   Ops    Repro-     Cost       Scope</span></span>
+<span class="giallo-l"><span>           Bugs    Bugs   Bugs   ducible</span></span>
+<span class="giallo-l"><span>─────────  ──────  ─────  ─────  ────────   ─────────  ──────────</span></span>
+<span class="giallo-l"><span>DST        Some    Yes    No     Yes        Very High  Full system</span></span>
+<span class="giallo-l"><span>Jepsen     No      Yes    Some   No         Medium     Full system</span></span>
+<span class="giallo-l"><span>TLA+       Yes     No     No     N/A        High       Design only</span></span>
+<span class="giallo-l"><span>PBT        No      Yes    No     Yes        Low        Component</span></span>
+<span class="giallo-l"><span>Chaos      No      No     Yes    No         Low        Operations</span></span>
+<span class="giallo-l"><span>Formal     Yes     Dep.   No     N/A        Very High  Component</span></span></code></pre>
 <hr />
 <h2 id="7-practical-considerations">7. Practical Considerations</h2>
 <h3 id="7-1-when-dst-is-worth-the-investment">7.1 When DST Is Worth the Investment</h3>
@@ -718,38 +714,35 @@ Formal     Yes     Dep.   No     N/A        Very High  Component
 <h3 id="7-3-the-simulation-tax">7.3 The Simulation Tax</h3>
 <p>Making code simulatable imposes costs:</p>
 <p><strong>1. Abstraction layers:</strong> all I/O must go through swappable interfaces.</p>
-<pre><code data-lang="cpp">// Direct I/O (fast, not simulatable):
-ssize_t n = write(fd, buf, len);
-
-// Abstracted I/O (simulatable, slight overhead):
-ssize_t n = g_io-&gt;write(fd, buf, len);
-</code></pre>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Direct I/O (fast, not simulatable):</span></span>
+<span class="giallo-l"><span class="z-storage z-type">ssize_t</span><span> n </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> write</span><span class="z-punctuation">(</span><span>fd</span><span class="z-punctuation">,</span><span> buf</span><span class="z-punctuation">,</span><span> len</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Abstracted I/O (simulatable, slight overhead):</span></span>
+<span class="giallo-l"><span class="z-storage z-type">ssize_t</span><span> n </span><span class="z-keyword z-operator">=</span><span class="z-variable z-other"> g_io</span><span class="z-punctuation">-&gt;</span><span class="z-entity z-name z-function">write</span><span class="z-punctuation">(</span><span>fd</span><span class="z-punctuation">,</span><span> buf</span><span class="z-punctuation">,</span><span> len</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre>
 <p><strong>2. Single-threaded constraint:</strong> if your system relies on multi-threading for performance, the single-threaded simulation may not test the same code paths. FoundationDB and TigerBeetle solve this by being single-threaded in production too.</p>
 <p><strong>3. No real concurrency testing:</strong> CPU-level concurrency bugs (atomics, lock-free data structures) are invisible in single-threaded simulation. Use <code>loom</code> (Rust) or ThreadSanitizer separately.</p>
 <p><strong>4. Simulation fidelity:</strong> a simulated disk that doesn't model torn writes will miss torn-write bugs. The simulation is only as good as the fault model.</p>
 <p><strong>5. Seed fragility:</strong> reproducibility only works if the code doesn't change. A code change may cause a previously-failing seed to take a completely different path. Requires continuous re-simulation.</p>
 <h3 id="7-4-architecture-patterns">7.4 Architecture Patterns</h3>
-<pre><code>Pattern 1: Interface-based swapping (FoundationDB)
-  Production:  App → INetwork → Net2 (real TCP)
-  Simulation:  App → INetwork → Sim2 (simulated)
-
-Pattern 2: libc interception (MadSim)
-  Production:  App → libc → kernel
-  Simulation:  App → intercepted libc → MadSim runtime
-
-Pattern 3: Runtime replacement (Turmoil, Gosim)
-  Production:  App → tokio/Go runtime → OS
-  Simulation:  App → turmoil/gosim runtime → simulated OS
-
-Pattern 4: Hypervisor (Antithesis)
-  Production:  App → OS → Hardware
-  Simulation:  App → OS → Deterministic Hypervisor
-
-Pattern 5: State machines (Polar Signals, Sled)
-  Production:  Event loop drives state machines via real I/O
-  Simulation:  Simulator drives state machines via simulated events
-</code></pre>
-<table><thead><tr><th>Pattern</th><th>Language Support</th><th>Code Changes</th><th>Fidelity</th><th>Performance</th></tr></thead><tbody>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Pattern 1: Interface-based swapping (FoundationDB)</span></span>
+<span class="giallo-l"><span>  Production:  App → INetwork → Net2 (real TCP)</span></span>
+<span class="giallo-l"><span>  Simulation:  App → INetwork → Sim2 (simulated)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Pattern 2: libc interception (MadSim)</span></span>
+<span class="giallo-l"><span>  Production:  App → libc → kernel</span></span>
+<span class="giallo-l"><span>  Simulation:  App → intercepted libc → MadSim runtime</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Pattern 3: Runtime replacement (Turmoil, Gosim)</span></span>
+<span class="giallo-l"><span>  Production:  App → tokio/Go runtime → OS</span></span>
+<span class="giallo-l"><span>  Simulation:  App → turmoil/gosim runtime → simulated OS</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Pattern 4: Hypervisor (Antithesis)</span></span>
+<span class="giallo-l"><span>  Production:  App → OS → Hardware</span></span>
+<span class="giallo-l"><span>  Simulation:  App → OS → Deterministic Hypervisor</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Pattern 5: State machines (Polar Signals, Sled)</span></span>
+<span class="giallo-l"><span>  Production:  Event loop drives state machines via real I/O</span></span>
+<span class="giallo-l"><span>  Simulation:  Simulator drives state machines via simulated events</span></span></code></pre><table><thead><tr><th>Pattern</th><th>Language Support</th><th>Code Changes</th><th>Fidelity</th><th>Performance</th></tr></thead><tbody>
 <tr><td>Interface-based</td><td>Language-specific</td><td>High (custom lang)</td><td>Highest</td><td>Fastest</td></tr>
 <tr><td>libc intercept</td><td>C/Rust (libc-based)</td><td>Low</td><td>High</td><td>Fast</td></tr>
 <tr><td>Runtime replace</td><td>Runtime-specific</td><td>Medium</td><td>Medium</td><td>Fast</td></tr>

@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -85,15 +108,14 @@
 <hr />
 <h2 id="1-exact-full-text-search">1. Exact / Full-Text Search</h2>
 <h3 id="1-1-inverted-index-anatomy">1.1 Inverted Index — Anatomy</h3>
-<pre><code>Term dictionary (FST / B-tree / BlockTree)
-        │ term -&gt; (df, posting offset, ...)
-        ▼
-Posting list  ─►  [ docId, tf, [pos1, pos2, ...] ]   per document
-        │
-        ├── compressed in blocks of 128 (Lucene), 64, 256 ...
-        ├── each block has a max docID + max impact (BMW)
-        └── skip list / forward index for random access
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Term dictionary (FST / B-tree / BlockTree)</span></span>
+<span class="giallo-l"><span>        │ term -&gt; (df, posting offset, ...)</span></span>
+<span class="giallo-l"><span>        ▼</span></span>
+<span class="giallo-l"><span>Posting list  ─►  [ docId, tf, [pos1, pos2, ...] ]   per document</span></span>
+<span class="giallo-l"><span>        │</span></span>
+<span class="giallo-l"><span>        ├── compressed in blocks of 128 (Lucene), 64, 256 ...</span></span>
+<span class="giallo-l"><span>        ├── each block has a max docID + max impact (BMW)</span></span>
+<span class="giallo-l"><span>        └── skip list / forward index for random access</span></span></code></pre>
 <p>Files in Lucene 9.x:</p>
 <ul>
 <li><code>.tip</code> — terms index (FST in RAM, prefix → on-disk block)</li>
@@ -122,20 +144,18 @@ Posting list  ─►  [ docId, tf, [pos1, pos2, ...] ]   per document
 <p><strong>Empirical ranking</strong> (Pibiri &amp; Venturini, "Techniques for Inverted Index Compression," CSUR 2021): PEF ≈ SIMD-BP128 in throughput; PEF wins compression on Gov2/ClueWeb; SIMD-BP128 wins decoding throughput on long lists; on short lists, Simple-family or VByte often beats SIMD codecs because of fixed-block overhead. QMX performs well on medium-length lists with skewed distributions. Clustered EF achieves the best space on highly clustered corpora.</p>
 <h3 id="1-3-skip-lists-block-max-indexes">1.3 Skip Lists, Block-Max Indexes</h3>
 <p>A posting list is partitioned into blocks of 128 docIDs (Lucene <code>Lucene90PostingsFormat</code>). Each block stores:</p>
-<pre><code>[ blockMaxDocID, blockMaxImpact, packed_bits_for_docs, packed_bits_for_freqs ]
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>[ blockMaxDocID, blockMaxImpact, packed_bits_for_docs, packed_bits_for_freqs ]</span></span></code></pre>
 <p>The <code>blockMaxImpact</code> is a precomputed score upper bound for any document in the block — the foundation of Block-Max WAND. Skip data allows jumping over entire blocks when the block's max impact cannot beat the current threshold θ.</p>
 <h3 id="1-4-query-processing-daat-taat-wand-maxscore-bmw-vbmw-jass">1.4 Query Processing — DAAT, TAAT, WAND, MaxScore, BMW, VBMW, JASS</h3>
 <p><strong>TAAT (Term-At-A-Time, Buckley &amp; Lewit 1985).</strong> Iterate one posting list to completion, accumulating scores per docID into a hash/array of accumulators. Random-access friendly but needs O(N) accumulators; falls out of favor on web-scale.</p>
 <p><strong>DAAT (Document-At-A-Time).</strong> Maintain one cursor per term, advance cursors in lockstep to the smallest current docID, score it. Needs only top-k heap; cache friendly; default in Lucene/Indri.</p>
 <p><strong>MaxScore (Turtle &amp; Flood — IPM 1995).</strong> Each term has an upper-bound impact <code>ub_t</code>. Sort terms by <code>ub_t</code>. Split into "essential" terms (whose collective <code>ub_t</code> exceeds θ, current k-th score) and "non-essential" terms. A document scores only if it appears in at least one essential list, so we can skip large portions of low-impact lists. As θ rises, more terms become non-essential ⇒ more skipping. More aggressive than WAND for skewed score distributions.</p>
 <p><strong>WAND (Broder, Carmel, Herscovici, Soffer, Zien — CIKM 2003).</strong> "Weak AND." Sort cursors by current docID. The pivot is the first cursor whose cumulative <code>ub</code> exceeds θ. If all cursors before pivot point at the pivot's doc, score it; else advance the lagging cursor to ≥ pivot doc.</p>
-<pre><code>Algorithm WAND:
-  maintain sorted list of (current_docID, term) pairs
-  pivot = first docID where cumulative UB scores exceed threshold θ
-  advance all terms behind pivot to ≥ pivot
-  fully evaluate only docs that survive pivot selection
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Algorithm WAND:</span></span>
+<span class="giallo-l"><span>  maintain sorted list of (current_docID, term) pairs</span></span>
+<span class="giallo-l"><span>  pivot = first docID where cumulative UB scores exceed threshold θ</span></span>
+<span class="giallo-l"><span>  advance all terms behind pivot to ≥ pivot</span></span>
+<span class="giallo-l"><span>  fully evaluate only docs that survive pivot selection</span></span></code></pre>
 <p>Faster than MaxScore for short queries; slower for long ones. Provably rank-safe (returns the same top-K as exhaustive DAAT). Production: 10–25 ms on typical web collections.</p>
 <p><strong>Block-Max WAND / BMW (Ding &amp; Suel — SIGIR 2011).</strong> WAND with block-level max impacts. After choosing a pivot, check the sum of <em>block</em> maxes (not list maxes) at that docID. If it can't beat θ, skip the entire block. ~2× speedup over WAND on TREC GOV2.</p>
 <p><strong>Block-Max MaxScore (Mallia &amp; Ottaviano — SIGIR 2017).</strong> Same block-max trick applied to MaxScore. Often beats BMW on long queries.</p>
@@ -145,13 +165,11 @@ Posting list  ─►  [ docId, tf, [pos1, pos2, ...] ]   per document
 <p><strong>Production status:</strong> Lucene/Elasticsearch use BMW + MaxScore. PISA (research) and Tantivy implement BMW/VBMW. Vespa uses WAND with rank thresholds.</p>
 <h3 id="1-5-bm25-tf-idf-bm25-bm25f">1.5 BM25 / TF-IDF / BM25+ / BM25F</h3>
 <p><strong>TF-IDF</strong> (Sparck Jones 1972, Robertson &amp; Spärck Jones 1976):</p>
-<pre><code>TF-IDF(t,d) = tf(t,d) × log(N / df(t))
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>TF-IDF(t,d) = tf(t,d) × log(N / df(t))</span></span></code></pre>
 <p><strong>BM25 (Robertson, Walker, Jones — TREC 1994):</strong></p>
-<pre><code>score(d, q) = Σ_{t ∈ q} IDF(t) · (tf_{t,d} · (k1+1)) / (tf_{t,d} + k1 · (1 - b + b · |d|/avgdl))
-
-IDF(t) = ln( (N - df_t + 0.5) / (df_t + 0.5) + 1 )
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>score(d, q) = Σ_{t ∈ q} IDF(t) · (tf_{t,d} · (k1+1)) / (tf_{t,d} + k1 · (1 - b + b · |d|/avgdl))</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>IDF(t) = ln( (N - df_t + 0.5) / (df_t + 0.5) + 1 )</span></span></code></pre>
 <ul>
 <li><code>k1 ∈ [1.2, 2.0]</code> controls TF saturation (Lucene default 1.2).</li>
 <li><code>b ∈ [0, 1]</code> controls length normalization (Lucene default 0.75).</li>
@@ -201,25 +219,24 @@ IDF(t) = ln( (N - df_t + 0.5) / (df_t + 0.5) + 1 )
 <li><strong>r-index (Gagie, Navarro, Prezza — SODA 2018).</strong> O(r) space where <code>r</code> = number of BWT runs. Practical for highly-repetitive text (1000-genomes project, Wikipedia edit history). Implemented in <code>pizzachili</code>, <code>sdsl-lite</code>.</li>
 </ul>
 <h3 id="1-10-lucene-elasticsearch-opensearch-internals">1.10 Lucene / Elasticsearch / OpenSearch Internals</h3>
-<pre><code>                  ┌─────────────────── Index ────────────────────┐
-                  │                                              │
-       Segment N (immutable) ◄── merging ──► Segment 1 (smallest)
-       (.fdt .fdx .tim .tip .doc .pos .pay .dvd .vec ...)
-                  │
-                  ├── Term dictionary (BlockTreeTermsWriter)
-                  │     • In-RAM FST over term-prefix → file offset
-                  │     • On-disk blocks, 25–48 entries; floor blocks for &gt;max
-                  │
-                  ├── Postings (Lucene90PostingsFormat)
-                  │     • PFor blocks of 128 docs, frequencies, positions
-                  │     • Skip data (impact + max-doc per block)
-                  │
-                  ├── Doc values (columnar, per-doc, for sort/agg/filter)
-                  │
-                  ├── BKD tree (Bkd-Tree, Procopiuc 2003) for numerics
-                  │
-                  └── HNSW vec format (Lucene 9.0+) — per-segment HNSW graph
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                  ┌─────────────────── Index ────────────────────┐</span></span>
+<span class="giallo-l"><span>                  │                                              │</span></span>
+<span class="giallo-l"><span>       Segment N (immutable) ◄── merging ──► Segment 1 (smallest)</span></span>
+<span class="giallo-l"><span>       (.fdt .fdx .tim .tip .doc .pos .pay .dvd .vec ...)</span></span>
+<span class="giallo-l"><span>                  │</span></span>
+<span class="giallo-l"><span>                  ├── Term dictionary (BlockTreeTermsWriter)</span></span>
+<span class="giallo-l"><span>                  │     • In-RAM FST over term-prefix → file offset</span></span>
+<span class="giallo-l"><span>                  │     • On-disk blocks, 25–48 entries; floor blocks for &gt;max</span></span>
+<span class="giallo-l"><span>                  │</span></span>
+<span class="giallo-l"><span>                  ├── Postings (Lucene90PostingsFormat)</span></span>
+<span class="giallo-l"><span>                  │     • PFor blocks of 128 docs, frequencies, positions</span></span>
+<span class="giallo-l"><span>                  │     • Skip data (impact + max-doc per block)</span></span>
+<span class="giallo-l"><span>                  │</span></span>
+<span class="giallo-l"><span>                  ├── Doc values (columnar, per-doc, for sort/agg/filter)</span></span>
+<span class="giallo-l"><span>                  │</span></span>
+<span class="giallo-l"><span>                  ├── BKD tree (Bkd-Tree, Procopiuc 2003) for numerics</span></span>
+<span class="giallo-l"><span>                  │</span></span>
+<span class="giallo-l"><span>                  └── HNSW vec format (Lucene 9.0+) — per-segment HNSW graph</span></span></code></pre>
 <p><strong>Refresh / commit / flush.</strong> New documents go to an in-memory <code>IndexWriter</code> buffer; <code>refresh</code> (default 1 s in ES) flushes to a new segment + opens a new <code>Searcher</code>; <code>flush</code> fsyncs translog. Segments are immutable; deletes are tombstones in a <code>.liv</code> bitset until merge.</p>
 <p><strong>TieredMergePolicy.</strong> Lucene's default since 4.0. Tier-based, picks N segments minimizing reclaimed-deletes-cost; default <code>maxMergedSegmentMB = 5 GB</code>. In Elasticsearch, force-merge to 1 segment for read-only indices.</p>
 <p><strong>BKD trees.</strong> Multidimensional KD-tree variants for points, ranges, geo. Replace numeric tries since Lucene 6.0.</p>
@@ -251,23 +268,22 @@ IDF(t) = ln( (N - df_t + 0.5) / (df_t + 0.5) + 1 )
 <p>State of the art for in-memory ANN on dense vectors.</p>
 <p><strong>NSW — Navigable Small World (Malkov, Ponomarenko, Logvinov, Krylov — Information Systems 2014).</strong> Build by greedy insert: connect new node to its <code>M</code> nearest neighbors in the partial graph. Search by greedy walk from random entry. "Small world" = short hop diameter. Log-scale complexity empirically.</p>
 <p><strong>HNSW — Hierarchical NSW (Malkov &amp; Yashunin — IEEE TPAMI 2018, arXiv 1603.09320).</strong> Multi-layer NSW. Each node's max layer drawn from <code>Geom(1/ln(M))</code>. Search descends layers from the top, performing greedy + best-first with priority queue at each layer. Logarithmic expected hops.</p>
-<pre><code>        layer 2:       o─────o────o            (very few nodes, long edges)
-                       │           │
-        layer 1:    o──o──o──o─────o──o        (fewer nodes, longer edges)
-                    │  │  │  │     │  │
-        layer 0:  o─o──o──o──o──o──o──o─o─o    (all nodes, short edges)
-                              ↑
-                     greedy descent + ef beam search at each layer
-
-Insert node v:
-  l = floor(-ln(uniform(0,1)) × mL)   # layer assignment, mL = 1/ln(M)
-  for layer = max_layer down to l+1:
-    greedy search, keep ef=1 candidate
-  for layer = l down to 0:
-    find ef candidates via greedy search
-    select M neighbors using heuristic (prefer diverse directions)
-    add bidirectional links
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>        layer 2:       o─────o────o            (very few nodes, long edges)</span></span>
+<span class="giallo-l"><span>                       │           │</span></span>
+<span class="giallo-l"><span>        layer 1:    o──o──o──o─────o──o        (fewer nodes, longer edges)</span></span>
+<span class="giallo-l"><span>                    │  │  │  │     │  │</span></span>
+<span class="giallo-l"><span>        layer 0:  o─o──o──o──o──o──o──o─o─o    (all nodes, short edges)</span></span>
+<span class="giallo-l"><span>                              ↑</span></span>
+<span class="giallo-l"><span>                     greedy descent + ef beam search at each layer</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Insert node v:</span></span>
+<span class="giallo-l"><span>  l = floor(-ln(uniform(0,1)) × mL)   # layer assignment, mL = 1/ln(M)</span></span>
+<span class="giallo-l"><span>  for layer = max_layer down to l+1:</span></span>
+<span class="giallo-l"><span>    greedy search, keep ef=1 candidate</span></span>
+<span class="giallo-l"><span>  for layer = l down to 0:</span></span>
+<span class="giallo-l"><span>    find ef candidates via greedy search</span></span>
+<span class="giallo-l"><span>    select M neighbors using heuristic (prefer diverse directions)</span></span>
+<span class="giallo-l"><span>    add bidirectional links</span></span></code></pre>
 <p>Hyperparameters:</p>
 <ul>
 <li><code>M</code> — max connections per node (default 16). Memory: <code>M * 4 bytes * N</code> for int32 IDs at layer 0, plus extra layers.</li>
@@ -278,14 +294,13 @@ Insert node v:
 <p>Space: O(n × M × layers) ≈ O(n × M). For M=16, d=128 float32: ~100–200 bytes/vector overhead for graph structure.</p>
 <p><strong>NSG — Navigating Spreading-out Graph (Fu, Xiang, Wang, Cai — VLDB 2019).</strong> Approximation of MRNG (Monotonic Relative Neighborhood Graph) with a single navigating node. Lower memory, slightly faster than HNSW for sequential queries; very low out-degree (avg ~3–5 vs HNSW ~M); deployed at Taobao for billion-scale.</p>
 <p><strong>Vamana / DiskANN (Subramanya, Devvrit, Kadekodi, Krishnaswamy, Simhadri — NeurIPS 2019).</strong> Single-layer graph (no hierarchy) with α-RNG pruning (α ≥ 1; α &gt; 1 increases shortcut edges). Designed so the graph fits on SSD with only PQ-compressed vectors in RAM. Beam search reads neighbors from SSD.</p>
-<pre><code>DiskANN search loop:
-  candidate-set ← {entry node}
-  while frontier not empty:
-      best B candidates ← extract B closest to query (in RAM, via PQ distances)
-      issue B parallel SSD reads for those nodes&#39; adjacency lists + full vectors
-      for each fetched neighbor: compute exact distance, push into priority queue
-  return top-k
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>DiskANN search loop:</span></span>
+<span class="giallo-l"><span>  candidate-set ← {entry node}</span></span>
+<span class="giallo-l"><span>  while frontier not empty:</span></span>
+<span class="giallo-l"><span>      best B candidates ← extract B closest to query (in RAM, via PQ distances)</span></span>
+<span class="giallo-l"><span>      issue B parallel SSD reads for those nodes&#39; adjacency lists + full vectors</span></span>
+<span class="giallo-l"><span>      for each fetched neighbor: compute exact distance, push into priority queue</span></span>
+<span class="giallo-l"><span>  return top-k</span></span></code></pre>
 <p>5–10× more points per node vs HNSW for billion-scale. SIFT1B at 95% recall@1, &lt;3 ms mean latency on 16-core box with 64 GB RAM + NVMe SSD.</p>
 <p><strong>FreshDiskANN (Singh et al. — arXiv 2105.09613).</strong> Three-tier: long-term DiskANN on SSD + short-term in-memory delta + tombstone bitset. Periodic background merge. Deployed in Bing.</p>
 <p><strong>IP-DiskANN (Krishnaswamy et al. — arXiv 2502.13826, 2025).</strong> First <em>true in-place</em> update protocol for graph indexes — no batch consolidation. Each insert/delete completes locally with bounded graph-quality degradation.</p>
@@ -331,8 +346,7 @@ Insert node v:
 <p><code>nprobe</code> tuning: too low → recall drops sharply; too high → linear-scan-bad. Typical: <code>nprobe = 16–64</code> for <code>nlist = 4096</code> on 1M vectors; scale <code>nlist ≈ 4·sqrt(N)</code>.</p>
 <h3 id="2-7-scann-google">2.7 ScaNN (Google)</h3>
 <p>Two-level + anisotropic-PQ:</p>
-<pre><code>[ Tree partitioning (nlist clusters) ] → [ AH — Asymmetric Hashing (4-bit PQ) ] → [ Re-rank top-r with full vectors ]
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>[ Tree partitioning (nlist clusters) ] → [ AH — Asymmetric Hashing (4-bit PQ) ] → [ Re-rank top-r with full vectors ]</span></span></code></pre>
 <p>The <code>Anisotropic</code> loss biases quantization to lose less along the direction of likely query inner-products. Wins ann-benchmarks for years.</p>
 <p><strong>SOAR (Sun et al., NeurIPS 2023).</strong> ScaNN extension with redundant orthogonal cluster assignments: each vector goes into multiple partitions whose centroid residuals are orthogonal, improving the <code>nprobe → recall</code> curve.</p>
 <h3 id="2-8-faiss-meta">2.8 FAISS (Meta)</h3>
@@ -380,9 +394,8 @@ Insert node v:
 <li><strong>uniCOIL (Lin &amp; Ma, arXiv 2106.14807).</strong> Single weight per token; trained with MSMARCO; serves on a vanilla inverted index.</li>
 <li><strong>SPLADE (Formal, Piwowarski, Clinchant — SIGIR 2021; SPLADE v2 — arXiv 2109.10086, 2021; SPLADE-v3 — arXiv 2403.06789, 2024).</strong> Uses BERT MLM head logits passed through <code>log(1 + ReLU(x))</code> and pooled (max in v2). Adds FLOPS regularizer for sparsity. Achieves dense-quality on BEIR while serving over an inverted index.</li>
 </ul>
-<pre><code>SPLADE(d)[v] = Σ_t log(1 + ReLU(BERT_MLM(d)_t[v]))   for each vocab term v
-Result: 30K-dim sparse vector, ~100–300 nonzeros per document
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>SPLADE(d)[v] = Σ_t log(1 + ReLU(BERT_MLM(d)_t[v]))   for each vocab term v</span></span>
+<span class="giallo-l"><span>Result: 30K-dim sparse vector, ~100–300 nonzeros per document</span></span></code></pre>
 <ul>
 <li><strong>TILDE / TILDEv2 (Zhuang &amp; Zuccon, SIGIR 2021).</strong> Document-side expansion, query-side BoW; very fast at query time.</li>
 <li><strong>CSPLADE (Amazon, AACL 2025).</strong> SPLADE on causal LM; better effectiveness from decoder-only models.</li>
@@ -391,8 +404,7 @@ Result: 30K-dim sparse vector, ~100–300 nonzeros per document
 <p><strong>Why LSR matters in production:</strong> fits the existing Lucene/Tantivy/PISA ecosystem; can be served with WAND/BMW; predictable latency tail; explainable (term-by-term attribution).</p>
 <h3 id="3-2-colbert-late-interaction">3.2 ColBERT — Late Interaction</h3>
 <p><strong>ColBERT (Khattab &amp; Zaharia — SIGIR 2020).</strong> Encode query and document into per-token vectors. Score is <code>MaxSim</code>:</p>
-<pre><code>s(q, d) = Σ_i max_j ⟨q_i , d_j⟩
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>s(q, d) = Σ_i max_j ⟨q_i , d_j⟩</span></span></code></pre>
 <p>Captures token-level interaction without crossing the bi-encoder boundary. ~10× more storage than dense (per-token vectors) but much higher accuracy.</p>
 <p><strong>ColBERTv2 (Santhanam, Khattab, Saad-Falcon, Potts, Zaharia — NAACL 2022).</strong> Centroid-based compression: cluster all token embeddings into K centroids; store <code>(centroidID, residual)</code> per token, residual quantized to 1–2 bits.</p>
 <p><strong>PLAID (Santhanam, Khattab, Potts, Zaharia — CIKM 2022).</strong> Centroid pruning: invert as <code>centroid → passages</code>; prune low-scoring passages via centroid scores; rerank with full MaxSim. 7× GPU / 45× CPU speedup vs ColBERTv2. Tens of ms latency for 140 M passages.</p>
@@ -401,8 +413,7 @@ Result: 30K-dim sparse vector, ~100–300 nonzeros per document
 <h3 id="3-3-hybrid-fusion">3.3 Hybrid Fusion</h3>
 <p><strong>Score fusion (linear combination):</strong> <code>s = α·s_dense + (1−α)·s_sparse</code>. Requires score normalization (z-score, min-max). Brittle when distributions shift.</p>
 <p><strong>RRF — Reciprocal Rank Fusion (Cormack, Clarke, Buettcher — SIGIR 2009):</strong></p>
-<pre><code>RRF(d) = Σ_r 1 / (k + rank_r(d))           with k typically = 60
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>RRF(d) = Σ_r 1 / (k + rank_r(d))           with k typically = 60</span></span></code></pre>
 <p>Rank-based, distribution-free, zero-tuning baseline. Standard in OpenSearch, Elastic, Azure AI Search, Milvus, Weaviate, Vespa, pgvector via <code>pgvectorscale</code>/<code>pgvector-rrf</code>. Works regardless of how many retrievers (dense + BM25 + SPLADE + ColPali + …).</p>
 <p><strong>Convex / weighted RRF, normalized RRF.</strong> Tuned per-corpus.</p>
 <p><strong>ConvexCombination, BordaCount, CombSUM, CombMNZ.</strong> Older but still occasionally optimal on specific domains.</p>
@@ -438,19 +449,17 @@ Result: 30K-dim sparse vector, ~100–300 nonzeros per document
 <li><strong>OpenAI text-embedding-3-small / large.</strong> Production-tier; supports MRL truncation.</li>
 </ul>
 <h3 id="4-2-training-recipes">4.2 Training Recipes</h3>
-<pre><code>1. Two-stage:
-   stage 1  weakly supervised, billions of (q, d⁺) pairs (web, Reddit, QnA)
-   stage 2  fine-tune on labeled triples (q, d⁺, hard d⁻) with InfoNCE
-2. Loss: InfoNCE / contrastive softmax
-        L = -log [ exp(s(q,d⁺)/τ) / Σ_d exp(s(q,d)/τ) ]
-3. Hard-negatives mining
-   • BM25 hard negatives (top BM25 hits that are NOT relevant)
-   • ANCE: refresh negatives from current model&#39;s nearest neighbors
-   • SimANS / NV-Retriever: positive-aware negative selection
-4. In-batch negatives + cross-batch (MoCo) for huge effective batch sizes
-5. Distillation from cross-encoder (RocketQA, RocketQAv2, Margin-MSE)
-</code></pre>
-<h3 id="4-3-matryoshka-representation-learning-mrl">4.3 Matryoshka Representation Learning (MRL)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>1. Two-stage:</span></span>
+<span class="giallo-l"><span>   stage 1  weakly supervised, billions of (q, d⁺) pairs (web, Reddit, QnA)</span></span>
+<span class="giallo-l"><span>   stage 2  fine-tune on labeled triples (q, d⁺, hard d⁻) with InfoNCE</span></span>
+<span class="giallo-l"><span>2. Loss: InfoNCE / contrastive softmax</span></span>
+<span class="giallo-l"><span>        L = -log [ exp(s(q,d⁺)/τ) / Σ_d exp(s(q,d)/τ) ]</span></span>
+<span class="giallo-l"><span>3. Hard-negatives mining</span></span>
+<span class="giallo-l"><span>   • BM25 hard negatives (top BM25 hits that are NOT relevant)</span></span>
+<span class="giallo-l"><span>   • ANCE: refresh negatives from current model&#39;s nearest neighbors</span></span>
+<span class="giallo-l"><span>   • SimANS / NV-Retriever: positive-aware negative selection</span></span>
+<span class="giallo-l"><span>4. In-batch negatives + cross-batch (MoCo) for huge effective batch sizes</span></span>
+<span class="giallo-l"><span>5. Distillation from cross-encoder (RocketQA, RocketQAv2, Margin-MSE)</span></span></code></pre><h3 id="4-3-matryoshka-representation-learning-mrl">4.3 Matryoshka Representation Learning (MRL)</h3>
 <p><strong>Kusupati, Bhatt, Rege, Wallingford, Sinha, Ramanujan, Howard-Snyder, Chen, Kakade, Jain, Farhadi — NeurIPS 2022 (arXiv 2205.13147).</strong> Train so that each prefix <code>[d_1 ... d_{d_i}]</code> is by itself a usable embedding. Each prefix nests like a Russian doll. At inference, truncate to whatever dimension the budget allows — no retraining. Used by OpenAI text-embedding-3, Cohere v3+, Gemini Embedding, BGE-M3 partly. Up to 14× smaller embedding for the same accuracy.</p>
 <h3 id="4-4-mteb-mmteb">4.4 MTEB / MMTEB</h3>
 <p><strong>MTEB (Muennighoff, Tazi, Magne, Reimers — EACL 2023).</strong> ~50 tasks across classification, clustering, reranking, retrieval, STS, summarization, pair classification, bitext mining; in 2024–2025 expanded to <strong>MMTEB</strong> (over 500 tasks, 1000+ languages, including instruction-following and long-document retrieval, OpenReview 2025).</p>
@@ -493,22 +502,20 @@ Result: 30K-dim sparse vector, ~100–300 nonzeros per document
 <hr />
 <h2 id="6-production-vector-search-systems">6. Production Vector Search Systems</h2>
 <h3 id="6-1-architecture-taxonomy">6.1 Architecture Taxonomy</h3>
-<pre><code>                  ┌──────────────────────────────────────────────────┐
-                  │ Vector DB Architectural Patterns                  │
-                  │                                                    │
-  Standalone:     │  Client → [Index + Storage] → Result             │
-                  │  (pgvector, FAISS, Qdrant standalone)             │
-                  │                                                    │
-  Distributed:    │  Client → Proxy → [QueryNode × N] ← [DataNode]  │
-                  │                        ↑                          │
-                  │               [ObjectStorage + WAL]               │
-                  │  (Milvus, Elasticsearch, Weaviate distributed)    │
-                  │                                                    │
-  Serverless:     │  Client → Router → [Compute Pods] + [S3 Index]  │
-                  │  (Pinecone serverless, Turbopuffer)               │
-                  └──────────────────────────────────────────────────┘
-</code></pre>
-<h3 id="6-2-elasticsearch-opensearch">6.2 Elasticsearch / OpenSearch</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                  ┌──────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>                  │ Vector DB Architectural Patterns                  │</span></span>
+<span class="giallo-l"><span>                  │                                                    │</span></span>
+<span class="giallo-l"><span>  Standalone:     │  Client → [Index + Storage] → Result             │</span></span>
+<span class="giallo-l"><span>                  │  (pgvector, FAISS, Qdrant standalone)             │</span></span>
+<span class="giallo-l"><span>                  │                                                    │</span></span>
+<span class="giallo-l"><span>  Distributed:    │  Client → Proxy → [QueryNode × N] ← [DataNode]  │</span></span>
+<span class="giallo-l"><span>                  │                        ↑                          │</span></span>
+<span class="giallo-l"><span>                  │               [ObjectStorage + WAL]               │</span></span>
+<span class="giallo-l"><span>                  │  (Milvus, Elasticsearch, Weaviate distributed)    │</span></span>
+<span class="giallo-l"><span>                  │                                                    │</span></span>
+<span class="giallo-l"><span>  Serverless:     │  Client → Router → [Compute Pods] + [S3 Index]  │</span></span>
+<span class="giallo-l"><span>                  │  (Pinecone serverless, Turbopuffer)               │</span></span>
+<span class="giallo-l"><span>                  └──────────────────────────────────────────────────┘</span></span></code></pre><h3 id="6-2-elasticsearch-opensearch">6.2 Elasticsearch / OpenSearch</h3>
 <ul>
 <li>Lucene-backed; KNN via per-segment HNSW from Lucene 9.</li>
 <li>BBQ binary quantization GA in 8.18 / 9.0 (2025); claims 5× faster than OpenSearch + FAISS at same recall.</li>
@@ -517,13 +524,12 @@ Result: 30K-dim sparse vector, ~100–300 nonzeros per document
 <li>OpenSearch 3.0 ships GPU CAGRA via cuVS as preview.</li>
 </ul>
 <h3 id="6-3-milvus-2-x-zilliz">6.3 Milvus 2.x (Zilliz)</h3>
-<pre><code>[ Proxy ] → [ Coordinator (Root/Query/Data/Index) ] → [ Workers (Query, Data, Index nodes) ]
-                                  │
-                                  ▼
-                          [ Object storage: S3 / MinIO ]
-                          [ WAL: Pulsar / Kafka ]
-                          [ Metadata: etcd ]
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>[ Proxy ] → [ Coordinator (Root/Query/Data/Index) ] → [ Workers (Query, Data, Index nodes) ]</span></span>
+<span class="giallo-l"><span>                                  │</span></span>
+<span class="giallo-l"><span>                                  ▼</span></span>
+<span class="giallo-l"><span>                          [ Object storage: S3 / MinIO ]</span></span>
+<span class="giallo-l"><span>                          [ WAL: Pulsar / Kafka ]</span></span>
+<span class="giallo-l"><span>                          [ Metadata: etcd ]</span></span></code></pre>
 <ul>
 <li>Disaggregated compute/storage, cloud-native.</li>
 <li><strong>Growing segments</strong> in memory (no index, brute-force search) → <strong>Sealed segments</strong> with Knowhere index on object store.</li>
@@ -609,13 +615,12 @@ Result: 30K-dim sparse vector, ~100–300 nonzeros per document
 <li>Search: parallel multi-start beam search; threads cooperate within a query; Tensor Cores for distance batches.</li>
 <li>Tightly bound register usage so each warp processes a query.</li>
 </ol>
-<pre><code>For each query (warp-level):
-  initialize beam from random/seed nodes
-  while not converged:
-    for each frontier node in parallel: load neighbors, compute distances (FP16/FP32)
-    update visited bitmap
-  emit top-k
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>For each query (warp-level):</span></span>
+<span class="giallo-l"><span>  initialize beam from random/seed nodes</span></span>
+<span class="giallo-l"><span>  while not converged:</span></span>
+<span class="giallo-l"><span>    for each frontier node in parallel: load neighbors, compute distances (FP16/FP32)</span></span>
+<span class="giallo-l"><span>    update visited bitmap</span></span>
+<span class="giallo-l"><span>  emit top-k</span></span></code></pre>
 <p>Performance (H100, 100M float32 / d=768): build in seconds, search at hundreds of thousands QPS at recall@10 ≥ 95%. Construction: 2.2–27× faster than HNSW; search (large batch): 33–77× faster than HNSW in 90–95% recall range. Single-query: use CPU HNSW.</p>
 <table><thead><tr><th>Scenario</th><th>Recommendation</th></tr></thead><tbody>
 <tr><td>Offline index build, large corpus</td><td>CAGRA / GPU FAISS IVF build → export to CPU</td></tr>
@@ -665,13 +670,12 @@ Result: 30K-dim sparse vector, ~100–300 nonzeros per document
 <li><strong>Big-ANN-Benchmarks</strong> (Simhadri et al., NeurIPS 2021 / NeurIPS 2023 competition). Billion-scale and practical variants: filtered, sparse, OOD, streaming. NeurIPS'23 had 26 entries across 4 tracks.</li>
 </ul>
 <h3 id="9-3-latency-anatomy-web-scale-rag-target-500-ms-wall-clock">9.3 Latency Anatomy (web-scale RAG, target 500 ms wall clock)</h3>
-<pre><code>Query embedding             5–15 ms (small dense model on GPU)
-ANN search (top 200)        5–30 ms (HNSW or DiskANN single shard)
-BM25 / SPLADE search        2–10 ms (PISA / Tantivy / Lucene)
-Fusion + dedupe             &lt;1 ms
-Cross-encoder rerank top 50 30–80 ms (MiniLM)
-LLM generation             100–300 ms (TTFT) + streaming
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Query embedding             5–15 ms (small dense model on GPU)</span></span>
+<span class="giallo-l"><span>ANN search (top 200)        5–30 ms (HNSW or DiskANN single shard)</span></span>
+<span class="giallo-l"><span>BM25 / SPLADE search        2–10 ms (PISA / Tantivy / Lucene)</span></span>
+<span class="giallo-l"><span>Fusion + dedupe             &lt;1 ms</span></span>
+<span class="giallo-l"><span>Cross-encoder rerank top 50 30–80 ms (MiniLM)</span></span>
+<span class="giallo-l"><span>LLM generation             100–300 ms (TTFT) + streaming</span></span></code></pre>
 <hr />
 <h2 id="10-decision-cheat-sheet">10. Decision Cheat Sheet</h2>
 <table><thead><tr><th>Need</th><th>First choice</th></tr></thead><tbody>

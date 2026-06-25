@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -118,42 +141,36 @@
 <hr />
 <h2 id="type-specific-layouts">Type-Specific Layouts</h2>
 <h3 id="primitive-types-fixed-width">Primitive Types (Fixed-Width)</h3>
-<pre><code>Int32Array [1, 2, 3, NULL, 5]:
-  Validity: [0b00010111]  (LSB: bits 0,1,2,4 valid; bit 3 null)
-  Data:     [01 00 00 00][02 00 00 00][03 00 00 00][XX XX XX XX][05 00 00 00]
-            (little-endian, 4 bytes each)
-</code></pre>
-<h3 id="boolean-arrays">Boolean Arrays</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Int32Array [1, 2, 3, NULL, 5]:</span></span>
+<span class="giallo-l"><span>  Validity: [0b00010111]  (LSB: bits 0,1,2,4 valid; bit 3 null)</span></span>
+<span class="giallo-l"><span>  Data:     [01 00 00 00][02 00 00 00][03 00 00 00][XX XX XX XX][05 00 00 00]</span></span>
+<span class="giallo-l"><span>            (little-endian, 4 bytes each)</span></span></code></pre><h3 id="boolean-arrays">Boolean Arrays</h3>
 <ul>
 <li>Bit-packed: 1 bit per value (vs PostgreSQL's 1 byte)</li>
 <li>LSB ordering within each byte</li>
 </ul>
 <h3 id="variable-length-strings-binary">Variable-Length (Strings, Binary)</h3>
-<pre><code>StringArray [&quot;hello&quot;, &quot;world&quot;, &quot;!&quot;]:
-  Offsets (n+1 elements): [0, 5, 10, 11]
-  Data: &quot;helloworld!&quot;
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>StringArray [&quot;hello&quot;, &quot;world&quot;, &quot;!&quot;]:</span></span>
+<span class="giallo-l"><span>  Offsets (n+1 elements): [0, 5, 10, 11]</span></span>
+<span class="giallo-l"><span>  Data: &quot;helloworld!&quot;</span></span></code></pre>
 <ul>
 <li><strong>Critical</strong>: Offsets array has n+1 elements for n strings</li>
 <li><strong>Large variants</strong>: LargeUtf8/LargeBinary use Int64 offsets (&gt; 2GB)</li>
 </ul>
 <h3 id="nested-types">Nested Types</h3>
 <h4 id="list">List<T></h4>
-<pre><code>List&lt;Int32&gt; [[1,2], [3], [4,5,6]]:
-  Offsets: [0, 2, 3, 6]
-  Child Int32Array: [1, 2, 3, 4, 5, 6]
-</code></pre>
-<h4 id="struct">Struct</h4>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>List&lt;Int32&gt; [[1,2], [3], [4,5,6]]:</span></span>
+<span class="giallo-l"><span>  Offsets: [0, 2, 3, 6]</span></span>
+<span class="giallo-l"><span>  Child Int32Array: [1, 2, 3, 4, 5, 6]</span></span></code></pre><h4 id="struct">Struct</h4>
 <ul>
 <li>Multiple child arrays with shared validity</li>
 <li>Child values undefined when parent struct is null</li>
 </ul>
 <h3 id="dictionary-encoding">Dictionary Encoding</h3>
-<pre><code>Original: [&quot;red&quot;, &quot;blue&quot;, &quot;red&quot;, &quot;red&quot;, &quot;blue&quot;]
-Encoded:
-  Dictionary: [&quot;red&quot;, &quot;blue&quot;]
-  Indices:    [0, 1, 0, 0, 1]
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Original: [&quot;red&quot;, &quot;blue&quot;, &quot;red&quot;, &quot;red&quot;, &quot;blue&quot;]</span></span>
+<span class="giallo-l"><span>Encoded:</span></span>
+<span class="giallo-l"><span>  Dictionary: [&quot;red&quot;, &quot;blue&quot;]</span></span>
+<span class="giallo-l"><span>  Indices:    [0, 1, 0, 0, 1]</span></span></code></pre>
 <ul>
 <li>Excellent for low-cardinality string columns</li>
 <li>10-100x space savings possible</li>
@@ -178,30 +195,25 @@ Encoded:
 <tr><td><code>composite</code></td><td><code>Struct</code></td><td>Map fields</td></tr>
 </tbody></table>
 <h3 id="epoch-conversion-constants">Epoch Conversion Constants</h3>
-<pre><code data-lang="rust">const POSTGRES_EPOCH_DAYS: i32 = 10957;  // 1970-01-01 to 2000-01-01
-const POSTGRES_EPOCH_MICROS: i64 = 946_684_800_000_000;
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> POSTGRES_EPOCH_DAYS</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> i32</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 10957</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> 1970-01-01 to 2000-01-01</span></span>
+<span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> POSTGRES_EPOCH_MICROS</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> i64</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 946_684_800_000_000</span><span class="z-punctuation">;</span></span></code></pre>
 <hr />
 <h2 id="ipc-file-format">IPC/File Format</h2>
 <h3 id="streaming-format">Streaming Format</h3>
-<pre><code>Schema Message
-RecordBatch Message 1
-RecordBatch Message 2
-...
-End of Stream marker (0xFFFFFFFF 0x00000000)
-</code></pre>
-<h3 id="file-format-feather-v2">File Format (Feather v2)</h3>
-<pre><code>ARROW1 (magic, 6 bytes)
-Padding (2 bytes)
-Schema Message
-RecordBatch 1
-RecordBatch 2
-...
-Footer (schema copy, batch locations, dictionary locations)
-Footer Length (4 bytes)
-ARROW1 (magic, 6 bytes)
-</code></pre>
-<h3 id="message-structure">Message Structure</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Schema Message</span></span>
+<span class="giallo-l"><span>RecordBatch Message 1</span></span>
+<span class="giallo-l"><span>RecordBatch Message 2</span></span>
+<span class="giallo-l"><span>...</span></span>
+<span class="giallo-l"><span>End of Stream marker (0xFFFFFFFF 0x00000000)</span></span></code></pre><h3 id="file-format-feather-v2">File Format (Feather v2)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>ARROW1 (magic, 6 bytes)</span></span>
+<span class="giallo-l"><span>Padding (2 bytes)</span></span>
+<span class="giallo-l"><span>Schema Message</span></span>
+<span class="giallo-l"><span>RecordBatch 1</span></span>
+<span class="giallo-l"><span>RecordBatch 2</span></span>
+<span class="giallo-l"><span>...</span></span>
+<span class="giallo-l"><span>Footer (schema copy, batch locations, dictionary locations)</span></span>
+<span class="giallo-l"><span>Footer Length (4 bytes)</span></span>
+<span class="giallo-l"><span>ARROW1 (magic, 6 bytes)</span></span></code></pre><h3 id="message-structure">Message Structure</h3>
 <ul>
 <li>Continuation marker (4B): 0xFFFFFFFF</li>
 <li>Metadata length (4B)</li>
@@ -285,9 +297,7 @@ ARROW1 (magic, 6 bytes)
 <hr />
 <h2 id="implementation-decision-chosen-approach">Implementation Decision: Chosen Approach</h2>
 <h3 id="architecture">Architecture</h3>
-<pre><code>PostgreSQL Pages -&gt; Tuple Parser -&gt; Type Converter -&gt; Batch Builder -&gt; IPC Writer
-</code></pre>
-<h3 id="key-decisions">Key Decisions</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>PostgreSQL Pages -&gt; Tuple Parser -&gt; Type Converter -&gt; Batch Builder -&gt; IPC Writer</span></span></code></pre><h3 id="key-decisions">Key Decisions</h3>
 <ol>
 <li><strong>Batch size</strong>: Start with 8192 rows, tune based on benchmarks</li>
 <li><strong>String handling</strong>: Validate UTF-8, use LargeUtf8 if needed</li>

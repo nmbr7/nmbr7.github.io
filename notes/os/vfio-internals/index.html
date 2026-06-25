@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -102,16 +125,14 @@
 <h2 id="1-what-vfio-is-and-why-it-exists">1. What VFIO Is and Why It Exists</h2>
 <h3 id="the-problem">The Problem</h3>
 <p>DMA-capable devices can read and write physical memory independently of the CPU. When you give a userspace process direct access to a device (for performance — bypassing the kernel driver), the device can DMA to <strong>any</strong> physical address, including kernel memory, other processes' memory, or IOMMU page tables themselves. This is a catastrophic security hole.</p>
-<pre><code>Without IOMMU:
-
-  Userspace process          PCI Device
-  ┌─────────────┐           ┌──────────┐
-  │ programs     │──MMIO──► │ NIC/NVMe │
-  │ device regs  │           │          │──DMA──► ANY physical address
-  └─────────────┘           └──────────┘         (kernel, other procs, etc.)
-                                                  ← UNSAFE
-</code></pre>
-<h3 id="the-history-uio-vfio">The History: UIO → VFIO</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Without IOMMU:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Userspace process          PCI Device</span></span>
+<span class="giallo-l"><span>  ┌─────────────┐           ┌──────────┐</span></span>
+<span class="giallo-l"><span>  │ programs     │──MMIO──► │ NIC/NVMe │</span></span>
+<span class="giallo-l"><span>  │ device regs  │           │          │──DMA──► ANY physical address</span></span>
+<span class="giallo-l"><span>  └─────────────┘           └──────────┘         (kernel, other procs, etc.)</span></span>
+<span class="giallo-l"><span>                                                  ← UNSAFE</span></span></code></pre><h3 id="the-history-uio-vfio">The History: UIO → VFIO</h3>
 <p><strong>UIO (Userspace I/O)</strong> — Linux 2.6.23, 2007:</p>
 <ul>
 <li>First attempt at userspace device drivers</li>
@@ -130,40 +151,38 @@
 <li>Device reset capability</li>
 <li>Foundation for all modern userspace drivers: DPDK, SPDK, QEMU/KVM device passthrough</li>
 </ul>
-<pre><code>Comparison:
-
-                  UIO                          VFIO
-  IOMMU?          No                           Yes (required)
-  DMA safety      None — device can DMA        Hardware-enforced — only
-                  to any physical address       mapped pages accessible
-  MSI/MSI-X       No (INTx only)               Yes, via eventfd
-  Config space    No                            Yes (read/write)
-  Device reset    No                            Yes
-  Privilege       CAP_SYS_RAWIO                 Group file perms (can be
-                                                unprivileged)
-  Users           Legacy FPGA, industrial       DPDK, SPDK, QEMU/KVM,
-                                                GPU passthrough
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Comparison:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>                  UIO                          VFIO</span></span>
+<span class="giallo-l"><span>  IOMMU?          No                           Yes (required)</span></span>
+<span class="giallo-l"><span>  DMA safety      None — device can DMA        Hardware-enforced — only</span></span>
+<span class="giallo-l"><span>                  to any physical address       mapped pages accessible</span></span>
+<span class="giallo-l"><span>  MSI/MSI-X       No (INTx only)               Yes, via eventfd</span></span>
+<span class="giallo-l"><span>  Config space    No                            Yes (read/write)</span></span>
+<span class="giallo-l"><span>  Device reset    No                            Yes</span></span>
+<span class="giallo-l"><span>  Privilege       CAP_SYS_RAWIO                 Group file perms (can be</span></span>
+<span class="giallo-l"><span>                                                unprivileged)</span></span>
+<span class="giallo-l"><span>  Users           Legacy FPGA, industrial       DPDK, SPDK, QEMU/KVM,</span></span>
+<span class="giallo-l"><span>                                                GPU passthrough</span></span></code></pre>
 <hr />
 <h2 id="2-iommu-fundamentals">2. IOMMU Fundamentals</h2>
 <p>The IOMMU is the hardware that makes VFIO possible. It sits between PCI devices and physical memory, translating device DMA addresses the same way the CPU's MMU translates virtual addresses.</p>
 <h3 id="what-an-iommu-does">What an IOMMU Does</h3>
-<pre><code>  CPU                          IOMMU                      DRAM
-  ┌─────┐                    ┌──────────┐               ┌──────┐
-  │     │─── VA→PA (MMU) ──►│          │               │      │
-  │ CPU │                    │  IOMMU   │               │ RAM  │
-  │     │                    │          │               │      │
-  └─────┘                    │ IOVA→PA  │               └──────┘
-                             │ (page    │                  ▲
-  ┌─────┐                    │  tables) │                  │
-  │ NIC │─── DMA (IOVA) ──►│          │──── PA ──────────┘
-  └─────┘                    └──────────┘
-                                  │
-                             Also handles:
-                             - Interrupt remapping
-                             - Device isolation
-                             - PASID (SVA)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  CPU                          IOMMU                      DRAM</span></span>
+<span class="giallo-l"><span>  ┌─────┐                    ┌──────────┐               ┌──────┐</span></span>
+<span class="giallo-l"><span>  │     │─── VA→PA (MMU) ──►│          │               │      │</span></span>
+<span class="giallo-l"><span>  │ CPU │                    │  IOMMU   │               │ RAM  │</span></span>
+<span class="giallo-l"><span>  │     │                    │          │               │      │</span></span>
+<span class="giallo-l"><span>  └─────┘                    │ IOVA→PA  │               └──────┘</span></span>
+<span class="giallo-l"><span>                             │ (page    │                  ▲</span></span>
+<span class="giallo-l"><span>  ┌─────┐                    │  tables) │                  │</span></span>
+<span class="giallo-l"><span>  │ NIC │─── DMA (IOVA) ──►│          │──── PA ──────────┘</span></span>
+<span class="giallo-l"><span>  └─────┘                    └──────────┘</span></span>
+<span class="giallo-l"><span>                                  │</span></span>
+<span class="giallo-l"><span>                             Also handles:</span></span>
+<span class="giallo-l"><span>                             - Interrupt remapping</span></span>
+<span class="giallo-l"><span>                             - Device isolation</span></span>
+<span class="giallo-l"><span>                             - PASID (SVA)</span></span></code></pre>
 <p>Three implementations, same concept:</p>
 <ul>
 <li><strong>Intel VT-d</strong> (Virtualization Technology for Directed I/O) — the first, most widely deployed on servers</li>
@@ -172,41 +191,36 @@
 </ul>
 <h3 id="dma-remapping-address-translation">DMA Remapping (Address Translation)</h3>
 <p>The IOMMU maintains page tables (structurally similar to CPU page tables) that translate <strong>IOVA</strong> (I/O Virtual Address — what the device sees) to <strong>PA</strong> (Physical Address — actual DRAM):</p>
-<pre><code>  IOVA (device-side)                    PA (DRAM-side)
-  ┌────────────────┐                   ┌────────────────┐
-  │ 0x0000_0000    │──────────────────►│ 0x7F20_0000    │  (mapped by VFIO_MAP_DMA)
-  │ 0x0000_1000    │──────────────────►│ 0x3A10_5000    │
-  │ 0x0000_2000    │       ╳           │                │  (unmapped — device gets
-  │ 0x0000_3000    │──────────────────►│ 0x1234_0000    │   fault or abort on access)
-  └────────────────┘                   └────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  IOVA (device-side)                    PA (DRAM-side)</span></span>
+<span class="giallo-l"><span>  ┌────────────────┐                   ┌────────────────┐</span></span>
+<span class="giallo-l"><span>  │ 0x0000_0000    │──────────────────►│ 0x7F20_0000    │  (mapped by VFIO_MAP_DMA)</span></span>
+<span class="giallo-l"><span>  │ 0x0000_1000    │──────────────────►│ 0x3A10_5000    │</span></span>
+<span class="giallo-l"><span>  │ 0x0000_2000    │       ╳           │                │  (unmapped — device gets</span></span>
+<span class="giallo-l"><span>  │ 0x0000_3000    │──────────────────►│ 0x1234_0000    │   fault or abort on access)</span></span>
+<span class="giallo-l"><span>  └────────────────┘                   └────────────────┘</span></span></code></pre>
 <p>Page table structure (Intel VT-d, 4-level):</p>
-<pre><code>Root Table (per-bus)
-  └─► Context Table (per-device function)
-        └─► Level-4 Page Table (PML4-equivalent)
-              └─► Level-3 → Level-2 → Level-1 → Physical Page
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Root Table (per-bus)</span></span>
+<span class="giallo-l"><span>  └─► Context Table (per-device function)</span></span>
+<span class="giallo-l"><span>        └─► Level-4 Page Table (PML4-equivalent)</span></span>
+<span class="giallo-l"><span>              └─► Level-3 → Level-2 → Level-1 → Physical Page</span></span></code></pre>
 <p>Supports 4KB, 2MB, and 1GB page sizes (same as CPU page tables). <strong>Hugepages matter enormously</strong> — see <a href="https://nmbr7.github.io/notes/os/vfio-internals/#9-performance-considerations">Performance</a>.</p>
 <h3 id="iommu-groups">IOMMU Groups</h3>
 <p>An <strong>IOMMU group</strong> is the smallest set of devices that the IOMMU can isolate from all other devices. It is the <strong>security boundary</strong>.</p>
 <p>Why groups exist: PCIe devices behind the same bridge or switch can potentially communicate with each other via peer-to-peer DMA without going through the IOMMU. If device A and device B share a PCIe switch that lacks <strong>ACS (Access Control Services)</strong>, then isolating A from B is impossible in hardware — they're in the same IOMMU group.</p>
-<pre><code>  PCIe Root Complex
-  ├── Port 0 (ACS capable)
-  │   └── GPU                    ← IOMMU group 1 (alone)
-  ├── Port 1 (ACS capable)
-  │   └── NIC                    ← IOMMU group 2 (alone)
-  └── Port 2 (NO ACS)
-      ├── SATA controller        ← IOMMU group 3
-      └── USB controller         ← IOMMU group 3 (same group — can&#39;t isolate)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  PCIe Root Complex</span></span>
+<span class="giallo-l"><span>  ├── Port 0 (ACS capable)</span></span>
+<span class="giallo-l"><span>  │   └── GPU                    ← IOMMU group 1 (alone)</span></span>
+<span class="giallo-l"><span>  ├── Port 1 (ACS capable)</span></span>
+<span class="giallo-l"><span>  │   └── NIC                    ← IOMMU group 2 (alone)</span></span>
+<span class="giallo-l"><span>  └── Port 2 (NO ACS)</span></span>
+<span class="giallo-l"><span>      ├── SATA controller        ← IOMMU group 3</span></span>
+<span class="giallo-l"><span>      └── USB controller         ← IOMMU group 3 (same group — can&#39;t isolate)</span></span></code></pre>
 <p><strong>ACS (Access Control Services)</strong>: PCIe capability that enforces routing through the root complex (and thus the IOMMU) for all transactions. When every bridge in the path has ACS, each device function gets its own IOMMU group. Server-grade hardware usually has ACS; consumer hardware often doesn't.</p>
 <p>View IOMMU groups:</p>
-<pre><code data-lang="bash"># List all IOMMU groups and their devices
-for g in /sys/kernel/iommu_groups/*/devices/*; do
-    echo &quot;Group $(basename $(dirname $(dirname $g))): $(lspci -nns $(basename $g))&quot;
-done
-</code></pre>
-<h3 id="iotlb-iommu-tlb">IOTLB (IOMMU TLB)</h3>
+<pre class="giallo z-code"><code data-lang="shellscript"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> List all IOMMU groups and their devices</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">for</span><span class="z-variable z-other"> g</span><span class="z-keyword z-control"> in</span><span class="z-string"> /</span><span class="z-string">s</span><span class="z-string">y</span><span class="z-string">s</span><span class="z-string">/</span><span class="z-string">k</span><span class="z-string">e</span><span class="z-string">r</span><span class="z-string">n</span><span class="z-string">e</span><span class="z-string">l</span><span class="z-string">/</span><span class="z-string">i</span><span class="z-string">o</span><span class="z-string">m</span><span class="z-string">m</span><span class="z-string">u</span><span class="z-string">_</span><span class="z-string">g</span><span class="z-string">r</span><span class="z-string">o</span><span class="z-string">u</span><span class="z-string">p</span><span class="z-string">s</span><span class="z-string">/</span><span class="z-string">*</span><span class="z-string">/</span><span class="z-string">d</span><span class="z-string">e</span><span class="z-string">v</span><span class="z-string">i</span><span class="z-string">c</span><span class="z-string">e</span><span class="z-string">s</span><span class="z-string">/</span><span class="z-string">*</span><span class="z-punctuation">;</span><span class="z-keyword z-control"> do</span></span>
+<span class="giallo-l"><span class="z-support z-function z-builtin">    echo</span><span class="z-punctuation"> &quot;</span><span class="z-string">Group </span><span class="z-punctuation">$(</span><span class="z-entity z-name">basename</span><span class="z-punctuation"> $(</span><span class="z-entity z-name">dirname</span><span class="z-punctuation"> $(</span><span class="z-entity z-name">dirname</span><span class="z-variable z-other"> $</span><span class="z-variable z-other">g</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-string">: </span><span class="z-punctuation">$(</span><span class="z-entity z-name">lspci</span><span class="z-constant"> -</span><span class="z-constant">nns</span><span class="z-punctuation"> $(</span><span class="z-entity z-name">basename</span><span class="z-variable z-other"> $</span><span class="z-variable z-other">g</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">&quot;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">done</span></span></code></pre><h3 id="iotlb-iommu-tlb">IOTLB (IOMMU TLB)</h3>
 <p>The IOMMU caches recent IOVA→PA translations in its TLB, called the <strong>IOTLB</strong>. On a miss, the IOMMU walks the page tables (in DRAM), adding latency to DMA transactions. The IOTLB is typically small (a few hundred to a few thousand entries), so hugepages dramatically reduce miss rate:</p>
 <table><thead><tr><th>Page size</th><th>Entries for 1 GB mapping</th><th>IOTLB pressure</th></tr></thead><tbody>
 <tr><td>4 KB</td><td>262,144</td><td>Extreme</td></tr>
@@ -218,55 +232,52 @@ done
 <hr />
 <h2 id="3-vfio-architecture">3. VFIO Architecture</h2>
 <p>VFIO uses a three-level hierarchy: <strong>Container</strong> → <strong>Group</strong> → <strong>Device</strong>.</p>
-<pre><code>  Userspace Process
-  ┌──────────────────────────────────────────────────────┐
-  │                                                      │
-  │  container_fd = open(&quot;/dev/vfio/vfio&quot;)               │
-  │       │                                              │
-  │       │  VFIO_SET_IOMMU(TYPE1)                       │
-  │       │  VFIO_MAP_DMA(iova, vaddr, size)             │
-  │       │                                              │
-  │       ├── group_fd = open(&quot;/dev/vfio/26&quot;)             │
-  │       │       │                                      │
-  │       │       ├── device_fd = VFIO_GROUP_GET_DEVICE_FD│
-  │       │       │       │                              │
-  │       │       │       ├── GET_REGION_INFO (BARs)     │
-  │       │       │       ├── mmap() BAR regions         │
-  │       │       │       ├── SET_IRQS (MSI-X→eventfd)   │
-  │       │       │       └── DEVICE_RESET               │
-  │       │       │                                      │
-  │       │       └── (another device in same group)     │
-  │       │                                              │
-  │       └── (another group in same container)          │
-  │                                                      │
-  └──────────────────────────────────────────────────────┘
-
-  Kernel
-  ┌──────────────────────────────────────────────────────┐
-  │  VFIO core                                           │
-  │    ├── vfio_iommu_type1  ←── IOMMU page table mgmt  │
-  │    ├── vfio_pci_core     ←── PCI device handling     │
-  │    └── vfio-pci driver   ←── binds to PCI devices    │
-  │                                                      │
-  │  IOMMU subsystem                                     │
-  │    ├── intel-iommu (VT-d)                            │
-  │    ├── amd_iommu (AMD-Vi)                            │
-  │    └── arm-smmu-v3                                   │
-  └──────────────────────────────────────────────────────┘
-</code></pre>
-<h3 id="container">Container</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  Userspace Process</span></span>
+<span class="giallo-l"><span>  ┌──────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>  │                                                      │</span></span>
+<span class="giallo-l"><span>  │  container_fd = open(&quot;/dev/vfio/vfio&quot;)               │</span></span>
+<span class="giallo-l"><span>  │       │                                              │</span></span>
+<span class="giallo-l"><span>  │       │  VFIO_SET_IOMMU(TYPE1)                       │</span></span>
+<span class="giallo-l"><span>  │       │  VFIO_MAP_DMA(iova, vaddr, size)             │</span></span>
+<span class="giallo-l"><span>  │       │                                              │</span></span>
+<span class="giallo-l"><span>  │       ├── group_fd = open(&quot;/dev/vfio/26&quot;)             │</span></span>
+<span class="giallo-l"><span>  │       │       │                                      │</span></span>
+<span class="giallo-l"><span>  │       │       ├── device_fd = VFIO_GROUP_GET_DEVICE_FD│</span></span>
+<span class="giallo-l"><span>  │       │       │       │                              │</span></span>
+<span class="giallo-l"><span>  │       │       │       ├── GET_REGION_INFO (BARs)     │</span></span>
+<span class="giallo-l"><span>  │       │       │       ├── mmap() BAR regions         │</span></span>
+<span class="giallo-l"><span>  │       │       │       ├── SET_IRQS (MSI-X→eventfd)   │</span></span>
+<span class="giallo-l"><span>  │       │       │       └── DEVICE_RESET               │</span></span>
+<span class="giallo-l"><span>  │       │       │                                      │</span></span>
+<span class="giallo-l"><span>  │       │       └── (another device in same group)     │</span></span>
+<span class="giallo-l"><span>  │       │                                              │</span></span>
+<span class="giallo-l"><span>  │       └── (another group in same container)          │</span></span>
+<span class="giallo-l"><span>  │                                                      │</span></span>
+<span class="giallo-l"><span>  └──────────────────────────────────────────────────────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Kernel</span></span>
+<span class="giallo-l"><span>  ┌──────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>  │  VFIO core                                           │</span></span>
+<span class="giallo-l"><span>  │    ├── vfio_iommu_type1  ←── IOMMU page table mgmt  │</span></span>
+<span class="giallo-l"><span>  │    ├── vfio_pci_core     ←── PCI device handling     │</span></span>
+<span class="giallo-l"><span>  │    └── vfio-pci driver   ←── binds to PCI devices    │</span></span>
+<span class="giallo-l"><span>  │                                                      │</span></span>
+<span class="giallo-l"><span>  │  IOMMU subsystem                                     │</span></span>
+<span class="giallo-l"><span>  │    ├── intel-iommu (VT-d)                            │</span></span>
+<span class="giallo-l"><span>  │    ├── amd_iommu (AMD-Vi)                            │</span></span>
+<span class="giallo-l"><span>  │    └── arm-smmu-v3                                   │</span></span>
+<span class="giallo-l"><span>  └──────────────────────────────────────────────────────┘</span></span></code></pre><h3 id="container">Container</h3>
 <p>The <strong>container</strong> (<code>/dev/vfio/vfio</code>) represents an IOMMU domain — a single IOVA address space. All devices in the same container share the same DMA mappings.</p>
-<pre><code data-lang="c">int container = open(&quot;/dev/vfio/vfio&quot;, O_RDWR);
-
-// Check API version
-ioctl(container, VFIO_GET_API_VERSION);  // must return VFIO_API_VERSION
-
-// Check IOMMU type support
-ioctl(container, VFIO_CHECK_EXTENSION, VFIO_TYPE1_IOMMU);
-
-// Set IOMMU type (after attaching at least one group)
-ioctl(container, VFIO_SET_IOMMU, VFIO_TYPE1v2_IOMMU);
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-storage z-type">int</span><span> container </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> open</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">/dev/vfio/vfio</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">,</span><span> O_RDWR</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Check API version</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">ioctl</span><span class="z-punctuation">(</span><span>container</span><span class="z-punctuation">,</span><span> VFIO_GET_API_VERSION</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> must return VFIO_API_VERSION</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Check IOMMU type support</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">ioctl</span><span class="z-punctuation">(</span><span>container</span><span class="z-punctuation">,</span><span> VFIO_CHECK_EXTENSION</span><span class="z-punctuation">,</span><span> VFIO_TYPE1_IOMMU</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Set IOMMU type (after attaching at least one group)</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">ioctl</span><span class="z-punctuation">(</span><span>container</span><span class="z-punctuation">,</span><span> VFIO_SET_IOMMU</span><span class="z-punctuation">,</span><span> VFIO_TYPE1v2_IOMMU</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre>
 <p>IOMMU backend types:</p>
 <ul>
 <li><code>VFIO_TYPE1_IOMMU</code> / <code>VFIO_TYPE1v2_IOMMU</code> — standard x86/ARM (most common)</li>
@@ -275,34 +286,29 @@ ioctl(container, VFIO_SET_IOMMU, VFIO_TYPE1v2_IOMMU);
 </ul>
 <h3 id="group">Group</h3>
 <p>The <strong>group</strong> (<code>/dev/vfio/N</code>) corresponds to an IOMMU group. All devices in the group must be bound to VFIO (or have no driver) before any device in the group can be used — this enforces the IOMMU isolation guarantee.</p>
-<pre><code data-lang="c">int group = open(&quot;/dev/vfio/26&quot;, O_RDWR);
-
-// Check group is viable (all devices bound to vfio or no driver)
-struct vfio_group_status status = { .argsz = sizeof(status) };
-ioctl(group, VFIO_GROUP_GET_STATUS, &amp;status);
-// status.flags must include VFIO_GROUP_FLAGS_VIABLE
-
-// Attach group to container
-ioctl(group, VFIO_GROUP_SET_CONTAINER, &amp;container);
-</code></pre>
-<h3 id="device">Device</h3>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-storage z-type">int</span><span> group </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> open</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">/dev/vfio/26</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">,</span><span> O_RDWR</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Check group is viable (all devices bound to vfio or no driver)</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span> vfio_group_status status </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> {</span><span> .argsz </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-operator"> sizeof</span><span class="z-punctuation">(</span><span>status</span><span class="z-punctuation">)</span><span class="z-punctuation"> }</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">ioctl</span><span class="z-punctuation">(</span><span>group</span><span class="z-punctuation">,</span><span> VFIO_GROUP_GET_STATUS</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-parameter">status</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> status.flags must include VFIO_GROUP_FLAGS_VIABLE</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Attach group to container</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">ioctl</span><span class="z-punctuation">(</span><span>group</span><span class="z-punctuation">,</span><span> VFIO_GROUP_SET_CONTAINER</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-parameter">container</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre><h3 id="device">Device</h3>
 <p>Individual devices within a group, obtained by BDF (Bus:Device.Function) string:</p>
-<pre><code data-lang="c">int device = ioctl(group, VFIO_GROUP_GET_DEVICE_FD, &quot;0000:03:00.0&quot;);
-</code></pre>
-<h4 id="region-info-bars">Region Info (BARs)</h4>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-storage z-type">int</span><span> device </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> ioctl</span><span class="z-punctuation">(</span><span>group</span><span class="z-punctuation">,</span><span> VFIO_GROUP_GET_DEVICE_FD</span><span class="z-punctuation">,</span><span class="z-punctuation"> &quot;</span><span class="z-string">0000:03:00.0</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre><h4 id="region-info-bars">Region Info (BARs)</h4>
 <p>PCI devices expose up to 6 BARs (Base Address Registers) plus config space, ROM, and VGA regions:</p>
-<pre><code data-lang="c">struct vfio_region_info reg = {
-    .argsz = sizeof(reg),
-    .index = VFIO_PCI_BAR0_REGION_INDEX,  // 0-5 for BARs
-};
-ioctl(device, VFIO_DEVICE_GET_REGION_INFO, &amp;reg);
-
-// Map BAR into userspace (if MMAP flag set)
-void *bar0 = mmap(NULL, reg.size, PROT_READ | PROT_WRITE,
-                   MAP_SHARED, device, reg.offset);
-
-// Now bar0[offset] directly reads/writes device registers
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-storage z-type">struct</span><span> vfio_region_info reg </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>    .argsz </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-operator"> sizeof</span><span class="z-punctuation">(</span><span>reg</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .index </span><span class="z-keyword z-operator">=</span><span> VFIO_PCI_BAR0_REGION_INDEX</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> 0-5 for BARs</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">ioctl</span><span class="z-punctuation">(</span><span>device</span><span class="z-punctuation">,</span><span> VFIO_DEVICE_GET_REGION_INFO</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-parameter">reg</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Map BAR into userspace (if MMAP flag set)</span></span>
+<span class="giallo-l"><span class="z-storage z-type">void</span><span class="z-keyword z-operator"> *</span><span>bar0 </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> mmap</span><span class="z-punctuation">(</span><span class="z-constant">NULL</span><span class="z-punctuation">,</span><span> reg.size</span><span class="z-punctuation">,</span><span> PROT_READ </span><span class="z-keyword z-operator">|</span><span> PROT_WRITE</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>                   MAP_SHARED</span><span class="z-punctuation">,</span><span> device</span><span class="z-punctuation">,</span><span> reg.offset</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Now bar0[offset] directly reads/writes device registers</span></span></code></pre>
 <p>Region indices:</p>
 <table><thead><tr><th>Index</th><th>Region</th></tr></thead><tbody>
 <tr><td>0-5</td><td>PCI BAR 0-5</td></tr>
@@ -313,24 +319,23 @@ void *bar0 = mmap(NULL, reg.size, PROT_READ | PROT_WRITE,
 <p>Not all BARs are mmap-able. Config space and some BARs require <code>read()</code>/<code>write()</code> on the device fd at the region's offset. The kernel intercepts certain config space writes to maintain system integrity (e.g., command register, BARs themselves).</p>
 <h4 id="interrupt-configuration">Interrupt Configuration</h4>
 <p>VFIO delivers interrupts via <strong>eventfd</strong> — file descriptors that integrate with <code>epoll</code>, <code>poll</code>, <code>select</code>, and <code>io_uring</code>.</p>
-<pre><code data-lang="c">// Create eventfd for MSI-X vector 0
-int evtfd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-
-// Configure MSI-X interrupt
-struct vfio_irq_set *irq_set;
-size_t sz = sizeof(*irq_set) + sizeof(int32_t);
-irq_set = malloc(sz);
-irq_set-&gt;argsz = sz;
-irq_set-&gt;flags = VFIO_IRQ_SET_DATA_EVENTFD | VFIO_IRQ_SET_ACTION_TRIGGER;
-irq_set-&gt;index = VFIO_PCI_MSIX_IRQ_INDEX;
-irq_set-&gt;start = 0;   // vector number
-irq_set-&gt;count = 1;
-*(int32_t *)irq_set-&gt;data = evtfd;  // eventfd
-
-ioctl(device, VFIO_DEVICE_SET_IRQS, irq_set);
-
-// Now epoll on evtfd to receive interrupts
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Create eventfd for MSI-X vector 0</span></span>
+<span class="giallo-l"><span class="z-storage z-type">int</span><span> evtfd </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> eventfd</span><span class="z-punctuation">(</span><span class="z-constant">0</span><span class="z-punctuation">,</span><span> EFD_NONBLOCK </span><span class="z-keyword z-operator">|</span><span> EFD_CLOEXEC</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Configure MSI-X interrupt</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span> vfio_irq_set </span><span class="z-keyword z-operator">*</span><span>irq_set</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">size_t</span><span> sz </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-operator"> sizeof</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">*</span><span>irq_set</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> +</span><span class="z-keyword z-operator"> sizeof</span><span class="z-punctuation">(</span><span class="z-storage z-type">int32_t</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>irq_set </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> malloc</span><span class="z-punctuation">(</span><span>sz</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>irq_set</span><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">&gt;</span><span>argsz </span><span class="z-keyword z-operator">=</span><span> sz</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>irq_set</span><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">&gt;</span><span>flags </span><span class="z-keyword z-operator">=</span><span> VFIO_IRQ_SET_DATA_EVENTFD </span><span class="z-keyword z-operator">|</span><span> VFIO_IRQ_SET_ACTION_TRIGGER</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>irq_set</span><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">&gt;</span><span>index </span><span class="z-keyword z-operator">=</span><span> VFIO_PCI_MSIX_IRQ_INDEX</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>irq_set</span><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">&gt;</span><span>start </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> vector number</span></span>
+<span class="giallo-l"><span>irq_set</span><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">&gt;</span><span>count </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 1</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">*</span><span class="z-punctuation">(</span><span class="z-storage z-type">int32_t</span><span class="z-keyword z-operator"> *</span><span class="z-punctuation">)</span><span>irq_set</span><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">&gt;</span><span>data </span><span class="z-keyword z-operator">=</span><span> evtfd</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> eventfd</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">ioctl</span><span class="z-punctuation">(</span><span>device</span><span class="z-punctuation">,</span><span> VFIO_DEVICE_SET_IRQS</span><span class="z-punctuation">,</span><span> irq_set</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Now epoll on evtfd to receive interrupts</span></span></code></pre>
 <p>Interrupt types:</p>
 <table><thead><tr><th>Index</th><th>Type</th><th>Notes</th></tr></thead><tbody>
 <tr><td><code>VFIO_PCI_INTX_IRQ_INDEX</code></td><td>INTx (legacy)</td><td>Level-triggered, shared, slow</td></tr>
@@ -341,15 +346,14 @@ ioctl(device, VFIO_DEVICE_SET_IRQS, irq_set);
 </tbody></table>
 <h4 id="dma-mapping">DMA Mapping</h4>
 <p>Set up on the <strong>container</strong> (shared by all devices in it):</p>
-<pre><code data-lang="c">struct vfio_iommu_type1_dma_map dma_map = {
-    .argsz = sizeof(dma_map),
-    .flags = VFIO_DMA_MAP_FLAG_READ | VFIO_DMA_MAP_FLAG_WRITE,
-    .vaddr = (uint64_t)hugepage_ptr,  // userspace virtual address
-    .iova  = 0x100000,                 // device-visible address
-    .size  = 2 * 1024 * 1024,         // 2 MB
-};
-ioctl(container, VFIO_IOMMU_MAP_DMA, &amp;dma_map);
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-storage z-type">struct</span><span> vfio_iommu_type1_dma_map dma_map </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>    .argsz </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-operator"> sizeof</span><span class="z-punctuation">(</span><span>dma_map</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .flags </span><span class="z-keyword z-operator">=</span><span> VFIO_DMA_MAP_FLAG_READ </span><span class="z-keyword z-operator">|</span><span> VFIO_DMA_MAP_FLAG_WRITE</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>    .vaddr </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> (</span><span class="z-storage z-type">uint64_t</span><span class="z-punctuation">)</span><span>hugepage_ptr</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> userspace virtual address</span></span>
+<span class="giallo-l"><span>    .iova  </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-other z-unit"> 0x</span><span class="z-constant">100000</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">                 //</span><span class="z-comment"> device-visible address</span></span>
+<span class="giallo-l"><span>    .size  </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 2</span><span class="z-keyword z-operator"> *</span><span class="z-constant"> 1024</span><span class="z-keyword z-operator"> *</span><span class="z-constant"> 1024</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">         //</span><span class="z-comment"> 2 MB</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">ioctl</span><span class="z-punctuation">(</span><span>container</span><span class="z-punctuation">,</span><span> VFIO_IOMMU_MAP_DMA</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-parameter">dma_map</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre>
 <p>After this call:</p>
 <ol>
 <li>The kernel <strong>pins</strong> the physical pages backing <code>hugepage_ptr</code> (they can't be swapped out)</li>
@@ -357,140 +361,135 @@ ioctl(container, VFIO_IOMMU_MAP_DMA, &amp;dma_map);
 <li>The device can now DMA read/write to that memory region</li>
 </ol>
 <h4 id="device-reset">Device Reset</h4>
-<pre><code data-lang="c">ioctl(device, VFIO_DEVICE_RESET);
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-entity z-name z-function">ioctl</span><span class="z-punctuation">(</span><span>device</span><span class="z-punctuation">,</span><span> VFIO_DEVICE_RESET</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre>
 <p>Performs a PCI function-level reset (FLR), secondary bus reset, or PM reset — whatever the hardware supports. Essential for returning a device to a known state.</p>
 <hr />
 <h2 id="4-pci-device-passthrough-workflow">4. PCI Device Passthrough Workflow</h2>
 <h3 id="step-by-step">Step-by-Step</h3>
-<pre><code data-lang="bash"># 1. Identify the device
-$ lspci -nn | grep -i ethernet
-03:00.0 Ethernet controller [0200]: Intel Corporation ... [8086:1572]
-
-# 2. Find its IOMMU group
-$ readlink /sys/bus/pci/devices/0000:03:00.0/iommu_group
-/sys/kernel/iommu_groups/26
-
-# 3. Check what else is in the group
-$ ls /sys/kernel/iommu_groups/26/devices/
-0000:03:00.0   # just this device — good
-
-# 4. Load vfio-pci module
-$ modprobe vfio-pci
-
-# 5. Unbind from kernel driver
-$ echo 0000:03:00.0 &gt; /sys/bus/pci/devices/0000:03:00.0/driver/unbind
-
-# 6. Bind to vfio-pci (using vendor:device ID)
-$ echo &quot;8086 1572&quot; &gt; /sys/bus/pci/drivers/vfio-pci/new_id
-# Or alternatively:
-$ echo vfio-pci &gt; /sys/bus/pci/devices/0000:03:00.0/driver_override
-$ echo 0000:03:00.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
-
-# 7. Set permissions (for non-root access)
-$ chown user:group /dev/vfio/26
-$ chmod 0660 /dev/vfio/26
-</code></pre>
-<h3 id="complete-c-example">Complete C Example</h3>
-<pre><code data-lang="c">#include &lt;linux/vfio.h&gt;
-#include &lt;sys/eventfd.h&gt;
-#include &lt;sys/ioctl.h&gt;
-#include &lt;sys/mman.h&gt;
-#include &lt;fcntl.h&gt;
-
-int main() {
-    // --- Container setup ---
-    int container = open(&quot;/dev/vfio/vfio&quot;, O_RDWR);
-    assert(ioctl(container, VFIO_GET_API_VERSION) == VFIO_API_VERSION);
-    assert(ioctl(container, VFIO_CHECK_EXTENSION, VFIO_TYPE1_IOMMU));
-
-    // --- Group setup ---
-    int group = open(&quot;/dev/vfio/26&quot;, O_RDWR);
-    struct vfio_group_status gstatus = { .argsz = sizeof(gstatus) };
-    ioctl(group, VFIO_GROUP_GET_STATUS, &amp;gstatus);
-    assert(gstatus.flags &amp; VFIO_GROUP_FLAGS_VIABLE);
-
-    ioctl(group, VFIO_GROUP_SET_CONTAINER, &amp;container);
-    ioctl(container, VFIO_SET_IOMMU, VFIO_TYPE1v2_IOMMU);
-
-    // --- DMA mapping (hugepage-backed) ---
-    void *dma_mem = mmap(NULL, 2*1024*1024, PROT_READ | PROT_WRITE,
-                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
-
-    struct vfio_iommu_type1_dma_map dma_map = {
-        .argsz = sizeof(dma_map),
-        .flags = VFIO_DMA_MAP_FLAG_READ | VFIO_DMA_MAP_FLAG_WRITE,
-        .vaddr = (uint64_t)dma_mem,
-        .iova  = 0x0,
-        .size  = 2 * 1024 * 1024,
-    };
-    ioctl(container, VFIO_IOMMU_MAP_DMA, &amp;dma_map);
-
-    // --- Device setup ---
-    int device = ioctl(group, VFIO_GROUP_GET_DEVICE_FD, &quot;0000:03:00.0&quot;);
-
-    // Query and map BAR0
-    struct vfio_region_info reg = {
-        .argsz = sizeof(reg),
-        .index = VFIO_PCI_BAR0_REGION_INDEX,
-    };
-    ioctl(device, VFIO_DEVICE_GET_REGION_INFO, &amp;reg);
-
-    void *bar0 = mmap(NULL, reg.size, PROT_READ | PROT_WRITE,
-                       MAP_SHARED, device, reg.offset);
-
-    // --- MSI-X interrupt setup ---
-    int irqfd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-
-    char irq_buf[sizeof(struct vfio_irq_set) + sizeof(int32_t)];
-    struct vfio_irq_set *irq = (void *)irq_buf;
-    irq-&gt;argsz = sizeof(irq_buf);
-    irq-&gt;flags = VFIO_IRQ_SET_DATA_EVENTFD | VFIO_IRQ_SET_ACTION_TRIGGER;
-    irq-&gt;index = VFIO_PCI_MSIX_IRQ_INDEX;
-    irq-&gt;start = 0;
-    irq-&gt;count = 1;
-    *(int32_t *)irq-&gt;data = irqfd;
-    ioctl(device, VFIO_DEVICE_SET_IRQS, irq);
-
-    // --- Now use the device ---
-    // Write commands to bar0, set up DMA descriptors in dma_mem,
-    // epoll on irqfd for completions.
-    // Device DMAs to/from IOVA 0x0 which maps to dma_mem.
-
-    // --- Cleanup ---
-    ioctl(device, VFIO_DEVICE_RESET);
-    munmap(bar0, reg.size);
-    munmap(dma_mem, 2*1024*1024);
-    close(device);
-    close(group);
-    close(container);
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="shellscript"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> 1. Identify the device</span></span>
+<span class="giallo-l"><span class="z-entity z-name">$</span><span class="z-string"> lspci</span><span class="z-constant"> -</span><span class="z-constant">nn</span><span class="z-keyword z-operator"> |</span><span class="z-entity z-name"> grep</span><span class="z-constant"> -</span><span class="z-constant">i</span><span class="z-string"> ethernet</span></span>
+<span class="giallo-l"><span class="z-entity z-name">03:00.0</span><span class="z-string"> Ethernet</span><span class="z-string"> controller</span><span> [0200</span><span>]: Intel Corporation ... </span><span class="z-punctuation z-definition z-logical-expression">[</span><span>8086:1572</span><span class="z-punctuation z-definition z-logical-expression">]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> 2. Find its IOMMU group</span></span>
+<span class="giallo-l"><span class="z-entity z-name">$</span><span class="z-string"> readlink</span><span class="z-string"> /sys/bus/pci/devices/0000:03:00.0/iommu_group</span></span>
+<span class="giallo-l"><span class="z-entity z-name">/sys/kernel/iommu_groups/26</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> 3. Check what else is in the group</span></span>
+<span class="giallo-l"><span class="z-entity z-name">$</span><span class="z-string"> ls</span><span class="z-string"> /sys/kernel/iommu_groups/26/devices/</span></span>
+<span class="giallo-l"><span class="z-entity z-name">0000:03:00.0</span><span class="z-punctuation z-definition z-comment">   #</span><span class="z-comment"> just this device — good</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> 4. Load vfio-pci module</span></span>
+<span class="giallo-l"><span class="z-entity z-name">$</span><span class="z-string"> modprobe</span><span class="z-string"> vfio-pci</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> 5. Unbind from kernel driver</span></span>
+<span class="giallo-l"><span class="z-entity z-name">$</span><span class="z-string"> echo</span><span class="z-string"> 0000:03:00.0</span><span class="z-keyword z-operator"> &gt;</span><span class="z-string"> /sys/bus/pci/devices/0000:03:00.0/driver/unbind</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> 6. Bind to vfio-pci (using vendor:device ID)</span></span>
+<span class="giallo-l"><span class="z-entity z-name">$</span><span class="z-string"> echo</span><span class="z-punctuation"> &quot;</span><span class="z-string">8086 1572</span><span class="z-punctuation">&quot;</span><span class="z-keyword z-operator"> &gt;</span><span class="z-string"> /sys/bus/pci/drivers/vfio-pci/new_id</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Or alternatively:</span></span>
+<span class="giallo-l"><span class="z-entity z-name">$</span><span class="z-string"> echo</span><span class="z-string"> vfio-pci</span><span class="z-keyword z-operator"> &gt;</span><span class="z-string"> /sys/bus/pci/devices/0000:03:00.0/driver_override</span></span>
+<span class="giallo-l"><span class="z-entity z-name">$</span><span class="z-string"> echo</span><span class="z-string"> 0000:03:00.0</span><span class="z-keyword z-operator"> &gt;</span><span class="z-string"> /sys/bus/pci/drivers/vfio-pci/bind</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> 7. Set permissions (for non-root access)</span></span>
+<span class="giallo-l"><span class="z-entity z-name">$</span><span class="z-string"> chown</span><span class="z-string"> user:group</span><span class="z-string"> /dev/vfio/26</span></span>
+<span class="giallo-l"><span class="z-entity z-name">$</span><span class="z-string"> chmod</span><span class="z-constant"> 0660</span><span class="z-string"> /dev/vfio/26</span></span></code></pre><h3 id="complete-c-example">Complete C Example</h3>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-punctuation">#</span><span class="z-keyword z-control z-directive">include</span><span class="z-punctuation"> &lt;</span><span class="z-string">linux/vfio.h</span><span class="z-punctuation">&gt;</span></span>
+<span class="giallo-l"><span class="z-punctuation">#</span><span class="z-keyword z-control z-directive">include</span><span class="z-punctuation"> &lt;</span><span class="z-string">sys/eventfd.h</span><span class="z-punctuation">&gt;</span></span>
+<span class="giallo-l"><span class="z-punctuation">#</span><span class="z-keyword z-control z-directive">include</span><span class="z-punctuation"> &lt;</span><span class="z-string">sys/ioctl.h</span><span class="z-punctuation">&gt;</span></span>
+<span class="giallo-l"><span class="z-punctuation">#</span><span class="z-keyword z-control z-directive">include</span><span class="z-punctuation"> &lt;</span><span class="z-string">sys/mman.h</span><span class="z-punctuation">&gt;</span></span>
+<span class="giallo-l"><span class="z-punctuation">#</span><span class="z-keyword z-control z-directive">include</span><span class="z-punctuation"> &lt;</span><span class="z-string">fcntl.h</span><span class="z-punctuation">&gt;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">int</span><span class="z-entity z-name z-function"> main</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> --- Container setup ---</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    int</span><span> container </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> open</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">/dev/vfio/vfio</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">,</span><span> O_RDWR</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    assert</span><span class="z-punctuation">(</span><span class="z-entity z-name z-function">ioctl</span><span class="z-punctuation">(</span><span>container</span><span class="z-punctuation">,</span><span> VFIO_GET_API_VERSION</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> ==</span><span> VFIO_API_VERSION</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    assert</span><span class="z-punctuation">(</span><span class="z-entity z-name z-function">ioctl</span><span class="z-punctuation">(</span><span>container</span><span class="z-punctuation">,</span><span> VFIO_CHECK_EXTENSION</span><span class="z-punctuation">,</span><span> VFIO_TYPE1_IOMMU</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> --- Group setup ---</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    int</span><span> group </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> open</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">/dev/vfio/26</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">,</span><span> O_RDWR</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    struct</span><span> vfio_group_status gstatus </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> {</span><span> .argsz </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-operator"> sizeof</span><span class="z-punctuation">(</span><span>gstatus</span><span class="z-punctuation">)</span><span class="z-punctuation"> }</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    ioctl</span><span class="z-punctuation">(</span><span>group</span><span class="z-punctuation">,</span><span> VFIO_GROUP_GET_STATUS</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span>gstatus</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    assert</span><span class="z-punctuation">(</span><span class="z-variable z-other">gstatus</span><span class="z-punctuation">.</span><span class="z-variable z-other">flags</span><span class="z-keyword z-operator"> &amp;</span><span> VFIO_GROUP_FLAGS_VIABLE</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    ioctl</span><span class="z-punctuation">(</span><span>group</span><span class="z-punctuation">,</span><span> VFIO_GROUP_SET_CONTAINER</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span>container</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    ioctl</span><span class="z-punctuation">(</span><span>container</span><span class="z-punctuation">,</span><span> VFIO_SET_IOMMU</span><span class="z-punctuation">,</span><span> VFIO_TYPE1v2_IOMMU</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> --- DMA mapping (hugepage-backed) ---</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    void</span><span class="z-keyword z-operator"> *</span><span>dma_mem </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> mmap</span><span class="z-punctuation">(</span><span class="z-constant">NULL</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-keyword z-operator">*</span><span class="z-constant">1024</span><span class="z-keyword z-operator">*</span><span class="z-constant">1024</span><span class="z-punctuation">,</span><span> PROT_READ </span><span class="z-keyword z-operator">|</span><span> PROT_WRITE</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>                         MAP_PRIVATE </span><span class="z-keyword z-operator">|</span><span> MAP_ANONYMOUS </span><span class="z-keyword z-operator">|</span><span> MAP_HUGETLB</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> -</span><span class="z-constant">1</span><span class="z-punctuation">,</span><span class="z-constant"> 0</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">    struct</span><span> vfio_iommu_type1_dma_map dma_map </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>        .argsz </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-operator"> sizeof</span><span class="z-punctuation">(</span><span>dma_map</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>        .flags </span><span class="z-keyword z-operator">=</span><span> VFIO_DMA_MAP_FLAG_READ </span><span class="z-keyword z-operator">|</span><span> VFIO_DMA_MAP_FLAG_WRITE</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>        .vaddr </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> (</span><span class="z-storage z-type">uint64_t</span><span class="z-punctuation">)</span><span>dma_mem</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>        .iova  </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-other z-unit"> 0x</span><span class="z-constant">0</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>        .size  </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 2</span><span class="z-keyword z-operator"> *</span><span class="z-constant"> 1024</span><span class="z-keyword z-operator"> *</span><span class="z-constant"> 1024</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    ioctl</span><span class="z-punctuation">(</span><span>container</span><span class="z-punctuation">,</span><span> VFIO_IOMMU_MAP_DMA</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span>dma_map</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> --- Device setup ---</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    int</span><span> device </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> ioctl</span><span class="z-punctuation">(</span><span>group</span><span class="z-punctuation">,</span><span> VFIO_GROUP_GET_DEVICE_FD</span><span class="z-punctuation">,</span><span class="z-punctuation"> &quot;</span><span class="z-string">0000:03:00.0</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Query and map BAR0</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    struct</span><span> vfio_region_info reg </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>        .argsz </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-operator"> sizeof</span><span class="z-punctuation">(</span><span>reg</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>        .index </span><span class="z-keyword z-operator">=</span><span> VFIO_PCI_BAR0_REGION_INDEX</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    ioctl</span><span class="z-punctuation">(</span><span>device</span><span class="z-punctuation">,</span><span> VFIO_DEVICE_GET_REGION_INFO</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span>reg</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">    void</span><span class="z-keyword z-operator"> *</span><span>bar0 </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> mmap</span><span class="z-punctuation">(</span><span class="z-constant">NULL</span><span class="z-punctuation">,</span><span class="z-variable z-other"> reg</span><span class="z-punctuation">.</span><span class="z-variable z-other">size</span><span class="z-punctuation">,</span><span> PROT_READ </span><span class="z-keyword z-operator">|</span><span> PROT_WRITE</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>                       MAP_SHARED</span><span class="z-punctuation">,</span><span> device</span><span class="z-punctuation">,</span><span class="z-variable z-other"> reg</span><span class="z-punctuation">.</span><span class="z-variable z-other">offset</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> --- MSI-X interrupt setup ---</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    int</span><span> irqfd </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> eventfd</span><span class="z-punctuation">(</span><span class="z-constant">0</span><span class="z-punctuation">,</span><span> EFD_NONBLOCK </span><span class="z-keyword z-operator">|</span><span> EFD_CLOEXEC</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">    char</span><span class="z-variable"> irq_buf</span><span class="z-punctuation">[</span><span class="z-keyword z-operator">sizeof</span><span class="z-punctuation">(</span><span class="z-storage z-type">struct</span><span> vfio_irq_set</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> +</span><span class="z-keyword z-operator"> sizeof</span><span class="z-punctuation">(</span><span class="z-storage z-type">int32_t</span><span class="z-punctuation">)</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    struct</span><span> vfio_irq_set </span><span class="z-keyword z-operator">*</span><span>irq </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> (</span><span class="z-storage z-type">void</span><span class="z-keyword z-operator"> *</span><span class="z-punctuation">)</span><span>irq_buf</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    irq</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">argsz</span><span class="z-keyword z-operator"> =</span><span class="z-keyword z-operator"> sizeof</span><span class="z-punctuation">(</span><span>irq_buf</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    irq</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">flags</span><span class="z-keyword z-operator"> =</span><span> VFIO_IRQ_SET_DATA_EVENTFD </span><span class="z-keyword z-operator">|</span><span> VFIO_IRQ_SET_ACTION_TRIGGER</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    irq</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">index</span><span class="z-keyword z-operator"> =</span><span> VFIO_PCI_MSIX_IRQ_INDEX</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    irq</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">start</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    irq</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">count</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 1</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">    *</span><span class="z-punctuation">(</span><span class="z-storage z-type">int32_t</span><span class="z-keyword z-operator"> *</span><span class="z-punctuation">)</span><span class="z-variable z-other">irq</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">data</span><span class="z-keyword z-operator"> =</span><span> irqfd</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    ioctl</span><span class="z-punctuation">(</span><span>device</span><span class="z-punctuation">,</span><span> VFIO_DEVICE_SET_IRQS</span><span class="z-punctuation">,</span><span> irq</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> --- Now use the device ---</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Write commands to bar0, set up DMA descriptors in dma_mem,</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> epoll on irqfd for completions.</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Device DMAs to/from IOVA 0x0 which maps to dma_mem.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> --- Cleanup ---</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    ioctl</span><span class="z-punctuation">(</span><span>device</span><span class="z-punctuation">,</span><span> VFIO_DEVICE_RESET</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    munmap</span><span class="z-punctuation">(</span><span>bar0</span><span class="z-punctuation">,</span><span class="z-variable z-other"> reg</span><span class="z-punctuation">.</span><span class="z-variable z-other">size</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    munmap</span><span class="z-punctuation">(</span><span>dma_mem</span><span class="z-punctuation">,</span><span class="z-constant"> 2</span><span class="z-keyword z-operator">*</span><span class="z-constant">1024</span><span class="z-keyword z-operator">*</span><span class="z-constant">1024</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    close</span><span class="z-punctuation">(</span><span>device</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    close</span><span class="z-punctuation">(</span><span>group</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    close</span><span class="z-punctuation">(</span><span>container</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <hr />
 <h2 id="5-vfio-in-practice-dpdk-spdk-qemu-kvm">5. VFIO in Practice: DPDK, SPDK, QEMU/KVM</h2>
 <h3 id="dpdk-data-plane-development-kit">DPDK (Data Plane Development Kit)</h3>
 <p>DPDK drives NICs entirely from userspace for line-rate packet processing.</p>
-<pre><code>  ┌─────────────────────────────────────────────┐
-  │  DPDK Application (userspace)               │
-  │                                             │
-  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
-  │  │ Worker 0 │  │ Worker 1 │  │ Worker 2 │  │  (pinned to cores)
-  │  │ poll()   │  │ poll()   │  │ poll()   │  │
-  │  └────┬─────┘  └────┬─────┘  └────┬─────┘  │
-  │       │              │              │        │
-  │  ┌────▼──────────────▼──────────────▼────┐  │
-  │  │        Poll-Mode Driver (PMD)          │  │  (no interrupts in fast path)
-  │  │  mmap&#39;d BAR → TX/RX descriptor rings   │  │
-  │  │  DMA buffers in hugepage mempools       │  │
-  │  └────────────────┬──────────────────────┘  │
-  │                   │                          │
-  └───────────────────┼──────────────────────────┘
-                      │ VFIO (IOMMU)
-  ┌───────────────────▼──────────────────────────┐
-  │  NIC Hardware                                │
-  │  TX/RX queues DMA to hugepage-backed buffers │
-  └──────────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  ┌─────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>  │  DPDK Application (userspace)               │</span></span>
+<span class="giallo-l"><span>  │                                             │</span></span>
+<span class="giallo-l"><span>  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  │</span></span>
+<span class="giallo-l"><span>  │  │ Worker 0 │  │ Worker 1 │  │ Worker 2 │  │  (pinned to cores)</span></span>
+<span class="giallo-l"><span>  │  │ poll()   │  │ poll()   │  │ poll()   │  │</span></span>
+<span class="giallo-l"><span>  │  └────┬─────┘  └────┬─────┘  └────┬─────┘  │</span></span>
+<span class="giallo-l"><span>  │       │              │              │        │</span></span>
+<span class="giallo-l"><span>  │  ┌────▼──────────────▼──────────────▼────┐  │</span></span>
+<span class="giallo-l"><span>  │  │        Poll-Mode Driver (PMD)          │  │  (no interrupts in fast path)</span></span>
+<span class="giallo-l"><span>  │  │  mmap&#39;d BAR → TX/RX descriptor rings   │  │</span></span>
+<span class="giallo-l"><span>  │  │  DMA buffers in hugepage mempools       │  │</span></span>
+<span class="giallo-l"><span>  │  └────────────────┬──────────────────────┘  │</span></span>
+<span class="giallo-l"><span>  │                   │                          │</span></span>
+<span class="giallo-l"><span>  └───────────────────┼──────────────────────────┘</span></span>
+<span class="giallo-l"><span>                      │ VFIO (IOMMU)</span></span>
+<span class="giallo-l"><span>  ┌───────────────────▼──────────────────────────┐</span></span>
+<span class="giallo-l"><span>  │  NIC Hardware                                │</span></span>
+<span class="giallo-l"><span>  │  TX/RX queues DMA to hugepage-backed buffers │</span></span>
+<span class="giallo-l"><span>  └──────────────────────────────────────────────┘</span></span></code></pre>
 <p>Key DPDK-VFIO details:</p>
 <ul>
 <li><strong>Pre-maps all hugepages at startup</strong> — one <code>VFIO_IOMMU_MAP_DMA</code> per hugepage, then zero DMA mapping overhead during operation</li>
@@ -501,15 +500,14 @@ int main() {
 </ul>
 <h3 id="spdk-storage-performance-development-kit">SPDK (Storage Performance Development Kit)</h3>
 <p>SPDK drives NVMe SSDs entirely from userspace using the same VFIO pattern.</p>
-<pre><code data-lang="c">// SPDK NVMe flow (simplified):
-// 1. Bind NVMe controller to vfio-pci
-// 2. Map controller BARs (admin queue doorbell registers)
-// 3. Allocate submission/completion queue memory in hugepages
-// 4. Map queue memory via VFIO_MAP_DMA
-// 5. Program queues via BAR registers
-// 6. Submit I/O: write NVMe commands to submission queue, ring doorbell
-// 7. Poll completion queue (no interrupts)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> SPDK NVMe flow (simplified):</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> 1. Bind NVMe controller to vfio-pci</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> 2. Map controller BARs (admin queue doorbell registers)</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> 3. Allocate submission/completion queue memory in hugepages</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> 4. Map queue memory via VFIO_MAP_DMA</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> 5. Program queues via BAR registers</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> 6. Submit I/O: write NVMe commands to submission queue, ring doorbell</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> 7. Poll completion queue (no interrupts)</span></span></code></pre>
 <ul>
 <li>Achieves <strong>millions of IOPS per core</strong> — versus ~200K IOPS through the kernel NVMe driver</li>
 <li>Uses hugepage-backed memory pools for all I/O buffers</li>
@@ -518,35 +516,34 @@ int main() {
 </ul>
 <h3 id="qemu-kvm-device-passthrough">QEMU/KVM (Device Passthrough)</h3>
 <p>QEMU uses VFIO to assign physical PCI devices directly to VMs with near-native performance.</p>
-<pre><code>  ┌──────────────────────────────────┐
-  │  Guest VM                        │
-  │  ┌──────────────────────────┐    │
-  │  │ Guest driver (e.g. NIC   │    │
-  │  │ driver, GPU driver)      │    │  Guest thinks it owns the device
-  │  └──────────┬───────────────┘    │
-  │             │ Guest MMIO/DMA     │
-  └─────────────┼────────────────────┘
-                │
-  ┌─────────────▼────────────────────┐
-  │  QEMU (userspace)               │
-  │  vfio-pci device model           │
-  │  - Maps guest GPA → IOVA         │
-  │  - Forwards MSI-X to KVM irqfd   │
-  └─────────────┬────────────────────┘
-                │ VFIO ioctls
-  ┌─────────────▼────────────────────┐
-  │  Kernel (VFIO + KVM + IOMMU)     │
-  │  - IOMMU maps IOVA → HPA         │
-  │  - Posted interrupts: MSI-X      │
-  │    delivered directly to vCPU     │
-  │    without VM exit                │
-  └─────────────┬────────────────────┘
-                │
-  ┌─────────────▼────────────────────┐
-  │  Physical PCI Device             │
-  │  DMAs directly to VM&#39;s memory    │
-  └──────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  ┌──────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>  │  Guest VM                        │</span></span>
+<span class="giallo-l"><span>  │  ┌──────────────────────────┐    │</span></span>
+<span class="giallo-l"><span>  │  │ Guest driver (e.g. NIC   │    │</span></span>
+<span class="giallo-l"><span>  │  │ driver, GPU driver)      │    │  Guest thinks it owns the device</span></span>
+<span class="giallo-l"><span>  │  └──────────┬───────────────┘    │</span></span>
+<span class="giallo-l"><span>  │             │ Guest MMIO/DMA     │</span></span>
+<span class="giallo-l"><span>  └─────────────┼────────────────────┘</span></span>
+<span class="giallo-l"><span>                │</span></span>
+<span class="giallo-l"><span>  ┌─────────────▼────────────────────┐</span></span>
+<span class="giallo-l"><span>  │  QEMU (userspace)               │</span></span>
+<span class="giallo-l"><span>  │  vfio-pci device model           │</span></span>
+<span class="giallo-l"><span>  │  - Maps guest GPA → IOVA         │</span></span>
+<span class="giallo-l"><span>  │  - Forwards MSI-X to KVM irqfd   │</span></span>
+<span class="giallo-l"><span>  └─────────────┬────────────────────┘</span></span>
+<span class="giallo-l"><span>                │ VFIO ioctls</span></span>
+<span class="giallo-l"><span>  ┌─────────────▼────────────────────┐</span></span>
+<span class="giallo-l"><span>  │  Kernel (VFIO + KVM + IOMMU)     │</span></span>
+<span class="giallo-l"><span>  │  - IOMMU maps IOVA → HPA         │</span></span>
+<span class="giallo-l"><span>  │  - Posted interrupts: MSI-X      │</span></span>
+<span class="giallo-l"><span>  │    delivered directly to vCPU     │</span></span>
+<span class="giallo-l"><span>  │    without VM exit                │</span></span>
+<span class="giallo-l"><span>  └─────────────┬────────────────────┘</span></span>
+<span class="giallo-l"><span>                │</span></span>
+<span class="giallo-l"><span>  ┌─────────────▼────────────────────┐</span></span>
+<span class="giallo-l"><span>  │  Physical PCI Device             │</span></span>
+<span class="giallo-l"><span>  │  DMAs directly to VM&#39;s memory    │</span></span>
+<span class="giallo-l"><span>  └──────────────────────────────────┘</span></span></code></pre>
 <p>Key mechanisms:</p>
 <ul>
 <li><strong>Two-level IOMMU</strong>: Guest programs "guest IOVA" → QEMU translates to "host IOVA" → IOMMU translates to HPA. With nested IOMMU support, this becomes hardware-accelerated.</li>
@@ -561,19 +558,18 @@ int main() {
 </ul>
 <h3 id="vfio-mdev-mediated-devices">vfio-mdev (Mediated Devices)</h3>
 <p>When you want to <strong>share</strong> a device across multiple VMs (not assign the whole thing), mediated devices provide software-partitioned virtual functions:</p>
-<pre><code>                    Physical GPU
-                    ┌──────────────────────┐
-                    │                      │
-  ┌──────────┐     │  ┌───────────────┐   │
-  │ VM 1     │◄────┼──│ mdev instance │   │
-  └──────────┘     │  │ (vGPU 1)      │   │
-                    │  └───────────────┘   │
-  ┌──────────┐     │  ┌───────────────┐   │
-  │ VM 2     │◄────┼──│ mdev instance │   │
-  └──────────┘     │  │ (vGPU 2)      │   │
-                    │  └───────────────┘   │
-                    └──────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                    Physical GPU</span></span>
+<span class="giallo-l"><span>                    ┌──────────────────────┐</span></span>
+<span class="giallo-l"><span>                    │                      │</span></span>
+<span class="giallo-l"><span>  ┌──────────┐     │  ┌───────────────┐   │</span></span>
+<span class="giallo-l"><span>  │ VM 1     │◄────┼──│ mdev instance │   │</span></span>
+<span class="giallo-l"><span>  └──────────┘     │  │ (vGPU 1)      │   │</span></span>
+<span class="giallo-l"><span>                    │  └───────────────┘   │</span></span>
+<span class="giallo-l"><span>  ┌──────────┐     │  ┌───────────────┐   │</span></span>
+<span class="giallo-l"><span>  │ VM 2     │◄────┼──│ mdev instance │   │</span></span>
+<span class="giallo-l"><span>  └──────────┘     │  │ (vGPU 2)      │   │</span></span>
+<span class="giallo-l"><span>                    │  └───────────────┘   │</span></span>
+<span class="giallo-l"><span>                    └──────────────────────┘</span></span></code></pre>
 <ul>
 <li><strong>NVIDIA vGPU</strong>: A kernel module (proprietary) creates mdev instances that each present as a virtual GPU. Each VM gets a time-sliced or MIG-partitioned portion.</li>
 <li><strong>Intel GVT-g</strong>: Open-source mediated passthrough for Intel integrated GPUs. Guest GPU commands are intercepted and scheduled.</li>
@@ -586,18 +582,16 @@ int main() {
 <hr />
 <h2 id="6-vfio-user-software-defined-devices">6. VFIO-user: Software-Defined Devices</h2>
 <p><strong>VFIO-user</strong> (introduced ~2021) extends the VFIO protocol over Unix domain sockets, allowing device emulation in a <strong>separate userspace process</strong> rather than in the kernel.</p>
-<pre><code>  ┌────────────────────┐         Unix Socket        ┌────────────────────┐
-  │  Client Process    │◄───────────────────────────►│  Server Process    │
-  │  (e.g., QEMU)      │    vfio-user protocol       │  (device emulator) │
-  │                    │    (VFIO ioctls as msgs)     │                    │
-  │  Opens vfio-user   │                             │  Implements virtual│
-  │  &quot;device&quot; via      │                             │  PCI device:       │
-  │  socket path       │                             │  - BAR handling    │
-  │                    │                             │  - DMA requests    │
-  │                    │                             │  - Interrupt inject│
-  └────────────────────┘                             └────────────────────┘
-</code></pre>
-<h3 id="why-vfio-user-exists">Why VFIO-user Exists</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  ┌────────────────────┐         Unix Socket        ┌────────────────────┐</span></span>
+<span class="giallo-l"><span>  │  Client Process    │◄───────────────────────────►│  Server Process    │</span></span>
+<span class="giallo-l"><span>  │  (e.g., QEMU)      │    vfio-user protocol       │  (device emulator) │</span></span>
+<span class="giallo-l"><span>  │                    │    (VFIO ioctls as msgs)     │                    │</span></span>
+<span class="giallo-l"><span>  │  Opens vfio-user   │                             │  Implements virtual│</span></span>
+<span class="giallo-l"><span>  │  &quot;device&quot; via      │                             │  PCI device:       │</span></span>
+<span class="giallo-l"><span>  │  socket path       │                             │  - BAR handling    │</span></span>
+<span class="giallo-l"><span>  │                    │                             │  - DMA requests    │</span></span>
+<span class="giallo-l"><span>  │                    │                             │  - Interrupt inject│</span></span>
+<span class="giallo-l"><span>  └────────────────────┘                             └────────────────────┘</span></span></code></pre><h3 id="why-vfio-user-exists">Why VFIO-user Exists</h3>
 <ol>
 <li><strong>Disaggregated emulation</strong>: Device emulation can run in a separate process (or even a separate host), isolated from the VMM. If the emulator crashes, the VMM survives.</li>
 <li><strong>Security</strong>: Emulator process can be sandboxed (seccomp, namespaces) independently.</li>
@@ -605,27 +599,25 @@ int main() {
 </ol>
 <h3 id="spdk-vfio-user-nvme-target">SPDK vfio-user NVMe Target</h3>
 <p>SPDK implements a vfio-user server that presents a virtual NVMe controller:</p>
-<pre><code>  VM (QEMU)                                    SPDK
-  ┌──────────────┐                            ┌──────────────┐
-  │ Guest NVMe   │                            │ NVMe target  │
-  │ driver       │                            │ (vfio-user   │
-  │              │◄── vfio-user socket ──────►│  transport)  │
-  │ Sees a real  │                            │              │
-  │ NVMe device  │                            │ Backed by    │
-  │              │                            │ real NVMe,   │
-  │              │                            │ malloc, etc. │
-  └──────────────┘                            └──────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  VM (QEMU)                                    SPDK</span></span>
+<span class="giallo-l"><span>  ┌──────────────┐                            ┌──────────────┐</span></span>
+<span class="giallo-l"><span>  │ Guest NVMe   │                            │ NVMe target  │</span></span>
+<span class="giallo-l"><span>  │ driver       │                            │ (vfio-user   │</span></span>
+<span class="giallo-l"><span>  │              │◄── vfio-user socket ──────►│  transport)  │</span></span>
+<span class="giallo-l"><span>  │ Sees a real  │                            │              │</span></span>
+<span class="giallo-l"><span>  │ NVMe device  │                            │ Backed by    │</span></span>
+<span class="giallo-l"><span>  │              │                            │ real NVMe,   │</span></span>
+<span class="giallo-l"><span>  │              │                            │ malloc, etc. │</span></span>
+<span class="giallo-l"><span>  └──────────────┘                            └──────────────┘</span></span></code></pre>
 <p>The guest runs its standard NVMe driver. SPDK handles I/O on the server side, backed by any SPDK bdev (real NVMe, Ceph RBD, null, malloc). This replaces QEMU's built-in NVMe emulation with SPDK's high-performance I/O path.</p>
 <h3 id="libvfio-user">libvfio-user</h3>
 <p>Open-source library (originally from Nutanix) for building vfio-user device emulators:</p>
-<pre><code data-lang="c">// Server side (device emulator):
-vfu_ctx_t *ctx = vfu_create_ctx(VFU_TRANS_SOCK, &quot;/tmp/my-device.sock&quot;, ...);
-vfu_pci_init(ctx, VFU_PCI_TYPE_CONVENTIONAL, ...);
-vfu_setup_region(ctx, VFU_PCI_DEV_BAR0_REGION_IDX, 0x1000, bar0_access_cb, ...);
-vfu_realize_ctx(ctx);
-vfu_run_ctx(ctx);  // event loop
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Server side (device emulator):</span></span>
+<span class="giallo-l"><span class="z-support z-type">vfu_ctx_t</span><span class="z-keyword z-operator"> *</span><span>ctx </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> vfu_create_ctx</span><span class="z-punctuation">(</span><span>VFU_TRANS_SOCK</span><span class="z-punctuation">,</span><span class="z-punctuation"> &quot;</span><span class="z-string">/tmp/my-device.sock</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">,</span><span class="z-punctuation"> ...</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">vfu_pci_init</span><span class="z-punctuation">(</span><span>ctx</span><span class="z-punctuation">,</span><span> VFU_PCI_TYPE_CONVENTIONAL</span><span class="z-punctuation">,</span><span class="z-punctuation"> ...</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">vfu_setup_region</span><span class="z-punctuation">(</span><span>ctx</span><span class="z-punctuation">,</span><span> VFU_PCI_DEV_BAR0_REGION_IDX</span><span class="z-punctuation">,</span><span class="z-keyword z-other z-unit"> 0x</span><span class="z-constant">1000</span><span class="z-punctuation">,</span><span> bar0_access_cb</span><span class="z-punctuation">,</span><span class="z-punctuation"> ...</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">vfu_realize_ctx</span><span class="z-punctuation">(</span><span>ctx</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">vfu_run_ctx</span><span class="z-punctuation">(</span><span>ctx</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> event loop</span></span></code></pre>
 <hr />
 <h2 id="7-dma-and-memory-management">7. DMA and Memory Management</h2>
 <h3 id="page-pinning">Page Pinning</h3>
@@ -638,11 +630,9 @@ vfu_run_ctx(ctx);  // event loop
 <p>This is necessary because the IOMMU page tables contain physical addresses. If the kernel moved a page, the IOMMU would point to stale memory.</p>
 <p><strong>Cost</strong>: Pinning calls <code>pin_user_pages()</code> for each page, which is expensive. For 1 GB of 4 KB pages, that's 262,144 <code>pin_user_pages()</code> calls. With 2 MB hugepages, it's 512 calls. With 1 GB hugepages, it's 1 call. This is another reason hugepages dominate VFIO workloads.</p>
 <p><strong>RLIMIT_MEMLOCK</strong>: Pinned memory counts against the process's locked memory limit. You must raise it:</p>
-<pre><code data-lang="bash">ulimit -l unlimited
-# Or in /etc/security/limits.conf:
-# user  hard  memlock  unlimited
-</code></pre>
-<h3 id="hugepages-for-dma">Hugepages for DMA</h3>
+<pre class="giallo z-code"><code data-lang="shellscript"><span class="giallo-l"><span class="z-support z-function z-builtin">ulimit</span><span class="z-constant"> -</span><span class="z-constant">l</span><span class="z-string"> unlimited</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Or in /etc/security/limits.conf:</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> user  hard  memlock  unlimited</span></span></code></pre><h3 id="hugepages-for-dma">Hugepages for DMA</h3>
 <p>Hugepages are essentially mandatory for serious VFIO usage. Benefits:</p>
 <ol>
 <li><strong>Fewer pin operations</strong> — 512x fewer for 2 MB, 262,144x fewer for 1 GB</li>
@@ -651,20 +641,18 @@ vfu_run_ctx(ctx);  // event loop
 <li><strong>Fewer TLB entries</strong> — CPU-side benefit when the process accesses DMA buffers</li>
 </ol>
 <p>Setup:</p>
-<pre><code data-lang="bash"># Reserve 1 GB hugepages at boot (grub/kernel cmdline)
-hugepagesz=1G hugepages=8 default_hugepagesz=1G
-
-# Or at runtime (2 MB hugepages)
-echo 1024 &gt; /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
-
-# Mount hugetlbfs
-mount -t hugetlbfs nodev /dev/hugepages
-
-# Application allocates from hugetlbfs or MAP_HUGETLB
-void *buf = mmap(NULL, SZ_2M, PROT_READ | PROT_WRITE,
-                 MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
-</code></pre>
-<h3 id="iova-allocation">IOVA Allocation</h3>
+<pre class="giallo z-code"><code data-lang="shellscript"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Reserve 1 GB hugepages at boot (grub/kernel cmdline)</span></span>
+<span class="giallo-l"><span class="z-variable z-other">hugepagesz</span><span class="z-keyword z-operator">=</span><span class="z-string">1</span><span class="z-string">G</span><span class="z-variable z-other"> hugepages</span><span class="z-keyword z-operator">=</span><span class="z-string">8</span><span class="z-variable z-other"> default_hugepagesz</span><span class="z-keyword z-operator">=</span><span class="z-string">1</span><span class="z-string">G</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Or at runtime (2 MB hugepages)</span></span>
+<span class="giallo-l"><span class="z-support z-function z-builtin">echo</span><span class="z-constant"> 1024</span><span class="z-keyword z-operator"> &gt;</span><span class="z-string"> /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Mount hugetlbfs</span></span>
+<span class="giallo-l"><span class="z-entity z-name">mount</span><span class="z-constant"> -</span><span class="z-constant">t</span><span class="z-string"> hugetlbfs</span><span class="z-string"> nodev</span><span class="z-string"> /dev/hugepages</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Application allocates from hugetlbfs or MAP_HUGETLB</span></span>
+<span class="giallo-l"><span class="z-entity z-name">void</span><span class="z-variable"> *</span><span class="z-string">buf</span><span class="z-string"> =</span><span class="z-string"> mmap</span><span class="z-punctuation">(</span><span class="z-entity z-name">NULL,</span><span class="z-string"> SZ_2M,</span><span class="z-string"> PROT_READ</span><span class="z-keyword z-operator"> |</span><span class="z-entity z-name"> PROT_WRITE,</span></span>
+<span class="giallo-l"><span class="z-entity z-name">                 MAP_PRIVATE</span><span class="z-keyword z-operator"> |</span><span class="z-entity z-name"> MAP_ANONYMOUS</span><span class="z-keyword z-operator"> |</span><span class="z-entity z-name"> MAP_HUGETLB,</span><span class="z-constant"> -</span><span class="z-constant">1,</span><span class="z-constant"> 0</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre><h3 id="iova-allocation">IOVA Allocation</h3>
 <p>The userspace application chooses IOVA values (the addresses the device will use for DMA). Strategies:</p>
 <ol>
 <li>
@@ -679,16 +667,13 @@ void *buf = mmap(NULL, SZ_2M, PROT_READ | PROT_WRITE,
 </ol>
 <h3 id="scatter-gather-dma">Scatter-Gather DMA</h3>
 <p>Most modern devices support scatter-gather lists (SGLs) — a chain of (address, length) pairs that describe a non-contiguous DMA transfer. Each entry points to a different IOVA region. The IOMMU translates each IOVA independently.</p>
-<pre><code>  Scatter-Gather List:
-  ┌───────────────────┐
-  │ IOVA=0x1000, 4KB  │──► physical page A
-  │ IOVA=0x5000, 4KB  │──► physical page B  (non-contiguous)
-  │ IOVA=0x9000, 8KB  │──► physical pages C,D
-  └───────────────────┘
-</code></pre>
-<h3 id="no-iommu-mode">No-IOMMU Mode</h3>
-<pre><code data-lang="bash">echo 1 &gt; /sys/module/vfio/parameters/enable_unsafe_noiommu_mode
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  Scatter-Gather List:</span></span>
+<span class="giallo-l"><span>  ┌───────────────────┐</span></span>
+<span class="giallo-l"><span>  │ IOVA=0x1000, 4KB  │──► physical page A</span></span>
+<span class="giallo-l"><span>  │ IOVA=0x5000, 4KB  │──► physical page B  (non-contiguous)</span></span>
+<span class="giallo-l"><span>  │ IOVA=0x9000, 8KB  │──► physical pages C,D</span></span>
+<span class="giallo-l"><span>  └───────────────────┘</span></span></code></pre><h3 id="no-iommu-mode">No-IOMMU Mode</h3>
+<pre class="giallo z-code"><code data-lang="shellscript"><span class="giallo-l"><span class="z-support z-function z-builtin">echo</span><span class="z-constant"> 1</span><span class="z-keyword z-operator"> &gt;</span><span class="z-string"> /sys/module/vfio/parameters/enable_unsafe_noiommu_mode</span></span></code></pre>
 <p>VFIO without an IOMMU. The device uses physical addresses directly (no translation). Provides the VFIO API (BAR access, interrupts) but <strong>zero DMA isolation</strong>. The device can DMA to any physical address.</p>
 <p>When used:</p>
 <ul>
@@ -716,12 +701,11 @@ void *buf = mmap(NULL, SZ_2M, PROT_READ | PROT_WRITE,
 <p>The <code>pci=acs_override=downstream,multifunction</code> kernel parameter forces all devices into separate groups by pretending ACS exists everywhere. <strong>This breaks the security guarantee</strong> — devices can still peer-to-peer DMA, the kernel just doesn't know about it. Acceptable for home lab GPU passthrough; unacceptable in production multi-tenant environments.</p>
 <h3 id="capability-requirements">Capability Requirements</h3>
 <p>With proper group file permissions, VFIO can be used <strong>without root</strong> and without <code>CAP_SYS_RAWIO</code>:</p>
-<pre><code data-lang="bash"># Allow user &#39;dpdk&#39; to access IOMMU group 26
-chown dpdk:dpdk /dev/vfio/26
-chmod 0600 /dev/vfio/26
-# Also need access to the container
-chown dpdk:dpdk /dev/vfio/vfio
-</code></pre>
+<pre class="giallo z-code"><code data-lang="shellscript"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Allow user &#39;dpdk&#39; to access IOMMU group 26</span></span>
+<span class="giallo-l"><span class="z-entity z-name">chown</span><span class="z-string"> dpdk:dpdk</span><span class="z-string"> /dev/vfio/26</span></span>
+<span class="giallo-l"><span class="z-entity z-name">chmod</span><span class="z-constant"> 0600</span><span class="z-string"> /dev/vfio/26</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Also need access to the container</span></span>
+<span class="giallo-l"><span class="z-entity z-name">chown</span><span class="z-string"> dpdk:dpdk</span><span class="z-string"> /dev/vfio/vfio</span></span></code></pre>
 <p>The only caveat is <code>RLIMIT_MEMLOCK</code> must be sufficient for pinned DMA memory.</p>
 <hr />
 <h2 id="9-performance-considerations">9. Performance Considerations</h2>
@@ -754,20 +738,18 @@ chown dpdk:dpdk /dev/vfio/vfio
 <li>Kernel drivers: zero IOMMU overhead, bare-metal performance</li>
 <li>VFIO devices: full IOMMU isolation</li>
 </ul>
-<pre><code data-lang="bash"># Kernel cmdline
-intel_iommu=on iommu=pt
-</code></pre>
+<pre class="giallo z-code"><code data-lang="shellscript"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Kernel cmdline</span></span>
+<span class="giallo-l"><span class="z-variable z-other">intel_iommu</span><span class="z-keyword z-operator">=</span><span class="z-string">o</span><span class="z-string">n</span><span class="z-variable z-other"> iommu</span><span class="z-keyword z-operator">=</span><span class="z-string">p</span><span class="z-string">t</span></span></code></pre>
 <p>Without <code>iommu=pt</code>, the kernel's DMA API sets up IOMMU mappings for every kernel driver DMA operation, adding overhead to disk and network I/O even when VFIO isn't in use.</p>
 <h3 id="posted-interrupts-intel-vt-d">Posted Interrupts (Intel VT-d)</h3>
 <p>For VM device passthrough, <strong>posted interrupts</strong> allow MSI-X interrupts from the device to be delivered directly to the guest vCPU without a VM exit:</p>
-<pre><code>Without posted interrupts:
-  Device MSI-X → host CPU → VM exit → KVM → inject interrupt → VM enter
-  (each interrupt = ~1-3 µs VM exit/enter overhead)
-
-With posted interrupts:
-  Device MSI-X → posted interrupt descriptor → delivered to vCPU
-  (zero VM exits for interrupt delivery)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Without posted interrupts:</span></span>
+<span class="giallo-l"><span>  Device MSI-X → host CPU → VM exit → KVM → inject interrupt → VM enter</span></span>
+<span class="giallo-l"><span>  (each interrupt = ~1-3 µs VM exit/enter overhead)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>With posted interrupts:</span></span>
+<span class="giallo-l"><span>  Device MSI-X → posted interrupt descriptor → delivered to vCPU</span></span>
+<span class="giallo-l"><span>  (zero VM exits for interrupt delivery)</span></span></code></pre>
 <p>This is critical for high-throughput passthrough workloads (NVMe, high-speed NICs) where interrupt rates can reach hundreds of thousands per second.</p>
 <h3 id="typical-overhead">Typical Overhead</h3>
 <p>With proper setup (hugepages, pre-mapped DMA, <code>iommu=pt</code>):</p>
@@ -780,14 +762,13 @@ With posted interrupts:
 <h2 id="10-advanced-topics">10. Advanced Topics</h2>
 <h3 id="nested-iommus-nested-virtualization">Nested IOMMUs (Nested Virtualization)</h3>
 <p>When running a VM inside a VM, there are two levels of IOMMU translation:</p>
-<pre><code>  Device DMA address (guest IOVA)
-    │
-    ▼  Stage-1 translation (guest-controlled)
-  Guest Physical Address (GPA)
-    │
-    ▼  Stage-2 translation (host-controlled)
-  Host Physical Address (HPA)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  Device DMA address (guest IOVA)</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ▼  Stage-1 translation (guest-controlled)</span></span>
+<span class="giallo-l"><span>  Guest Physical Address (GPA)</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ▼  Stage-2 translation (host-controlled)</span></span>
+<span class="giallo-l"><span>  Host Physical Address (HPA)</span></span></code></pre>
 <ul>
 <li><strong>Intel VT-d</strong>: "Scalable mode" with first-level + second-level page tables</li>
 <li><strong>ARM SMMUv3</strong>: Stage-1 + Stage-2 (same as CPU EL1/EL0 + EL2 translation)</li>
@@ -813,21 +794,20 @@ With posted interrupts:
 <h3 id="pasid-and-sva-shared-virtual-addressing">PASID and SVA (Shared Virtual Addressing)</h3>
 <p><strong>PASID (Process Address Space ID)</strong> allows a device to tag DMA requests with a process identifier, so different processes can share a device while each seeing their own virtual address space through the IOMMU.</p>
 <p><strong>SVA (Shared Virtual Addressing)</strong> / <strong>SVM (Shared Virtual Memory)</strong>: The IOMMU uses the <strong>CPU's page tables</strong> for DMA translation. The device sees the same virtual addresses as the process — no separate IOVA mapping needed.</p>
-<pre><code>  Process (VA space)          IOMMU with PASID/SVA
-  ┌────────────────┐         ┌────────────────────┐
-  │ 0x7fff0000     │         │ Device DMA to       │
-  │ (stack)        │         │ VA 0x7fff0000       │
-  │                │         │ with PASID=42       │
-  │ 0x400000       │◄────────│                     │
-  │ (heap buffer)  │         │ → IOMMU walks CPU   │
-  │                │         │   page table for    │
-  └────────────────┘         │   process 42        │
-        ▲                    │ → translates to PA  │
-        │                    └────────────────────┘
-   Same page tables
-   shared between CPU
-   and IOMMU
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  Process (VA space)          IOMMU with PASID/SVA</span></span>
+<span class="giallo-l"><span>  ┌────────────────┐         ┌────────────────────┐</span></span>
+<span class="giallo-l"><span>  │ 0x7fff0000     │         │ Device DMA to       │</span></span>
+<span class="giallo-l"><span>  │ (stack)        │         │ VA 0x7fff0000       │</span></span>
+<span class="giallo-l"><span>  │                │         │ with PASID=42       │</span></span>
+<span class="giallo-l"><span>  │ 0x400000       │◄────────│                     │</span></span>
+<span class="giallo-l"><span>  │ (heap buffer)  │         │ → IOMMU walks CPU   │</span></span>
+<span class="giallo-l"><span>  │                │         │   page table for    │</span></span>
+<span class="giallo-l"><span>  └────────────────┘         │   process 42        │</span></span>
+<span class="giallo-l"><span>        ▲                    │ → translates to PA  │</span></span>
+<span class="giallo-l"><span>        │                    └────────────────────┘</span></span>
+<span class="giallo-l"><span>   Same page tables</span></span>
+<span class="giallo-l"><span>   shared between CPU</span></span>
+<span class="giallo-l"><span>   and IOMMU</span></span></code></pre>
 <p>Use cases:</p>
 <ul>
 <li><strong>Intel DSA/IAA</strong> (Data Streaming Accelerator / In-Memory Analytics Accelerator): Submit work items pointing to process virtual addresses. The accelerator uses PASID+SVA to access them.</li>
@@ -836,17 +816,16 @@ With posted interrupts:
 </ul>
 <h3 id="iommufd-the-new-interface">IOMMUFD: The New Interface</h3>
 <p><strong>IOMMUFD</strong> (Linux 6.2, 2023) is a new kernel interface designed to replace VFIO's container and group model. It provides a device-centric, fine-grained IOMMU management API.</p>
-<pre><code>  VFIO (legacy)                    IOMMUFD (new)
-  ┌────────────────────┐          ┌────────────────────┐
-  │ Container          │          │ /dev/iommu          │
-  │  └── Group         │          │  ├── IOAS           │
-  │       └── Device   │          │  │   (I/O Address   │
-  │                    │          │  │    Space)         │
-  │ DMA mgmt tied to   │          │  ├── HWPT           │
-  │ container, group    │          │  │   (HW Page Table)│
-  │ model              │          │  └── Device         │
-  └────────────────────┘          └────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  VFIO (legacy)                    IOMMUFD (new)</span></span>
+<span class="giallo-l"><span>  ┌────────────────────┐          ┌────────────────────┐</span></span>
+<span class="giallo-l"><span>  │ Container          │          │ /dev/iommu          │</span></span>
+<span class="giallo-l"><span>  │  └── Group         │          │  ├── IOAS           │</span></span>
+<span class="giallo-l"><span>  │       └── Device   │          │  │   (I/O Address   │</span></span>
+<span class="giallo-l"><span>  │                    │          │  │    Space)         │</span></span>
+<span class="giallo-l"><span>  │ DMA mgmt tied to   │          │  ├── HWPT           │</span></span>
+<span class="giallo-l"><span>  │ container, group    │          │  │   (HW Page Table)│</span></span>
+<span class="giallo-l"><span>  │ model              │          │  └── Device         │</span></span>
+<span class="giallo-l"><span>  └────────────────────┘          └────────────────────┘</span></span></code></pre>
 <p>Key improvements:</p>
 <ul>
 <li><strong>No group requirement</strong>: Devices can be managed individually (though IOMMU group isolation is still enforced internally).</li>
@@ -861,56 +840,53 @@ With posted interrupts:
 <hr />
 <h2 id="11-kernel-internals">11. Kernel Internals</h2>
 <h3 id="architecture-overview">Architecture Overview</h3>
-<pre><code>  Userspace
-  ─────────────────────────────────────────────────────
-  Kernel
-  ┌──────────────────────────────────────────────────┐
-  │                   VFIO Core                       │
-  │  (drivers/vfio/vfio_main.c)                       │
-  │  - Device fd management                           │
-  │  - Group lifecycle                                │
-  │  - ioctl dispatch                                 │
-  │                                                   │
-  │  ┌─────────────────┐  ┌───────────────────────┐  │
-  │  │ IOMMU Backend   │  │ Bus Driver            │  │
-  │  │                 │  │                       │  │
-  │  │ vfio_iommu_     │  │ vfio_pci_core.c       │  │
-  │  │ type1.c         │  │ vfio_pci.c            │  │
-  │  │                 │  │                       │  │
-  │  │ - DMA map/unmap │  │ - BAR access          │  │
-  │  │ - Pin/unpin     │  │ - Config space virt.  │  │
-  │  │ - IOMMU domain  │  │ - Interrupt setup     │  │
-  │  │   management    │  │ - Device reset        │  │
-  │  └────────┬────────┘  └───────────┬───────────┘  │
-  │           │                       │               │
-  └───────────┼───────────────────────┼───────────────┘
-              │                       │
-  ┌───────────▼───────────────────────▼───────────────┐
-  │              IOMMU Subsystem                       │
-  │  (drivers/iommu/iommu.c)                           │
-  │                                                    │
-  │  ┌───────────┐ ┌───────────┐ ┌──────────────┐     │
-  │  │intel-iommu│ │ amd_iommu │ │arm-smmu-v3   │     │
-  │  │  (VT-d)   │ │  (AMD-Vi) │ │              │     │
-  │  └─────┬─────┘ └─────┬─────┘ └──────┬───────┘     │
-  └────────┼──────────────┼──────────────┼─────────────┘
-           │              │              │
-  ─────────▼──────────────▼──────────────▼──── Hardware
-         Intel           AMD            ARM
-         IOMMU           IOMMU          SMMU
-</code></pre>
-<h3 id="vfio-iommu-type1-c-the-iommu-backend">vfio_iommu_type1.c — The IOMMU Backend</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  Userspace</span></span>
+<span class="giallo-l"><span>  ─────────────────────────────────────────────────────</span></span>
+<span class="giallo-l"><span>  Kernel</span></span>
+<span class="giallo-l"><span>  ┌──────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>  │                   VFIO Core                       │</span></span>
+<span class="giallo-l"><span>  │  (drivers/vfio/vfio_main.c)                       │</span></span>
+<span class="giallo-l"><span>  │  - Device fd management                           │</span></span>
+<span class="giallo-l"><span>  │  - Group lifecycle                                │</span></span>
+<span class="giallo-l"><span>  │  - ioctl dispatch                                 │</span></span>
+<span class="giallo-l"><span>  │                                                   │</span></span>
+<span class="giallo-l"><span>  │  ┌─────────────────┐  ┌───────────────────────┐  │</span></span>
+<span class="giallo-l"><span>  │  │ IOMMU Backend   │  │ Bus Driver            │  │</span></span>
+<span class="giallo-l"><span>  │  │                 │  │                       │  │</span></span>
+<span class="giallo-l"><span>  │  │ vfio_iommu_     │  │ vfio_pci_core.c       │  │</span></span>
+<span class="giallo-l"><span>  │  │ type1.c         │  │ vfio_pci.c            │  │</span></span>
+<span class="giallo-l"><span>  │  │                 │  │                       │  │</span></span>
+<span class="giallo-l"><span>  │  │ - DMA map/unmap │  │ - BAR access          │  │</span></span>
+<span class="giallo-l"><span>  │  │ - Pin/unpin     │  │ - Config space virt.  │  │</span></span>
+<span class="giallo-l"><span>  │  │ - IOMMU domain  │  │ - Interrupt setup     │  │</span></span>
+<span class="giallo-l"><span>  │  │   management    │  │ - Device reset        │  │</span></span>
+<span class="giallo-l"><span>  │  └────────┬────────┘  └───────────┬───────────┘  │</span></span>
+<span class="giallo-l"><span>  │           │                       │               │</span></span>
+<span class="giallo-l"><span>  └───────────┼───────────────────────┼───────────────┘</span></span>
+<span class="giallo-l"><span>              │                       │</span></span>
+<span class="giallo-l"><span>  ┌───────────▼───────────────────────▼───────────────┐</span></span>
+<span class="giallo-l"><span>  │              IOMMU Subsystem                       │</span></span>
+<span class="giallo-l"><span>  │  (drivers/iommu/iommu.c)                           │</span></span>
+<span class="giallo-l"><span>  │                                                    │</span></span>
+<span class="giallo-l"><span>  │  ┌───────────┐ ┌───────────┐ ┌──────────────┐     │</span></span>
+<span class="giallo-l"><span>  │  │intel-iommu│ │ amd_iommu │ │arm-smmu-v3   │     │</span></span>
+<span class="giallo-l"><span>  │  │  (VT-d)   │ │  (AMD-Vi) │ │              │     │</span></span>
+<span class="giallo-l"><span>  │  └─────┬─────┘ └─────┬─────┘ └──────┬───────┘     │</span></span>
+<span class="giallo-l"><span>  └────────┼──────────────┼──────────────┼─────────────┘</span></span>
+<span class="giallo-l"><span>           │              │              │</span></span>
+<span class="giallo-l"><span>  ─────────▼──────────────▼──────────────▼──── Hardware</span></span>
+<span class="giallo-l"><span>         Intel           AMD            ARM</span></span>
+<span class="giallo-l"><span>         IOMMU           IOMMU          SMMU</span></span></code></pre><h3 id="vfio-iommu-type1-c-the-iommu-backend">vfio_iommu_type1.c — The IOMMU Backend</h3>
 <p>This is the core of VFIO's DMA management. Key data structures and operations:</p>
 <p><strong>DMA mapping storage</strong>: A red-black tree (<code>struct rb_root</code>) keyed by IOVA, storing <code>struct vfio_dma</code> entries:</p>
-<pre><code data-lang="c">struct vfio_dma {
-    struct rb_node     node;       // RB-tree node
-    dma_addr_t         iova;       // start IOVA
-    unsigned long      vaddr;      // userspace virtual address
-    size_t             size;       // mapping size
-    int                prot;       // IOMMU_READ | IOMMU_WRITE
-    // ... pfn tracking, lock_acct
-};
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-storage z-type">struct</span><span> vfio_dma </span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    struct</span><span> rb_node     node</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">       //</span><span class="z-comment"> RB-tree node</span></span>
+<span class="giallo-l"><span class="z-support z-type">    dma_addr_t</span><span>         iova</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">       //</span><span class="z-comment"> start IOVA</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    unsigned</span><span class="z-storage z-type"> long</span><span>      vaddr</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">      //</span><span class="z-comment"> userspace virtual address</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    size_t</span><span>             size</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">       //</span><span class="z-comment"> mapping size</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    int</span><span>                prot</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">       //</span><span class="z-comment"> IOMMU_READ | IOMMU_WRITE</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> ... pfn tracking, lock_acct</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span></code></pre>
 <p><strong>MAP_DMA flow</strong>:</p>
 <ol>
 <li>Validate IOVA range doesn't overlap existing mappings (RB-tree lookup)</li>
@@ -946,8 +922,7 @@ With posted interrupts:
 <li>For each vector, <code>request_irq()</code> with a VFIO handler that calls <code>eventfd_signal()</code> on the userspace-provided eventfd</li>
 <li>When the device fires MSI-X → CPU interrupt → VFIO handler → <code>eventfd_signal()</code> → userspace epoll wakes up</li>
 </ol>
-<pre><code>  Device MSI-X → CPU vector → vfio_msihandler() → eventfd_signal() → epoll_wait() returns
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  Device MSI-X → CPU vector → vfio_msihandler() → eventfd_signal() → epoll_wait() returns</span></span></code></pre>
 <p><strong>Device reset</strong>: Tries, in order:</p>
 <ol>
 <li>PCI FLR (Function Level Reset) — <code>pcie_flr()</code></li>

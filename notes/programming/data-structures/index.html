@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -86,50 +109,47 @@
 <h2 id="1-lock-free-ring-buffer-spsc-mpmc">1. <strong>Lock-Free Ring Buffer (SPSC/MPMC)</strong></h2>
 <p><strong>Used in:</strong> HFT systems, Linux kernel, LMAX Disruptor</p>
 <p>A circular buffer that enables wait-free communication between threads without locks.</p>
-<pre><code>┌───┬───┬───┬───┬───┬───┬───┬───┐
-│ 0 │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │
-└───┴───┴───┴───┴───┴───┴───┴───┘
-      ↑               ↑
-    read            write
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌───┬───┬───┬───┬───┬───┬───┬───┐</span></span>
+<span class="giallo-l"><span>│ 0 │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │</span></span>
+<span class="giallo-l"><span>└───┴───┴───┴───┴───┴───┴───┴───┘</span></span>
+<span class="giallo-l"><span>      ↑               ↑</span></span>
+<span class="giallo-l"><span>    read            write</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Cache-line padding to prevent false sharing</li>
 <li>Memory barriers for ordering guarantees</li>
 <li>Power-of-2 sizing for fast modulo (bitwise AND)</li>
 </ul>
-<pre><code data-lang="cpp">// Simplified SPSC queue
-template&lt;typename T, size_t N&gt;
-class SPSCQueue {
-    alignas(64) std::atomic&lt;size_t&gt; head_{0};
-    alignas(64) std::atomic&lt;size_t&gt; tail_{0};
-    T buffer_[N];  // N must be power of 2
-
-    bool push(const T&amp; item) {
-        size_t tail = tail_.load(std::memory_order_relaxed);
-        if (tail - head_.load(std::memory_order_acquire) &gt;= N)
-            return false;
-        buffer_[tail &amp; (N-1)] = item;
-        tail_.store(tail + 1, std::memory_order_release);
-        return true;
-    }
-};
-</code></pre>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Simplified SPSC queue</span></span>
+<span class="giallo-l"><span class="z-storage z-type">template</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">typename</span><span class="z-entity z-name z-type"> T</span><span class="z-punctuation">,</span><span class="z-storage z-type"> size_t</span><span class="z-entity z-name z-type"> N</span><span class="z-punctuation">&gt;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">class</span><span class="z-entity z-name z-type"> SPSCQueue</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    alignas</span><span class="z-punctuation">(</span><span>64</span><span class="z-punctuation">)</span><span class="z-entity z-name"> std</span><span class="z-punctuation">::</span><span>atomic</span><span class="z-keyword z-operator">&lt;</span><span class="z-storage z-type">size_t</span><span class="z-keyword z-operator">&gt;</span><span> head_</span><span class="z-punctuation">{</span><span class="z-constant">0</span><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    alignas</span><span class="z-punctuation">(</span><span>64</span><span class="z-punctuation">)</span><span class="z-entity z-name"> std</span><span class="z-punctuation">::</span><span>atomic</span><span class="z-keyword z-operator">&lt;</span><span class="z-storage z-type">size_t</span><span class="z-keyword z-operator">&gt;</span><span> tail_</span><span class="z-punctuation">{</span><span class="z-constant">0</span><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>    T </span><span class="z-variable z-other">buffer_</span><span class="z-punctuation">[</span><span>N</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> N must be power of 2</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">    bool</span><span class="z-entity z-name z-function"> push</span><span class="z-punctuation">(</span><span class="z-storage z-modifier">const</span><span class="z-entity z-name z-type"> T</span><span class="z-storage z-modifier">&amp;</span><span class="z-variable z-parameter"> item</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">        size_t</span><span> tail </span><span class="z-keyword z-operator">=</span><span class="z-variable z-other"> tail_</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">load</span><span class="z-punctuation">(</span><span class="z-entity z-name">std</span><span class="z-punctuation">::</span><span>memory_order_relaxed</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-punctuation"> (</span><span>tail </span><span class="z-keyword z-operator">-</span><span class="z-variable z-other"> head_</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">load</span><span class="z-punctuation">(</span><span class="z-entity z-name">std</span><span class="z-punctuation">::</span><span>memory_order_acquire</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> &gt;=</span><span> N</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">            return</span><span class="z-constant"> false</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        buffer_</span><span class="z-punctuation">[</span><span>tail </span><span class="z-keyword z-operator">&amp;</span><span class="z-punctuation"> (</span><span>N</span><span class="z-keyword z-operator">-</span><span class="z-constant">1</span><span class="z-punctuation">)</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> =</span><span> item</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        tail_</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">store</span><span class="z-punctuation">(</span><span>tail </span><span class="z-keyword z-operator">+</span><span class="z-constant"> 1</span><span class="z-punctuation">,</span><span class="z-entity z-name"> std</span><span class="z-punctuation">::</span><span>memory_order_release</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        return</span><span class="z-constant"> true</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span></code></pre>
 <hr />
 <h2 id="2-b-tree-with-fractal-tree-indexing-be-tree">2. <strong>B+ Tree with Fractal Tree Indexing (Bε-tree)</strong></h2>
 <p><strong>Used in:</strong> TokuDB, BetrFS, FoundationDB</p>
 <p>Buffers updates at internal nodes, converting random I/O to sequential I/O.</p>
-<pre><code>         ┌─────────────────────┐
-         │  [50]  buffer:[]    │
-         └──────────┬──────────┘
-                    │
-    ┌───────────────┴───────────────┐
-    │                               │
-┌───┴────────────┐    ┌─────────────┴────┐
-│[20,30]         │    │[70,90]           │
-│buffer:[ins:25] │    │buffer:[del:85]   │
-└────────────────┘    └──────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>         ┌─────────────────────┐</span></span>
+<span class="giallo-l"><span>         │  [50]  buffer:[]    │</span></span>
+<span class="giallo-l"><span>         └──────────┬──────────┘</span></span>
+<span class="giallo-l"><span>                    │</span></span>
+<span class="giallo-l"><span>    ┌───────────────┴───────────────┐</span></span>
+<span class="giallo-l"><span>    │                               │</span></span>
+<span class="giallo-l"><span>┌───┴────────────┐    ┌─────────────┴────┐</span></span>
+<span class="giallo-l"><span>│[20,30]         │    │[70,90]           │</span></span>
+<span class="giallo-l"><span>│buffer:[ins:25] │    │buffer:[del:85]   │</span></span>
+<span class="giallo-l"><span>└────────────────┘    └──────────────────┘</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>O(log N / B) amortized I/O for insertions (vs O(log N) for B-tree)</li>
@@ -140,64 +160,59 @@ class SPSCQueue {
 <h2 id="3-skip-list-with-tower-optimization">3. <strong>Skip List with Tower Optimization</strong></h2>
 <p><strong>Used in:</strong> Redis sorted sets, LevelDB/RocksDB memtables, HFT order books</p>
 <p>Probabilistic alternative to balanced trees with better cache behavior.</p>
-<pre><code>Level 3: HEAD ────────────────────────────────────&gt; 50 ────────────&gt; NIL
-Level 2: HEAD ──────────&gt; 20 ─────────────────────&gt; 50 ────────────&gt; NIL
-Level 1: HEAD ──────────&gt; 20 ──────────&gt; 35 ──────&gt; 50 ──&gt; 60 ─────&gt; NIL
-Level 0: HEAD ─&gt; 10 ─&gt; 20 ─&gt; 25 ─&gt; 35 ─&gt; 50 ─&gt; 60 ─&gt; 75 ─&gt; 80 ─&gt; NIL
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Level 3: HEAD ────────────────────────────────────&gt; 50 ────────────&gt; NIL</span></span>
+<span class="giallo-l"><span>Level 2: HEAD ──────────&gt; 20 ─────────────────────&gt; 50 ────────────&gt; NIL</span></span>
+<span class="giallo-l"><span>Level 1: HEAD ──────────&gt; 20 ──────────&gt; 35 ──────&gt; 50 ──&gt; 60 ─────&gt; NIL</span></span>
+<span class="giallo-l"><span>Level 0: HEAD ─&gt; 10 ─&gt; 20 ─&gt; 25 ─&gt; 35 ─&gt; 50 ─&gt; 60 ─&gt; 75 ─&gt; 80 ─&gt; NIL</span></span></code></pre>
 <p><strong>HFT optimization - Order book with price-time priority:</strong></p>
-<pre><code data-lang="cpp">struct OrderBookLevel {
-    Price price;
-    // Orders stored in arrival order for FIFO matching
-    intrusive_list&lt;Order&gt; orders;
-    // Skip list links
-    OrderBookLevel* forward[MAX_LEVEL];
-};
-</code></pre>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">struct</span><span class="z-entity z-name z-type"> OrderBookLevel</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>    Price price</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Orders stored in arrival order for FIFO matching</span></span>
+<span class="giallo-l"><span>    intrusive_list</span><span class="z-keyword z-operator">&lt;</span><span>Order</span><span class="z-keyword z-operator">&gt;</span><span> orders</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Skip list links</span></span>
+<span class="giallo-l"><span>    OrderBookLevel</span><span class="z-keyword z-operator">*</span><span class="z-variable z-other"> forward</span><span class="z-punctuation">[</span><span>MAX_LEVEL</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span></code></pre>
 <hr />
 <h2 id="4-hamt-hash-array-mapped-trie">4. <strong>HAMT (Hash Array Mapped Trie)</strong></h2>
 <p><strong>Used in:</strong> Clojure persistent collections, Scala immutable maps, IPFS</p>
 <p>Provides near-O(1) operations with structural sharing for immutability.</p>
-<pre><code>Root (bitmap: 10100100)
- │
- ├─[bit 2]─→ Leaf: {key1: val1}
- │
- ├─[bit 5]─→ SubNode (bitmap: 00100010)
- │              ├─[bit 1]─→ Leaf: {key2: val2}
- │              └─[bit 5]─→ Collision: [{key3: val3}, {key4: val4}]
- │
- └─[bit 7]─→ Leaf: {key5: val5}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Root (bitmap: 10100100)</span></span>
+<span class="giallo-l"><span> │</span></span>
+<span class="giallo-l"><span> ├─[bit 2]─→ Leaf: {key1: val1}</span></span>
+<span class="giallo-l"><span> │</span></span>
+<span class="giallo-l"><span> ├─[bit 5]─→ SubNode (bitmap: 00100010)</span></span>
+<span class="giallo-l"><span> │              ├─[bit 1]─→ Leaf: {key2: val2}</span></span>
+<span class="giallo-l"><span> │              └─[bit 5]─→ Collision: [{key3: val3}, {key4: val4}]</span></span>
+<span class="giallo-l"><span> │</span></span>
+<span class="giallo-l"><span> └─[bit 7]─→ Leaf: {key5: val5}</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>32 or 64-way branching at each level</li>
 <li>Population count (<code>POPCNT</code>) for index calculation</li>
 <li>Copy-on-write with path copying (only log₃₂(N) nodes)</li>
 </ul>
-<pre><code data-lang="cpp">// Index calculation using popcount
-int sparseIndex(uint32_t bitmap, int bitPosition) {
-    return __builtin_popcount(bitmap &amp; ((1 &lt;&lt; bitPosition) - 1));
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Index calculation using popcount</span></span>
+<span class="giallo-l"><span class="z-storage z-type">int</span><span class="z-entity z-name z-function"> sparseIndex</span><span class="z-punctuation">(</span><span class="z-storage z-type">uint32_t</span><span class="z-variable z-parameter"> bitmap</span><span class="z-punctuation">,</span><span class="z-storage z-type"> int</span><span class="z-variable z-parameter"> bitPosition</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    return</span><span class="z-entity z-name z-function"> __builtin_popcount</span><span class="z-punctuation">(</span><span>bitmap </span><span class="z-keyword z-operator">&amp;</span><span class="z-punctuation"> (</span><span class="z-punctuation">(</span><span class="z-constant">1</span><span class="z-keyword z-operator"> &lt;&lt;</span><span> bitPosition</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -</span><span class="z-constant"> 1</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <hr />
 <h2 id="5-lsm-tree-log-structured-merge-tree">5. <strong>LSM Tree (Log-Structured Merge Tree)</strong></h2>
 <p><strong>Used in:</strong> LevelDB, RocksDB, Cassandra, InfluxDB</p>
 <p>Write-optimized structure that batches writes in memory and flushes to sorted disk levels.</p>
-<pre><code>Memory:    ┌──────────────┐
-           │  MemTable    │  (Red-black tree / Skip list)
-           │  (Mutable)   │
-           └──────┬───────┘
-                  │ Flush
-Disk:      ┌──────▼───────┐
-Level 0:   │ SST │ SST    │  (Overlapping ranges)
-           └──────┬───────┘
-                  │ Compaction
-           ┌──────▼───────┐
-Level 1:   │   SSTable    │  (Sorted, non-overlapping)
-           └──────┬───────┘
-                  │
-Level N:   │ Larger SSTables │ (10x size ratio per level)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Memory:    ┌──────────────┐</span></span>
+<span class="giallo-l"><span>           │  MemTable    │  (Red-black tree / Skip list)</span></span>
+<span class="giallo-l"><span>           │  (Mutable)   │</span></span>
+<span class="giallo-l"><span>           └──────┬───────┘</span></span>
+<span class="giallo-l"><span>                  │ Flush</span></span>
+<span class="giallo-l"><span>Disk:      ┌──────▼───────┐</span></span>
+<span class="giallo-l"><span>Level 0:   │ SST │ SST    │  (Overlapping ranges)</span></span>
+<span class="giallo-l"><span>           └──────┬───────┘</span></span>
+<span class="giallo-l"><span>                  │ Compaction</span></span>
+<span class="giallo-l"><span>           ┌──────▼───────┐</span></span>
+<span class="giallo-l"><span>Level 1:   │   SSTable    │  (Sorted, non-overlapping)</span></span>
+<span class="giallo-l"><span>           └──────┬───────┘</span></span>
+<span class="giallo-l"><span>                  │</span></span>
+<span class="giallo-l"><span>Level N:   │ Larger SSTables │ (10x size ratio per level)</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Write amplification: O(level_count × size_ratio)</li>
@@ -219,20 +234,18 @@ Level N:   │ Larger SSTables │ (10x size ratio per level)
 <li>Complex implementation</li>
 </ul>
 <p><strong>FASTER</strong> (Microsoft Research) — Hybrid log + hash index approach</p>
-<pre><code>┌─────────────────┐
-│   Hash Index    │  ← In-memory, point lookups
-├─────────────────┤
-│  Hybrid Log     │  ← Spans memory + storage
-└─────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────┐</span></span>
+<span class="giallo-l"><span>│   Hash Index    │  ← In-memory, point lookups</span></span>
+<span class="giallo-l"><span>├─────────────────┤</span></span>
+<span class="giallo-l"><span>│  Hybrid Log     │  ← Spans memory + storage</span></span>
+<span class="giallo-l"><span>└─────────────────┘</span></span></code></pre>
 <ul>
 <li>Extremely fast point operations, handles larger-than-memory data</li>
 <li>Limited range query support</li>
 </ul>
 <p><strong>WiscKey</strong> (Key-Value Separation) — Optimization on top of LSM</p>
-<pre><code>LSM Tree:     [key, pointer] → small, fast compaction
-Value Log:    [actual values] → sequential writes
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>LSM Tree:     [key, pointer] → small, fast compaction</span></span>
+<span class="giallo-l"><span>Value Log:    [actual values] → sequential writes</span></span></code></pre>
 <ul>
 <li>Reduces write amplification significantly, faster compaction</li>
 <li>Range scans become random reads</li>
@@ -240,30 +253,28 @@ Value Log:    [actual values] → sequential writes
 <p><strong>PebblesDB</strong> (Fragmented LSM) — Guards to reduce write amplification</p>
 <p><strong>Learned Indexes</strong> (Research) — Uses ML to predict key positions; potentially massive space savings, still experimental for writes</p>
 <p><strong>Decision Framework:</strong></p>
-<pre><code>                    ┌─────────────────┐
-                    │  Workload Type? │
-                    └────────┬────────┘
-           ┌─────────────────┼─────────────────┐
-           ▼                 ▼                 ▼
-      Write-Heavy       Balanced         Read-Heavy
-           │                │                 │
-           ▼                ▼                 ▼
-       LSM Tree         Bw-Tree           B+ Tree
-       (RocksDB)     (SQL Server)      (PostgreSQL)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                    ┌─────────────────┐</span></span>
+<span class="giallo-l"><span>                    │  Workload Type? │</span></span>
+<span class="giallo-l"><span>                    └────────┬────────┘</span></span>
+<span class="giallo-l"><span>           ┌─────────────────┼─────────────────┐</span></span>
+<span class="giallo-l"><span>           ▼                 ▼                 ▼</span></span>
+<span class="giallo-l"><span>      Write-Heavy       Balanced         Read-Heavy</span></span>
+<span class="giallo-l"><span>           │                │                 │</span></span>
+<span class="giallo-l"><span>           ▼                ▼                 ▼</span></span>
+<span class="giallo-l"><span>       LSM Tree         Bw-Tree           B+ Tree</span></span>
+<span class="giallo-l"><span>       (RocksDB)     (SQL Server)      (PostgreSQL)</span></span></code></pre>
 <hr />
 <h2 id="6-judy-array">6. <strong>Judy Array</strong></h2>
 <p><strong>Used in:</strong> Linux kernel routing tables, high-performance dictionaries</p>
 <p>A 256-ary digital tree with aggressive compression techniques.</p>
-<pre><code>┌─────────────────────────────────────┐
-│           Judy Population Types     │
-├─────────────────────────────────────┤
-│ Null        : Empty subtree         │
-│ Linear      : ≤2 keys inline        │
-│ Bitmap      : Dense range, 256 bits │
-│ Uncompressed: Sparse 256-way branch │
-└─────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│           Judy Population Types     │</span></span>
+<span class="giallo-l"><span>├─────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│ Null        : Empty subtree         │</span></span>
+<span class="giallo-l"><span>│ Linear      : ≤2 keys inline        │</span></span>
+<span class="giallo-l"><span>│ Bitmap      : Dense range, 256 bits │</span></span>
+<span class="giallo-l"><span>│ Uncompressed: Sparse 256-way branch │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────┘</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Adapts structure based on data density</li>
@@ -274,39 +285,36 @@ Value Log:    [actual values] → sequential writes
 <h2 id="7-cuckoo-hash-table">7. <strong>Cuckoo Hash Table</strong></h2>
 <p><strong>Used in:</strong> DPDK, network packet processing, HFT symbol lookup</p>
 <p>Guaranteed O(1) worst-case lookups with multiple hash functions.</p>
-<pre><code>Table 1 (h1):        Table 2 (h2):
-┌───┬───────┐        ┌───┬───────┐
-│ 0 │       │        │ 0 │       │
-│ 1 │ key_A │◄───┐   │ 1 │ key_C │
-│ 2 │       │    │   │ 2 │ key_A │──── kicked here
-│ 3 │ key_B │    │   │ 3 │       │
-└───┴───────┘    │   └───┴───────┘
-                 │
-Insert key_A: h1(A)=1, occupied by B
-              kick B to h2(B), etc.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Table 1 (h1):        Table 2 (h2):</span></span>
+<span class="giallo-l"><span>┌───┬───────┐        ┌───┬───────┐</span></span>
+<span class="giallo-l"><span>│ 0 │       │        │ 0 │       │</span></span>
+<span class="giallo-l"><span>│ 1 │ key_A │◄───┐   │ 1 │ key_C │</span></span>
+<span class="giallo-l"><span>│ 2 │       │    │   │ 2 │ key_A │──── kicked here</span></span>
+<span class="giallo-l"><span>│ 3 │ key_B │    │   │ 3 │       │</span></span>
+<span class="giallo-l"><span>└───┴───────┘    │   └───┴───────┘</span></span>
+<span class="giallo-l"><span>                 │</span></span>
+<span class="giallo-l"><span>Insert key_A: h1(A)=1, occupied by B</span></span>
+<span class="giallo-l"><span>              kick B to h2(B), etc.</span></span></code></pre>
 <p><strong>Modern variant - Bucket Cuckoo Hashing:</strong></p>
-<pre><code data-lang="cpp">struct Bucket {
-    uint8_t fingerprints[4];  // 1-byte hash summaries
-    Key keys[4];
-    Value values[4];
-};
-// Check 4 entries per cache line!
-</code></pre>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">struct</span><span class="z-entity z-name z-type"> Bucket</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    uint8_t</span><span class="z-variable z-other"> fingerprints</span><span class="z-punctuation">[</span><span class="z-constant">4</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> 1-byte hash summaries</span></span>
+<span class="giallo-l"><span>    Key </span><span class="z-variable z-other">keys</span><span class="z-punctuation">[</span><span class="z-constant">4</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>    Value </span><span class="z-variable z-other">values</span><span class="z-punctuation">[</span><span class="z-constant">4</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Check 4 entries per cache line!</span></span></code></pre>
 <hr />
 <h2 id="8-van-emde-boas-tree-x-fast-y-fast-trie">8. <strong>Van Emde Boas Tree / X-Fast/Y-Fast Trie</strong></h2>
 <p><strong>Used in:</strong> Kernel schedulers, IP routing, real-time priority queues</p>
 <p>Achieves O(log log U) operations where U is the universe size.</p>
-<pre><code>Universe U = 16 (keys 0-15)
-
-         [0-15] summary
-          /    \
-     [0-7]     [8-15]
-      / \        / \
-   [0-3] [4-7] [8-11] [12-15]
-    /\    /\    /\     /\
-  0  2  4  6  8 10   12 14
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Universe U = 16 (keys 0-15)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>         [0-15] summary</span></span>
+<span class="giallo-l"><span>          /    \</span></span>
+<span class="giallo-l"><span>     [0-7]     [8-15]</span></span>
+<span class="giallo-l"><span>      / \        / \</span></span>
+<span class="giallo-l"><span>   [0-3] [4-7] [8-11] [12-15]</span></span>
+<span class="giallo-l"><span>    /\    /\    /\     /\</span></span>
+<span class="giallo-l"><span>  0  2  4  6  8 10   12 14</span></span></code></pre>
 <p><strong>Y-Fast Trie (practical variant):</strong></p>
 <ul>
 <li>Top structure: X-Fast trie on representative elements</li>
@@ -317,145 +325,139 @@ Insert key_A: h1(A)=1, occupied by B
 <h2 id="9-rope-for-strings-buffers">9. <strong>Rope (for Strings/Buffers)</strong></h2>
 <p><strong>Used in:</strong> Xi Editor, Visual Studio Code, Zed editor, large text processing</p>
 <p>Binary tree of string chunks for efficient editing of massive texts.</p>
-<pre><code>           ┌──────────────┐
-           │ weight=22    │
-           │  (left len)  │
-           └──────┬───────┘
-                  │
-      ┌───────────┴───────────┐
-      │                       │
-┌─────┴─────┐           ┌─────┴─────┐
-│ weight=11 │           │  &quot;world&quot;  │
-└─────┬─────┘           └───────────┘
-      │
-┌─────┴─────┐     ┌───────────┐
-│  &quot;Hello &quot; │     │ &quot;amazing &quot; │
-└───────────┘     └───────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>           ┌──────────────┐</span></span>
+<span class="giallo-l"><span>           │ weight=22    │</span></span>
+<span class="giallo-l"><span>           │  (left len)  │</span></span>
+<span class="giallo-l"><span>           └──────┬───────┘</span></span>
+<span class="giallo-l"><span>                  │</span></span>
+<span class="giallo-l"><span>      ┌───────────┴───────────┐</span></span>
+<span class="giallo-l"><span>      │                       │</span></span>
+<span class="giallo-l"><span>┌─────┴─────┐           ┌─────┴─────┐</span></span>
+<span class="giallo-l"><span>│ weight=11 │           │  &quot;world&quot;  │</span></span>
+<span class="giallo-l"><span>└─────┬─────┘           └───────────┘</span></span>
+<span class="giallo-l"><span>      │</span></span>
+<span class="giallo-l"><span>┌─────┴─────┐     ┌───────────┐</span></span>
+<span class="giallo-l"><span>│  &quot;Hello &quot; │     │ &quot;amazing &quot; │</span></span>
+<span class="giallo-l"><span>└───────────┘     └───────────┘</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>O(log N) insert/delete at any position (vs O(N) for arrays)</li>
 <li>O(log N) concatenation</li>
 <li>Immutable variants enable infinite undo</li>
 </ul>
-<pre><code data-lang="cpp">class Rope {
-    struct Node {
-        size_t weight;  // Left subtree length
-        unique_ptr&lt;Node&gt; left, right;
-        string leaf;    // Only for leaf nodes
-    };
-
-    char index(size_t i, Node* n) {
-        if (n-&gt;leaf) return n-&gt;leaf[i];
-        if (i &lt; n-&gt;weight) return index(i, n-&gt;left.get());
-        return index(i - n-&gt;weight, n-&gt;right.get());
-    }
-};
-</code></pre>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">class</span><span class="z-entity z-name z-type"> Rope</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    struct</span><span class="z-entity z-name z-type"> Node</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">        size_t</span><span> weight</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Left subtree length</span></span>
+<span class="giallo-l"><span>        unique_ptr</span><span class="z-keyword z-operator">&lt;</span><span>Node</span><span class="z-keyword z-operator">&gt;</span><span> left</span><span class="z-punctuation">,</span><span> right</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>        string leaf</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Only for leaf nodes</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">    char</span><span class="z-entity z-name z-function"> index</span><span class="z-punctuation">(</span><span class="z-storage z-type">size_t</span><span class="z-variable z-parameter"> i</span><span class="z-punctuation">,</span><span class="z-entity z-name z-type"> Node</span><span class="z-storage z-modifier">*</span><span class="z-variable z-parameter"> n</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-punctuation"> (</span><span class="z-variable z-other">n</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">leaf</span><span class="z-punctuation">)</span><span class="z-keyword z-control"> return</span><span class="z-variable z-other"> n</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">leaf</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-punctuation"> (</span><span>i </span><span class="z-keyword z-operator">&lt;</span><span class="z-variable z-other"> n</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">weight</span><span class="z-punctuation">)</span><span class="z-keyword z-control"> return</span><span class="z-entity z-name z-function"> index</span><span class="z-punctuation">(</span><span>i</span><span class="z-punctuation">,</span><span class="z-variable z-other"> n</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">left</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">get</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        return</span><span class="z-entity z-name z-function"> index</span><span class="z-punctuation">(</span><span>i </span><span class="z-keyword z-operator">-</span><span class="z-variable z-other"> n</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">weight</span><span class="z-punctuation">,</span><span class="z-variable z-other"> n</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">right</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">get</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span></code></pre>
 <hr />
 <h2 id="10-radix-tree-adaptive-radix-tree-art">10. <strong>Radix Tree / Adaptive Radix Tree (ART)</strong></h2>
 <p><strong>Used in:</strong> Linux kernel (page cache, routing), TiDB, DuckDB, HyPer</p>
 <p>Compressed trie with node sizes that adapt to key density.</p>
-<pre><code>Adaptive Node Types:
-┌────────────────────────────────────────────────────┐
-│ Node4   : 4 keys,   4 children (16 bytes)          │
-│ Node16  : 16 keys,  16 children (SIMD searchable)  │
-│ Node48  : 256→48 index, 48 children                │
-│ Node256 : Direct 256-way lookup                    │
-└────────────────────────────────────────────────────┘
-
-                    Node16 [&quot;ab&quot;]
-                    /      |      \
-              Node4[&quot;c&quot;]  &quot;xyz&quot;   Node48[&quot;de&quot;]
-                /                    \
-             &quot;def&quot;                  &quot;fgh&quot;
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Adaptive Node Types:</span></span>
+<span class="giallo-l"><span>┌────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│ Node4   : 4 keys,   4 children (16 bytes)          │</span></span>
+<span class="giallo-l"><span>│ Node16  : 16 keys,  16 children (SIMD searchable)  │</span></span>
+<span class="giallo-l"><span>│ Node48  : 256→48 index, 48 children                │</span></span>
+<span class="giallo-l"><span>│ Node256 : Direct 256-way lookup                    │</span></span>
+<span class="giallo-l"><span>└────────────────────────────────────────────────────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>                    Node16 [&quot;ab&quot;]</span></span>
+<span class="giallo-l"><span>                    /      |      \</span></span>
+<span class="giallo-l"><span>              Node4[&quot;c&quot;]  &quot;xyz&quot;   Node48[&quot;de&quot;]</span></span>
+<span class="giallo-l"><span>                /                    \</span></span>
+<span class="giallo-l"><span>             &quot;def&quot;                  &quot;fgh&quot;</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Height determined by key length, not data volume</li>
 <li>Path compression eliminates single-child chains</li>
 <li>SIMD-optimized key matching in Node16</li>
 </ul>
-<pre><code data-lang="cpp">// SIMD search in Node16
-int Node16::findChild(uint8_t key) {
-    __m128i cmp = _mm_cmpeq_epi8(
-        _mm_set1_epi8(key),
-        _mm_loadu_si128((__m128i*)keys)
-    );
-    int mask = _mm_movemask_epi8(cmp);
-    return mask ? __builtin_ctz(mask) : -1;
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> SIMD search in Node16</span></span>
+<span class="giallo-l"><span class="z-storage z-type">int</span><span class="z-entity z-name"> Node16</span><span class="z-punctuation">::</span><span class="z-entity z-name z-function">findChild</span><span class="z-punctuation">(</span><span class="z-storage z-type">uint8_t</span><span class="z-variable z-parameter"> key</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>    __m128i cmp </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> _mm_cmpeq_epi8</span><span class="z-punctuation">(</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">        _mm_set1_epi8</span><span class="z-punctuation">(</span><span>key</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">        _mm_loadu_si128</span><span class="z-punctuation">(</span><span class="z-punctuation">(</span><span>__m128i</span><span class="z-keyword z-operator">*</span><span class="z-punctuation">)</span><span>keys</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">    )</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    int</span><span> mask </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> _mm_movemask_epi8</span><span class="z-punctuation">(</span><span>cmp</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    return</span><span> mask </span><span class="z-keyword z-operator">?</span><span class="z-entity z-name z-function"> __builtin_ctz</span><span class="z-punctuation">(</span><span>mask</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> :</span><span class="z-keyword z-operator"> -</span><span class="z-constant">1</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <hr />
 <h2 id="11-b-tree">11. <strong>B+ Tree</strong></h2>
 <p><strong>Used in:</strong> MySQL InnoDB, PostgreSQL, all major databases</p>
 <p>Disk-optimized tree with high fanout for database indexes.</p>
-<pre><code data-lang="cpp">template&lt;typename K, typename V, int ORDER = 128&gt;
-class BPlusTree {
-    struct Node {
-        bool is_leaf;
-        int num_keys;
-        K keys[ORDER - 1];
-
-        virtual ~Node() = default;
-    };
-
-    struct InternalNode : Node {
-        Node* children[ORDER];
-    };
-
-    struct LeafNode : Node {
-        V values[ORDER - 1];
-        LeafNode* next;  // For range scans
-    };
-
-    Node* root_ = nullptr;
-
-    LeafNode* findLeaf(const K&amp; key) {
-        Node* current = root_;
-
-        while (!current-&gt;is_leaf) {
-            InternalNode* internal = static_cast&lt;InternalNode*&gt;(current);
-            int i = 0;
-            while (i &lt; internal-&gt;num_keys &amp;&amp; key &gt;= internal-&gt;keys[i])
-                i++;
-            current = internal-&gt;children[i];
-        }
-
-        return static_cast&lt;LeafNode*&gt;(current);
-    }
-
-public:
-    V* search(const K&amp; key) {
-        if (!root_) return nullptr;
-
-        LeafNode* leaf = findLeaf(key);
-        for (int i = 0; i &lt; leaf-&gt;num_keys; i++) {
-            if (leaf-&gt;keys[i] == key)
-                return &amp;leaf-&gt;values[i];
-        }
-        return nullptr;
-    }
-
-    // Range scan - O(log n + k) where k is result size
-    std::vector&lt;V&gt; range(const K&amp; start, const K&amp; end) {
-        std::vector&lt;V&gt; results;
-        LeafNode* leaf = findLeaf(start);
-
-        while (leaf) {
-            for (int i = 0; i &lt; leaf-&gt;num_keys; i++) {
-                if (leaf-&gt;keys[i] &gt;= start &amp;&amp; leaf-&gt;keys[i] &lt;= end)
-                    results.push_back(leaf-&gt;values[i]);
-                else if (leaf-&gt;keys[i] &gt; end)
-                    return results;
-            }
-            leaf = leaf-&gt;next;
-        }
-        return results;
-    }
-};
-</code></pre>
-<table><thead><tr><th>Pros</th><th>Cons</th></tr></thead><tbody>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">template</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">typename</span><span class="z-entity z-name z-type"> K</span><span class="z-punctuation">,</span><span class="z-storage z-type"> typename</span><span class="z-entity z-name z-type"> V</span><span class="z-punctuation">,</span><span class="z-storage z-type"> int</span><span class="z-entity z-name z-type"> ORDER</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 128</span><span class="z-punctuation">&gt;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">class</span><span class="z-entity z-name z-type"> BPlusTree</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    struct</span><span class="z-entity z-name z-type"> Node</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">        bool</span><span> is_leaf</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">        int</span><span> num_keys</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>        K </span><span class="z-variable z-other">keys</span><span class="z-punctuation">[</span><span>ORDER </span><span class="z-keyword z-operator">-</span><span class="z-constant"> 1</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-modifier">        virtual</span><span class="z-entity z-name z-function"> ~Node</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> =</span><span class="z-keyword"> default</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">    struct</span><span class="z-entity z-name z-type"> InternalNode</span><span class="z-punctuation"> :</span><span> Node </span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span>        Node</span><span class="z-keyword z-operator">*</span><span class="z-variable z-other"> children</span><span class="z-punctuation">[</span><span>ORDER</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">    struct</span><span class="z-entity z-name z-type"> LeafNode</span><span class="z-punctuation"> :</span><span> Node </span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span>        V </span><span class="z-variable z-other">values</span><span class="z-punctuation">[</span><span>ORDER </span><span class="z-keyword z-operator">-</span><span class="z-constant"> 1</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>        LeafNode</span><span class="z-keyword z-operator">*</span><span> next</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> For range scans</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    Node</span><span class="z-keyword z-operator">*</span><span> root_ </span><span class="z-keyword z-operator">=</span><span class="z-constant"> nullptr</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">    LeafNode</span><span class="z-storage z-modifier">*</span><span class="z-entity z-name z-function"> findLeaf</span><span class="z-punctuation">(</span><span class="z-storage z-modifier">const</span><span class="z-entity z-name z-type"> K</span><span class="z-storage z-modifier">&amp;</span><span class="z-variable z-parameter"> key</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>        Node</span><span class="z-keyword z-operator">*</span><span> current </span><span class="z-keyword z-operator">=</span><span> root_</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">        while</span><span class="z-punctuation"> (</span><span class="z-keyword z-operator z-logical">!</span><span class="z-variable z-other">current</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">is_leaf</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>            InternalNode</span><span class="z-keyword z-operator">*</span><span> internal </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-operator"> static_cast</span><span class="z-keyword z-operator">&lt;</span><span>InternalNode</span><span class="z-keyword z-operator">*</span><span class="z-keyword z-operator">&gt;</span><span class="z-punctuation">(</span><span>current</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">            int</span><span> i </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">            while</span><span class="z-punctuation"> (</span><span>i </span><span class="z-keyword z-operator">&lt;</span><span class="z-variable z-other"> internal</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">num_keys</span><span class="z-keyword z-operator z-logical"> &amp;&amp;</span><span> key </span><span class="z-keyword z-operator">&gt;=</span><span class="z-variable z-other"> internal</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">keys</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span>                i</span><span class="z-keyword z-operator">++</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>            current </span><span class="z-keyword z-operator">=</span><span class="z-variable z-other"> internal</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">children</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">        return</span><span class="z-keyword z-operator"> static_cast</span><span class="z-keyword z-operator">&lt;</span><span>LeafNode</span><span class="z-keyword z-operator">*</span><span class="z-keyword z-operator">&gt;</span><span class="z-punctuation">(</span><span>current</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">public</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">    V</span><span class="z-storage z-modifier">*</span><span class="z-entity z-name z-function"> search</span><span class="z-punctuation">(</span><span class="z-storage z-modifier">const</span><span class="z-entity z-name z-type"> K</span><span class="z-storage z-modifier">&amp;</span><span class="z-variable z-parameter"> key</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-punctuation"> (</span><span class="z-keyword z-operator z-logical">!</span><span>root_</span><span class="z-punctuation">)</span><span class="z-keyword z-control"> return</span><span class="z-constant"> nullptr</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>        LeafNode</span><span class="z-keyword z-operator">*</span><span> leaf </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> findLeaf</span><span class="z-punctuation">(</span><span>key</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        for</span><span class="z-punctuation"> (</span><span class="z-storage z-type">int</span><span> i </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span><span> i </span><span class="z-keyword z-operator">&lt;</span><span class="z-variable z-other"> leaf</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">num_keys</span><span class="z-punctuation">;</span><span> i</span><span class="z-keyword z-operator">++</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">            if</span><span class="z-punctuation"> (</span><span class="z-variable z-other">leaf</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">keys</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> ==</span><span> key</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">                return</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-other">leaf</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">values</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        return</span><span class="z-constant"> nullptr</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Range scan - O(log n + k) where k is result size</span></span>
+<span class="giallo-l"><span class="z-entity z-name">    std</span><span class="z-punctuation">::</span><span class="z-entity z-name z-type">vector</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">V</span><span class="z-punctuation">&gt;</span><span class="z-entity z-name z-function"> range</span><span class="z-punctuation">(</span><span class="z-storage z-modifier">const</span><span class="z-entity z-name z-type"> K</span><span class="z-storage z-modifier">&amp;</span><span class="z-variable z-parameter"> start</span><span class="z-punctuation">,</span><span class="z-storage z-modifier"> const</span><span class="z-entity z-name z-type"> K</span><span class="z-storage z-modifier">&amp;</span><span class="z-variable z-parameter"> end</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-entity z-name">        std</span><span class="z-punctuation">::</span><span>vector</span><span class="z-keyword z-operator">&lt;</span><span>V</span><span class="z-keyword z-operator">&gt;</span><span> results</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>        LeafNode</span><span class="z-keyword z-operator">*</span><span> leaf </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> findLeaf</span><span class="z-punctuation">(</span><span>start</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">        while</span><span class="z-punctuation"> (</span><span>leaf</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">            for</span><span class="z-punctuation"> (</span><span class="z-storage z-type">int</span><span> i </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span><span> i </span><span class="z-keyword z-operator">&lt;</span><span class="z-variable z-other"> leaf</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">num_keys</span><span class="z-punctuation">;</span><span> i</span><span class="z-keyword z-operator">++</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">                if</span><span class="z-punctuation"> (</span><span class="z-variable z-other">leaf</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">keys</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> &gt;=</span><span> start </span><span class="z-keyword z-operator z-logical">&amp;&amp;</span><span class="z-variable z-other"> leaf</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">keys</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> &lt;=</span><span> end</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-variable z-other">                    results</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">push_back</span><span class="z-punctuation">(</span><span class="z-variable z-other">leaf</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">values</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">                else</span><span class="z-keyword z-control"> if</span><span class="z-punctuation"> (</span><span class="z-variable z-other">leaf</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">keys</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> &gt;</span><span> end</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">                    return</span><span> results</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">            }</span></span>
+<span class="giallo-l"><span>            leaf </span><span class="z-keyword z-operator">=</span><span class="z-variable z-other"> leaf</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">next</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        return</span><span> results</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span></code></pre><table><thead><tr><th>Pros</th><th>Cons</th></tr></thead><tbody>
 <tr><td>Optimal for disk I/O (high fanout)</td><td>Complex implementation</td></tr>
 <tr><td>Excellent range query performance</td><td>Higher memory for small datasets</td></tr>
 <tr><td>Leaf-level linking</td><td>Rebalancing overhead</td></tr>
@@ -465,67 +467,65 @@ public:
 <h2 id="12-red-black-tree">12. <strong>Red-Black Tree</strong></h2>
 <p><strong>Used in:</strong> C++ std::map/set, Java TreeMap, Linux CFS scheduler</p>
 <p>Self-balancing BST with guaranteed O(log n) operations.</p>
-<pre><code data-lang="cpp">enum Color { RED, BLACK };
-
-template&lt;typename K, typename V&gt;
-class RedBlackTree {
-    struct Node {
-        K key;
-        V value;
-        Color color;
-        Node *left, *right, *parent;
-
-        Node(K k, V v) : key(k), value(v), color(RED),
-                         left(nullptr), right(nullptr), parent(nullptr) {}
-    };
-
-    Node* root_ = nullptr;
-
-    void rotateLeft(Node* x) {
-        Node* y = x-&gt;right;
-        x-&gt;right = y-&gt;left;
-        if (y-&gt;left) y-&gt;left-&gt;parent = x;
-        y-&gt;parent = x-&gt;parent;
-
-        if (!x-&gt;parent) root_ = y;
-        else if (x == x-&gt;parent-&gt;left) x-&gt;parent-&gt;left = y;
-        else x-&gt;parent-&gt;right = y;
-
-        y-&gt;left = x;
-        x-&gt;parent = y;
-    }
-
-    void fixInsert(Node* z) {
-        while (z-&gt;parent &amp;&amp; z-&gt;parent-&gt;color == RED) {
-            if (z-&gt;parent == z-&gt;parent-&gt;parent-&gt;left) {
-                Node* y = z-&gt;parent-&gt;parent-&gt;right;  // Uncle
-
-                if (y &amp;&amp; y-&gt;color == RED) {
-                    // Case 1: Uncle is red
-                    z-&gt;parent-&gt;color = BLACK;
-                    y-&gt;color = BLACK;
-                    z-&gt;parent-&gt;parent-&gt;color = RED;
-                    z = z-&gt;parent-&gt;parent;
-                } else {
-                    if (z == z-&gt;parent-&gt;right) {
-                        // Case 2: Uncle black, z is right child
-                        z = z-&gt;parent;
-                        rotateLeft(z);
-                    }
-                    // Case 3: Uncle black, z is left child
-                    z-&gt;parent-&gt;color = BLACK;
-                    z-&gt;parent-&gt;parent-&gt;color = RED;
-                    rotateRight(z-&gt;parent-&gt;parent);
-                }
-            } else {
-                // Mirror cases...
-            }
-        }
-        root_-&gt;color = BLACK;
-    }
-};
-</code></pre>
-<table><thead><tr><th>Pros</th><th>Cons</th></tr></thead><tbody>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">enum</span><span class="z-entity z-name z-type"> Color</span><span class="z-punctuation"> {</span><span class="z-variable z-other"> RED</span><span class="z-punctuation">,</span><span class="z-variable z-other"> BLACK</span><span class="z-punctuation"> }</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">template</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">typename</span><span class="z-entity z-name z-type"> K</span><span class="z-punctuation">,</span><span class="z-storage z-type"> typename</span><span class="z-entity z-name z-type"> V</span><span class="z-punctuation">&gt;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">class</span><span class="z-entity z-name z-type"> RedBlackTree</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    struct</span><span class="z-entity z-name z-type"> Node</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>        K key</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>        V value</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>        Color color</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>        Node </span><span class="z-keyword z-operator">*</span><span>left</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> *</span><span>right</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> *</span><span>parent</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">        Node</span><span class="z-punctuation">(</span><span class="z-entity z-name z-type">K</span><span class="z-variable z-parameter"> k</span><span class="z-punctuation">,</span><span class="z-entity z-name z-type"> V</span><span class="z-variable z-parameter"> v</span><span class="z-punctuation">)</span><span class="z-punctuation"> :</span><span class="z-entity z-name z-function"> key</span><span class="z-punctuation">(</span><span>k</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span><span class="z-entity z-name z-function"> value</span><span class="z-punctuation">(</span><span>v</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span><span class="z-entity z-name z-function"> color</span><span class="z-punctuation">(</span><span>RED</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">                         left</span><span class="z-punctuation">(</span><span class="z-constant">nullptr</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span><span class="z-entity z-name z-function"> right</span><span class="z-punctuation">(</span><span class="z-constant">nullptr</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span><span class="z-entity z-name z-function"> parent</span><span class="z-punctuation">(</span><span class="z-constant">nullptr</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span><span class="z-punctuation">}</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    Node</span><span class="z-keyword z-operator">*</span><span> root_ </span><span class="z-keyword z-operator">=</span><span class="z-constant"> nullptr</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">    void</span><span class="z-entity z-name z-function"> rotateLeft</span><span class="z-punctuation">(</span><span class="z-entity z-name z-type">Node</span><span class="z-storage z-modifier">*</span><span class="z-variable z-parameter"> x</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>        Node</span><span class="z-keyword z-operator">*</span><span> y </span><span class="z-keyword z-operator">=</span><span class="z-variable z-other"> x</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">right</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        x</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">right</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> y</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">left</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-punctuation"> (</span><span class="z-variable z-other">y</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">left</span><span class="z-punctuation">)</span><span class="z-variable z-other"> y</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">left</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-keyword z-operator"> =</span><span> x</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        y</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> x</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-punctuation"> (</span><span class="z-keyword z-operator z-logical">!</span><span class="z-variable z-other">x</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">)</span><span> root_ </span><span class="z-keyword z-operator">=</span><span> y</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        else</span><span class="z-keyword z-control"> if</span><span class="z-punctuation"> (</span><span>x </span><span class="z-keyword z-operator">==</span><span class="z-variable z-other"> x</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">left</span><span class="z-punctuation">)</span><span class="z-variable z-other"> x</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">left</span><span class="z-keyword z-operator"> =</span><span> y</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        else</span><span class="z-variable z-other"> x</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">right</span><span class="z-keyword z-operator"> =</span><span> y</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-variable z-other">        y</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">left</span><span class="z-keyword z-operator"> =</span><span> x</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        x</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-keyword z-operator"> =</span><span> y</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">    void</span><span class="z-entity z-name z-function"> fixInsert</span><span class="z-punctuation">(</span><span class="z-entity z-name z-type">Node</span><span class="z-storage z-modifier">*</span><span class="z-variable z-parameter"> z</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        while</span><span class="z-punctuation"> (</span><span class="z-variable z-other">z</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-keyword z-operator z-logical"> &amp;&amp;</span><span class="z-variable z-other"> z</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">color</span><span class="z-keyword z-operator"> ==</span><span> RED</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">            if</span><span class="z-punctuation"> (</span><span class="z-variable z-other">z</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-keyword z-operator"> ==</span><span class="z-variable z-other"> z</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">left</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>                Node</span><span class="z-keyword z-operator">*</span><span> y </span><span class="z-keyword z-operator">=</span><span class="z-variable z-other"> z</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">right</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Uncle</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">                if</span><span class="z-punctuation"> (</span><span>y </span><span class="z-keyword z-operator z-logical">&amp;&amp;</span><span class="z-variable z-other"> y</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">color</span><span class="z-keyword z-operator"> ==</span><span> RED</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">                    //</span><span class="z-comment"> Case 1: Uncle is red</span></span>
+<span class="giallo-l"><span class="z-variable z-other">                    z</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">color</span><span class="z-keyword z-operator"> =</span><span> BLACK</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">                    y</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">color</span><span class="z-keyword z-operator"> =</span><span> BLACK</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">                    z</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">color</span><span class="z-keyword z-operator"> =</span><span> RED</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>                    z </span><span class="z-keyword z-operator">=</span><span class="z-variable z-other"> z</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">                }</span><span class="z-keyword z-control"> else</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">                    if</span><span class="z-punctuation"> (</span><span>z </span><span class="z-keyword z-operator">==</span><span class="z-variable z-other"> z</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">right</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">                        //</span><span class="z-comment"> Case 2: Uncle black, z is right child</span></span>
+<span class="giallo-l"><span>                        z </span><span class="z-keyword z-operator">=</span><span class="z-variable z-other"> z</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">                        rotateLeft</span><span class="z-punctuation">(</span><span>z</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">                    }</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">                    //</span><span class="z-comment"> Case 3: Uncle black, z is left child</span></span>
+<span class="giallo-l"><span class="z-variable z-other">                    z</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">color</span><span class="z-keyword z-operator"> =</span><span> BLACK</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">                    z</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">color</span><span class="z-keyword z-operator"> =</span><span> RED</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">                    rotateRight</span><span class="z-punctuation">(</span><span class="z-variable z-other">z</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">parent</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">                }</span></span>
+<span class="giallo-l"><span class="z-punctuation">            }</span><span class="z-keyword z-control"> else</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">                //</span><span class="z-comment"> Mirror cases...</span></span>
+<span class="giallo-l"><span class="z-punctuation">            }</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        root_</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">color</span><span class="z-keyword z-operator"> =</span><span> BLACK</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span></code></pre><table><thead><tr><th>Pros</th><th>Cons</th></tr></thead><tbody>
 <tr><td>Guaranteed O(log n)</td><td>More rotations than AVL on insert</td></tr>
 <tr><td>Good for insert-heavy workloads</td><td>More complex than AVL</td></tr>
 <tr><td>Less strict balancing</td><td>Pointer overhead</td></tr>
@@ -535,52 +535,50 @@ class RedBlackTree {
 <h2 id="13-memory-pool-slab-allocator">13. <strong>Memory Pool / Slab Allocator</strong></h2>
 <p><strong>Used in:</strong> Linux kernel SLAB/SLUB, nginx, game engines</p>
 <p>Eliminates allocation overhead and fragmentation for fixed-size objects.</p>
-<pre><code data-lang="cpp">template&lt;typename T, size_t BlockSize = 4096&gt;
-class MemoryPool {
-    struct Block {
-        alignas(T) char data[sizeof(T)];
-        Block* next;
-    };
-
-    struct Slab {
-        std::array&lt;Block, BlockSize / sizeof(Block)&gt; blocks;
-        Slab* next_slab;
-    };
-
-    Slab* slabs_ = nullptr;
-    Block* free_list_ = nullptr;
-    std::mutex mutex_;
-
-public:
-    T* allocate() {
-        std::lock_guard&lt;std::mutex&gt; lock(mutex_);
-
-        if (!free_list_) {
-            Slab* slab = new Slab();
-            slab-&gt;next_slab = slabs_;
-            slabs_ = slab;
-
-            for (size_t i = 0; i &lt; slab-&gt;blocks.size() - 1; i++) {
-                slab-&gt;blocks[i].next = &amp;slab-&gt;blocks[i + 1];
-            }
-            slab-&gt;blocks.back().next = nullptr;
-            free_list_ = &amp;slab-&gt;blocks[0];
-        }
-
-        Block* block = free_list_;
-        free_list_ = block-&gt;next;
-        return reinterpret_cast&lt;T*&gt;(block-&gt;data);
-    }
-
-    void deallocate(T* ptr) {
-        std::lock_guard&lt;std::mutex&gt; lock(mutex_);
-        Block* block = reinterpret_cast&lt;Block*&gt;(ptr);
-        block-&gt;next = free_list_;
-        free_list_ = block;
-    }
-};
-</code></pre>
-<table><thead><tr><th>Pros</th><th>Cons</th></tr></thead><tbody>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">template</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">typename</span><span class="z-entity z-name z-type"> T</span><span class="z-punctuation">,</span><span class="z-storage z-type"> size_t</span><span class="z-entity z-name z-type"> BlockSize</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 4096</span><span class="z-punctuation">&gt;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">class</span><span class="z-entity z-name z-type"> MemoryPool</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    struct</span><span class="z-entity z-name z-type"> Block</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">        alignas</span><span class="z-punctuation">(</span><span class="z-entity z-name z-type">T</span><span class="z-punctuation">)</span><span class="z-storage z-type"> char</span><span class="z-variable z-other"> data</span><span class="z-punctuation">[</span><span class="z-keyword z-operator">sizeof</span><span class="z-punctuation">(</span><span>T</span><span class="z-punctuation">)</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>        Block</span><span class="z-keyword z-operator">*</span><span> next</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">    struct</span><span class="z-entity z-name z-type"> Slab</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-entity z-name">        std</span><span class="z-punctuation">::</span><span>array</span><span class="z-keyword z-operator">&lt;</span><span>Block</span><span class="z-punctuation">,</span><span> BlockSize </span><span class="z-keyword z-operator">/</span><span class="z-keyword z-operator"> sizeof</span><span class="z-punctuation">(</span><span>Block</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">&gt;</span><span> blocks</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>        Slab</span><span class="z-keyword z-operator">*</span><span> next_slab</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    Slab</span><span class="z-keyword z-operator">*</span><span> slabs_ </span><span class="z-keyword z-operator">=</span><span class="z-constant"> nullptr</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>    Block</span><span class="z-keyword z-operator">*</span><span> free_list_ </span><span class="z-keyword z-operator">=</span><span class="z-constant"> nullptr</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name">    std</span><span class="z-punctuation">::</span><span>mutex mutex_</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">public</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">    T</span><span class="z-storage z-modifier">*</span><span class="z-entity z-name z-function"> allocate</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-entity z-name">        std</span><span class="z-punctuation">::</span><span>lock_guard</span><span class="z-keyword z-operator">&lt;</span><span class="z-entity z-name">std</span><span class="z-punctuation">::</span><span>mutex</span><span class="z-keyword z-operator">&gt;</span><span class="z-entity z-name z-function"> lock</span><span class="z-punctuation">(</span><span>mutex_</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-punctuation"> (</span><span class="z-keyword z-operator z-logical">!</span><span>free_list_</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>            Slab</span><span class="z-keyword z-operator">*</span><span> slab </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-operator z-new"> new</span><span class="z-entity z-name z-function"> Slab</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">            slab</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">next_slab</span><span class="z-keyword z-operator"> =</span><span> slabs_</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>            slabs_ </span><span class="z-keyword z-operator">=</span><span> slab</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">            for</span><span class="z-punctuation"> (</span><span class="z-storage z-type">size_t</span><span> i </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span><span> i </span><span class="z-keyword z-operator">&lt;</span><span class="z-variable z-other"> slab</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">blocks</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">size</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -</span><span class="z-constant"> 1</span><span class="z-punctuation">;</span><span> i</span><span class="z-keyword z-operator">++</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">                slab</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">blocks</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-punctuation">.</span><span class="z-variable z-other">next</span><span class="z-keyword z-operator"> =</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-other">slab</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">blocks</span><span class="z-punctuation">[</span><span>i </span><span class="z-keyword z-operator">+</span><span class="z-constant"> 1</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">            }</span></span>
+<span class="giallo-l"><span class="z-variable z-other">            slab</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">blocks</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">back</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">.</span><span class="z-variable z-other">next</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> nullptr</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>            free_list_ </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-other">slab</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">blocks</span><span class="z-punctuation">[</span><span class="z-constant">0</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>        Block</span><span class="z-keyword z-operator">*</span><span> block </span><span class="z-keyword z-operator">=</span><span> free_list_</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>        free_list_ </span><span class="z-keyword z-operator">=</span><span class="z-variable z-other"> block</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">next</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        return</span><span class="z-keyword z-operator"> reinterpret_cast</span><span class="z-keyword z-operator">&lt;</span><span>T</span><span class="z-keyword z-operator">*</span><span class="z-keyword z-operator">&gt;</span><span class="z-punctuation">(</span><span class="z-variable z-other">block</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">data</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">    void</span><span class="z-entity z-name z-function"> deallocate</span><span class="z-punctuation">(</span><span class="z-entity z-name z-type">T</span><span class="z-storage z-modifier">*</span><span class="z-variable z-parameter"> ptr</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-entity z-name">        std</span><span class="z-punctuation">::</span><span>lock_guard</span><span class="z-keyword z-operator">&lt;</span><span class="z-entity z-name">std</span><span class="z-punctuation">::</span><span>mutex</span><span class="z-keyword z-operator">&gt;</span><span class="z-entity z-name z-function"> lock</span><span class="z-punctuation">(</span><span>mutex_</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>        Block</span><span class="z-keyword z-operator">*</span><span> block </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-operator"> reinterpret_cast</span><span class="z-keyword z-operator">&lt;</span><span>Block</span><span class="z-keyword z-operator">*</span><span class="z-keyword z-operator">&gt;</span><span class="z-punctuation">(</span><span>ptr</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        block</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">next</span><span class="z-keyword z-operator"> =</span><span> free_list_</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>        free_list_ </span><span class="z-keyword z-operator">=</span><span> block</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span></code></pre><table><thead><tr><th>Pros</th><th>Cons</th></tr></thead><tbody>
 <tr><td>O(1) allocation/deallocation</td><td>Only for fixed-size objects</td></tr>
 <tr><td>Zero fragmentation</td><td>Memory not returned to OS</td></tr>
 <tr><td>Cache-friendly locality</td><td>Per-type pool needed</td></tr>
@@ -591,20 +589,18 @@ public:
 <p><strong>Used in:</strong> RocksDB, PostgreSQL, network routers, distributed caches</p>
 <p>Probabilistic set membership structures with false positives but no false negatives.</p>
 <p><strong>Classic Bloom Filter:</strong></p>
-<pre><code>Insert &quot;cat&quot;: hash1(&quot;cat&quot;)=2, hash2(&quot;cat&quot;)=5, hash3(&quot;cat&quot;)=7
-Bit array: [0 0 1 0 0 1 0 1 0 0 0 0]
-                ↑       ↑   ↑
-Query &quot;dog&quot;: if ALL hash positions are 1 → &quot;maybe&quot;; if ANY is 0 → &quot;definitely not&quot;
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Insert &quot;cat&quot;: hash1(&quot;cat&quot;)=2, hash2(&quot;cat&quot;)=5, hash3(&quot;cat&quot;)=7</span></span>
+<span class="giallo-l"><span>Bit array: [0 0 1 0 0 1 0 1 0 0 0 0]</span></span>
+<span class="giallo-l"><span>                ↑       ↑   ↑</span></span>
+<span class="giallo-l"><span>Query &quot;dog&quot;: if ALL hash positions are 1 → &quot;maybe&quot;; if ANY is 0 → &quot;definitely not&quot;</span></span></code></pre>
 <p><strong>Cuckoo Filter</strong> (Fan et al., 2014) — supports deletion, better space for ε &lt; 3%:</p>
-<pre><code>Buckets with fingerprints:
-┌──────┬──────┬──────┬──────┐
-│ fp_a │      │ fp_b │ fp_c │   Bucket 0
-│      │ fp_d │      │      │   Bucket 1
-│ fp_e │ fp_f │      │      │   Bucket 2
-└──────┴──────┴──────┴──────┘
-Lookup: check bucket[h1(x)] and bucket[h1(x) ⊕ h(fingerprint)]
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Buckets with fingerprints:</span></span>
+<span class="giallo-l"><span>┌──────┬──────┬──────┬──────┐</span></span>
+<span class="giallo-l"><span>│ fp_a │      │ fp_b │ fp_c │   Bucket 0</span></span>
+<span class="giallo-l"><span>│      │ fp_d │      │      │   Bucket 1</span></span>
+<span class="giallo-l"><span>│ fp_e │ fp_f │      │      │   Bucket 2</span></span>
+<span class="giallo-l"><span>└──────┴──────┴──────┴──────┘</span></span>
+<span class="giallo-l"><span>Lookup: check bucket[h1(x)] and bucket[h1(x) ⊕ h(fingerprint)]</span></span></code></pre>
 <p><strong>Xor Filter</strong> (Graf &amp; Lemire, 2020) — static, ~23% smaller than Bloom, faster queries:</p>
 <ul>
 <li>3 hash functions map to 3 positions; XOR of stored values = fingerprint</li>
@@ -625,20 +621,19 @@ Lookup: check bucket[h1(x)] and bucket[h1(x) ⊕ h(fingerprint)]
 <h2 id="15-count-min-sketch">15. <strong>Count-Min Sketch</strong></h2>
 <p><strong>Used in:</strong> Network traffic monitoring, database query optimizers (PostgreSQL), stream processing (Flink, Spark)</p>
 <p>Probabilistic frequency estimator for streaming data. Never underestimates counts.</p>
-<pre><code>d hash functions, w counters each:
-
-           w counters
-    ┌───┬───┬───┬───┬───┬───┬───┬───┐
-h1: │ 0 │ 3 │ 0 │ 1 │ 0 │ 2 │ 0 │ 0 │
-    ├───┼───┼───┼───┼───┼───┼───┼───┤
-h2: │ 1 │ 0 │ 0 │ 3 │ 0 │ 0 │ 1 │ 0 │
-    ├───┼───┼───┼───┼───┼───┼───┼───┤
-h3: │ 0 │ 0 │ 2 │ 0 │ 0 │ 3 │ 0 │ 0 │
-    └───┴───┴───┴───┴───┴───┴───┴───┘
-
-Update(x): increment CM[i][hi(x)] for each row i
-Query(x):  min over all rows of CM[i][hi(x)]
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>d hash functions, w counters each:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>           w counters</span></span>
+<span class="giallo-l"><span>    ┌───┬───┬───┬───┬───┬───┬───┬───┐</span></span>
+<span class="giallo-l"><span>h1: │ 0 │ 3 │ 0 │ 1 │ 0 │ 2 │ 0 │ 0 │</span></span>
+<span class="giallo-l"><span>    ├───┼───┼───┼───┼───┼───┼───┼───┤</span></span>
+<span class="giallo-l"><span>h2: │ 1 │ 0 │ 0 │ 3 │ 0 │ 0 │ 1 │ 0 │</span></span>
+<span class="giallo-l"><span>    ├───┼───┼───┼───┼───┼───┼───┼───┤</span></span>
+<span class="giallo-l"><span>h3: │ 0 │ 0 │ 2 │ 0 │ 0 │ 3 │ 0 │ 0 │</span></span>
+<span class="giallo-l"><span>    └───┴───┴───┴───┴───┴───┴───┴───┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Update(x): increment CM[i][hi(x)] for each row i</span></span>
+<span class="giallo-l"><span>Query(x):  min over all rows of CM[i][hi(x)]</span></span></code></pre>
 <p><strong>Properties:</strong></p>
 <ul>
 <li>Space: O(1/ε × log(1/δ)) for ε-approximate counts with probability 1-δ</li>
@@ -650,19 +645,18 @@ Query(x):  min over all rows of CM[i][hi(x)]
 <h2 id="16-hyperloglog">16. <strong>HyperLogLog</strong></h2>
 <p><strong>Used in:</strong> Redis <code>PFCOUNT</code>, BigQuery <code>APPROX_COUNT_DISTINCT</code>, Presto, Druid</p>
 <p>Cardinality estimation using O(log log N) space per register.</p>
-<pre><code>Hash each element to 64-bit value:
-  h(x) = 0010000...  (first 1-bit at position 4)
-
-Split into: [register index (first p bits)] [remaining bits → count leading zeros]
-
-Registers (m = 2^p):
-┌────┬────┬────┬────┬────┬────┐
-│ R0 │ R1 │ R2 │ R3 │ ...│ Rm │  each stores max(leading_zeros + 1)
-│  3 │  7 │  1 │  5 │    │  4 │
-└────┴────┴────┴────┴────┴────┘
-
-Estimate = α_m × m² / Σ(2^(-R[j]))   (harmonic mean based)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Hash each element to 64-bit value:</span></span>
+<span class="giallo-l"><span>  h(x) = 0010000...  (first 1-bit at position 4)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Split into: [register index (first p bits)] [remaining bits → count leading zeros]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Registers (m = 2^p):</span></span>
+<span class="giallo-l"><span>┌────┬────┬────┬────┬────┬────┐</span></span>
+<span class="giallo-l"><span>│ R0 │ R1 │ R2 │ R3 │ ...│ Rm │  each stores max(leading_zeros + 1)</span></span>
+<span class="giallo-l"><span>│  3 │  7 │  1 │  5 │    │  4 │</span></span>
+<span class="giallo-l"><span>└────┴────┴────┴────┴────┴────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Estimate = α_m × m² / Σ(2^(-R[j]))   (harmonic mean based)</span></span></code></pre>
 <p><strong>Properties:</strong></p>
 <ul>
 <li>1.6KB for ~2% standard error (p=14, 16384 registers × 6 bits)</li>
@@ -673,14 +667,13 @@ Estimate = α_m × m² / Σ(2^(-R[j]))   (harmonic mean based)
 <h2 id="17-hnsw-hierarchical-navigable-small-world-graph">17. <strong>HNSW (Hierarchical Navigable Small World Graph)</strong></h2>
 <p><strong>Used in:</strong> Qdrant, Pinecone, pgvector, FAISS, Weaviate — the dominant ANN index</p>
 <p>Multi-layer proximity graph for approximate nearest neighbor search in high-dimensional spaces.</p>
-<pre><code>Layer 2:  A ─────────────────── D         (sparse, long-range links)
-          │                     │
-Layer 1:  A ──── B ──── C ──── D ──── E   (medium connectivity)
-          │      │      │      │      │
-Layer 0:  A ─ B ─ C ─ D ─ E ─ F ─ G ─ H  (dense, all elements)
-
-Search: enter at top layer → greedy walk → descend → refine
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Layer 2:  A ─────────────────── D         (sparse, long-range links)</span></span>
+<span class="giallo-l"><span>          │                     │</span></span>
+<span class="giallo-l"><span>Layer 1:  A ──── B ──── C ──── D ──── E   (medium connectivity)</span></span>
+<span class="giallo-l"><span>          │      │      │      │      │</span></span>
+<span class="giallo-l"><span>Layer 0:  A ─ B ─ C ─ D ─ E ─ F ─ G ─ H  (dense, all elements)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Search: enter at top layer → greedy walk → descend → refine</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Build: insert each element with probability p(layer) = e^(-layer / m_L)</li>
@@ -699,14 +692,13 @@ Search: enter at top layer → greedy walk → descend → refine
 <h2 id="18-learned-indexes">18. <strong>Learned Indexes</strong></h2>
 <p><strong>Research frontier:</strong> Replacing traditional index structures with ML models.</p>
 <p><strong>The Case for Learned Indexes</strong> (Kraska et al., Google, 2018):</p>
-<pre><code>Traditional B-tree:          Learned Index:
-┌─────────┐                  ┌──────────────────────┐
-│  Root   │                  │  Linear/NN Model     │
-├────┬────┤                  │  f(key) → position   │
-│ L  │ R  │     →            │  + error bounds      │
-├──┬─┤──┬─┤                  │  + local search      │
-│..│..│..│..│                 └──────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Traditional B-tree:          Learned Index:</span></span>
+<span class="giallo-l"><span>┌─────────┐                  ┌──────────────────────┐</span></span>
+<span class="giallo-l"><span>│  Root   │                  │  Linear/NN Model     │</span></span>
+<span class="giallo-l"><span>├────┬────┤                  │  f(key) → position   │</span></span>
+<span class="giallo-l"><span>│ L  │ R  │     →            │  + error bounds      │</span></span>
+<span class="giallo-l"><span>├──┬─┤──┬─┤                  │  + local search      │</span></span>
+<span class="giallo-l"><span>│..│..│..│..│                 └──────────────────────┘</span></span></code></pre>
 <p><strong>Key insight:</strong> A B-tree is a model that maps keys to positions. A CDF model can do the same with less space.</p>
 <p><strong>PGM-Index</strong> (Ferragina &amp; Vinciguerra, VLDB 2020):</p>
 <ul>
@@ -728,20 +720,19 @@ Search: enter at top layer → greedy walk → descend → refine
 <h2 id="19-crdts-conflict-free-replicated-data-types">19. <strong>CRDTs (Conflict-Free Replicated Data Types)</strong></h2>
 <p><strong>Used in:</strong> Redis CRDT, Riak, Automerge, Yjs (collaborative editing), Apple Notes, Figma</p>
 <p>Data structures that guarantee eventual consistency without coordination.</p>
-<pre><code>Two types:
-  CvRDT (state-based): merge(state_A, state_B) → converged state
-  CmRDT (op-based):    apply(op) at all replicas → same result regardless of order
-
-G-Counter (grow-only counter):
-  Node A: [A:3, B:0, C:0]   value = max per node, sum for total
-  Node B: [A:0, B:5, C:0]
-  merge → [A:3, B:5, C:0]   total = 8
-
-LWW-Register (last-writer-wins):
-  {value: &quot;hello&quot;, timestamp: 1706000001}
-  {value: &quot;world&quot;, timestamp: 1706000002}
-  merge → {value: &quot;world&quot;, timestamp: 1706000002}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Two types:</span></span>
+<span class="giallo-l"><span>  CvRDT (state-based): merge(state_A, state_B) → converged state</span></span>
+<span class="giallo-l"><span>  CmRDT (op-based):    apply(op) at all replicas → same result regardless of order</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>G-Counter (grow-only counter):</span></span>
+<span class="giallo-l"><span>  Node A: [A:3, B:0, C:0]   value = max per node, sum for total</span></span>
+<span class="giallo-l"><span>  Node B: [A:0, B:5, C:0]</span></span>
+<span class="giallo-l"><span>  merge → [A:3, B:5, C:0]   total = 8</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>LWW-Register (last-writer-wins):</span></span>
+<span class="giallo-l"><span>  {value: &quot;hello&quot;, timestamp: 1706000001}</span></span>
+<span class="giallo-l"><span>  {value: &quot;world&quot;, timestamp: 1706000002}</span></span>
+<span class="giallo-l"><span>  merge → {value: &quot;world&quot;, timestamp: 1706000002}</span></span></code></pre>
 <p><strong>Key types:</strong></p>
 <table><thead><tr><th>CRDT</th><th>Description</th><th>Merge</th></tr></thead><tbody>
 <tr><td>G-Counter</td><td>Grow-only counter</td><td>max per node</td></tr>
@@ -762,24 +753,22 @@ LWW-Register (last-writer-wins):
 <h2 id="20-succinct-data-structures">20. <strong>Succinct Data Structures</strong></h2>
 <p><strong>Used in:</strong> Bioinformatics (FM-index), compressed search indexes, language models</p>
 <p>Represent data in space close to information-theoretic minimum while supporting constant-time operations.</p>
-<pre><code>Bit vector B = 10110010 (n=8, m=4 ones)
-
-Operations:
-  rank₁(B, 5) = 3    (count 1s in B[0..5])
-  select₁(B, 2) = 2  (position of 2nd 1-bit)
-  access(B, 3) = 1    (value at position 3)
-
-Space: n + o(n) bits (sublinear overhead!)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Bit vector B = 10110010 (n=8, m=4 ones)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Operations:</span></span>
+<span class="giallo-l"><span>  rank₁(B, 5) = 3    (count 1s in B[0..5])</span></span>
+<span class="giallo-l"><span>  select₁(B, 2) = 2  (position of 2nd 1-bit)</span></span>
+<span class="giallo-l"><span>  access(B, 3) = 1    (value at position 3)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Space: n + o(n) bits (sublinear overhead!)</span></span></code></pre>
 <p><strong>Key structures:</strong></p>
 <p><strong>Wavelet Tree</strong> — answers rank/select/access on arbitrary alphabets:</p>
-<pre><code>String: &quot;abracadabra&quot;  Σ = {a,b,c,d,r}
-         Root: bitvector over &quot;left half&quot; vs &quot;right half&quot; of alphabet
-         /          \
-    &quot;aaaaaa&quot;      &quot;brcdbr&quot;
-      / \           / \
-    ...  ...      ...  ...
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>String: &quot;abracadabra&quot;  Σ = {a,b,c,d,r}</span></span>
+<span class="giallo-l"><span>         Root: bitvector over &quot;left half&quot; vs &quot;right half&quot; of alphabet</span></span>
+<span class="giallo-l"><span>         /          \</span></span>
+<span class="giallo-l"><span>    &quot;aaaaaa&quot;      &quot;brcdbr&quot;</span></span>
+<span class="giallo-l"><span>      / \           / \</span></span>
+<span class="giallo-l"><span>    ...  ...      ...  ...</span></span></code></pre>
 <ul>
 <li>O(log|Σ|) rank/select/access on strings</li>
 <li>Enables compressed representations of permutations, grids, graphs</li>
@@ -801,17 +790,16 @@ Space: n + o(n) bits (sublinear overhead!)
 <h2 id="21-masstree">21. <strong>Masstree</strong></h2>
 <p><strong>Used in:</strong> Silo (in-memory OLTP), MICA, research KV stores</p>
 <p>High-performance concurrent B+-tree trie hybrid for variable-length keys. From Mao et al. (EuroSys 2012).</p>
-<pre><code>Key: &quot;Hello World!&quot;
-
-8-byte slices used as B+-tree keys:
-
-B+-tree Layer 0: key = &quot;Hello Wo&quot;
-        │
-        ▼ (border node links to next layer)
-B+-tree Layer 1: key = &quot;rld!\0\0\0\0&quot;
-        │
-        ▼ value
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Key: &quot;Hello World!&quot;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>8-byte slices used as B+-tree keys:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>B+-tree Layer 0: key = &quot;Hello Wo&quot;</span></span>
+<span class="giallo-l"><span>        │</span></span>
+<span class="giallo-l"><span>        ▼ (border node links to next layer)</span></span>
+<span class="giallo-l"><span>B+-tree Layer 1: key = &quot;rld!\0\0\0\0&quot;</span></span>
+<span class="giallo-l"><span>        │</span></span>
+<span class="giallo-l"><span>        ▼ value</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Trie over 8-byte key slices, B+-tree at each trie layer</li>
@@ -824,18 +812,17 @@ B+-tree Layer 1: key = &quot;rld!\0\0\0\0&quot;
 <h2 id="22-ctrie-concurrent-hash-trie">22. <strong>CTrie (Concurrent Hash Trie)</strong></h2>
 <p><strong>Used in:</strong> Scala standard library, concurrent caches, actor systems</p>
 <p>Lock-free concurrent hash trie supporting linearizable snapshots.</p>
-<pre><code>CAS-based mutation with indirection nodes:
-
-    Root (INode)
-        │
-    ┌───┴───┐
-    │ CNode │ (immutable, array of branches)
-    ├───┬───┤
-    │   │   │
-  SNode INode INode
-  (leaf)  │     │
-        CNode  CNode
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>CAS-based mutation with indirection nodes:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    Root (INode)</span></span>
+<span class="giallo-l"><span>        │</span></span>
+<span class="giallo-l"><span>    ┌───┴───┐</span></span>
+<span class="giallo-l"><span>    │ CNode │ (immutable, array of branches)</span></span>
+<span class="giallo-l"><span>    ├───┬───┤</span></span>
+<span class="giallo-l"><span>    │   │   │</span></span>
+<span class="giallo-l"><span>  SNode INode INode</span></span>
+<span class="giallo-l"><span>  (leaf)  │     │</span></span>
+<span class="giallo-l"><span>        CNode  CNode</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Insert/delete/lookup all lock-free via single CAS on INode</li>
@@ -848,14 +835,13 @@ B+-tree Layer 1: key = &quot;rld!\0\0\0\0&quot;
 <h2 id="23-pairing-heap">23. <strong>Pairing Heap</strong></h2>
 <p><strong>Used in:</strong> Network routing (Dijkstra), GCC <code>__gnu_pbds</code>, event simulators</p>
 <p>Simplest heap with amortized efficiency rivaling Fibonacci heaps.</p>
-<pre><code>        3
-       /|\
-      5  8  9
-     /|    |
-    12 7   14
-       |
-       11
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>        3</span></span>
+<span class="giallo-l"><span>       /|\</span></span>
+<span class="giallo-l"><span>      5  8  9</span></span>
+<span class="giallo-l"><span>     /|    |</span></span>
+<span class="giallo-l"><span>    12 7   14</span></span>
+<span class="giallo-l"><span>       |</span></span>
+<span class="giallo-l"><span>       11</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>O(1) insert, merge, find-min</li>
@@ -876,22 +862,21 @@ B+-tree Layer 1: key = &quot;rld!\0\0\0\0&quot;
 <h2 id="24-r-tree-r-tree">24. <em><em>R-Tree / R</em>-Tree</em>*</h2>
 <p><strong>Used in:</strong> PostGIS, SQLite R*-Tree, MongoDB 2dsphere, game engines</p>
 <p>Spatial index for rectangles, polygons, and multi-dimensional data.</p>
-<pre><code>         ┌───────────────────────────────────┐
-         │ R1                                │
-         │  ┌────────┐    ┌──────────────┐   │
-         │  │ R3     │    │ R4           │   │
-         │  │ ■  ■   │    │  ■    ■      │   │
-         │  │   ■    │    │     ■        │   │
-         │  └────────┘    └──────────────┘   │
-         └───────────────────────────────────┘
-         ┌───────────────────────────────────┐
-         │ R2                                │
-         │  ┌──────┐  ┌──────────┐          │
-         │  │ R5   │  │ R6       │          │
-         │  │ ■  ■ │  │  ■  ■ ■  │          │
-         │  └──────┘  └──────────┘          │
-         └───────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>         ┌───────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>         │ R1                                │</span></span>
+<span class="giallo-l"><span>         │  ┌────────┐    ┌──────────────┐   │</span></span>
+<span class="giallo-l"><span>         │  │ R3     │    │ R4           │   │</span></span>
+<span class="giallo-l"><span>         │  │ ■  ■   │    │  ■    ■      │   │</span></span>
+<span class="giallo-l"><span>         │  │   ■    │    │     ■        │   │</span></span>
+<span class="giallo-l"><span>         │  └────────┘    └──────────────┘   │</span></span>
+<span class="giallo-l"><span>         └───────────────────────────────────┘</span></span>
+<span class="giallo-l"><span>         ┌───────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>         │ R2                                │</span></span>
+<span class="giallo-l"><span>         │  ┌──────┐  ┌──────────┐          │</span></span>
+<span class="giallo-l"><span>         │  │ R5   │  │ R6       │          │</span></span>
+<span class="giallo-l"><span>         │  │ ■  ■ │  │  ■  ■ ■  │          │</span></span>
+<span class="giallo-l"><span>         │  └──────┘  └──────────┘          │</span></span>
+<span class="giallo-l"><span>         └───────────────────────────────────┘</span></span></code></pre>
 <p><em><em>R</em>-Tree improvements</em>* (Beckmann et al., 1990):</p>
 <ul>
 <li>Forced reinsert on overflow → better node utilization</li>
@@ -908,21 +893,20 @@ B+-tree Layer 1: key = &quot;rld!\0\0\0\0&quot;
 <h2 id="25-fenwick-tree-binary-indexed-tree">25. <strong>Fenwick Tree (Binary Indexed Tree)</strong></h2>
 <p><strong>Used in:</strong> Competitive programming, count inversions, range-frequency queries, BIT-based database statistics</p>
 <p>Supports prefix sum queries and point updates in O(log N) with minimal space.</p>
-<pre><code>Array:   [1, 3, 2, 5, 1, 7, 3, 2]
-BIT:     [1, 4, 2, 10, 1, 8, 3, 24]
-
-Tree structure (parent via i + LSB(i)):
-Index:    1    2    3    4    5    6    7    8
-          │    │    │    │    │    │    │    │
-          └──→ 2    │    │    │    │    │    │
-               └────┴──→ 4    │    │    │    │
-                         │    └──→ 6    │    │
-                         │         └────┴──→ 8
-                         └──────────────────→ 8
-
-prefix_sum(7) = BIT[7] + BIT[6] + BIT[4]  (strip lowest set bit each step)
-update(3, +5): BIT[3] += 5, BIT[4] += 5, BIT[8] += 5  (add lowest set bit)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Array:   [1, 3, 2, 5, 1, 7, 3, 2]</span></span>
+<span class="giallo-l"><span>BIT:     [1, 4, 2, 10, 1, 8, 3, 24]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Tree structure (parent via i + LSB(i)):</span></span>
+<span class="giallo-l"><span>Index:    1    2    3    4    5    6    7    8</span></span>
+<span class="giallo-l"><span>          │    │    │    │    │    │    │    │</span></span>
+<span class="giallo-l"><span>          └──→ 2    │    │    │    │    │    │</span></span>
+<span class="giallo-l"><span>               └────┴──→ 4    │    │    │    │</span></span>
+<span class="giallo-l"><span>                         │    └──→ 6    │    │</span></span>
+<span class="giallo-l"><span>                         │         └────┴──→ 8</span></span>
+<span class="giallo-l"><span>                         └──────────────────→ 8</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>prefix_sum(7) = BIT[7] + BIT[6] + BIT[4]  (strip lowest set bit each step)</span></span>
+<span class="giallo-l"><span>update(3, +5): BIT[3] += 5, BIT[4] += 5, BIT[8] += 5  (add lowest set bit)</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Space: exactly N integers (no overhead)</li>
@@ -934,17 +918,16 @@ update(3, +5): BIT[3] += 5, BIT[4] += 5, BIT[8] += 5  (add lowest set bit)
 <h2 id="26-persistent-retroactive-data-structures">26. <strong>Persistent / Retroactive Data Structures</strong></h2>
 <p><strong>Used in:</strong> Git (Merkle trees), Datomic, functional languages (Haskell, Clojure), undo systems</p>
 <p>Structures that preserve all previous versions after modification.</p>
-<pre><code>Path Copying (persistent balanced BST):
-
-Version 1:       5              Version 2:       5&#39;
-                / \                             / \
-               3   7                           3   7&#39;
-              / \                              / \   \
-             1   4                            1   4   8  (new)
-
-Only nodes on root-to-change path are copied: O(log N) per update.
-Shared structure: nodes 1, 3, 4 are shared across versions.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Path Copying (persistent balanced BST):</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Version 1:       5              Version 2:       5&#39;</span></span>
+<span class="giallo-l"><span>                / \                             / \</span></span>
+<span class="giallo-l"><span>               3   7                           3   7&#39;</span></span>
+<span class="giallo-l"><span>              / \                              / \   \</span></span>
+<span class="giallo-l"><span>             1   4                            1   4   8  (new)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Only nodes on root-to-change path are copied: O(log N) per update.</span></span>
+<span class="giallo-l"><span>Shared structure: nodes 1, 3, 4 are shared across versions.</span></span></code></pre>
 <p><strong>Types:</strong></p>
 <table><thead><tr><th>Type</th><th>Query old</th><th>Update old</th><th>Space per op</th></tr></thead><tbody>
 <tr><td>Partial</td><td>O(1)</td><td>No</td><td>O(log N)</td></tr>
@@ -958,16 +941,15 @@ Shared structure: nodes 1, 3, 4 are shared across versions.
 <h2 id="27-quotient-filter">27. <strong>Quotient Filter</strong></h2>
 <p><strong>Used in:</strong> RocksDB (experimental), SSD FTL layers, deduplication systems</p>
 <p>Like Bloom filters but supports merging, resizing, and counting — on cache-friendly contiguous memory.</p>
-<pre><code>Fingerprint f = quotient (fq) : remainder (fr)
-
-Slot addressed by fq, stores fr in a linear-probing cluster:
-
-Slots:  [fr_0 | fr_1 | fr_2 | fr_3 | fr_4 | ...]
-Meta:    occ   occ    cont   run    occ    ...
-         is_occupied  is_continuation  is_shifted
-
-Cluster: consecutive remainders belonging to same or adjacent quotients
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Fingerprint f = quotient (fq) : remainder (fr)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Slot addressed by fq, stores fr in a linear-probing cluster:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Slots:  [fr_0 | fr_1 | fr_2 | fr_3 | fr_4 | ...]</span></span>
+<span class="giallo-l"><span>Meta:    occ   occ    cont   run    occ    ...</span></span>
+<span class="giallo-l"><span>         is_occupied  is_continuation  is_shifted</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Cluster: consecutive remainders belonging to same or adjacent quotients</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Cache-friendly: single contiguous array (vs. Bloom's random access)</li>
@@ -981,17 +963,16 @@ Cluster: consecutive remainders belonging to same or adjacent quotients
 <h2 id="28-log-structured-append-only-b-trees">28. <strong>Log-Structured / Append-Only B-Trees</strong></h2>
 <p><strong>Used in:</strong> LMDB, FoundationDB Record Layer, Btrfs, ZFS, CockroachDB (Pebble)</p>
 <p>Copy-on-write B-trees that never modify pages in place. Enables snapshots and crash safety for free.</p>
-<pre><code>Write &quot;X&quot; to leaf:
-
-Before:
-  Root(v1) → [A, B] → ... → Leaf_B(v1): [old data]
-
-After (copy path to root):
-  Root(v2) → [A, B&#39;] → ... → Leaf_B(v2): [X, old data]
-  Root(v1) → [A, B]  → ... → Leaf_B(v1): [old data]   ← still valid snapshot!
-
-Old pages reclaimed by garbage collection after no readers reference them.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Write &quot;X&quot; to leaf:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Before:</span></span>
+<span class="giallo-l"><span>  Root(v1) → [A, B] → ... → Leaf_B(v1): [old data]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>After (copy path to root):</span></span>
+<span class="giallo-l"><span>  Root(v2) → [A, B&#39;] → ... → Leaf_B(v2): [X, old data]</span></span>
+<span class="giallo-l"><span>  Root(v1) → [A, B]  → ... → Leaf_B(v1): [old data]   ← still valid snapshot!</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Old pages reclaimed by garbage collection after no readers reference them.</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Crash recovery: just point to last valid root (no WAL needed for structural consistency)</li>
@@ -1004,14 +985,13 @@ Old pages reclaimed by garbage collection after no readers reference them.
 <h2 id="29-xor-linked-list-compressed-pointer-structures">29. <strong>XOR-Linked List / Compressed Pointer Structures</strong></h2>
 <p><strong>Used in:</strong> Memory-constrained embedded systems, Linux kernel <code>hlist</code></p>
 <p>Doubly-linked list using XOR of prev/next pointers to halve pointer overhead.</p>
-<pre><code>Standard doubly-linked: each node stores prev AND next (16 bytes on 64-bit)
-
-XOR list: each node stores prev ⊕ next (8 bytes)
-  A         B         C         D
-  [0⊕B]    [A⊕C]    [B⊕D]    [C⊕0]
-
-Traversal from A→B:  npx(B) ⊕ addr(A) = (A⊕C) ⊕ A = C  ✓
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Standard doubly-linked: each node stores prev AND next (16 bytes on 64-bit)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>XOR list: each node stores prev ⊕ next (8 bytes)</span></span>
+<span class="giallo-l"><span>  A         B         C         D</span></span>
+<span class="giallo-l"><span>  [0⊕B]    [A⊕C]    [B⊕D]    [C⊕0]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Traversal from A→B:  npx(B) ⊕ addr(A) = (A⊕C) ⊕ A = C  ✓</span></span></code></pre>
 <p><strong>Related compressed structures:</strong></p>
 <ul>
 <li><strong>Unrolled linked list</strong>: multiple elements per node for cache efficiency</li>
@@ -1022,19 +1002,18 @@ Traversal from A→B:  npx(B) ⊕ addr(A) = (A⊕C) ⊕ A = C  ✓
 <h2 id="30-dancing-links-dlx">30. <strong>Dancing Links (DLX)</strong></h2>
 <p><strong>Used in:</strong> Sudoku solvers, pentomino tiling, exact cover problems, SAT preprocessing</p>
 <p>Knuth's technique for efficient backtracking on sparse binary matrices via circular doubly-linked lists.</p>
-<pre><code>Exact cover matrix (columns = constraints, rows = choices):
-
-     1  2  3  4  5  6  7
-A: [ 1  0  0  1  0  0  1 ]
-B: [ 1  0  0  1  0  0  0 ]
-C: [ 0  0  0  1  1  0  1 ]
-D: [ 0  0  1  0  1  1  0 ]
-E: [ 0  1  1  0  0  1  1 ]
-F: [ 0  1  0  0  0  0  1 ]
-
-Cover column: unlink it and all rows intersecting it
-Uncover: relink in reverse order — O(1) per link!
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Exact cover matrix (columns = constraints, rows = choices):</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>     1  2  3  4  5  6  7</span></span>
+<span class="giallo-l"><span>A: [ 1  0  0  1  0  0  1 ]</span></span>
+<span class="giallo-l"><span>B: [ 1  0  0  1  0  0  0 ]</span></span>
+<span class="giallo-l"><span>C: [ 0  0  0  1  1  0  1 ]</span></span>
+<span class="giallo-l"><span>D: [ 0  0  1  0  1  1  0 ]</span></span>
+<span class="giallo-l"><span>E: [ 0  1  1  0  0  1  1 ]</span></span>
+<span class="giallo-l"><span>F: [ 0  1  0  0  0  0  1 ]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Cover column: unlink it and all rows intersecting it</span></span>
+<span class="giallo-l"><span>Uncover: relink in reverse order — O(1) per link!</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Cover/uncover are O(1) per link via pointer relinking</li>
@@ -1048,23 +1027,22 @@ Uncover: relink in reverse order — O(1) per link!
 <h2 id="31-roaring-bitmaps">31. <strong>Roaring Bitmaps</strong></h2>
 <p><strong>Used in:</strong> Apache Lucene/Solr, Spark, ClickHouse, Druid, Pilosa, Git</p>
 <p>Hybrid compressed bitmap that adapts container type per 16-bit chunk. Dominates every other compressed bitmap format in practice.</p>
-<pre><code>Universe of 32-bit integers: split each value into [high 16 bits : low 16 bits]
-
-high 16 bits → selects container
-low 16 bits  → stored inside container
-
-Container types per chunk (chosen automatically):
-┌──────────────────────────────────────────────────────────────────┐
-│ Array Container   │ cardinality &lt; 4096  │ sorted u16 array      │
-│ Bitmap Container  │ cardinality ≥ 4096  │ 8KB fixed bitset      │
-│ Run Container     │ many runs           │ [start, length] pairs │
-└──────────────────────────────────────────────────────────────────┘
-
-Example: {1, 3, 5, 100, 65536, 65537, 65538}
-
-Chunk 0 (high=0): Array [1, 3, 5, 100]          ← sparse, use sorted array
-Chunk 1 (high=1): Run [(0, 3)]                   ← 3 consecutive, use RLE
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Universe of 32-bit integers: split each value into [high 16 bits : low 16 bits]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>high 16 bits → selects container</span></span>
+<span class="giallo-l"><span>low 16 bits  → stored inside container</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Container types per chunk (chosen automatically):</span></span>
+<span class="giallo-l"><span>┌──────────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│ Array Container   │ cardinality &lt; 4096  │ sorted u16 array      │</span></span>
+<span class="giallo-l"><span>│ Bitmap Container  │ cardinality ≥ 4096  │ 8KB fixed bitset      │</span></span>
+<span class="giallo-l"><span>│ Run Container     │ many runs           │ [start, length] pairs │</span></span>
+<span class="giallo-l"><span>└──────────────────────────────────────────────────────────────────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Example: {1, 3, 5, 100, 65536, 65537, 65538}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Chunk 0 (high=0): Array [1, 3, 5, 100]          ← sparse, use sorted array</span></span>
+<span class="giallo-l"><span>Chunk 1 (high=1): Run [(0, 3)]                   ← 3 consecutive, use RLE</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>AND/OR/XOR across containers via type-specific fast paths</li>
@@ -1079,27 +1057,26 @@ Chunk 1 (high=1): Run [(0, 3)]                   ← 3 consecutive, use RLE
 <h2 id="32-swiss-table-abseil-flat-hash-map">32. <strong>Swiss Table (Abseil <code>flat_hash_map</code>)</strong></h2>
 <p><strong>Used in:</strong> Google production (Abseil), Rust <code>hashbrown</code>, Go runtime (1.24+), CockroachDB</p>
 <p>SIMD-probed, open-addressing hash table. The modern standard for in-memory hash maps.</p>
-<pre><code>Layout: groups of 16 slots, each with 1-byte metadata
-
-Group (16 bytes, fits SSE register):
-┌────────────────────────────────────────────────────────────────┐
-│ ctrl[0] ctrl[1] ctrl[2] ... ctrl[15]                           │
-│  0x4A    EMPTY   0x4A   ...  DEL                               │
-└────────────────────────────────────────────────────────────────┘
-┌────────────────────────────────────────────────────────────────┐
-│ slot[0] slot[1] slot[2] ... slot[15]  (key-value pairs)        │
-└────────────────────────────────────────────────────────────────┘
-
-Lookup &quot;key&quot;:
-  h = hash(key)
-  group_idx = h1(h) % num_groups
-  h2_match  = h2(h)  ← 7-bit fingerprint stored in ctrl byte
-
-  __m128i ctrl  = _mm_loadu_si128(ctrl_group);
-  __m128i match = _mm_cmpeq_epi8(ctrl, _mm_set1_epi8(h2_match));
-  uint16_t mask = _mm_movemask_epi8(match);
-  // Each set bit → candidate slot; check full key equality
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Layout: groups of 16 slots, each with 1-byte metadata</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Group (16 bytes, fits SSE register):</span></span>
+<span class="giallo-l"><span>┌────────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│ ctrl[0] ctrl[1] ctrl[2] ... ctrl[15]                           │</span></span>
+<span class="giallo-l"><span>│  0x4A    EMPTY   0x4A   ...  DEL                               │</span></span>
+<span class="giallo-l"><span>└────────────────────────────────────────────────────────────────┘</span></span>
+<span class="giallo-l"><span>┌────────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│ slot[0] slot[1] slot[2] ... slot[15]  (key-value pairs)        │</span></span>
+<span class="giallo-l"><span>└────────────────────────────────────────────────────────────────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Lookup &quot;key&quot;:</span></span>
+<span class="giallo-l"><span>  h = hash(key)</span></span>
+<span class="giallo-l"><span>  group_idx = h1(h) % num_groups</span></span>
+<span class="giallo-l"><span>  h2_match  = h2(h)  ← 7-bit fingerprint stored in ctrl byte</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  __m128i ctrl  = _mm_loadu_si128(ctrl_group);</span></span>
+<span class="giallo-l"><span>  __m128i match = _mm_cmpeq_epi8(ctrl, _mm_set1_epi8(h2_match));</span></span>
+<span class="giallo-l"><span>  uint16_t mask = _mm_movemask_epi8(match);</span></span>
+<span class="giallo-l"><span>  // Each set bit → candidate slot; check full key equality</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>1 byte metadata overhead per slot (7-bit hash + EMPTY/DELETED sentinel)</li>
@@ -1119,27 +1096,25 @@ Lookup &quot;key&quot;:
 <h2 id="33-merkle-trees-merkle-patricia-trie">33. <strong>Merkle Trees / Merkle-Patricia Trie</strong></h2>
 <p><strong>Used in:</strong> Git, Bitcoin/Ethereum, S3 (anti-entropy), Cassandra (repair), Certificate Transparency, IPFS</p>
 <p>Hash tree enabling O(log N) proof of inclusion and efficient diff/sync between replicas.</p>
-<pre><code>                    H(H01 + H23)          ← root hash: summary of all data
-                   /            \
-            H(H0 + H1)        H(H2 + H3)
-             /      \           /      \
-          H(D0)   H(D1)     H(D2)   H(D3)    ← leaf hashes
-           |        |         |        |
-          D0       D1        D2       D3       ← data blocks
-
-Proof that D2 is in the tree: provide H(D3) and H(H0+H1)
-Verifier computes: H(H(D2) + H(D3)) → H23, then H(H01 + H23) → compare to root ✓
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                    H(H01 + H23)          ← root hash: summary of all data</span></span>
+<span class="giallo-l"><span>                   /            \</span></span>
+<span class="giallo-l"><span>            H(H0 + H1)        H(H2 + H3)</span></span>
+<span class="giallo-l"><span>             /      \           /      \</span></span>
+<span class="giallo-l"><span>          H(D0)   H(D1)     H(D2)   H(D3)    ← leaf hashes</span></span>
+<span class="giallo-l"><span>           |        |         |        |</span></span>
+<span class="giallo-l"><span>          D0       D1        D2       D3       ← data blocks</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Proof that D2 is in the tree: provide H(D3) and H(H0+H1)</span></span>
+<span class="giallo-l"><span>Verifier computes: H(H(D2) + H(D3)) → H23, then H(H01 + H23) → compare to root ✓</span></span></code></pre>
 <p><strong>Merkle-Patricia Trie (Ethereum):</strong></p>
-<pre><code>Extension: shared prefix &quot;abc&quot;
-    │
- Branch: 16-way (hex nibbles) + value slot
-    ├─0→ ...
-    ├─7→ Leaf: remaining=&quot;de&quot;, value=100
-    └─f→ Leaf: remaining=&quot;00&quot;, value=200
-
-Each node hashed → content-addressed → tamper-evident state trie
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Extension: shared prefix &quot;abc&quot;</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span> Branch: 16-way (hex nibbles) + value slot</span></span>
+<span class="giallo-l"><span>    ├─0→ ...</span></span>
+<span class="giallo-l"><span>    ├─7→ Leaf: remaining=&quot;de&quot;, value=100</span></span>
+<span class="giallo-l"><span>    └─f→ Leaf: remaining=&quot;00&quot;, value=200</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Each node hashed → content-addressed → tamper-evident state trie</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Proof size: O(log N) hashes, ~1KB for billion-entry tree</li>
@@ -1157,32 +1132,30 @@ Each node hashed → content-addressed → tamper-evident state trie
 <h2 id="34-consistent-hashing-ring-jump-maglev">34. <strong>Consistent Hashing (Ring, Jump, Maglev)</strong></h2>
 <p><strong>Used in:</strong> DynamoDB, Cassandra, Memcached, Nginx, Envoy, Kafka partition assignment</p>
 <p>Distributes keys across nodes such that adding/removing a node only remaps O(K/N) keys.</p>
-<pre><code>Classic Ring (Karger et al., 1997):
-
-         Node A (3 vnodes)
-          ↙  ↑  ↖
-   A₁ ●────────● A₃       Hash ring [0, 2³²)
-      │          │
-      │   keys   │         key hashed → walk clockwise → first node
-      │          │
-   B₂ ●────────● B₁
-          ↗  ↓  ↘
-         Node B (3 vnodes)
-
-Add Node C: only keys between C&#39;s predecessors remapped
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Classic Ring (Karger et al., 1997):</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>         Node A (3 vnodes)</span></span>
+<span class="giallo-l"><span>          ↙  ↑  ↖</span></span>
+<span class="giallo-l"><span>   A₁ ●────────● A₃       Hash ring [0, 2³²)</span></span>
+<span class="giallo-l"><span>      │          │</span></span>
+<span class="giallo-l"><span>      │   keys   │         key hashed → walk clockwise → first node</span></span>
+<span class="giallo-l"><span>      │          │</span></span>
+<span class="giallo-l"><span>   B₂ ●────────● B₁</span></span>
+<span class="giallo-l"><span>          ↗  ↓  ↘</span></span>
+<span class="giallo-l"><span>         Node B (3 vnodes)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Add Node C: only keys between C&#39;s predecessors remapped</span></span></code></pre>
 <p><strong>Jump Consistent Hash</strong> (Lamping &amp; Veach, Google 2014):</p>
-<pre><code data-lang="cpp">// Entire implementation: 7 lines, zero memory, perfect balance
-int32_t JumpConsistentHash(uint64_t key, int32_t num_buckets) {
-    int64_t b = -1, j = 0;
-    while (j &lt; num_buckets) {
-        b = j;
-        key = key * 2862933555777941757ULL + 1;
-        j = (b + 1) * (double(1LL &lt;&lt; 31) / double((key &gt;&gt; 33) + 1));
-    }
-    return b;
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Entire implementation: 7 lines, zero memory, perfect balance</span></span>
+<span class="giallo-l"><span class="z-storage z-type">int32_t</span><span class="z-entity z-name z-function"> JumpConsistentHash</span><span class="z-punctuation">(</span><span class="z-storage z-type">uint64_t</span><span class="z-variable z-parameter"> key</span><span class="z-punctuation">,</span><span class="z-storage z-type"> int32_t</span><span class="z-variable z-parameter"> num_buckets</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    int64_t</span><span> b </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-operator"> -</span><span class="z-constant">1</span><span class="z-punctuation">,</span><span> j </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    while</span><span class="z-punctuation"> (</span><span>j </span><span class="z-keyword z-operator">&lt;</span><span> num_buckets</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>        b </span><span class="z-keyword z-operator">=</span><span> j</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>        key </span><span class="z-keyword z-operator">=</span><span> key </span><span class="z-keyword z-operator">*</span><span class="z-constant"> 2862933555777941757</span><span class="z-keyword z-other z-unit">ULL</span><span class="z-keyword z-operator"> +</span><span class="z-constant"> 1</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>        j </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> (</span><span>b </span><span class="z-keyword z-operator">+</span><span class="z-constant"> 1</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> *</span><span class="z-punctuation"> (</span><span class="z-storage z-type">double</span><span class="z-punctuation">(</span><span class="z-constant">1</span><span class="z-keyword z-other z-unit">LL</span><span class="z-keyword z-operator"> &lt;&lt;</span><span class="z-constant"> 31</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> /</span><span class="z-storage z-type"> double</span><span class="z-punctuation">(</span><span class="z-punctuation">(</span><span>key </span><span class="z-keyword z-operator">&gt;&gt;</span><span class="z-constant"> 33</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> +</span><span class="z-constant"> 1</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    return</span><span> b</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <ul>
 <li>O(ln N) time, O(1) space, perfectly uniform</li>
 <li>Limitation: only supports appending/removing the last bucket</li>
@@ -1204,19 +1177,18 @@ int32_t JumpConsistentHash(uint64_t key, int32_t num_buckets) {
 <h2 id="35-t-digest-ddsketch-streaming-quantiles">35. <strong>T-Digest / DDSketch (Streaming Quantiles)</strong></h2>
 <p><strong>Used in:</strong> Elasticsearch, Prometheus, Datadog, Apache Flink, New Relic</p>
 <p>Compact data structures for accurate quantile estimation (p50, p99, p99.9) over streaming data.</p>
-<pre><code>T-Digest: variable-width centroids, precise at tails
-
-Centroids: (mean, count) sorted by mean
-┌─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┐
-│ c=1 │ c=3 │ c=15│ c=40│ c=38│ c=12│ c=4 │ c=1 │
-│ 0.1 │ 1.2 │ 5.0 │ 50  │ 90  │ 98  │ 99.5│99.99│
-└─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┘
-  ← small clusters near extremes: high accuracy at p0, p100 →
-  ← large clusters in middle: less precision needed there →
-
-Scale function controls centroid size: k(q) ~ δ/2π × arcsin(2q - 1)
-→ centroids near q=0 and q=1 stay tiny → tail accuracy
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>T-Digest: variable-width centroids, precise at tails</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Centroids: (mean, count) sorted by mean</span></span>
+<span class="giallo-l"><span>┌─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┐</span></span>
+<span class="giallo-l"><span>│ c=1 │ c=3 │ c=15│ c=40│ c=38│ c=12│ c=4 │ c=1 │</span></span>
+<span class="giallo-l"><span>│ 0.1 │ 1.2 │ 5.0 │ 50  │ 90  │ 98  │ 99.5│99.99│</span></span>
+<span class="giallo-l"><span>└─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┘</span></span>
+<span class="giallo-l"><span>  ← small clusters near extremes: high accuracy at p0, p100 →</span></span>
+<span class="giallo-l"><span>  ← large clusters in middle: less precision needed there →</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Scale function controls centroid size: k(q) ~ δ/2π × arcsin(2q - 1)</span></span>
+<span class="giallo-l"><span>→ centroids near q=0 and q=1 stay tiny → tail accuracy</span></span></code></pre>
 <p><strong>Key properties (T-Digest):</strong></p>
 <ul>
 <li>~1-5KB regardless of data volume (compression param δ ≈ 100-200)</li>
@@ -1225,15 +1197,14 @@ Scale function controls centroid size: k(q) ~ δ/2π × arcsin(2q - 1)
 <li>~100ns per add, ~200ns per quantile query</li>
 </ul>
 <p><strong>DDSketch</strong> (Masson et al., 2019, used in Datadog):</p>
-<pre><code>Logarithmic bins with guaranteed relative error:
-
-bin_index = ⌊log_γ(value)⌋   where γ = (1+α)/(1-α)
-
-Bins:  [...| count | count | count | count |...]
-          0.9-1.0  1.0-1.1  1.1-1.21  ...
-
-Relative accuracy α guaranteed for ALL quantiles (not just tails)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Logarithmic bins with guaranteed relative error:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>bin_index = ⌊log_γ(value)⌋   where γ = (1+α)/(1-α)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Bins:  [...| count | count | count | count |...]</span></span>
+<span class="giallo-l"><span>          0.9-1.0  1.0-1.1  1.1-1.21  ...</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Relative accuracy α guaranteed for ALL quantiles (not just tails)</span></span></code></pre>
 <ul>
 <li>Fully mergeable with no accuracy loss</li>
 <li>Fixed memory: ~2KB for α=1% across any data range</li>
@@ -1243,28 +1214,25 @@ Relative accuracy α guaranteed for ALL quantiles (not just tails)
 <h2 id="36-eytzinger-layout-cache-oblivious-search">36. <strong>Eytzinger Layout / Cache-Oblivious Search</strong></h2>
 <p><strong>Used in:</strong> Database index nodes, SIMD binary search, high-frequency trading</p>
 <p>Reorganizes sorted arrays into implicit tree layouts for branch-free, prefetch-friendly search.</p>
-<pre><code>Sorted array:     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-
-Eytzinger layout: [_, 8, 4, 12, 2, 6, 10, 14, 1, 3, 5, 7, 9, 11, 13, 15]
-                   ↑  └── root at index 1
-                   unused
-Children of node i: left = 2i, right = 2i+1  (implicit, no pointers)
-
-Prefetch: at depth d, we know all possible nodes at depth d+2
-          → prefetch both children before comparison resolves
-</code></pre>
-<pre><code data-lang="cpp">// Branchless Eytzinger search with prefetch
-int eytzinger_search(int* a, int n, int key) {
-    int i = 1;
-    while (i &lt;= n) {
-        __builtin_prefetch(&amp;a[2 * i]);      // prefetch children
-        __builtin_prefetch(&amp;a[2 * i + 1]);
-        i = 2 * i + (a[i] &lt; key);           // branchless: no misprediction
-    }
-    // i now encodes the result via bit manipulation
-    return (i &gt;&gt; __builtin_ffs(~i)) - 1;
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Sorted array:     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Eytzinger layout: [_, 8, 4, 12, 2, 6, 10, 14, 1, 3, 5, 7, 9, 11, 13, 15]</span></span>
+<span class="giallo-l"><span>                   ↑  └── root at index 1</span></span>
+<span class="giallo-l"><span>                   unused</span></span>
+<span class="giallo-l"><span>Children of node i: left = 2i, right = 2i+1  (implicit, no pointers)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Prefetch: at depth d, we know all possible nodes at depth d+2</span></span>
+<span class="giallo-l"><span>          → prefetch both children before comparison resolves</span></span></code></pre><pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Branchless Eytzinger search with prefetch</span></span>
+<span class="giallo-l"><span class="z-storage z-type">int</span><span class="z-entity z-name z-function"> eytzinger_search</span><span class="z-punctuation">(</span><span class="z-storage z-type">int</span><span class="z-storage z-modifier">*</span><span class="z-variable z-parameter"> a</span><span class="z-punctuation">,</span><span class="z-storage z-type"> int</span><span class="z-variable z-parameter"> n</span><span class="z-punctuation">,</span><span class="z-storage z-type"> int</span><span class="z-variable z-parameter"> key</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    int</span><span> i </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 1</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    while</span><span class="z-punctuation"> (</span><span>i </span><span class="z-keyword z-operator">&lt;=</span><span> n</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">        __builtin_prefetch</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-variable z-other">a</span><span class="z-punctuation">[</span><span class="z-constant">2</span><span class="z-keyword z-operator"> *</span><span> i</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">      //</span><span class="z-comment"> prefetch children</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">        __builtin_prefetch</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-variable z-other">a</span><span class="z-punctuation">[</span><span class="z-constant">2</span><span class="z-keyword z-operator"> *</span><span> i </span><span class="z-keyword z-operator">+</span><span class="z-constant"> 1</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>        i </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 2</span><span class="z-keyword z-operator"> *</span><span> i </span><span class="z-keyword z-operator">+</span><span class="z-punctuation"> (</span><span class="z-variable z-other">a</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> &lt;</span><span> key</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">           //</span><span class="z-comment"> branchless: no misprediction</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> i now encodes the result via bit manipulation</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    return</span><span class="z-punctuation"> (</span><span>i </span><span class="z-keyword z-operator">&gt;&gt;</span><span class="z-entity z-name z-function"> __builtin_ffs</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">~</span><span>i</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -</span><span class="z-constant"> 1</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>~2× faster than <code>std::lower_bound</code> for N &gt; 1K (Khuong &amp; Morin, 2017)</li>
@@ -1283,17 +1251,16 @@ int eytzinger_search(int* a, int n, int key) {
 <h2 id="37-flat-combining">37. <strong>Flat Combining</strong></h2>
 <p><strong>Used in:</strong> Concurrent stacks, queues, priority queues, counters, skip lists</p>
 <p>Technique that batches concurrent operations through a single combiner thread, eliminating contention.</p>
-<pre><code>Thread 1 ──→ ┌─────────────────────┐
-Thread 2 ──→ │  Publication List    │──→ Combiner thread
-Thread 3 ──→ │  (per-thread slots)  │    (winner of lock)
-Thread 4 ──→ └─────────────────────┘    applies ALL pending ops
-
-Timeline:
-  T1: publish(push, 5)  ─┐
-  T2: publish(push, 3)   ├─→ T2 wins lock, becomes combiner
-  T3: publish(pop)       ─┤   T2 executes: push(5), push(3), pop → result for T3
-  T4: publish(push, 7)  ─┘   All threads get results without touching shared state
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Thread 1 ──→ ┌─────────────────────┐</span></span>
+<span class="giallo-l"><span>Thread 2 ──→ │  Publication List    │──→ Combiner thread</span></span>
+<span class="giallo-l"><span>Thread 3 ──→ │  (per-thread slots)  │    (winner of lock)</span></span>
+<span class="giallo-l"><span>Thread 4 ──→ └─────────────────────┘    applies ALL pending ops</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Timeline:</span></span>
+<span class="giallo-l"><span>  T1: publish(push, 5)  ─┐</span></span>
+<span class="giallo-l"><span>  T2: publish(push, 3)   ├─→ T2 wins lock, becomes combiner</span></span>
+<span class="giallo-l"><span>  T3: publish(pop)       ─┤   T2 executes: push(5), push(3), pop → result for T3</span></span>
+<span class="giallo-l"><span>  T4: publish(push, 7)  ─┘   All threads get results without touching shared state</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Eliminates CAS contention: only one thread modifies the data structure</li>
@@ -1314,15 +1281,14 @@ Timeline:
 <h2 id="38-minimal-perfect-hash-functions-mphf">38. <strong>Minimal Perfect Hash Functions (MPHF)</strong></h2>
 <p><strong>Used in:</strong> Compiler symbol tables, static databases, search engine indexes, bioinformatics (k-mer lookup)</p>
 <p>Maps N keys to [0, N) with zero collisions and zero wasted slots. Build once, query O(1).</p>
-<pre><code>Keys: {&quot;cat&quot;, &quot;dog&quot;, &quot;fish&quot;, &quot;bird&quot;}  →  MPHF  →  {0, 1, 2, 3}
-
-No collisions, no empty slots, no probing — just one function evaluation.
-
-Construction (CHD / RecSplit):
-  1. Find hash functions that map keys to graph/hypergraph
-  2. Solve assignment via peeling/splitting
-  3. Store compact representation (~2-3 bits/key)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Keys: {&quot;cat&quot;, &quot;dog&quot;, &quot;fish&quot;, &quot;bird&quot;}  →  MPHF  →  {0, 1, 2, 3}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>No collisions, no empty slots, no probing — just one function evaluation.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Construction (CHD / RecSplit):</span></span>
+<span class="giallo-l"><span>  1. Find hash functions that map keys to graph/hypergraph</span></span>
+<span class="giallo-l"><span>  2. Solve assignment via peeling/splitting</span></span>
+<span class="giallo-l"><span>  3. Store compact representation (~2-3 bits/key)</span></span></code></pre>
 <p><strong>RecSplit</strong> (Esposito et al., 2020): near-optimal at 1.56 bits/key:</p>
 <ul>
 <li>Recursively split keys into buckets until solvable</li>
@@ -1351,17 +1317,16 @@ Construction (CHD / RecSplit):
 <h2 id="39-compressed-sparse-row-csr-graph-compression">39. <strong>Compressed Sparse Row (CSR) / Graph Compression</strong></h2>
 <p><strong>Used in:</strong> GraphBLAS, Neo4j, Scipy sparse matrices, PageRank, ML adjacency tensors</p>
 <p>The standard in-memory format for large sparse graphs. Eliminates per-edge pointer overhead.</p>
-<pre><code>Adjacency list (naive): each vertex has a Vec&lt;Edge&gt; → pointer per vertex, overhead per vec
-
-CSR: two flat arrays
-
-Vertex:    0     1     2     3     4
-          │     │     │     │     │
-offsets:  [0,    2,    5,    5,    7,   8]   ← cumulative edge count
-edges:    [1, 3, 0, 2, 4, _, 1, 3, 2]       ← destination vertices (packed)
-
-Neighbors of vertex 1: edges[offsets[1]..offsets[2]] = edges[2..5] = [0, 2, 4]
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Adjacency list (naive): each vertex has a Vec&lt;Edge&gt; → pointer per vertex, overhead per vec</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>CSR: two flat arrays</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Vertex:    0     1     2     3     4</span></span>
+<span class="giallo-l"><span>          │     │     │     │     │</span></span>
+<span class="giallo-l"><span>offsets:  [0,    2,    5,    5,    7,   8]   ← cumulative edge count</span></span>
+<span class="giallo-l"><span>edges:    [1, 3, 0, 2, 4, _, 1, 3, 2]       ← destination vertices (packed)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Neighbors of vertex 1: edges[offsets[1]..offsets[2]] = edges[2..5] = [0, 2, 4]</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Space: exactly |V|+1 + |E| integers (no pointers, no overhead)</li>
@@ -1385,26 +1350,25 @@ Neighbors of vertex 1: edges[offsets[1]..offsets[2]] = edges[2..5] = [0, 2, 4]
 <h2 id="40-simd-vectorized-structures">40. <strong>SIMD-Vectorized Structures</strong></h2>
 <p><strong>Used in:</strong> DuckDB, ClickHouse, Velox, Polars, simdjson, hyperscan</p>
 <p>Structures and algorithms redesigned from scratch to exploit 128/256/512-bit SIMD.</p>
-<pre><code>Traditional: process 1 element per cycle
-SIMD:        process 4/8/16/32/64 elements per cycle
-
-Example — Vectorized hash probe (DuckDB style):
-
-Input keys:  [k0, k1, k2, k3, k4, k5, k6, k7]  (8 × 32-bit in AVX2)
-
-Step 1: Hash all 8 keys in parallel
-  hashes = _mm256_mullo_epi32(keys, golden_ratio_vec);
-
-Step 2: Gather 8 hash table entries simultaneously
-  entries = _mm256_i32gather_epi32(table, hashes, 4);
-
-Step 3: Compare all 8 entries with keys
-  matches = _mm256_cmpeq_epi32(entries, keys);
-
-Step 4: Extract match mask
-  mask = _mm256_movemask_epi8(matches);
-  // Process hits with PDEP/PEXT bit manipulation
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Traditional: process 1 element per cycle</span></span>
+<span class="giallo-l"><span>SIMD:        process 4/8/16/32/64 elements per cycle</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Example — Vectorized hash probe (DuckDB style):</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Input keys:  [k0, k1, k2, k3, k4, k5, k6, k7]  (8 × 32-bit in AVX2)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Step 1: Hash all 8 keys in parallel</span></span>
+<span class="giallo-l"><span>  hashes = _mm256_mullo_epi32(keys, golden_ratio_vec);</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Step 2: Gather 8 hash table entries simultaneously</span></span>
+<span class="giallo-l"><span>  entries = _mm256_i32gather_epi32(table, hashes, 4);</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Step 3: Compare all 8 entries with keys</span></span>
+<span class="giallo-l"><span>  matches = _mm256_cmpeq_epi32(entries, keys);</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Step 4: Extract match mask</span></span>
+<span class="giallo-l"><span>  mask = _mm256_movemask_epi8(matches);</span></span>
+<span class="giallo-l"><span>  // Process hits with PDEP/PEXT bit manipulation</span></span></code></pre>
 <p><strong>Key SIMD primitives and their uses:</strong></p>
 <table><thead><tr><th>Instruction</th><th>Use</th></tr></thead><tbody>
 <tr><td><code>cmpeq</code></td><td>Parallel comparison (hash probes, string search)</td></tr>
@@ -1416,13 +1380,12 @@ Step 4: Extract match mask
 <tr><td><code>pext/pdep</code></td><td>Compress/expand based on bitmask (BMI2)</td></tr>
 </tbody></table>
 <p><strong>SIMD-friendly filter (Vectorized selection scan):</strong></p>
-<pre><code>Predicate: column &gt; 42
-
-col_values: [10, 55, 3, 99, 42, 67, 8, 51]  (load 8 at once)
-threshold:  [42, 42, 42, 42, 42, 42, 42, 42]
-cmp_result: [ 0,  1, 0,  1,  0,  1, 0,  1]  → bitmask = 0b10101010
-selected_indices = [1, 3, 5, 7]               → via PEXT or lookup table
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Predicate: column &gt; 42</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>col_values: [10, 55, 3, 99, 42, 67, 8, 51]  (load 8 at once)</span></span>
+<span class="giallo-l"><span>threshold:  [42, 42, 42, 42, 42, 42, 42, 42]</span></span>
+<span class="giallo-l"><span>cmp_result: [ 0,  1, 0,  1,  0,  1, 0,  1]  → bitmask = 0b10101010</span></span>
+<span class="giallo-l"><span>selected_indices = [1, 3, 5, 7]               → via PEXT or lookup table</span></span></code></pre>
 <p><strong>Structures redesigned for SIMD:</strong></p>
 <ul>
 <li><strong>SIMD-Scan</strong> (Polychroniou et al., 2015): vectorized hash join, 4-8× over scalar</li>
@@ -1435,33 +1398,32 @@ selected_indices = [1, 3, 5, 7]               → via PEXT or lookup table
 <h2 id="41-distributed-hash-tables-chord-kademlia">41. <strong>Distributed Hash Tables (Chord / Kademlia)</strong></h2>
 <p><strong>Used in:</strong> BitTorrent (Kademlia), IPFS, Ethereum devp2p, Cassandra (modified), Amazon Dynamo (inspired)</p>
 <p>Decentralized key-value lookup across N nodes with O(log N) hops and no central directory.</p>
-<pre><code>Chord Ring (Stoica et al., 2001):
-
-Node IDs and keys mapped to same m-bit identifier space (e.g., SHA-1)
-
-      ┌──── N1 ◄── responsible for keys in (N56, N1]
-      │
- N56 ─┤         N8
-      │        ╱
- N51 ─┤    N14
-      │    ╱
- N42 ─┼─ N21
-      │    ╲
- N38 ─┤    N32
-      │
-      └── N35
-
-Finger table at node N8 (shortcuts across the ring):
-  finger[1] = successor(8 + 2⁰) = N14     ← 1 hop forward
-  finger[2] = successor(8 + 2¹) = N14     ← 2 hops forward
-  finger[3] = successor(8 + 2²) = N14     ← 4 hops forward
-  finger[4] = successor(8 + 2³) = N21     ← 8 hops forward
-  finger[5] = successor(8 + 2⁴) = N32     ← 16 hops forward
-  finger[6] = successor(8 + 2⁵) = N42     ← 32 hops forward
-
-Lookup(key=30): N8 → finger[5]=N32 too far → finger[4]=N21 → N21.successor=N32
-  → 2 hops (O(log N))
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Chord Ring (Stoica et al., 2001):</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Node IDs and keys mapped to same m-bit identifier space (e.g., SHA-1)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>      ┌──── N1 ◄── responsible for keys in (N56, N1]</span></span>
+<span class="giallo-l"><span>      │</span></span>
+<span class="giallo-l"><span> N56 ─┤         N8</span></span>
+<span class="giallo-l"><span>      │        ╱</span></span>
+<span class="giallo-l"><span> N51 ─┤    N14</span></span>
+<span class="giallo-l"><span>      │    ╱</span></span>
+<span class="giallo-l"><span> N42 ─┼─ N21</span></span>
+<span class="giallo-l"><span>      │    ╲</span></span>
+<span class="giallo-l"><span> N38 ─┤    N32</span></span>
+<span class="giallo-l"><span>      │</span></span>
+<span class="giallo-l"><span>      └── N35</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Finger table at node N8 (shortcuts across the ring):</span></span>
+<span class="giallo-l"><span>  finger[1] = successor(8 + 2⁰) = N14     ← 1 hop forward</span></span>
+<span class="giallo-l"><span>  finger[2] = successor(8 + 2¹) = N14     ← 2 hops forward</span></span>
+<span class="giallo-l"><span>  finger[3] = successor(8 + 2²) = N14     ← 4 hops forward</span></span>
+<span class="giallo-l"><span>  finger[4] = successor(8 + 2³) = N21     ← 8 hops forward</span></span>
+<span class="giallo-l"><span>  finger[5] = successor(8 + 2⁴) = N32     ← 16 hops forward</span></span>
+<span class="giallo-l"><span>  finger[6] = successor(8 + 2⁵) = N42     ← 32 hops forward</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Lookup(key=30): N8 → finger[5]=N32 too far → finger[4]=N21 → N21.successor=N32</span></span>
+<span class="giallo-l"><span>  → 2 hops (O(log N))</span></span></code></pre>
 <p><strong>Kademlia (Maymounkov &amp; Mazieres, 2002):</strong></p>
 <ul>
 <li>Distance = XOR of node IDs (symmetric, forms ultrametric space)</li>
@@ -1480,36 +1442,34 @@ Lookup(key=30): N8 → finger[5]=N32 too far → finger[4]=N21 → N21.successor
 <h2 id="42-epoch-based-reclamation-hazard-pointers">42. <strong>Epoch-Based Reclamation / Hazard Pointers</strong></h2>
 <p><strong>Used in:</strong> Crossbeam (Rust), ConcurrentHashMap (Java), Folly (C++), Linux kernel RCU</p>
 <p>Safe memory reclamation for lock-free structures — the "garbage collection" problem for concurrent systems.</p>
-<pre><code>Problem: Thread A reads node X while Thread B unlinks and frees X → use-after-free
-
-Epoch-Based Reclamation (Fraser, 2004):
-
-Global epoch: 2
-Thread states:
-  T1: active, epoch=2    ← entered critical section at epoch 2
-  T2: active, epoch=2
-  T3: inactive
-
-Retire(node): add to garbage[current_epoch]
-Advance epoch: only when ALL active threads have observed current epoch
-
-  garbage[0]: [X, Y]   ← safe to free (epoch 2, all threads past epoch 0)
-  garbage[1]: [Z]       ← safe to free
-  garbage[2]: [W, V]    ← NOT safe yet (threads still in epoch 2)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Problem: Thread A reads node X while Thread B unlinks and frees X → use-after-free</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Epoch-Based Reclamation (Fraser, 2004):</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Global epoch: 2</span></span>
+<span class="giallo-l"><span>Thread states:</span></span>
+<span class="giallo-l"><span>  T1: active, epoch=2    ← entered critical section at epoch 2</span></span>
+<span class="giallo-l"><span>  T2: active, epoch=2</span></span>
+<span class="giallo-l"><span>  T3: inactive</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Retire(node): add to garbage[current_epoch]</span></span>
+<span class="giallo-l"><span>Advance epoch: only when ALL active threads have observed current epoch</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  garbage[0]: [X, Y]   ← safe to free (epoch 2, all threads past epoch 0)</span></span>
+<span class="giallo-l"><span>  garbage[1]: [Z]       ← safe to free</span></span>
+<span class="giallo-l"><span>  garbage[2]: [W, V]    ← NOT safe yet (threads still in epoch 2)</span></span></code></pre>
 <p><strong>Hazard Pointers</strong> (Michael, 2004):</p>
-<pre><code>Each thread publishes pointers it&#39;s currently accessing:
-
-T1 hazard list: [ptr_A, ptr_C, null, null]
-T2 hazard list: [ptr_B, null, null, null]
-
-Retire(ptr_X):
-  scan all hazard lists
-  if ptr_X not in any list → free immediately
-  else → defer to later scan
-
-Bounded garbage: at most O(T × K) unfreed objects (T threads, K hazards/thread)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Each thread publishes pointers it&#39;s currently accessing:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>T1 hazard list: [ptr_A, ptr_C, null, null]</span></span>
+<span class="giallo-l"><span>T2 hazard list: [ptr_B, null, null, null]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Retire(ptr_X):</span></span>
+<span class="giallo-l"><span>  scan all hazard lists</span></span>
+<span class="giallo-l"><span>  if ptr_X not in any list → free immediately</span></span>
+<span class="giallo-l"><span>  else → defer to later scan</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Bounded garbage: at most O(T × K) unfreed objects (T threads, K hazards/thread)</span></span></code></pre>
 <p><strong>Comparison:</strong></p>
 <table><thead><tr><th>Scheme</th><th>Amortized overhead</th><th>Max garbage</th><th>Read-side cost</th><th>Reclaim latency</th></tr></thead><tbody>
 <tr><td>Epoch-based</td><td>O(1)</td><td>Unbounded*</td><td>Near-zero</td><td>Delayed (epoch)</td></tr>
@@ -1523,34 +1483,32 @@ Bounded garbage: at most O(T × K) unfreed objects (T threads, K hazards/thread)
 <h2 id="43-vector-clocks-hybrid-logical-clocks">43. <strong>Vector Clocks / Hybrid Logical Clocks</strong></h2>
 <p><strong>Used in:</strong> Dynamo/DynamoDB, Riak, CockroachDB (HLC), Spanner (TrueTime), causal consistency protocols</p>
 <p>Logical timestamps for ordering events in distributed systems without synchronized physical clocks.</p>
-<pre><code>Vector Clocks (Fidge/Mattern, 1988):
-
-Each node maintains a vector of counters, one per node:
-
-  Event at Node A:  A increments VC[A]
-  Send message:     attach current VC
-  Receive message:  VC[i] = max(local[i], received[i]) for all i; increment VC[self]
-
-Node A: [1,0,0] → [2,0,0] ──msg──→ Node B: max([0,1,0],[2,0,0]) = [2,1,0] → [2,2,0]
-                                                                        │
-Node C: [0,0,1] ──msg──→ Node B: max([2,2,0],[0,0,1]) = [2,3,1]      │
-                                                                        │
-Causality: VC_a &lt; VC_b iff ∀i: VC_a[i] ≤ VC_b[i] and ∃j: VC_a[j] &lt; VC_b[j]
-Concurrent: neither VC_a &lt; VC_b nor VC_b &lt; VC_a  → conflict!
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Vector Clocks (Fidge/Mattern, 1988):</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Each node maintains a vector of counters, one per node:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Event at Node A:  A increments VC[A]</span></span>
+<span class="giallo-l"><span>  Send message:     attach current VC</span></span>
+<span class="giallo-l"><span>  Receive message:  VC[i] = max(local[i], received[i]) for all i; increment VC[self]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Node A: [1,0,0] → [2,0,0] ──msg──→ Node B: max([0,1,0],[2,0,0]) = [2,1,0] → [2,2,0]</span></span>
+<span class="giallo-l"><span>                                                                        │</span></span>
+<span class="giallo-l"><span>Node C: [0,0,1] ──msg──→ Node B: max([2,2,0],[0,0,1]) = [2,3,1]      │</span></span>
+<span class="giallo-l"><span>                                                                        │</span></span>
+<span class="giallo-l"><span>Causality: VC_a &lt; VC_b iff ∀i: VC_a[i] ≤ VC_b[i] and ∃j: VC_a[j] &lt; VC_b[j]</span></span>
+<span class="giallo-l"><span>Concurrent: neither VC_a &lt; VC_b nor VC_b &lt; VC_a  → conflict!</span></span></code></pre>
 <p><strong>Problem:</strong> Vector clocks grow with number of nodes (O(N) per timestamp).</p>
 <p><strong>Hybrid Logical Clocks</strong> (Kulkarni et al., 2014):</p>
-<pre><code>HLC = (physical_time, logical_counter)
-
-  physical component: max(local_wall_clock, received_physical)
-  logical component:  tiebreaker when physical times collide
-
-Size: constant (just 2 integers), regardless of cluster size
-Guarantees:
-  - If e → f (causally), then HLC(e) &lt; HLC(f)
-  - HLC is always within ε of physical time (bounded drift)
-  - Compatible with NTP-synchronized clocks
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>HLC = (physical_time, logical_counter)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  physical component: max(local_wall_clock, received_physical)</span></span>
+<span class="giallo-l"><span>  logical component:  tiebreaker when physical times collide</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Size: constant (just 2 integers), regardless of cluster size</span></span>
+<span class="giallo-l"><span>Guarantees:</span></span>
+<span class="giallo-l"><span>  - If e → f (causally), then HLC(e) &lt; HLC(f)</span></span>
+<span class="giallo-l"><span>  - HLC is always within ε of physical time (bounded drift)</span></span>
+<span class="giallo-l"><span>  - Compatible with NTP-synchronized clocks</span></span></code></pre>
 <p><strong>Used in CockroachDB:</strong> HLC provides causal ordering for MVCC timestamps with ~150ms max clock skew tolerance.</p>
 <p><strong>Spanner TrueTime:</strong> GPS + atomic clocks → bounded uncertainty interval [earliest, latest]. Wait out uncertainty before committing → external consistency (linearizability).</p>
 <p><strong>Interval Tree Clocks</strong> (Almeida et al., 2008): fork/join model, supports dynamic number of participants without ID allocation.</p>
@@ -1558,26 +1516,25 @@ Guarantees:
 <h2 id="44-tournament-loser-trees">44. <strong>Tournament / Loser Trees</strong></h2>
 <p><strong>Used in:</strong> External merge sort (every database's sort operator), K-way merge in LSM compaction, priority-queue replacement</p>
 <p>Binary tree of comparisons for efficient K-way merging. Loser tree variant avoids redundant comparisons.</p>
-<pre><code>4-way merge of sorted runs: [2,5,8], [1,4,9], [3,6,7], [0,10,11]
-
-Loser tree (stores loser at each internal node, winner propagates up):
-
-            ┌───────┐
-            │ W: 0  │  ← overall winner (output next)
-            │ L: 1  │  ← loser stored here
-            └───┬───┘
-          ┌─────┴─────┐
-       ┌──┴──┐     ┌──┴──┐
-       │ L:2 │     │ L:3 │
-       └──┬──┘     └──┬──┘
-        ┌─┴─┐       ┌─┴─┐
-       [0] [2]     [1] [3]   ← leaf: current head of each run
-        0   2       1   3    ← values
-
-Output 0, advance run[0] to next value (10):
-  Only replay path from leaf[0] to root: 3 comparisons for 4-way merge
-  (vs. 3 comparisons per element for naive tournament)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>4-way merge of sorted runs: [2,5,8], [1,4,9], [3,6,7], [0,10,11]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Loser tree (stores loser at each internal node, winner propagates up):</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>            ┌───────┐</span></span>
+<span class="giallo-l"><span>            │ W: 0  │  ← overall winner (output next)</span></span>
+<span class="giallo-l"><span>            │ L: 1  │  ← loser stored here</span></span>
+<span class="giallo-l"><span>            └───┬───┘</span></span>
+<span class="giallo-l"><span>          ┌─────┴─────┐</span></span>
+<span class="giallo-l"><span>       ┌──┴──┐     ┌──┴──┐</span></span>
+<span class="giallo-l"><span>       │ L:2 │     │ L:3 │</span></span>
+<span class="giallo-l"><span>       └──┬──┘     └──┬──┘</span></span>
+<span class="giallo-l"><span>        ┌─┴─┐       ┌─┴─┐</span></span>
+<span class="giallo-l"><span>       [0] [2]     [1] [3]   ← leaf: current head of each run</span></span>
+<span class="giallo-l"><span>        0   2       1   3    ← values</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Output 0, advance run[0] to next value (10):</span></span>
+<span class="giallo-l"><span>  Only replay path from leaf[0] to root: 3 comparisons for 4-way merge</span></span>
+<span class="giallo-l"><span>  (vs. 3 comparisons per element for naive tournament)</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>K-way merge: O(log K) comparisons per output element</li>
@@ -1596,21 +1553,20 @@ Output 0, advance run[0] to next value (10):
 <h2 id="45-compact-trie-double-array-trie">45. <strong>Compact Trie / Double-Array Trie</strong></h2>
 <p><strong>Used in:</strong> ICU (Unicode), MeCab (Japanese NLP), IP routing (DPDK), Linux kernel <code>fib_trie</code></p>
 <p>Extremely memory-efficient trie encoding using two parallel arrays. O(1) per trie transition.</p>
-<pre><code>Standard trie: each node has up to |Σ| child pointers → wasteful for sparse tries
-
-Double-array trie (Aoe, 1989):
-  BASE[s] + c = t        ← transition from state s via char c lands at state t
-  CHECK[t] = s           ← verify that t&#39;s parent is indeed s
-
-Arrays:
-Index: [ 0   1   2   3   4   5   6   7   8   9  ...]
-BASE:  [ 1   3   _   5   _   7   _   _   _   _  ...]
-CHECK: [-1   0   _   0   _   1   _   _   _   _  ...]
-
-Lookup &quot;ab&quot; (a=0, b=1):
-  state=0: BASE[0]+0=1, CHECK[1]=0 ✓ → state=1
-  state=1: BASE[1]+1=4, but CHECK[4]≠1 → not found
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Standard trie: each node has up to |Σ| child pointers → wasteful for sparse tries</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Double-array trie (Aoe, 1989):</span></span>
+<span class="giallo-l"><span>  BASE[s] + c = t        ← transition from state s via char c lands at state t</span></span>
+<span class="giallo-l"><span>  CHECK[t] = s           ← verify that t&#39;s parent is indeed s</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Arrays:</span></span>
+<span class="giallo-l"><span>Index: [ 0   1   2   3   4   5   6   7   8   9  ...]</span></span>
+<span class="giallo-l"><span>BASE:  [ 1   3   _   5   _   7   _   _   _   _  ...]</span></span>
+<span class="giallo-l"><span>CHECK: [-1   0   _   0   _   1   _   _   _   _  ...]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Lookup &quot;ab&quot; (a=0, b=1):</span></span>
+<span class="giallo-l"><span>  state=0: BASE[0]+0=1, CHECK[1]=0 ✓ → state=1</span></span>
+<span class="giallo-l"><span>  state=1: BASE[1]+1=4, but CHECK[4]≠1 → not found</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Two integers per state (vs. |Σ| pointers in naive trie)</li>
@@ -1623,17 +1579,16 @@ Lookup &quot;ab&quot; (a=0, b=1):
 <h2 id="46-sketch-structures-theta-sketch-kll-sketch">46. <strong>Sketch Structures (Theta Sketch / KLL Sketch)</strong></h2>
 <p><strong>Used in:</strong> Apache Datasketches, Druid, Snowflake, BigQuery, Presto</p>
 <p>Sub-linear space summaries enabling set operations and quantile estimation at scale.</p>
-<pre><code>Theta Sketch (set operations):
-
-Concept: keep all hash values below threshold θ
-
-Stream A:  h(a1)=0.1, h(a2)=0.7, h(a3)=0.3, h(a4)=0.9  (θ=0.5 → keep {0.1, 0.3})
-Stream B:  h(b1)=0.2, h(b2)=0.4, h(b3)=0.8              (θ=0.5 → keep {0.2, 0.4})
-
-Union:     {0.1, 0.2, 0.3, 0.4}, θ=0.5 → |estimate| = 4/0.5 = 8
-Intersect: {}, θ=0.5 → |estimate| = 0
-Difference: sketch(A) - sketch(B) via inclusion-exclusion
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Theta Sketch (set operations):</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Concept: keep all hash values below threshold θ</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Stream A:  h(a1)=0.1, h(a2)=0.7, h(a3)=0.3, h(a4)=0.9  (θ=0.5 → keep {0.1, 0.3})</span></span>
+<span class="giallo-l"><span>Stream B:  h(b1)=0.2, h(b2)=0.4, h(b3)=0.8              (θ=0.5 → keep {0.2, 0.4})</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Union:     {0.1, 0.2, 0.3, 0.4}, θ=0.5 → |estimate| = 4/0.5 = 8</span></span>
+<span class="giallo-l"><span>Intersect: {}, θ=0.5 → |estimate| = 0</span></span>
+<span class="giallo-l"><span>Difference: sketch(A) - sketch(B) via inclusion-exclusion</span></span></code></pre>
 <p><strong>KLL Sketch</strong> (Karnin, Lang, Liberty, 2016) — mergeable quantile sketch:</p>
 <ul>
 <li>Space: O(1/ε × log log(1/δ)) — nearly optimal</li>
@@ -1651,28 +1606,26 @@ Difference: sketch(A) - sketch(B) via inclusion-exclusion
 <h2 id="47-segment-tree-with-lazy-propagation">47. <strong>Segment Tree (with Lazy Propagation)</strong></h2>
 <p><strong>Used in:</strong> Database range aggregates, computational geometry, HFT interval queries, game physics (AABB)</p>
 <p>Supports arbitrary range queries and range updates in O(log N) per operation.</p>
-<pre><code>Array: [1, 3, 5, 7, 2, 4, 6, 8]
-
-Segment tree (sum):
-                    [36]               range [0,7]
-                   /    \
-              [16]        [20]         [0,3] [4,7]
-             /    \      /    \
-          [4]    [12]  [6]    [14]     [0,1] [2,3] [4,5] [6,7]
-         / \    / \   / \    / \
-        1   3  5   7 2   4  6   8     individual elements
-
-Query sum([2,5]): decompose into [2,3] + [4,5] = 12 + 6 = 18  (2 nodes)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Array: [1, 3, 5, 7, 2, 4, 6, 8]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Segment tree (sum):</span></span>
+<span class="giallo-l"><span>                    [36]               range [0,7]</span></span>
+<span class="giallo-l"><span>                   /    \</span></span>
+<span class="giallo-l"><span>              [16]        [20]         [0,3] [4,7]</span></span>
+<span class="giallo-l"><span>             /    \      /    \</span></span>
+<span class="giallo-l"><span>          [4]    [12]  [6]    [14]     [0,1] [2,3] [4,5] [6,7]</span></span>
+<span class="giallo-l"><span>         / \    / \   / \    / \</span></span>
+<span class="giallo-l"><span>        1   3  5   7 2   4  6   8     individual elements</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Query sum([2,5]): decompose into [2,3] + [4,5] = 12 + 6 = 18  (2 nodes)</span></span></code></pre>
 <p><strong>Lazy propagation</strong> — batch range updates:</p>
-<pre><code>&quot;Add 10 to all elements in [0, 5]&quot;
-
-Instead of updating 6 leaves: mark internal nodes with pending updates
-Node [0,3]: lazy_add = 10  ← propagate only when children queried
-Node [4,5]: lazy_add = 10
-
-Query/update pushes lazy values down on demand → O(log N) amortized
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>&quot;Add 10 to all elements in [0, 5]&quot;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Instead of updating 6 leaves: mark internal nodes with pending updates</span></span>
+<span class="giallo-l"><span>Node [0,3]: lazy_add = 10  ← propagate only when children queried</span></span>
+<span class="giallo-l"><span>Node [4,5]: lazy_add = 10</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Query/update pushes lazy values down on demand → O(log N) amortized</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Any associative operation: sum, min, max, gcd, matrix multiply</li>
@@ -1685,20 +1638,19 @@ Query/update pushes lazy values down on demand → O(log N) amortized
 <h2 id="48-treap-tree-heap">48. <strong>Treap (Tree + Heap)</strong></h2>
 <p><strong>Used in:</strong> Randomized BSTs, implicit treaps for arrays, persistent balanced trees, competitive programming</p>
 <p>Balanced BST using random priorities. Simpler than red-black trees, elegant for split/merge operations.</p>
-<pre><code>         (K=5, P=93)          Keys form BST (left &lt; root &lt; right)
-          /        \          Priorities form max-heap (parent &gt; children)
-   (K=2, P=82)  (K=8, P=77)
-    /     \        /     \
-(K=1,P=5) (K=3,P=43) (K=7,P=61) (K=9,P=19)
-
-Split(tree, key=6):
-  → Left tree: all keys ≤ 6    Right tree: all keys &gt; 6
-  O(log N) expected, directly follows search path
-
-Merge(left, right):
-  → Combine by priority: higher priority becomes root
-  O(log N) expected
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>         (K=5, P=93)          Keys form BST (left &lt; root &lt; right)</span></span>
+<span class="giallo-l"><span>          /        \          Priorities form max-heap (parent &gt; children)</span></span>
+<span class="giallo-l"><span>   (K=2, P=82)  (K=8, P=77)</span></span>
+<span class="giallo-l"><span>    /     \        /     \</span></span>
+<span class="giallo-l"><span>(K=1,P=5) (K=3,P=43) (K=7,P=61) (K=9,P=19)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Split(tree, key=6):</span></span>
+<span class="giallo-l"><span>  → Left tree: all keys ≤ 6    Right tree: all keys &gt; 6</span></span>
+<span class="giallo-l"><span>  O(log N) expected, directly follows search path</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Merge(left, right):</span></span>
+<span class="giallo-l"><span>  → Combine by priority: higher priority becomes root</span></span>
+<span class="giallo-l"><span>  O(log N) expected</span></span></code></pre>
 <p><strong>Implicit Treap</strong> — array with O(log N) insert/delete at any position:</p>
 <ul>
 <li>No explicit keys; position determined by subtree sizes</li>
@@ -1717,29 +1669,28 @@ Merge(left, right):
 <h2 id="49-clock-clock-pro-arc-adaptive-replacement-cache">49. <strong>Clock / CLOCK-Pro / ARC (Adaptive Replacement Cache)</strong></h2>
 <p><strong>Used in:</strong> Operating system page caches, PostgreSQL buffer manager, ZFS ARC, database buffer pools</p>
 <p>Eviction policies that adapt to workload patterns, beating LRU on mixed access patterns.</p>
-<pre><code>LRU problem: a single full table scan evicts the entire working set
-
-CLOCK (approximation of LRU):
-  Circular buffer of pages, each with a &quot;referenced&quot; bit
-  ┌───┬───┬───┬───┬───┬───┬───┬───┐
-  │ 1 │ 0 │ 1 │ 1 │ 0 │ 0 │ 1 │ 0 │  ← reference bits
-  └───┴───┴───┴───┴───┴───┴───┴───┘
-                      ↑ hand
-  Evict: advance hand; if ref=1, clear to 0 and skip; if ref=0, evict.
-
-ARC (Megiddo &amp; Modha, 2003):
-  ┌─────────┬─────────┬──────────┬──────────┐
-  │ Ghost B1│ Cache T1│ Cache T2 │ Ghost B2 │
-  │(recently│(recency)│(frequency│(recently │
-  │ evicted │         │ ≥2 hits) │ evicted  │
-  │ from T1)│         │          │ from T2) │
-  └─────────┴─────────┴──────────┴──────────┘
-            ↑─── p ───↑ (adaptive partition point)
-
-  Hit in B1 ghost → increase p (favor recency, grow T1)
-  Hit in B2 ghost → decrease p (favor frequency, grow T2)
-  Adapts online to workload: scan-resistant AND frequency-aware
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>LRU problem: a single full table scan evicts the entire working set</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>CLOCK (approximation of LRU):</span></span>
+<span class="giallo-l"><span>  Circular buffer of pages, each with a &quot;referenced&quot; bit</span></span>
+<span class="giallo-l"><span>  ┌───┬───┬───┬───┬───┬───┬───┬───┐</span></span>
+<span class="giallo-l"><span>  │ 1 │ 0 │ 1 │ 1 │ 0 │ 0 │ 1 │ 0 │  ← reference bits</span></span>
+<span class="giallo-l"><span>  └───┴───┴───┴───┴───┴───┴───┴───┘</span></span>
+<span class="giallo-l"><span>                      ↑ hand</span></span>
+<span class="giallo-l"><span>  Evict: advance hand; if ref=1, clear to 0 and skip; if ref=0, evict.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>ARC (Megiddo &amp; Modha, 2003):</span></span>
+<span class="giallo-l"><span>  ┌─────────┬─────────┬──────────┬──────────┐</span></span>
+<span class="giallo-l"><span>  │ Ghost B1│ Cache T1│ Cache T2 │ Ghost B2 │</span></span>
+<span class="giallo-l"><span>  │(recently│(recency)│(frequency│(recently │</span></span>
+<span class="giallo-l"><span>  │ evicted │         │ ≥2 hits) │ evicted  │</span></span>
+<span class="giallo-l"><span>  │ from T1)│         │          │ from T2) │</span></span>
+<span class="giallo-l"><span>  └─────────┴─────────┴──────────┴──────────┘</span></span>
+<span class="giallo-l"><span>            ↑─── p ───↑ (adaptive partition point)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Hit in B1 ghost → increase p (favor recency, grow T1)</span></span>
+<span class="giallo-l"><span>  Hit in B2 ghost → decrease p (favor frequency, grow T2)</span></span>
+<span class="giallo-l"><span>  Adapts online to workload: scan-resistant AND frequency-aware</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>ARC: self-tuning, no parameters, scan-resistant, O(1) per operation</li>
@@ -1757,29 +1708,27 @@ ARC (Megiddo &amp; Modha, 2003):
 <h2 id="50-conflict-free-replicated-registers-maps-d-crdts">50. <strong>Conflict-Free Replicated Registers / Maps (δ-CRDTs)</strong></h2>
 <p><strong>Used in:</strong> Redis Enterprise (Active-Active), Automerge 2.0, Electric SQL, Loro</p>
 <p>Optimized CRDTs that transmit only deltas rather than full state, reducing network cost by orders of magnitude.</p>
-<pre><code>Classic state-based CRDT: ship entire state on every sync
-  Node A sends: {counter: [A:50, B:30, C:10]}  ← 90 bytes for 3 nodes
-
-δ-CRDT: ship only the delta since last sync
-  Node A sends: {counter: [A:+3]}               ← 8 bytes
-
-δ-group: collect deltas over interval, merge, ship batch:
-  Δ = δ₁ ⊔ δ₂ ⊔ δ₃  (merge deltas, then send)
-  Receiver: state&#39; = state ⊔ Δ
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Classic state-based CRDT: ship entire state on every sync</span></span>
+<span class="giallo-l"><span>  Node A sends: {counter: [A:50, B:30, C:10]}  ← 90 bytes for 3 nodes</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>δ-CRDT: ship only the delta since last sync</span></span>
+<span class="giallo-l"><span>  Node A sends: {counter: [A:+3]}               ← 8 bytes</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>δ-group: collect deltas over interval, merge, ship batch:</span></span>
+<span class="giallo-l"><span>  Δ = δ₁ ⊔ δ₂ ⊔ δ₃  (merge deltas, then send)</span></span>
+<span class="giallo-l"><span>  Receiver: state&#39; = state ⊔ Δ</span></span></code></pre>
 <p><strong>δ-CRDT Maps</strong> (Almeida et al., 2018):</p>
-<pre><code>Nested map with per-field CRDTs:
-{
-  &quot;user&quot;: LWW-Register(&quot;alice&quot;),          ← last-writer-wins
-  &quot;items&quot;: OR-Set({item1, item2, item3}), ← add-wins set
-  &quot;count&quot;: PN-Counter(7),                 ← increment/decrement
-  &quot;doc&quot;:   RGA(&quot;hello world&quot;)             ← replicated list/text
-}
-
-Delta for adding item4:
-  Δ = {&quot;items&quot;: {add: item4, causal_context: [(A,15)]}}
-  Size: O(1) regardless of set size
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Nested map with per-field CRDTs:</span></span>
+<span class="giallo-l"><span>{</span></span>
+<span class="giallo-l"><span>  &quot;user&quot;: LWW-Register(&quot;alice&quot;),          ← last-writer-wins</span></span>
+<span class="giallo-l"><span>  &quot;items&quot;: OR-Set({item1, item2, item3}), ← add-wins set</span></span>
+<span class="giallo-l"><span>  &quot;count&quot;: PN-Counter(7),                 ← increment/decrement</span></span>
+<span class="giallo-l"><span>  &quot;doc&quot;:   RGA(&quot;hello world&quot;)             ← replicated list/text</span></span>
+<span class="giallo-l"><span>}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Delta for adding item4:</span></span>
+<span class="giallo-l"><span>  Δ = {&quot;items&quot;: {add: item4, causal_context: [(A,15)]}}</span></span>
+<span class="giallo-l"><span>  Size: O(1) regardless of set size</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Network cost: O(delta) instead of O(state) per sync</li>
@@ -1797,23 +1746,22 @@ Delta for adding item4:
 <h2 id="51-bw-tree-buzzword-tree">51. <strong>Bw-Tree (Buzzword Tree)</strong></h2>
 <p><strong>Used in:</strong> Microsoft SQL Server Hekaton, Azure Cosmos DB, Silo</p>
 <p>Lock-free B+-tree using delta chains and logical-to-physical page mapping. Designed for modern multi-core + flash.</p>
-<pre><code>Mapping Table (logical → physical):
-┌─────┬────────────┐
-│ PID │ Phys Addr  │
-├─────┼────────────┤
-│  0  │ → Node A   │
-│  1  │ → Δ₃→Δ₂→Δ₁→Node B │  ← delta chain
-│  2  │ → Node C   │
-└─────┴────────────┘
-
-Update page 1:
-  1. Create delta record Δ₄ (insert/delete)
-  2. Δ₄.next = current mapping[1]
-  3. CAS mapping[1] from old to Δ₄
-  → Lock-free! Failed CAS = contention, just retry
-
-Consolidation: when chain too long, merge deltas into new base page, CAS mapping
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Mapping Table (logical → physical):</span></span>
+<span class="giallo-l"><span>┌─────┬────────────┐</span></span>
+<span class="giallo-l"><span>│ PID │ Phys Addr  │</span></span>
+<span class="giallo-l"><span>├─────┼────────────┤</span></span>
+<span class="giallo-l"><span>│  0  │ → Node A   │</span></span>
+<span class="giallo-l"><span>│  1  │ → Δ₃→Δ₂→Δ₁→Node B │  ← delta chain</span></span>
+<span class="giallo-l"><span>│  2  │ → Node C   │</span></span>
+<span class="giallo-l"><span>└─────┴────────────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Update page 1:</span></span>
+<span class="giallo-l"><span>  1. Create delta record Δ₄ (insert/delete)</span></span>
+<span class="giallo-l"><span>  2. Δ₄.next = current mapping[1]</span></span>
+<span class="giallo-l"><span>  3. CAS mapping[1] from old to Δ₄</span></span>
+<span class="giallo-l"><span>  → Lock-free! Failed CAS = contention, just retry</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Consolidation: when chain too long, merge deltas into new base page, CAS mapping</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>No latching on pages: all updates via CAS on mapping table</li>
@@ -1833,22 +1781,21 @@ Consolidation: when chain too long, merge deltas into new base page, CAS mapping
 <h2 id="52-splay-tree">52. <strong>Splay Tree</strong></h2>
 <p><strong>Used in:</strong> Link-Cut trees (network flow), compression (move-to-front), memory allocators (dlmalloc), cache-like structures</p>
 <p>Self-adjusting BST that moves accessed nodes to root via rotations. Amortized O(log N) with working-set optimality.</p>
-<pre><code>Access node X → splay X to root via zig-zig, zig-zag, zig rotations:
-
-Before accessing 1:          After splaying 1 to root:
-        5                           1
-       / \                           \
-      3   7                           3
-     /                               / \
-    2                               2   5
-   /                                     \
-  1  ← access this                        7
-
-Working Set Property:
-  If you access the same k elements repeatedly,
-  amortized cost = O(log k), NOT O(log N)
-  → adapts to temporal locality automatically
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Access node X → splay X to root via zig-zig, zig-zag, zig rotations:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Before accessing 1:          After splaying 1 to root:</span></span>
+<span class="giallo-l"><span>        5                           1</span></span>
+<span class="giallo-l"><span>       / \                           \</span></span>
+<span class="giallo-l"><span>      3   7                           3</span></span>
+<span class="giallo-l"><span>     /                               / \</span></span>
+<span class="giallo-l"><span>    2                               2   5</span></span>
+<span class="giallo-l"><span>   /                                     \</span></span>
+<span class="giallo-l"><span>  1  ← access this                        7</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Working Set Property:</span></span>
+<span class="giallo-l"><span>  If you access the same k elements repeatedly,</span></span>
+<span class="giallo-l"><span>  amortized cost = O(log k), NOT O(log N)</span></span>
+<span class="giallo-l"><span>  → adapts to temporal locality automatically</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>No balance metadata stored (no colors, no heights)</li>
@@ -1867,34 +1814,32 @@ Working Set Property:
 <h2 id="53-extendible-hashing-linear-hashing">53. <strong>Extendible Hashing / Linear Hashing</strong></h2>
 <p><strong>Used in:</strong> Berkeley DB, early MySQL ISAM, disk-based hash indexes, embedded databases</p>
 <p>Disk-friendly hash tables that grow gracefully without full rehashing.</p>
-<pre><code>Extendible Hashing:
-
-Global directory (depth=2): indexes into buckets by first d bits of hash
-
-  hash prefix → bucket
-  00 → Bucket A [items with hash 00...]
-  01 → Bucket B [items with hash 01...]
-  10 → Bucket C [items with hash 10...]
-  11 → Bucket C [items with hash 10... and 11...] (shared, local depth=1)
-
-Bucket overflow → split ONE bucket, double directory if needed:
-  Bucket C splits: 10→C&#39;, 11→C&#39;&#39;
-  Only C&#39;s entries rehashed — everything else untouched
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Extendible Hashing:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Global directory (depth=2): indexes into buckets by first d bits of hash</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  hash prefix → bucket</span></span>
+<span class="giallo-l"><span>  00 → Bucket A [items with hash 00...]</span></span>
+<span class="giallo-l"><span>  01 → Bucket B [items with hash 01...]</span></span>
+<span class="giallo-l"><span>  10 → Bucket C [items with hash 10...]</span></span>
+<span class="giallo-l"><span>  11 → Bucket C [items with hash 10... and 11...] (shared, local depth=1)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Bucket overflow → split ONE bucket, double directory if needed:</span></span>
+<span class="giallo-l"><span>  Bucket C splits: 10→C&#39;, 11→C&#39;&#39;</span></span>
+<span class="giallo-l"><span>  Only C&#39;s entries rehashed — everything else untouched</span></span></code></pre>
 <p><strong>Linear Hashing</strong> (Litwin, 1980):</p>
-<pre><code>Split pointer advances linearly through buckets:
-
-Buckets:  [B0] [B1] [B2] [B3] [B4]
-                      ↑ split pointer
-
-Lookup(key):
-  h = hash(key) % N       (current table size)
-  if h &lt; split_ptr:
-    h = hash(key) % 2N    (use extended hash range)
-
-Split: take bucket at split_ptr, redistribute using 2N hash
-  → amortized O(1) cost, no directory, smooth growth
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Split pointer advances linearly through buckets:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Buckets:  [B0] [B1] [B2] [B3] [B4]</span></span>
+<span class="giallo-l"><span>                      ↑ split pointer</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Lookup(key):</span></span>
+<span class="giallo-l"><span>  h = hash(key) % N       (current table size)</span></span>
+<span class="giallo-l"><span>  if h &lt; split_ptr:</span></span>
+<span class="giallo-l"><span>    h = hash(key) % 2N    (use extended hash range)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Split: take bucket at split_ptr, redistribute using 2N hash</span></span>
+<span class="giallo-l"><span>  → amortized O(1) cost, no directory, smooth growth</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>No full rehash ever: at most one bucket reorganized per split</li>
@@ -1906,21 +1851,20 @@ Split: take bucket at split_ptr, redistribute using 2N hash
 <h2 id="54-packed-memory-array-pma-gapped-array">54. <strong>Packed Memory Array (PMA) / Gapped Array</strong></h2>
 <p><strong>Used in:</strong> ALEX (learned index leaves), cache-oblivious B-trees, density-based indexes</p>
 <p>Sorted array with gaps that allows O(log² N) amortized inserts while maintaining cache-friendly sequential layout.</p>
-<pre><code>Logical sorted order: [1, 3, 5, 7, 9, 11, 13, 15]
-
-PMA with gaps (density ~50-75%):
-[ 1 | 3 | _ | 5 | 7 | _ | 9 | _ | 11 | 13 | _ | 15 | _ | _ | _ | _ ]
-
-Insert 6:
-  Find position between 5 and 7
-  Local rebalance: shift within window to maintain density bounds
-
-  [ 1 | 3 | _ | 5 | 6 | 7 | 9 | _ | 11 | 13 | _ | 15 | _ | _ | _ | _ ]
-                     ↑ inserted, neighbors shifted
-
-If local density exceeds threshold → rebalance larger window (amortized)
-Density thresholds at each level: τ_h (upper) and ρ_h (lower)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Logical sorted order: [1, 3, 5, 7, 9, 11, 13, 15]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>PMA with gaps (density ~50-75%):</span></span>
+<span class="giallo-l"><span>[ 1 | 3 | _ | 5 | 7 | _ | 9 | _ | 11 | 13 | _ | 15 | _ | _ | _ | _ ]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Insert 6:</span></span>
+<span class="giallo-l"><span>  Find position between 5 and 7</span></span>
+<span class="giallo-l"><span>  Local rebalance: shift within window to maintain density bounds</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  [ 1 | 3 | _ | 5 | 6 | 7 | 9 | _ | 11 | 13 | _ | 15 | _ | _ | _ | _ ]</span></span>
+<span class="giallo-l"><span>                     ↑ inserted, neighbors shifted</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>If local density exceeds threshold → rebalance larger window (amortized)</span></span>
+<span class="giallo-l"><span>Density thresholds at each level: τ_h (upper) and ρ_h (lower)</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Sequential scan: just iterate the flat array, skip gaps (SIMD-friendly)</li>

@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -85,26 +108,25 @@
 <hr />
 <h2 id="1-compiler-architecture-pipeline">1. Compiler Architecture &amp; Pipeline</h2>
 <h3 id="three-phase-design">Three-Phase Design</h3>
-<pre><code>Source Code
-    │
-    ▼
-┌─────────────┐
-│   Frontend  │  Lexing, parsing, semantic analysis, type checking
-│             │  → HIR (high-level IR, close to source)
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  Optimizer  │  Platform-independent optimizations on IR
-│             │  HIR → MIR → multiple optimization passes
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│   Backend   │  Instruction selection, register allocation,
-│             │  scheduling → machine code / object files
-└─────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Source Code</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ▼</span></span>
+<span class="giallo-l"><span>┌─────────────┐</span></span>
+<span class="giallo-l"><span>│   Frontend  │  Lexing, parsing, semantic analysis, type checking</span></span>
+<span class="giallo-l"><span>│             │  → HIR (high-level IR, close to source)</span></span>
+<span class="giallo-l"><span>└──────┬──────┘</span></span>
+<span class="giallo-l"><span>       │</span></span>
+<span class="giallo-l"><span>       ▼</span></span>
+<span class="giallo-l"><span>┌─────────────┐</span></span>
+<span class="giallo-l"><span>│  Optimizer  │  Platform-independent optimizations on IR</span></span>
+<span class="giallo-l"><span>│             │  HIR → MIR → multiple optimization passes</span></span>
+<span class="giallo-l"><span>└──────┬──────┘</span></span>
+<span class="giallo-l"><span>       │</span></span>
+<span class="giallo-l"><span>       ▼</span></span>
+<span class="giallo-l"><span>┌─────────────┐</span></span>
+<span class="giallo-l"><span>│   Backend   │  Instruction selection, register allocation,</span></span>
+<span class="giallo-l"><span>│             │  scheduling → machine code / object files</span></span>
+<span class="giallo-l"><span>└─────────────┘</span></span></code></pre>
 <p>Lattner &amp; Adve (CGO 2004) codified this three-phase design for LLVM. The key insight: the IR is a first-class language, enabling a shared optimizer to serve many frontends and backends. LLVM IR exists in three isomorphic forms: in-memory (<code>Value*</code> graph), textual (<code>.ll</code>), and binary bitcode (<code>.bc</code>).</p>
 <h3 id="multi-tier-ir">Multi-Tier IR</h3>
 <p>Most production compilers use multiple IR levels, progressively lowering toward machine semantics:</p>
@@ -133,21 +155,20 @@
 </ol>
 <p>Braun et al. (CC 2013) "Simple and Efficient Construction of SSA Form" — online algorithm that builds SSA during IR construction without a separate pass, by maintaining current definition map per block with lazy φ-insertion. Used in Go compiler, libFirm, Cranelift.</p>
 <p><strong>Phi nodes</strong> (<code>φ(v1, v2, ...)</code>) select a value from predecessors based on which predecessor was executed. Example:</p>
-<pre><code>if (cond) { x = 1; } else { x = 2; }
-// use x
-
-; In SSA:
-entry:
-    br cond, if_true, if_false
-if_true:
-    x1 = 1
-    br merge
-if_false:
-    x2 = 2
-    br merge
-merge:
-    x3 = φ(x1, x2)   ; φ from if_true → x1, if_false → x2
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>if (cond) { x = 1; } else { x = 2; }</span></span>
+<span class="giallo-l"><span>// use x</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>; In SSA:</span></span>
+<span class="giallo-l"><span>entry:</span></span>
+<span class="giallo-l"><span>    br cond, if_true, if_false</span></span>
+<span class="giallo-l"><span>if_true:</span></span>
+<span class="giallo-l"><span>    x1 = 1</span></span>
+<span class="giallo-l"><span>    br merge</span></span>
+<span class="giallo-l"><span>if_false:</span></span>
+<span class="giallo-l"><span>    x2 = 2</span></span>
+<span class="giallo-l"><span>    br merge</span></span>
+<span class="giallo-l"><span>merge:</span></span>
+<span class="giallo-l"><span>    x3 = φ(x1, x2)   ; φ from if_true → x1, if_false → x2</span></span></code></pre>
 <p><strong>SSA destruction</strong> (phi elimination) for code generation: insert parallel copies along edges, then sequentialize (break swap cycles with temporaries). Sreedhar et al. 1999 — SSA elimination algorithm handling critical edges.</p>
 <p><strong>Typed vs. untyped IRs</strong>: LLVM IR is typed (every <code>Value</code> has a <code>Type</code>). LLVM 15+ introduced <strong>opaque pointers</strong> (<code>ptr</code> instead of <code>i32*</code>) — reduces pointer type casts, simplifies IR, matches how modern CPUs work.</p>
 <hr />
@@ -272,15 +293,14 @@ merge:
 <p>Machine Code layer: <code>MCInst</code> (abstract instruction), <code>MCStreamer</code> (abstract emitter — output to object file or assembly text), <code>MCCodeEmitter</code> (encode MCInst to bytes), <code>MCAsmBackend</code> (fixups, relaxation), <code>MCObjectFileInfo</code>. Supports ELF/Mach-O/COFF. <code>llvm-mc</code> assembler uses this layer directly.</p>
 <h3 id="orcv2-jit-api">ORCv2 JIT API</h3>
 <p>On-Request Compilation v2 (2019+). Architecture:</p>
-<pre><code>ExecutionSession      — owns all JIT state, thread-safe
-  └─ JITDylib         — dynamic library abstraction (symbol table, linking scope)
-       └─ MaterializationUnit — lazy source of definitions
-
-IRCompileLayer        — compiles LLVM IR → object code
-ObjectLinkingLayer    — links object code
-  ├─ RTDyldObjectLinkingLayer  — uses RuntimeDyld (legacy, in-process)
-  └─ JITLink              — new linker (out-of-process capable, ELF/MachO/COFF)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>ExecutionSession      — owns all JIT state, thread-safe</span></span>
+<span class="giallo-l"><span>  └─ JITDylib         — dynamic library abstraction (symbol table, linking scope)</span></span>
+<span class="giallo-l"><span>       └─ MaterializationUnit — lazy source of definitions</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>IRCompileLayer        — compiles LLVM IR → object code</span></span>
+<span class="giallo-l"><span>ObjectLinkingLayer    — links object code</span></span>
+<span class="giallo-l"><span>  ├─ RTDyldObjectLinkingLayer  — uses RuntimeDyld (legacy, in-process)</span></span>
+<span class="giallo-l"><span>  └─ JITLink              — new linker (out-of-process capable, ELF/MachO/COFF)</span></span></code></pre>
 <p><code>LLJIT</code>: eager compilation (IR → object → link on lookup). <code>LLLazyJIT</code>: lazy compilation via <code>IndirectStubsManager</code> — first call triggers compilation, subsequent calls go direct. <strong>Out-of-process JIT</strong>: executor process separate from compiler process via <code>OrcRemoteTarget</code> / <code>SimpleRemoteExecutor</code> — enables JIT in sandboxed environments.</p>
 <h3 id="mlir">MLIR</h3>
 <p>Multi-Level IR (Lattner et al., CGO 2021). Core insight: make the IR extensible with <strong>dialects</strong> — namespaced type and operation sets. Progressive lowering passes transform between dialects.</p>
@@ -310,24 +330,22 @@ ObjectLinkingLayer    — links object code
 <p>CPython 3.11 specializing adaptive interpreter: inline caches embedded in bytecode stream, per-opcode specialization (e.g., <code>LOAD_ATTR</code> → <code>LOAD_ATTR_INSTANCE_VALUE</code> when shape known). Reduces dispatch + specializes hot paths without a JIT.</p>
 <h3 id="tracing-jit">Tracing JIT</h3>
 <p>HotpathVM (Gal &amp; Franz, VEE 2006): identify hot loop back-edges, record a <strong>trace</strong> (linear sequence of operations executed, including across calls), compile trace to native code with <strong>guards</strong> at each branch.</p>
-<pre><code>Loop body execution:
-  [guard: x is int] → side exit if fails
-  x = x + 1
-  [guard: x &lt; 100] → side exit if fails
-  → loop back
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Loop body execution:</span></span>
+<span class="giallo-l"><span>  [guard: x is int] → side exit if fails</span></span>
+<span class="giallo-l"><span>  x = x + 1</span></span>
+<span class="giallo-l"><span>  [guard: x &lt; 100] → side exit if fails</span></span>
+<span class="giallo-l"><span>  → loop back</span></span></code></pre>
 <p><strong>Trace trees</strong>: multiple traces from same loop header; side exits can trigger new trace recording from that point → forms a tree. TraceMonkey (Mozilla Firefox 3.5, 2009): first production trace JIT for JavaScript.</p>
 <p><strong>Blacklisting</strong>: traces that side-exit too frequently are marked "not worth tracing" — avoid compilation thrash for unoptimizable code.</p>
 <p><strong>Limitations</strong>: trace explosion for loops with many branches; poor performance on OO dispatch-heavy code. Most major runtimes (V8, SpiderMonkey) moved away from tracing to method JIT.</p>
 <h3 id="tiered-compilation">Tiered Compilation</h3>
-<pre><code>Interpreter (T0)
-    │  hot method detection (invocation counter + back-edge counter)
-    ▼
-Baseline JIT (T1) — fast, unoptimized native code, collects type profiles
-    │  profile threshold
-    ▼
-Optimizing JIT (T2) — slow compilation, speculative opts, deopt on assumption violation
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Interpreter (T0)</span></span>
+<span class="giallo-l"><span>    │  hot method detection (invocation counter + back-edge counter)</span></span>
+<span class="giallo-l"><span>    ▼</span></span>
+<span class="giallo-l"><span>Baseline JIT (T1) — fast, unoptimized native code, collects type profiles</span></span>
+<span class="giallo-l"><span>    │  profile threshold</span></span>
+<span class="giallo-l"><span>    ▼</span></span>
+<span class="giallo-l"><span>Optimizing JIT (T2) — slow compilation, speculative opts, deopt on assumption violation</span></span></code></pre>
 <p><strong>HotSpot JVM</strong> (T0–T4):</p>
 <ul>
 <li>T0: interpreter (with profiling)</li>
@@ -369,11 +387,9 @@ Optimizing JIT (T2) — slow compilation, speculative opts, deopt on assumption 
 </ul>
 <p><strong>Hidden classes / Shapes / Maps</strong>: V8 assigns each object a <strong>Map</strong> (hidden class) encoding the object's layout (field names + offsets). Objects with same fields in same order share a Map. Property access becomes fixed offset load once Map matches. Shape transitions form a tree. SpiderMonkey: "Shapes" (property tree). JSC: "Structures". This enables C-struct-like field access for JS objects.</p>
 <p><strong>V8 Map transitions</strong>:</p>
-<pre><code>{} → Map0
-{x: 1} → Map1 (Map0 + field &#39;x&#39; at offset 8)
-{x: 1, y: 2} → Map2 (Map1 + field &#39;y&#39; at offset 16)
-</code></pre>
-<h3 id="profile-guided-optimization-pgo">Profile-Guided Optimization (PGO)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>{} → Map0</span></span>
+<span class="giallo-l"><span>{x: 1} → Map1 (Map0 + field &#39;x&#39; at offset 8)</span></span>
+<span class="giallo-l"><span>{x: 1, y: 2} → Map2 (Map1 + field &#39;y&#39; at offset 16)</span></span></code></pre><h3 id="profile-guided-optimization-pgo">Profile-Guided Optimization (PGO)</h3>
 <p><strong>Instrumented PGO</strong>: insert counters at branches/calls, run representative workload, use profile in recompilation. Standard in GCC/Clang (<code>-fprofile-generate</code> / <code>-fprofile-use</code>). Enables: block reordering (hot code in one cache line), inlining prioritization, branch prediction hints.</p>
 <p><strong>AutoFDO</strong> (Chen et al., CGO 2016, Google): sampling-based PGO using Linux <code>perf</code> hardware counters. No instrumentation overhead. Profile converted to IR-level feedback via <code>create_llvm_prof</code>. Used at scale in Google's production builds.</p>
 <p><strong>BOLT</strong> (Panchenko et al., CGO 2019, Facebook/Meta): post-link binary optimizer. Reads <code>perf</code> profile, reconstructs CFG from binary, reorders basic blocks for hot/cold separation, improves icache utilization. 5-15% improvement on already PGO-compiled binaries.</p>
@@ -382,14 +398,13 @@ Optimizing JIT (T2) — slow compilation, speculative opts, deopt on assumption 
 <h2 id="8-high-performance-jit-backends">8. High-Performance JIT Backends</h2>
 <h3 id="asmjit">asmjit</h3>
 <p>Zero-dependency C++ assembler library (Kobalicek). Full x86/x64 ISA including AVX-512. API:</p>
-<pre><code data-lang="cpp">JitRuntime rt;
-CodeHolder code;
-code.init(rt.environment());
-x86::Assembler a(&amp;code);
-a.mov(x86::eax, 1);
-a.ret();
-// Finalize → executable memory
-</code></pre>
+<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span>JitRuntime rt</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span>CodeHolder code</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">code</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">init</span><span class="z-punctuation">(</span><span class="z-variable z-other">rt</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">environment</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name">x86</span><span class="z-punctuation">::</span><span class="z-entity z-name z-type">Assembler</span><span class="z-entity z-name z-function"> a</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-variable z-parameter">code</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">a</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">mov</span><span class="z-punctuation">(</span><span class="z-entity z-name">x86</span><span class="z-punctuation">::</span><span>eax</span><span class="z-punctuation">,</span><span class="z-constant"> 1</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">a</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">ret</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Finalize → executable memory</span></span></code></pre>
 <p><strong>Dual-mapped W^X</strong>: allocates two virtual mappings of same physical page — one RW (for writing code), one RX (for execution). Avoids mprotect syscalls between write and execute. Critical for Apple Silicon (W^X enforced by hardware on non-JIT-entitled processes). Used in Umbra database for sub-millisecond query compilation.</p>
 <h3 id="mir-vladimir-makarov-red-hat">MIR (Vladimir Makarov, Red Hat)</h3>
 <p>Lightweight JIT backend, pure C, no dependencies, ~20kLOC. Three-address MIR instructions, SSA construction, GVN, inlining, simple regalloc. Benchmark: <strong>~180x faster compilation than GCC -O2</strong>, ~70% of GCC code quality. Also has C-to-MIR frontend. Designed as a lightweight GCC JIT option, also used for JIT-in-a-library scenarios.</p>
@@ -431,17 +446,16 @@ a.ret();
 <p>PyPy (Bolz et al., ECOOP 2009): write interpreter in <strong>RPython</strong> (restricted Python subset), run <strong>metatracer</strong> on the interpreter itself. Trace records interpreter's execution trace for a given bytecode sequence → compiled native code for that bytecode sequence. Automatically derives a JIT from any RPython interpreter. Achieves 2-5x CPython for many benchmarks (worse for I/O-bound). Used for PyPy, Pypy-STM, RPython runtimes for other languages.</p>
 <h3 id="graalvm-truffle">GraalVM Truffle</h3>
 <p>Wuerthinger et al. (ONWARD! 2012, ACM DL 2013). <strong>Self-optimizing AST interpreter</strong>: AST nodes rewrite themselves based on type feedback:</p>
-<pre><code data-lang="java">// Initially polymorphic add node
-class AddNode extends Node {
-    Object execute(Object a, Object b) {
-        if (a instanceof Integer &amp;&amp; b instanceof Integer) {
-            replace(new IntAddNode());  // specialize
-            return (int)a + (int)b;
-        }
-        // fallback...
-    }
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="java"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Initially polymorphic add node</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">class</span><span class="z-entity z-name z-type"> AddNode</span><span class="z-storage z-modifier"> extends</span><span> Node</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">    Object</span><span class="z-entity z-name z-function"> execute</span><span class="z-punctuation">(</span><span class="z-storage z-type z-java">Object</span><span class="z-variable z-parameter"> a</span><span class="z-punctuation">,</span><span class="z-storage z-type z-java"> Object</span><span class="z-variable z-parameter"> b</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-punctuation"> (</span><span>a </span><span class="z-keyword z-operator">instanceof</span><span> Integer </span><span class="z-keyword z-operator z-logical">&amp;&amp;</span><span> b </span><span class="z-keyword z-operator">instanceof</span><span> Integer</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">            replace</span><span class="z-punctuation">(</span><span class="z-keyword z-control">new</span><span class="z-entity z-name z-function"> IntAddNode</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> specialize</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">            return</span><span class="z-punctuation"> (</span><span class="z-storage z-type">int</span><span class="z-punctuation">)</span><span>a </span><span class="z-keyword z-operator">+</span><span class="z-punctuation"> (</span><span class="z-storage z-type">int</span><span class="z-punctuation">)</span><span>b</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">        //</span><span class="z-comment"> fallback...</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <p><strong>Graal compiler</strong> performs partial evaluation of the AST interpreter: given specialization state, constant-folds interpreter dispatch, inlines AST node execute() methods → produces tight native code. Language-agnostic: same mechanism works for JavaScript (GraalJS), Python (GraalPy), Ruby (TruffleRuby), R, WebAssembly, LLVM bitcode (via Sulong). Native Image: AOT compile Java to standalone binary using closed-world assumption.</p>
 <hr />
 <h2 id="10-webassembly-compilation">10. WebAssembly Compilation</h2>
@@ -487,18 +501,17 @@ class AddNode extends Node {
 <h3 id="hyper-data-centric-compilation">HyPer Data-Centric Compilation</h3>
 <p>Neumann (VLDB 2011): "Efficiently Compiling Efficient Query Plans for Modern Hardware". Key insight: query compilation should produce <strong>pipelined</strong> code that processes tuples through multiple operators without materializing intermediate results.</p>
 <p><strong>Produce/Consume model</strong>: each operator has <code>produce()</code> and <code>consume(tuple)</code> methods. Compilation via recursive invocation:</p>
-<pre><code>HashJoin.produce():
-    build_side.produce()          // fill hash table
-    probe_side.produce()          // probe
-
-Scan.produce():
-    for each tuple t:
-        parent.consume(t)         // push up pipeline
-
-HashJoin.consume(t) [from probe side]:
-    if probe_hash_table(t):
-        parent.consume(merge(t, match))
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>HashJoin.produce():</span></span>
+<span class="giallo-l"><span>    build_side.produce()          // fill hash table</span></span>
+<span class="giallo-l"><span>    probe_side.produce()          // probe</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Scan.produce():</span></span>
+<span class="giallo-l"><span>    for each tuple t:</span></span>
+<span class="giallo-l"><span>        parent.consume(t)         // push up pipeline</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>HashJoin.consume(t) [from probe side]:</span></span>
+<span class="giallo-l"><span>    if probe_hash_table(t):</span></span>
+<span class="giallo-l"><span>        parent.consume(merge(t, match))</span></span></code></pre>
 <p>This generates code where the inner loop contains the full pipeline — Scan → Filter → HashProbe — with no function call overhead. LLVM IR generated per query, compiled at O2. Throughput: 6.5 GB/s tuple processing on OLAP queries.</p>
 <h3 id="umbra-flying-start">Umbra Flying Start</h3>
 <p>Kersten et al. (VLDB J. 2021): two-tier compilation for sub-millisecond query latency:</p>

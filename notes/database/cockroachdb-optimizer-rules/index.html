@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -90,27 +113,25 @@ and extensible.</p>
 <p>This document catalogs every <code>.opt</code> file, lists every rule, and explains why each rule exists. It also covers the memo data structure, physical properties system, cost model, statistics pipeline, join ordering algorithm, plan caching, and DistSQL execution integration.</p>
 <hr />
 <h2 id="architecture-overview">Architecture Overview</h2>
-<pre><code>SQL AST
-  │
-  ▼
-optbuilder  →  builds initial expression tree
-  │
-  ▼
-norm.Factory  →  applies NORM rules during construction (single canonical form)
-  │
-  ▼
-MEMO  →  stores equivalence classes of expressions
-  │
-  ▼
-xform.Explorer  →  applies XFORM rules (generate alternative plans)
-  │
-  ▼
-xform.Coster  →  assigns cost to each alternative
-  │
-  ▼
-Best plan selected
-</code></pre>
-<h3 id="two-rule-categories">Two Rule Categories</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>SQL AST</span></span>
+<span class="giallo-l"><span>  │</span></span>
+<span class="giallo-l"><span>  ▼</span></span>
+<span class="giallo-l"><span>optbuilder  →  builds initial expression tree</span></span>
+<span class="giallo-l"><span>  │</span></span>
+<span class="giallo-l"><span>  ▼</span></span>
+<span class="giallo-l"><span>norm.Factory  →  applies NORM rules during construction (single canonical form)</span></span>
+<span class="giallo-l"><span>  │</span></span>
+<span class="giallo-l"><span>  ▼</span></span>
+<span class="giallo-l"><span>MEMO  →  stores equivalence classes of expressions</span></span>
+<span class="giallo-l"><span>  │</span></span>
+<span class="giallo-l"><span>  ▼</span></span>
+<span class="giallo-l"><span>xform.Explorer  →  applies XFORM rules (generate alternative plans)</span></span>
+<span class="giallo-l"><span>  │</span></span>
+<span class="giallo-l"><span>  ▼</span></span>
+<span class="giallo-l"><span>xform.Coster  →  assigns cost to each alternative</span></span>
+<span class="giallo-l"><span>  │</span></span>
+<span class="giallo-l"><span>  ▼</span></span>
+<span class="giallo-l"><span>Best plan selected</span></span></code></pre><h3 id="two-rule-categories">Two Rule Categories</h3>
 <table><thead><tr><th></th><th>Normalization (norm)</th><th>Exploration (xform)</th></tr></thead><tbody>
 <tr><td><strong>When</strong></td><td>During expression construction</td><td>During optimization pass</td></tr>
 <tr><td><strong>Goal</strong></td><td>Canonical, simplified form</td><td>Enumerate cost-relevant alternatives</td></tr>
@@ -119,12 +140,11 @@ Best plan selected
 <tr><td><strong>Tag</strong></td><td><code>Normalize</code></td><td><code>Explore</code></td></tr>
 </tbody></table>
 <h3 id="rule-syntax">Rule Syntax</h3>
-<pre><code># Comment explaining WHY
-[RuleName, Tag, OptionalPriorityTag]
-(MatchPattern $var:TypeOrWildcard ...)
-=&gt;
-(ReplacementExpression ...)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span># Comment explaining WHY</span></span>
+<span class="giallo-l"><span>[RuleName, Tag, OptionalPriorityTag]</span></span>
+<span class="giallo-l"><span>(MatchPattern $var:TypeOrWildcard ...)</span></span>
+<span class="giallo-l"><span>=&gt;</span></span>
+<span class="giallo-l"><span>(ReplacementExpression ...)</span></span></code></pre>
 <ul>
 <li><code>$x:*</code> — bind anything to <code>$x</code></li>
 <li><code>$x:(Type)</code> — bind only if node is <code>Type</code></li>
@@ -694,18 +714,17 @@ more and are never selected.</p>
 <h2 id="memo-data-structure">Memo Data Structure</h2>
 <p>The memo (<code>pkg/sql/opt/memo/memo.go</code>) is the core data structure of the optimizer. It efficiently stores a forest of logically equivalent query plans by exploiting the fact that many sub-plans are shared across alternatives.</p>
 <h3 id="structure">Structure</h3>
-<pre><code>Memo
-  └── groups: []memoGroup
-        └── memoGroup
-              ├── relProps: *relationalProps   (shared by all exprs in group)
-              ├── scalarProps: *scalarProps
-              └── exprs: []memoExpr
-                    └── memoExpr
-                          ├── op: operator
-                          ├── children: []groupID   (references to other groups)
-                          ├── physProps: *physicalProps
-                          └── private: interface{}  (operator-specific data)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Memo</span></span>
+<span class="giallo-l"><span>  └── groups: []memoGroup</span></span>
+<span class="giallo-l"><span>        └── memoGroup</span></span>
+<span class="giallo-l"><span>              ├── relProps: *relationalProps   (shared by all exprs in group)</span></span>
+<span class="giallo-l"><span>              ├── scalarProps: *scalarProps</span></span>
+<span class="giallo-l"><span>              └── exprs: []memoExpr</span></span>
+<span class="giallo-l"><span>                    └── memoExpr</span></span>
+<span class="giallo-l"><span>                          ├── op: operator</span></span>
+<span class="giallo-l"><span>                          ├── children: []groupID   (references to other groups)</span></span>
+<span class="giallo-l"><span>                          ├── physProps: *physicalProps</span></span>
+<span class="giallo-l"><span>                          └── private: interface{}  (operator-specific data)</span></span></code></pre>
 <p><strong>Group identity:</strong> Each group is identified by a fingerprint = <code>(operator, child group IDs)</code>. Before inserting a new expression, the factory computes its fingerprint. If a group with that fingerprint already exists, the expression joins that group. If not, a new group is created.</p>
 <p><strong>Equivalence invariant:</strong> All memo-expressions in a group are logically equivalent — they produce the same rows (modulo ordering). Normalization rules fire at construction time (via <code>norm.Factory</code>) so non-normalized forms never enter the memo.</p>
 <p><strong>Expression extraction (binding):</strong> Transformation rules don't traverse raw Go data structures. Instead, they use a <strong>binding</strong> step: patterns are matched against the memo, extracting only the parts the rule needs. Pattern leaves match opaquely (entire subtree as a group reference); pattern trees recursively extract for manipulation.</p>
@@ -717,20 +736,19 @@ more and are never selected.</p>
 <p><code>norm.Factory.ConstructXxx()</code> builds normalized expressions and inserts them, firing norm rules eagerly. <code>xform.Explorer.exploreGroup()</code> iterates over groups, applies exploration rules, adds new alternatives to existing groups.</p>
 <h3 id="cascades-style-search">Cascades-Style Search</h3>
 <p>CockroachDB uses <strong>Cascades</strong> (Graefe 1995) style optimization — interleaved exploration and costing — rather than Volcano's separate expansion and costing phases.</p>
-<pre><code>OptimizeGroup(group, requiredProps):
-  exploreGroup(group)           // fire all applicable xform rules, add alternatives
-  for each expr in group.exprs:
-    cost = CostExpr(expr, requiredProps)
-    track minimum cost expr
-  return bestExpr
-
-CostExpr(expr, requiredProps):
-  for each child group:
-    OptimizeGroup(child, derivedRequiredProps)  // recursive
-  cost += operatorCost(expr, childCardinalities)
-  if !childSatisfiesRequiredProps:
-    inject enforcer, add enforcer cost
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>OptimizeGroup(group, requiredProps):</span></span>
+<span class="giallo-l"><span>  exploreGroup(group)           // fire all applicable xform rules, add alternatives</span></span>
+<span class="giallo-l"><span>  for each expr in group.exprs:</span></span>
+<span class="giallo-l"><span>    cost = CostExpr(expr, requiredProps)</span></span>
+<span class="giallo-l"><span>    track minimum cost expr</span></span>
+<span class="giallo-l"><span>  return bestExpr</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>CostExpr(expr, requiredProps):</span></span>
+<span class="giallo-l"><span>  for each child group:</span></span>
+<span class="giallo-l"><span>    OptimizeGroup(child, derivedRequiredProps)  // recursive</span></span>
+<span class="giallo-l"><span>  cost += operatorCost(expr, childCardinalities)</span></span>
+<span class="giallo-l"><span>  if !childSatisfiesRequiredProps:</span></span>
+<span class="giallo-l"><span>    inject enforcer, add enforcer cost</span></span></code></pre>
 <p><strong>Branch-and-bound pruning:</strong> If an expression's lower-bound cost already exceeds the best known cost for the group, its subtree is pruned. This is critical for large join search spaces.</p>
 <hr />
 <h2 id="logical-properties">Logical Properties</h2>
@@ -793,9 +811,8 @@ CostExpr(expr, requiredProps):
 <li><code>Sort(input, ordering)</code> provides the specified ordering.</li>
 </ul>
 <p><strong>Mismatch → Enforcer injection:</strong> When a required property is not provided by any alternative in a group, the optimizer introduces an enforcer:</p>
-<pre><code>Sort(child, ordering) -- satisfies ordering requirement
-Distribution(child)   -- routes data to required gateway node
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Sort(child, ordering) -- satisfies ordering requirement</span></span>
+<span class="giallo-l"><span>Distribution(child)   -- routes data to required gateway node</span></span></code></pre>
 <p>Enforcers have costs (Sort = O(n log n) I/O + CPU; Distribution = network transfer).</p>
 <h3 id="multi-region-distribution-properties">Multi-Region Distribution Properties</h3>
 <p>For <code>REGIONAL BY ROW</code> tables, each row has a <code>crdb_region</code> hidden column. The optimizer:</p>
@@ -810,13 +827,12 @@ Distribution(child)   -- routes data to required gateway node
 <h2 id="cost-model">Cost Model</h2>
 <p><code>pkg/sql/opt/xform/coster.go</code>. Costs are dimensionless "time units" — relative, not absolute.</p>
 <h3 id="cost-components">Cost Components</h3>
-<pre><code>Cost(expr) = SeqIOCost + RandIOCost + CPUCost + NetworkCost
-
-SeqIOCost  = rows × scanFactor × seqIOCostFactor
-RandIOCost = rows × randomIOCostFactor  (for random-access index lookups)
-CPUCost    = rows × cpuCostFactor × perRowWork
-NetworkCost = rows × rowWidth × networkCostFactor  (for distributed plans, 0 for local)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Cost(expr) = SeqIOCost + RandIOCost + CPUCost + NetworkCost</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>SeqIOCost  = rows × scanFactor × seqIOCostFactor</span></span>
+<span class="giallo-l"><span>RandIOCost = rows × randomIOCostFactor  (for random-access index lookups)</span></span>
+<span class="giallo-l"><span>CPUCost    = rows × cpuCostFactor × perRowWork</span></span>
+<span class="giallo-l"><span>NetworkCost = rows × rowWidth × networkCostFactor  (for distributed plans, 0 for local)</span></span></code></pre>
 <p>Default cost factors (normalized, not real seconds):</p>
 <ul>
 <li><code>seqIOCostFactor = 1.0</code></li>
@@ -837,12 +853,9 @@ NetworkCost = rows × rowWidth × networkCostFactor  (for distributed plans, 0 f
 </tbody></table>
 <h3 id="spill-cost">Spill Cost</h3>
 <p>When hash join or sort input exceeds <code>work_mem</code> equivalent, the optimizer adds disk spill cost:</p>
-<pre><code>spillCost = (rows × rowWidth / diskBlockSize) × seqIOCostFactor × spillFactor
-</code></pre>
-<h3 id="network-cost-in-distributed-plans">Network Cost in Distributed Plans</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>spillCost = (rows × rowWidth / diskBlockSize) × seqIOCostFactor × spillFactor</span></span></code></pre><h3 id="network-cost-in-distributed-plans">Network Cost in Distributed Plans</h3>
 <p>For queries spanning multiple nodes, each data shuffle (hash join redistribution, aggregation scatter-gather) incurs:</p>
-<pre><code>networkCost = rowBytes × networkCostFactor × hops
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>networkCost = rowBytes × networkCostFactor × hops</span></span></code></pre>
 <p>Gateway node is cheapest (0 network); remote node data costs proportional to transfer size.</p>
 <h3 id="optimal-substructure">Optimal Substructure</h3>
 <p>Cost model satisfies optimal substructure: <code>Cost(tree) = Cost(root) + Σ Cost(subtrees)</code>. This enables dynamic programming — optimize each group independently, then compose. Critical invariant for Cascades to work correctly.</p>
@@ -870,23 +883,21 @@ NetworkCost = rows × rowWidth × networkCostFactor  (for distributed plans, 0 f
 </ul>
 <h3 id="statistics-forecasting">Statistics Forecasting</h3>
 <p>When ≥3 historical stats collections exist and row counts fit a linear trend, CockroachDB generates <strong>forecasted statistics</strong> extrapolating to the current time. Used between refreshes when table is changing rapidly.</p>
-<pre><code>forecasted_row_count = last_row_count + slope × (now - last_collection_time)
-forecasted_distinct_count[col] = scale proportionally
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>forecasted_row_count = last_row_count + slope × (now - last_collection_time)</span></span>
+<span class="giallo-l"><span>forecasted_distinct_count[col] = scale proportionally</span></span></code></pre>
 <p>Forecasting prevents stale stats from causing catastrophic plan regressions during bulk loads.</p>
 <h3 id="selectivity-estimation">Selectivity Estimation</h3>
 <p><code>statistics_builder.go</code> propagates histograms up the operator tree:</p>
-<pre><code>Select(input, filter):
-  sel = selectivity(filter, input.stats)
-  output.rowCount = input.rowCount × sel
-  output.histogram[col] = input.histogram[col].ApplySelectivity(sel, filter.bounds)
-
-Join(left, right, condition):
-  if equijoin on col:
-    sel = 1 / max(distinct(left.col), distinct(right.col))
-  output.rowCount = left.rowCount × right.rowCount × sel
-  // histogram intersection for equijoin columns
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Select(input, filter):</span></span>
+<span class="giallo-l"><span>  sel = selectivity(filter, input.stats)</span></span>
+<span class="giallo-l"><span>  output.rowCount = input.rowCount × sel</span></span>
+<span class="giallo-l"><span>  output.histogram[col] = input.histogram[col].ApplySelectivity(sel, filter.bounds)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Join(left, right, condition):</span></span>
+<span class="giallo-l"><span>  if equijoin on col:</span></span>
+<span class="giallo-l"><span>    sel = 1 / max(distinct(left.col), distinct(right.col))</span></span>
+<span class="giallo-l"><span>  output.rowCount = left.rowCount × right.rowCount × sel</span></span>
+<span class="giallo-l"><span>  // histogram intersection for equijoin columns</span></span></code></pre>
 <p><strong>Selectivity for range predicates:</strong> computed by scanning histogram buckets that overlap the predicate range, summing their row counts.</p>
 <p><strong>Null handling:</strong> null count tracked separately. <code>IS NULL</code> selectivity = null_count / row_count. <code>IS NOT NULL</code> = 1 - (null_count / row_count).</p>
 <p><strong>Distinct count propagation through joins:</strong> for join output column from left, <code>distinct(col) = min(distinct(left.col), output.rowCount)</code>.</p>
@@ -895,13 +906,12 @@ Join(left, right, condition):
 <p><code>pkg/sql/opt/xform/join_order_builder.go</code>. The <code>ReorderJoins</code> exploration rule delegates to this.</p>
 <h3 id="algorithm">Algorithm</h3>
 <p>CockroachDB uses a <strong>DPhyp</strong> (Dynamic Programming on Hypergraphs) variant — the same algorithm used by HyPer, Umbra, DuckDB. Enumerate all subsets of joined relations, find minimum-cost join tree for each subset.</p>
-<pre><code>DPhyp:
-  for each subset S of relations (bottom-up, size 1 → n):
-    for each valid partition (S1, S2) of S where S1 ∪ S2 = S:
-      if there exists a join predicate between S1 and S2:
-        cost = Cost(BestPlan(S1)) + Cost(BestPlan(S2)) + joinCost(S1, S2)
-        BestPlan(S) = min(BestPlan(S), cost)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>DPhyp:</span></span>
+<span class="giallo-l"><span>  for each subset S of relations (bottom-up, size 1 → n):</span></span>
+<span class="giallo-l"><span>    for each valid partition (S1, S2) of S where S1 ∪ S2 = S:</span></span>
+<span class="giallo-l"><span>      if there exists a join predicate between S1 and S2:</span></span>
+<span class="giallo-l"><span>        cost = Cost(BestPlan(S1)) + Cost(BestPlan(S2)) + joinCost(S1, S2)</span></span>
+<span class="giallo-l"><span>        BestPlan(S) = min(BestPlan(S), cost)</span></span></code></pre>
 <p><strong>Hyperedges:</strong> join predicates that reference more than 2 tables (e.g., from OR conditions or transitive predicates) are represented as hyperedges. DPhyp handles these without enumerating invalid cross products.</p>
 <h3 id="cardinality-limit-fallback">Cardinality Limit &amp; Fallback</h3>
 <p><code>reorderJoinsLimit</code> session variable (default 8). When join count &gt; limit:</p>
@@ -928,13 +938,11 @@ Join(left, right, condition):
 <h2 id="plan-caching-prepared-statements">Plan Caching &amp; Prepared Statements</h2>
 <p><code>pkg/sql/plan_opt.go</code>, <code>pkg/sql/querycache/</code>.</p>
 <h3 id="five-planning-stages">Five Planning Stages</h3>
-<pre><code>1. Parse      → SQL string → AST
-2. OptBuild   → AST → relational expression tree (semantic analysis, name resolution)
-3. Normalize  → norm.Factory applies all norm rules → canonical memo
-4. Explore    → xform.Optimizer applies xform rules + costs → best plan
-5. ExecBuild  → optimized plan → execinfrapb.ProcessorSpec tree (DistSQL specs)
-</code></pre>
-<h3 id="what-gets-cached">What Gets Cached</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>1. Parse      → SQL string → AST</span></span>
+<span class="giallo-l"><span>2. OptBuild   → AST → relational expression tree (semantic analysis, name resolution)</span></span>
+<span class="giallo-l"><span>3. Normalize  → norm.Factory applies all norm rules → canonical memo</span></span>
+<span class="giallo-l"><span>4. Explore    → xform.Optimizer applies xform rules + costs → best plan</span></span>
+<span class="giallo-l"><span>5. ExecBuild  → optimized plan → execinfrapb.ProcessorSpec tree (DistSQL specs)</span></span></code></pre><h3 id="what-gets-cached">What Gets Cached</h3>
 <table><thead><tr><th>Protocol</th><th>Cached State</th><th>Reuse Condition</th></tr></thead><tbody>
 <tr><td>Simple query (same SQL string)</td><td>Final explored plan (stage 4 output)</td><td>Identical SQL string, same schema version</td></tr>
 <tr><td><code>PREPARE</code> once, execute N times</td><td>Normalized memo through stage 3</td><td>Same schema; re-runs stages 4+5 per execution</td></tr>
@@ -957,18 +965,16 @@ Join(left, right, condition):
 <h2 id="distsql-execution-integration">DistSQL Execution Integration</h2>
 <p><code>pkg/sql/distsql_physical_planner.go</code>, <code>pkg/sql/colflow/</code>.</p>
 <h3 id="pipeline-optimizer-execution">Pipeline: Optimizer → Execution</h3>
-<pre><code>Optimizer best plan (memo tree)
-  ↓ execbuilder.Builder.Build()
-planNode tree (scanNode, filterNode, joinNode, ...)
-  ↓ DistSQLPlanner.PlanAndRun()
-PhysicalPlan (ProcessorSpec DAG)
-  ↓ FlowSpec per node
-  ↓ SetupFlowRequest RPC to each node
-colflow.VectorizedFlow (operator DAG)
-  ↓ BatchFlowCoordinator.Run()
-results → client
-</code></pre>
-<h3 id="processorspec-types">ProcessorSpec Types</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Optimizer best plan (memo tree)</span></span>
+<span class="giallo-l"><span>  ↓ execbuilder.Builder.Build()</span></span>
+<span class="giallo-l"><span>planNode tree (scanNode, filterNode, joinNode, ...)</span></span>
+<span class="giallo-l"><span>  ↓ DistSQLPlanner.PlanAndRun()</span></span>
+<span class="giallo-l"><span>PhysicalPlan (ProcessorSpec DAG)</span></span>
+<span class="giallo-l"><span>  ↓ FlowSpec per node</span></span>
+<span class="giallo-l"><span>  ↓ SetupFlowRequest RPC to each node</span></span>
+<span class="giallo-l"><span>colflow.VectorizedFlow (operator DAG)</span></span>
+<span class="giallo-l"><span>  ↓ BatchFlowCoordinator.Run()</span></span>
+<span class="giallo-l"><span>results → client</span></span></code></pre><h3 id="processorspec-types">ProcessorSpec Types</h3>
 <p><code>pkg/sql/execinfrapb/processors.proto</code>:</p>
 <table><thead><tr><th>Spec</th><th>Corresponds To</th><th>Notes</th></tr></thead><tbody>
 <tr><td><code>TableReaderSpec</code></td><td><code>Scan</code> / <code>IndexScan</code></td><td>Specifies key spans, index, column IDs</td></tr>
@@ -996,35 +1002,30 @@ results → client
 <li><code>execgen</code> tool generates type-specialized operator implementations for all type combinations at compile time — no runtime reflection.</li>
 </ul>
 <h3 id="explain-output">Explain Output</h3>
-<pre><code data-lang="sql">EXPLAIN (DISTSQL, VERBOSE) SELECT ...
-</code></pre>
+<pre class="giallo z-code"><code data-lang="sql"><span class="giallo-l"><span>EXPLAIN (DISTSQL, </span><span class="z-keyword">VERBOSE</span><span>) </span><span class="z-keyword">SELECT</span><span> ...</span></span></code></pre>
 <p>Returns per-node processor graph. <code>EXPLAIN ANALYZE (DISTSQL)</code> adds runtime row counts, memory usage, and time per processor — essential for diagnosing plan quality issues.</p>
 <hr />
 <h2 id="apply-operator-decorrelation-internals">Apply Operator &amp; Decorrelation Internals</h2>
 <p>The <code>decorrelate.opt</code> rules translate correlated subqueries into joins. The mechanism:</p>
 <h3 id="apply-operator">Apply Operator</h3>
 <p>A correlated subquery is initially represented as an <strong>Apply</strong> operator:</p>
-<pre><code>Apply(left: R, right: S(outer_cols), join_type)
-  -- right side references columns from left; must re-execute per left row
-  -- O(|R|) subquery executions
-</code></pre>
-<h3 id="decorrelation-algorithm-unnesting">Decorrelation Algorithm (Unnesting)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Apply(left: R, right: S(outer_cols), join_type)</span></span>
+<span class="giallo-l"><span>  -- right side references columns from left; must re-execute per left row</span></span>
+<span class="giallo-l"><span>  -- O(|R|) subquery executions</span></span></code></pre><h3 id="decorrelation-algorithm-unnesting">Decorrelation Algorithm (Unnesting)</h3>
 <p>Rules in <code>decorrelate.opt</code> transform Apply into regular Join by <strong>hoisting</strong> the correlated expression:</p>
-<pre><code>Step 1: Identify outer column references in right subtree
-Step 2: For each correlated operator in right (Select, Project, GroupBy, etc.):
-  - &quot;Hoist&quot; the correlated computation above the Apply
-  - Replace inner correlation reference with a new column
-Step 3: Apply becomes InnerJoin / SemiJoin / AntiJoin
-  - Join condition = original correlation predicate
-  - Right side is now a standalone expression (no outer column refs)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Step 1: Identify outer column references in right subtree</span></span>
+<span class="giallo-l"><span>Step 2: For each correlated operator in right (Select, Project, GroupBy, etc.):</span></span>
+<span class="giallo-l"><span>  - &quot;Hoist&quot; the correlated computation above the Apply</span></span>
+<span class="giallo-l"><span>  - Replace inner correlation reference with a new column</span></span>
+<span class="giallo-l"><span>Step 3: Apply becomes InnerJoin / SemiJoin / AntiJoin</span></span>
+<span class="giallo-l"><span>  - Join condition = original correlation predicate</span></span>
+<span class="giallo-l"><span>  - Right side is now a standalone expression (no outer column refs)</span></span></code></pre>
 <p><strong>Example:</strong></p>
-<pre><code data-lang="sql">SELECT * FROM t WHERE id IN (SELECT id FROM s WHERE s.col = t.col)
--- Initial: Apply(t, Select(Scan(s), s.col = t.col), SemiJoin)
--- After DecorrelateSelect:
---   SemiJoin(t, Scan(s), t.col = s.col)
--- t.col = s.col is now a regular join predicate; executes once
-</code></pre>
+<pre class="giallo z-code"><code data-lang="sql"><span class="giallo-l"><span class="z-keyword">SELECT</span><span class="z-keyword z-operator"> *</span><span class="z-keyword"> FROM</span><span> t </span><span class="z-keyword">WHERE</span><span> id </span><span class="z-keyword">IN</span><span> (</span><span class="z-keyword">SELECT</span><span> id </span><span class="z-keyword">FROM</span><span> s </span><span class="z-keyword">WHERE</span><span class="z-constant"> s</span><span>.</span><span class="z-constant">col</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> t</span><span>.</span><span class="z-constant">col</span><span>)</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> Initial: Apply(t, Select(Scan(s), s.col = t.col), SemiJoin)</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> After DecorrelateSelect:</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment">   SemiJoin(t, Scan(s), t.col = s.col)</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> t.col = s.col is now a regular join predicate; executes once</span></span></code></pre>
 <p><strong>When decorrelation fails:</strong> subquery references multiple levels of outer scope, or contains volatile functions, or uses complex aggregation patterns that can't be unnested. Fallback: apply operator with subquery cache (memo per distinct outer-col value).</p>
 
   </article>

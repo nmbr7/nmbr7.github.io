@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -116,46 +139,43 @@
 <li><strong>Per-thread register state</strong>: Each thread has its own architectural registers</li>
 <li><strong>Hardware-managed scheduling</strong>: Thousands of threads scheduled by hardware, not software</li>
 </ul>
-<pre><code>SIMD (CPU):                         SIMT (GPU):
-┌──────────────────────┐            ┌──────────────────────┐
-│ Single instruction   │            │ Single instruction   │
-│ operates on ONE      │            │ issued to 32 threads │
-│ wide vector register │            │ each with OWN regs   │
-│                      │            │                      │
-│ VADD zmm0, zmm1, zmm2│           │ FADD R1, R2, R3      │
-│ [16 floats in one reg]│           │ [32 threads execute] │
-└──────────────────────┘            └──────────────────────┘
-</code></pre>
-<h3 id="1-2-streaming-multiprocessor-sm-architecture">1.2 Streaming Multiprocessor (SM) Architecture</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>SIMD (CPU):                         SIMT (GPU):</span></span>
+<span class="giallo-l"><span>┌──────────────────────┐            ┌──────────────────────┐</span></span>
+<span class="giallo-l"><span>│ Single instruction   │            │ Single instruction   │</span></span>
+<span class="giallo-l"><span>│ operates on ONE      │            │ issued to 32 threads │</span></span>
+<span class="giallo-l"><span>│ wide vector register │            │ each with OWN regs   │</span></span>
+<span class="giallo-l"><span>│                      │            │                      │</span></span>
+<span class="giallo-l"><span>│ VADD zmm0, zmm1, zmm2│           │ FADD R1, R2, R3      │</span></span>
+<span class="giallo-l"><span>│ [16 floats in one reg]│           │ [32 threads execute] │</span></span>
+<span class="giallo-l"><span>└──────────────────────┘            └──────────────────────┘</span></span></code></pre><h3 id="1-2-streaming-multiprocessor-sm-architecture">1.2 Streaming Multiprocessor (SM) Architecture</h3>
 <p>The SM (NVIDIA) or Compute Unit (AMD) is the fundamental building block. A modern SM (Hopper) contains:</p>
-<pre><code>┌─────────────────────────────────────────────────────────┐
-│                    Streaming Multiprocessor (SM)         │
-│                                                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │Warp Sched 0 │  │Warp Sched 1 │  │Warp Sched 2 │ ... │
-│  │Dispatch Unit│  │Dispatch Unit│  │Dispatch Unit│     │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘     │
-│         │                │                │             │
-│  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐     │
-│  │ FP32 Units  │  │ FP32 Units  │  │ FP32 Units  │     │
-│  │ INT32 Units │  │ INT32 Units │  │ INT32 Units │     │
-│  │ FP64 Units  │  │ FP64 Units  │  │ FP64 Units  │     │
-│  │ Tensor Cores│  │ Tensor Cores│  │ Tensor Cores│     │
-│  │ LD/ST Units │  │ LD/ST Units │  │ LD/ST Units │     │
-│  │ SFU         │  │ SFU         │  │ SFU         │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
-│                                                         │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │              Register File (256 KB)              │    │
-│  └─────────────────────────────────────────────────┘    │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │           Shared Memory / L1 Cache (228 KB)      │    │
-│  └─────────────────────────────────────────────────┘    │
-│  ┌──────────────────┐  ┌──────────────────┐             │
-│  │   Tex/L1 Cache   │  │  Constant Cache  │             │
-│  └──────────────────┘  └──────────────────┘             │
-└─────────────────────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                    Streaming Multiprocessor (SM)         │</span></span>
+<span class="giallo-l"><span>│                                                         │</span></span>
+<span class="giallo-l"><span>│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │</span></span>
+<span class="giallo-l"><span>│  │Warp Sched 0 │  │Warp Sched 1 │  │Warp Sched 2 │ ... │</span></span>
+<span class="giallo-l"><span>│  │Dispatch Unit│  │Dispatch Unit│  │Dispatch Unit│     │</span></span>
+<span class="giallo-l"><span>│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘     │</span></span>
+<span class="giallo-l"><span>│         │                │                │             │</span></span>
+<span class="giallo-l"><span>│  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐     │</span></span>
+<span class="giallo-l"><span>│  │ FP32 Units  │  │ FP32 Units  │  │ FP32 Units  │     │</span></span>
+<span class="giallo-l"><span>│  │ INT32 Units │  │ INT32 Units │  │ INT32 Units │     │</span></span>
+<span class="giallo-l"><span>│  │ FP64 Units  │  │ FP64 Units  │  │ FP64 Units  │     │</span></span>
+<span class="giallo-l"><span>│  │ Tensor Cores│  │ Tensor Cores│  │ Tensor Cores│     │</span></span>
+<span class="giallo-l"><span>│  │ LD/ST Units │  │ LD/ST Units │  │ LD/ST Units │     │</span></span>
+<span class="giallo-l"><span>│  │ SFU         │  │ SFU         │  │ SFU         │     │</span></span>
+<span class="giallo-l"><span>│  └─────────────┘  └─────────────┘  └─────────────┘     │</span></span>
+<span class="giallo-l"><span>│                                                         │</span></span>
+<span class="giallo-l"><span>│  ┌─────────────────────────────────────────────────┐    │</span></span>
+<span class="giallo-l"><span>│  │              Register File (256 KB)              │    │</span></span>
+<span class="giallo-l"><span>│  └─────────────────────────────────────────────────┘    │</span></span>
+<span class="giallo-l"><span>│  ┌─────────────────────────────────────────────────┐    │</span></span>
+<span class="giallo-l"><span>│  │           Shared Memory / L1 Cache (228 KB)      │    │</span></span>
+<span class="giallo-l"><span>│  └─────────────────────────────────────────────────┘    │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────────┐  ┌──────────────────┐             │</span></span>
+<span class="giallo-l"><span>│  │   Tex/L1 Cache   │  │  Constant Cache  │             │</span></span>
+<span class="giallo-l"><span>│  └──────────────────┘  └──────────────────┘             │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────────────┘</span></span></code></pre>
 <p><strong>SM partitioning</strong> (since Volta): Each SM is divided into 4 <strong>processing blocks</strong> (sub-cores), each with:</p>
 <ul>
 <li>1 warp scheduler + 1 dispatch unit</li>
@@ -172,14 +192,12 @@
 <li><strong>No renaming</strong>: Unlike CPUs, GPU register files use physical = architectural registers (compiler allocates)</li>
 <li><strong>Occupancy tradeoff</strong>: More registers per thread = fewer warps fit in SM = less latency hiding</li>
 </ul>
-<pre><code>Register file per SM (Hopper):
-- 65,536 × 32-bit registers = 256 KB
-- At 255 regs/thread: floor(65536/255) × 32 = ~8 warps (256 threads)
-- At 32 regs/thread: floor(65536/32) × 32 = ~64 warps (2048 threads)
-
-Occupancy = active warps / max warps = latency hiding ability
-</code></pre>
-<h3 id="1-4-warp-scheduling">1.4 Warp Scheduling</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Register file per SM (Hopper):</span></span>
+<span class="giallo-l"><span>- 65,536 × 32-bit registers = 256 KB</span></span>
+<span class="giallo-l"><span>- At 255 regs/thread: floor(65536/255) × 32 = ~8 warps (256 threads)</span></span>
+<span class="giallo-l"><span>- At 32 regs/thread: floor(65536/32) × 32 = ~64 warps (2048 threads)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Occupancy = active warps / max warps = latency hiding ability</span></span></code></pre><h3 id="1-4-warp-scheduling">1.4 Warp Scheduling</h3>
 <p>Hardware warp schedulers pick which ready warp executes each cycle. Policies:</p>
 <table><thead><tr><th>Policy</th><th>Description</th><th>Best For</th></tr></thead><tbody>
 <tr><td><strong>Round-Robin (RR)</strong></td><td>Cycle through warps in order</td><td>Uniform workloads</td></tr>
@@ -192,13 +210,12 @@ Occupancy = active warps / max warps = latency hiding ability
 <h3 id="1-5-branch-divergence">1.5 Branch Divergence</h3>
 <p>When threads in a warp take different branch paths:</p>
 <p><strong>Pre-Volta (SIMT stack)</strong>:</p>
-<pre><code>if (threadIdx.x &lt; 16) {  // Divergent branch
-    A();                   // Threads 0-15 execute, 16-31 masked
-} else {
-    B();                   // Threads 16-31 execute, 0-15 masked
-}
-// Reconvergence point — all threads active again
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>if (threadIdx.x &lt; 16) {  // Divergent branch</span></span>
+<span class="giallo-l"><span>    A();                   // Threads 0-15 execute, 16-31 masked</span></span>
+<span class="giallo-l"><span>} else {</span></span>
+<span class="giallo-l"><span>    B();                   // Threads 16-31 execute, 0-15 masked</span></span>
+<span class="giallo-l"><span>}</span></span>
+<span class="giallo-l"><span>// Reconvergence point — all threads active again</span></span></code></pre>
 <p>Uses a <strong>reconvergence stack</strong> — push the reconvergence PC and active mask, execute each path with the appropriate mask, pop at reconvergence. Nested divergence nests stack entries.</p>
 <p><strong>Volta+ (Independent Thread Scheduling)</strong>:
 Each thread has its own program counter and call stack. Threads can diverge and reconverge at arbitrary points. Enables:</p>
@@ -242,49 +259,43 @@ Each thread has its own program counter and call stack. Threads can diverge and 
 </tbody></table>
 <h3 id="2-2-tensor-core-design-deep-dive">2.2 Tensor Core Design (Deep Dive)</h3>
 <p>Tensor Cores perform <strong>matrix multiply-accumulate (MMA)</strong> on small tiles:</p>
-<pre><code>D = A × B + C
-
-Where:
-  A is m×k, B is k×n, C and D are m×n
-
-1st gen (Volta):  4×4×4 FP16 → FP32 accumulate
-2nd gen (Turing): + INT8 (8×8×16), INT4 (8×8×32), INT1 (8×8×128)
-3rd gen (Ampere): + TF32 (unmasked FP32 input), BF16, FP64 tensor
-                  + Structured sparsity (2:4) → 2× throughput
-4th gen (Hopper): + FP8 (E4M3, E5M2), 256×256 via warp groups
-                  + Transformer Engine: automatic FP8↔FP16 scaling
-5th gen (Blackwell): + FP4, second-gen Transformer Engine
-                     + 2× Hopper performance
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>D = A × B + C</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Where:</span></span>
+<span class="giallo-l"><span>  A is m×k, B is k×n, C and D are m×n</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>1st gen (Volta):  4×4×4 FP16 → FP32 accumulate</span></span>
+<span class="giallo-l"><span>2nd gen (Turing): + INT8 (8×8×16), INT4 (8×8×32), INT1 (8×8×128)</span></span>
+<span class="giallo-l"><span>3rd gen (Ampere): + TF32 (unmasked FP32 input), BF16, FP64 tensor</span></span>
+<span class="giallo-l"><span>                  + Structured sparsity (2:4) → 2× throughput</span></span>
+<span class="giallo-l"><span>4th gen (Hopper): + FP8 (E4M3, E5M2), 256×256 via warp groups</span></span>
+<span class="giallo-l"><span>                  + Transformer Engine: automatic FP8↔FP16 scaling</span></span>
+<span class="giallo-l"><span>5th gen (Blackwell): + FP4, second-gen Transformer Engine</span></span>
+<span class="giallo-l"><span>                     + 2× Hopper performance</span></span></code></pre>
 <p><strong>How a Tensor Core works internally</strong>:</p>
-<pre><code>Cycle 1: Load A fragment (4×4 FP16) from register file
-Cycle 2: Load B fragment (4×4 FP16) from register file
-Cycle 3-6: Multiply-accumulate pipeline
-  - 4×4 dot products using fused multiply-add trees
-  - FP16 multipliers feed into FP32 adder tree
-  - Result accumulated into FP32 register
-Cycle 7: Write D fragment back to register file
-
-Throughput: 1 MMA per cycle per Tensor Core
-  = 4×4×4×2 = 128 FP16 FLOPS/cycle (Volta)
-  = With 640 TCs at 1.53 GHz = 125 TFLOPS FP16 (V100)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Cycle 1: Load A fragment (4×4 FP16) from register file</span></span>
+<span class="giallo-l"><span>Cycle 2: Load B fragment (4×4 FP16) from register file</span></span>
+<span class="giallo-l"><span>Cycle 3-6: Multiply-accumulate pipeline</span></span>
+<span class="giallo-l"><span>  - 4×4 dot products using fused multiply-add trees</span></span>
+<span class="giallo-l"><span>  - FP16 multipliers feed into FP32 adder tree</span></span>
+<span class="giallo-l"><span>  - Result accumulated into FP32 register</span></span>
+<span class="giallo-l"><span>Cycle 7: Write D fragment back to register file</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Throughput: 1 MMA per cycle per Tensor Core</span></span>
+<span class="giallo-l"><span>  = 4×4×4×2 = 128 FP16 FLOPS/cycle (Volta)</span></span>
+<span class="giallo-l"><span>  = With 640 TCs at 1.53 GHz = 125 TFLOPS FP16 (V100)</span></span></code></pre>
 <p><strong>Structured Sparsity (Ampere+)</strong>:
 Hardware enforces <strong>2:4 sparsity</strong> — in every group of 4 values, exactly 2 are zero. A compressed format stores only the 2 non-zero values + a 2-bit index. Tensor Core skips zero multiplications → 2× throughput.</p>
-<pre><code>Dense:    [1.5, 0, 0.3, 0]  → Sparse: [1.5, 0.3] + index [0,2]
-Hardware: Only does 2 multiplies instead of 4
-</code></pre>
-<h3 id="2-3-hopper-architecture-specifics">2.3 Hopper Architecture Specifics</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Dense:    [1.5, 0, 0.3, 0]  → Sparse: [1.5, 0.3] + index [0,2]</span></span>
+<span class="giallo-l"><span>Hardware: Only does 2 multiplies instead of 4</span></span></code></pre><h3 id="2-3-hopper-architecture-specifics">2.3 Hopper Architecture Specifics</h3>
 <p>Key innovations relevant to accelerator design:</p>
 <p><strong>Tensor Memory Accelerator (TMA)</strong>: Dedicated hardware unit that handles async multi-dimensional tensor copies between global memory and shared memory. Eliminates address calculation overhead from the SM.</p>
-<pre><code>// Without TMA: each thread calculates addresses, issues loads
-// With TMA: single TMA descriptor handles entire tile copy
-tma.load_async [shared_ptr], [tma_desc], {coord0, coord1};
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>// Without TMA: each thread calculates addresses, issues loads</span></span>
+<span class="giallo-l"><span>// With TMA: single TMA descriptor handles entire tile copy</span></span>
+<span class="giallo-l"><span>tma.load_async [shared_ptr], [tma_desc], {coord0, coord1};</span></span></code></pre>
 <p><strong>Thread Block Clusters</strong>: New hierarchy level — group of thread blocks that can cooperate:</p>
-<pre><code>Grid → Cluster → Thread Block → Warp → Thread
-                 (new level)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Grid → Cluster → Thread Block → Warp → Thread</span></span>
+<span class="giallo-l"><span>                 (new level)</span></span></code></pre>
 <p>Clusters enable distributed shared memory — thread blocks in a cluster can directly access each other's shared memory.</p>
 <p><strong>DPX Instructions</strong>: Hardware acceleration for dynamic programming (Smith-Waterman, Needleman-Wunsch, Viterbi) — 7× speedup over Ampere.</p>
 <p><strong>Warp Group MMA</strong>: 4 warps (128 threads) cooperate on a single large MMA operation, enabling 256×256 matrix tiles.</p>
@@ -330,38 +341,34 @@ tma.load_async [shared_ptr], [tma_desc], {coord0, coord1};
 <hr />
 <h2 id="3-memory-hierarchy-deep-dive">3. Memory Hierarchy Deep Dive</h2>
 <h3 id="3-1-complete-memory-hierarchy">3.1 Complete Memory Hierarchy</h3>
-<pre><code>┌─────────────────────────────────────────────────┐
-│ Registers (256 KB/SM) — 0 cycle latency         │  ~20 TB/s (estimate)
-├─────────────────────────────────────────────────┤
-│ Shared Memory (228 KB/SM) — ~20-30 cycle        │  ~19 TB/s aggregate
-├─────────────────────────────────────────────────┤
-│ L1 Data Cache (part of 228KB) — ~30 cycle       │  ~same as shared mem
-├─────────────────────────────────────────────────┤
-│ L2 Cache (50 MB, Hopper) — ~200 cycle           │  ~12 TB/s
-├─────────────────────────────────────────────────┤
-│ HBM3 (80 GB, Hopper) — ~400-600 cycle           │  3.35 TB/s
-├─────────────────────────────────────────────────┤
-│ PCIe/NVLink (system memory) — 1000+ cycle       │  64-900 GB/s
-└─────────────────────────────────────────────────┘
-</code></pre>
-<h3 id="3-2-hbm-high-bandwidth-memory">3.2 HBM (High Bandwidth Memory)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│ Registers (256 KB/SM) — 0 cycle latency         │  ~20 TB/s (estimate)</span></span>
+<span class="giallo-l"><span>├─────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│ Shared Memory (228 KB/SM) — ~20-30 cycle        │  ~19 TB/s aggregate</span></span>
+<span class="giallo-l"><span>├─────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│ L1 Data Cache (part of 228KB) — ~30 cycle       │  ~same as shared mem</span></span>
+<span class="giallo-l"><span>├─────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│ L2 Cache (50 MB, Hopper) — ~200 cycle           │  ~12 TB/s</span></span>
+<span class="giallo-l"><span>├─────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│ HBM3 (80 GB, Hopper) — ~400-600 cycle           │  3.35 TB/s</span></span>
+<span class="giallo-l"><span>├─────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│ PCIe/NVLink (system memory) — 1000+ cycle       │  64-900 GB/s</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────┘</span></span></code></pre><h3 id="3-2-hbm-high-bandwidth-memory">3.2 HBM (High Bandwidth Memory)</h3>
 <p>HBM stacks DRAM dies vertically on a silicon interposer next to the GPU die:</p>
-<pre><code>           ┌─────────┐ ┌─────────┐
-           │ DRAM Die │ │ DRAM Die │  ← 4-12 DRAM dies stacked
-           │ DRAM Die │ │ DRAM Die │
-           │ DRAM Die │ │ DRAM Die │
-           │ Logic Die│ │ Logic Die│  ← Base logic die with PHY
-           └────┬─────┘ └────┬─────┘
-     ───────────┴─────────────┴──────────────
-     │          Silicon Interposer            │  ← Passive Si with wiring
-     │  ┌─────────────────────────────────┐   │
-     │  │          GPU Die                │   │
-     │  └─────────────────────────────────┘   │
-     ─────────────────────────────────────────
-     │           Package Substrate            │
-     ─────────────────────────────────────────
-</code></pre>
-<table><thead><tr><th>Spec</th><th>HBM2</th><th>HBM2e</th><th>HBM3</th><th>HBM3e</th></tr></thead><tbody>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>           ┌─────────┐ ┌─────────┐</span></span>
+<span class="giallo-l"><span>           │ DRAM Die │ │ DRAM Die │  ← 4-12 DRAM dies stacked</span></span>
+<span class="giallo-l"><span>           │ DRAM Die │ │ DRAM Die │</span></span>
+<span class="giallo-l"><span>           │ DRAM Die │ │ DRAM Die │</span></span>
+<span class="giallo-l"><span>           │ Logic Die│ │ Logic Die│  ← Base logic die with PHY</span></span>
+<span class="giallo-l"><span>           └────┬─────┘ └────┬─────┘</span></span>
+<span class="giallo-l"><span>     ───────────┴─────────────┴──────────────</span></span>
+<span class="giallo-l"><span>     │          Silicon Interposer            │  ← Passive Si with wiring</span></span>
+<span class="giallo-l"><span>     │  ┌─────────────────────────────────┐   │</span></span>
+<span class="giallo-l"><span>     │  │          GPU Die                │   │</span></span>
+<span class="giallo-l"><span>     │  └─────────────────────────────────┘   │</span></span>
+<span class="giallo-l"><span>     ─────────────────────────────────────────</span></span>
+<span class="giallo-l"><span>     │           Package Substrate            │</span></span>
+<span class="giallo-l"><span>     ─────────────────────────────────────────</span></span></code></pre><table><thead><tr><th>Spec</th><th>HBM2</th><th>HBM2e</th><th>HBM3</th><th>HBM3e</th></tr></thead><tbody>
 <tr><td><strong>Pin bandwidth</strong></td><td>2 Gbps</td><td>3.6 Gbps</td><td>6.4 Gbps</td><td>9.6 Gbps</td></tr>
 <tr><td><strong>Bus width/stack</strong></td><td>1024-bit</td><td>1024-bit</td><td>1024-bit</td><td>1024-bit</td></tr>
 <tr><td><strong>Stacks (typical)</strong></td><td>4</td><td>4-6</td><td>4-6</td><td>6-8</td></tr>
@@ -373,38 +380,36 @@ tma.load_async [shared_ptr], [tma_desc], {coord0, coord1};
 <p><strong>Why HBM matters for AI</strong>: A 70B parameter model in FP16 = 140 GB. At batch=1 decoding, each token reads all parameters once. To generate 100 tokens/s, need 140 GB × 100 = 14 TB/s — this is why memory bandwidth is the bottleneck.</p>
 <h3 id="3-3-memory-coalescing">3.3 Memory Coalescing</h3>
 <p>When a warp issues a load, 32 threads each request an address. The <strong>coalescing unit</strong> merges these into minimum memory transactions:</p>
-<pre><code>Coalesced access (ideal):
-  Thread 0 → addr 0x1000    ┐
-  Thread 1 → addr 0x1004    │ → 1 × 128-byte transaction
-  Thread 2 → addr 0x1008    │   (all within one cache line)
-  ...                        │
-  Thread 31 → addr 0x107C   ┘
-
-Strided access (worst case):
-  Thread 0 → addr 0x1000    → 1 × 128-byte transaction
-  Thread 1 → addr 0x1200    → 1 × 128-byte transaction  (different lines)
-  Thread 2 → addr 0x1400    → 1 × 128-byte transaction
-  ...
-  Thread 31 → ???           → 32 × 128-byte transactions = 32× bandwidth waste
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Coalesced access (ideal):</span></span>
+<span class="giallo-l"><span>  Thread 0 → addr 0x1000    ┐</span></span>
+<span class="giallo-l"><span>  Thread 1 → addr 0x1004    │ → 1 × 128-byte transaction</span></span>
+<span class="giallo-l"><span>  Thread 2 → addr 0x1008    │   (all within one cache line)</span></span>
+<span class="giallo-l"><span>  ...                        │</span></span>
+<span class="giallo-l"><span>  Thread 31 → addr 0x107C   ┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Strided access (worst case):</span></span>
+<span class="giallo-l"><span>  Thread 0 → addr 0x1000    → 1 × 128-byte transaction</span></span>
+<span class="giallo-l"><span>  Thread 1 → addr 0x1200    → 1 × 128-byte transaction  (different lines)</span></span>
+<span class="giallo-l"><span>  Thread 2 → addr 0x1400    → 1 × 128-byte transaction</span></span>
+<span class="giallo-l"><span>  ...</span></span>
+<span class="giallo-l"><span>  Thread 31 → ???           → 32 × 128-byte transactions = 32× bandwidth waste</span></span></code></pre>
 <p>Hardware: The LD/ST unit contains an <strong>address crossbar</strong> that sorts thread addresses, groups them by cache line, and issues the minimum number of memory transactions (1 to 32 per warp instruction).</p>
 <h3 id="3-4-shared-memory-bank-conflicts">3.4 Shared Memory Bank Conflicts</h3>
 <p>Shared memory is divided into <strong>32 banks</strong> (one per thread in a warp), each 4 bytes wide. Accesses to different banks proceed in parallel; two threads accessing the same bank cause a <strong>bank conflict</strong> (serialized).</p>
-<pre><code>No conflict (each thread hits different bank):
-  Thread 0 → Bank 0
-  Thread 1 → Bank 1
-  ...
-  Thread 31 → Bank 31
-
-2-way bank conflict (2 threads hit bank 0):
-  Thread 0 → Bank 0  ┐ serialized
-  Thread 16 → Bank 0 ┘
-  Thread 1 → Bank 1    (parallel with others)
-  ...
-
-Broadcast (all threads read SAME address in one bank):
-  → No conflict! Hardware broadcasts the value
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>No conflict (each thread hits different bank):</span></span>
+<span class="giallo-l"><span>  Thread 0 → Bank 0</span></span>
+<span class="giallo-l"><span>  Thread 1 → Bank 1</span></span>
+<span class="giallo-l"><span>  ...</span></span>
+<span class="giallo-l"><span>  Thread 31 → Bank 31</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>2-way bank conflict (2 threads hit bank 0):</span></span>
+<span class="giallo-l"><span>  Thread 0 → Bank 0  ┐ serialized</span></span>
+<span class="giallo-l"><span>  Thread 16 → Bank 0 ┘</span></span>
+<span class="giallo-l"><span>  Thread 1 → Bank 1    (parallel with others)</span></span>
+<span class="giallo-l"><span>  ...</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Broadcast (all threads read SAME address in one bank):</span></span>
+<span class="giallo-l"><span>  → No conflict! Hardware broadcasts the value</span></span></code></pre>
 <p><strong>Design implication</strong>: If you're designing shared memory for your accelerator, you need either:</p>
 <ol>
 <li>Enough banks to match your SIMT width (32 banks for 32-wide)</li>
@@ -413,18 +418,17 @@ Broadcast (all threads read SAME address in one bank):
 </ol>
 <h3 id="3-5-l2-cache-and-memory-partitions">3.5 L2 Cache and Memory Partitions</h3>
 <p>The L2 cache is <strong>sliced</strong> across memory partitions:</p>
-<pre><code>┌──────────────────────────────────────────────┐
-│                    GPC 0-7                    │
-│  [SM][SM][SM]...[SM][SM][SM]...[SM][SM][SM]  │
-└──────────────────┬───────────────────────────┘
-                   │ Crossbar / NoC
-┌──────┬──────┬──────┬──────┬──────┬──────┐
-│L2 P0 │L2 P1 │L2 P2 │L2 P3 │...  │L2 Pn │
-│+ MC0 │+ MC1 │+ MC2 │+ MC3 │     │+ MCn │
-└──┬───┘──┬───┘──┬───┘──┬───┘     └──┬───┘
-   │      │      │      │            │
-  HBM0  HBM1   HBM2   HBM3   ...  HBMn
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌──────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                    GPC 0-7                    │</span></span>
+<span class="giallo-l"><span>│  [SM][SM][SM]...[SM][SM][SM]...[SM][SM][SM]  │</span></span>
+<span class="giallo-l"><span>└──────────────────┬───────────────────────────┘</span></span>
+<span class="giallo-l"><span>                   │ Crossbar / NoC</span></span>
+<span class="giallo-l"><span>┌──────┬──────┬──────┬──────┬──────┬──────┐</span></span>
+<span class="giallo-l"><span>│L2 P0 │L2 P1 │L2 P2 │L2 P3 │...  │L2 Pn │</span></span>
+<span class="giallo-l"><span>│+ MC0 │+ MC1 │+ MC2 │+ MC3 │     │+ MCn │</span></span>
+<span class="giallo-l"><span>└──┬───┘──┬───┘──┬───┘──┬───┘     └──┬───┘</span></span>
+<span class="giallo-l"><span>   │      │      │      │            │</span></span>
+<span class="giallo-l"><span>  HBM0  HBM1   HBM2   HBM3   ...  HBMn</span></span></code></pre>
 <p><strong>Partition camping</strong>: If all SMs access addresses that hash to the same L2 partition, that partition becomes a bottleneck. Address interleaving (XOR-based hashing) distributes accesses across partitions.</p>
 <p>Hopper L2: 50 MB total, ~12 TB/s aggregate bandwidth, 64-byte sectors.</p>
 <h3 id="3-6-memory-controller-and-scheduling">3.6 Memory Controller and Scheduling</h3>
@@ -439,35 +443,34 @@ Broadcast (all threads read SAME address in one bank):
 <h2 id="4-google-tpu-architecture">4. Google TPU Architecture</h2>
 <h3 id="4-1-tpu-v1-2015-inference-only">4.1 TPU v1 (2015) — Inference Only</h3>
 <p>The paper that started it all: "In-Datacenter Performance Analysis of a Tensor Processing Unit" (Jouppi et al., ISCA 2017).</p>
-<pre><code>┌─────────────────────────────────────────────┐
-│                   TPU v1                     │
-│                                             │
-│  ┌──────────────────────────────────────┐   │
-│  │    Matrix Multiply Unit (MXU)        │   │
-│  │    256 × 256 systolic array          │   │
-│  │    8-bit multiply, 32-bit accumulate │   │
-│  │    = 65,536 MACs/cycle               │   │
-│  │    @ 700 MHz = 92 TOPS (INT8)       │   │
-│  └──────────────────────────────────────┘   │
-│                                             │
-│  ┌──────────────┐  ┌──────────────────┐     │
-│  │ Unified      │  │ Activation       │     │
-│  │ Buffer       │  │ Pipeline         │     │
-│  │ 24 MB SRAM   │  │ (ReLU, sigmoid,  │     │
-│  │ (weights +   │  │  tanh, etc.)     │     │
-│  │  activations)│  │                  │     │
-│  └──────────────┘  └──────────────────┘     │
-│                                             │
-│  ┌──────────────┐  ┌──────────────────┐     │
-│  │ Weight FIFO  │  │ Accumulators     │     │
-│  │ (256×256×8b  │  │ (4096 × 256 ×   │     │
-│  │  = 64 KB)    │  │  32-bit = 4 MB)  │     │
-│  └──────────────┘  └──────────────────┘     │
-│                                             │
-│  PCIe Gen3 x16 connection to host CPU       │
-│  28nm process, ~75W TDP                     │
-└─────────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                   TPU v1                     │</span></span>
+<span class="giallo-l"><span>│                                             │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────────────────────────────┐   │</span></span>
+<span class="giallo-l"><span>│  │    Matrix Multiply Unit (MXU)        │   │</span></span>
+<span class="giallo-l"><span>│  │    256 × 256 systolic array          │   │</span></span>
+<span class="giallo-l"><span>│  │    8-bit multiply, 32-bit accumulate │   │</span></span>
+<span class="giallo-l"><span>│  │    = 65,536 MACs/cycle               │   │</span></span>
+<span class="giallo-l"><span>│  │    @ 700 MHz = 92 TOPS (INT8)       │   │</span></span>
+<span class="giallo-l"><span>│  └──────────────────────────────────────┘   │</span></span>
+<span class="giallo-l"><span>│                                             │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────┐  ┌──────────────────┐     │</span></span>
+<span class="giallo-l"><span>│  │ Unified      │  │ Activation       │     │</span></span>
+<span class="giallo-l"><span>│  │ Buffer       │  │ Pipeline         │     │</span></span>
+<span class="giallo-l"><span>│  │ 24 MB SRAM   │  │ (ReLU, sigmoid,  │     │</span></span>
+<span class="giallo-l"><span>│  │ (weights +   │  │  tanh, etc.)     │     │</span></span>
+<span class="giallo-l"><span>│  │  activations)│  │                  │     │</span></span>
+<span class="giallo-l"><span>│  └──────────────┘  └──────────────────┘     │</span></span>
+<span class="giallo-l"><span>│                                             │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────┐  ┌──────────────────┐     │</span></span>
+<span class="giallo-l"><span>│  │ Weight FIFO  │  │ Accumulators     │     │</span></span>
+<span class="giallo-l"><span>│  │ (256×256×8b  │  │ (4096 × 256 ×   │     │</span></span>
+<span class="giallo-l"><span>│  │  = 64 KB)    │  │  32-bit = 4 MB)  │     │</span></span>
+<span class="giallo-l"><span>│  └──────────────┘  └──────────────────┘     │</span></span>
+<span class="giallo-l"><span>│                                             │</span></span>
+<span class="giallo-l"><span>│  PCIe Gen3 x16 connection to host CPU       │</span></span>
+<span class="giallo-l"><span>│  28nm process, ~75W TDP                     │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────┘</span></span></code></pre>
 <p><strong>Design philosophy</strong>: No caches, no branch predictors, no OoO execution. Deterministic, CISC-style instructions that each take many cycles. The MXU does ~92 TOPS while consuming far less power than a GPU because it eliminates general-purpose overhead.</p>
 <h3 id="4-2-tpu-v2-v3-training-support">4.2 TPU v2/v3 — Training Support</h3>
 <p>TPU v2 added:</p>
@@ -486,29 +489,28 @@ Broadcast (all threads read SAME address in one bank):
 <li>Larger HBM (32 GB per chip)</li>
 </ul>
 <h3 id="4-3-tpu-v4-2021">4.3 TPU v4 (2021)</h3>
-<pre><code>┌───────────────────────────────────────────────┐
-│                    TPU v4                      │
-│                                               │
-│  ┌──────────────┐  ┌──────────────────────┐   │
-│  │ 2× MXU       │  │ Vector Processing    │   │
-│  │ 128×128 each │  │ Unit (VPU)           │   │
-│  │ BF16→FP32    │  │ - SIMD vector ops    │   │
-│  │ 275 TFLOPS   │  │ - Activation funcs   │   │
-│  │ (BF16)       │  │ - Normalization      │   │
-│  └──────────────┘  └──────────────────────┘   │
-│                                               │
-│  ┌──────────────┐  ┌──────────────────────┐   │
-│  │ SparseCore   │  │ Scalar Unit          │   │
-│  │ (sparse      │  │ (control flow,       │   │
-│  │  embedding   │  │  address gen)        │   │
-│  │  lookups)    │  │                      │   │
-│  └──────────────┘  └──────────────────────┘   │
-│                                               │
-│  32 GB HBM2e, 1.2 TB/s bandwidth             │
-│  ICI: 6 links × 50 GB/s = 300 GB/s bidirec.  │
-│  7nm process                                  │
-└───────────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌───────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                    TPU v4                      │</span></span>
+<span class="giallo-l"><span>│                                               │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────┐  ┌──────────────────────┐   │</span></span>
+<span class="giallo-l"><span>│  │ 2× MXU       │  │ Vector Processing    │   │</span></span>
+<span class="giallo-l"><span>│  │ 128×128 each │  │ Unit (VPU)           │   │</span></span>
+<span class="giallo-l"><span>│  │ BF16→FP32    │  │ - SIMD vector ops    │   │</span></span>
+<span class="giallo-l"><span>│  │ 275 TFLOPS   │  │ - Activation funcs   │   │</span></span>
+<span class="giallo-l"><span>│  │ (BF16)       │  │ - Normalization      │   │</span></span>
+<span class="giallo-l"><span>│  └──────────────┘  └──────────────────────┘   │</span></span>
+<span class="giallo-l"><span>│                                               │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────┐  ┌──────────────────────┐   │</span></span>
+<span class="giallo-l"><span>│  │ SparseCore   │  │ Scalar Unit          │   │</span></span>
+<span class="giallo-l"><span>│  │ (sparse      │  │ (control flow,       │   │</span></span>
+<span class="giallo-l"><span>│  │  embedding   │  │  address gen)        │   │</span></span>
+<span class="giallo-l"><span>│  │  lookups)    │  │                      │   │</span></span>
+<span class="giallo-l"><span>│  └──────────────┘  └──────────────────────┘   │</span></span>
+<span class="giallo-l"><span>│                                               │</span></span>
+<span class="giallo-l"><span>│  32 GB HBM2e, 1.2 TB/s bandwidth             │</span></span>
+<span class="giallo-l"><span>│  ICI: 6 links × 50 GB/s = 300 GB/s bidirec.  │</span></span>
+<span class="giallo-l"><span>│  7nm process                                  │</span></span>
+<span class="giallo-l"><span>└───────────────────────────────────────────────┘</span></span></code></pre>
 <p><strong>TPU v4 Pod</strong> (4096 chips):</p>
 <ul>
 <li>3D torus topology (4×4×4 cubes connected into larger 3D mesh)</li>
@@ -537,29 +539,28 @@ Broadcast (all threads read SAME address in one bank):
 </ul>
 <h3 id="4-5-systolic-array-operation-mxu-details">4.5 Systolic Array Operation (MXU Details)</h3>
 <p>The MXU is a 2D systolic array. Data flows through in a pipelined fashion:</p>
-<pre><code>Weight-Stationary Dataflow:
-  - Weights are pre-loaded into each PE (Processing Element)
-  - Activations flow left-to-right
-  - Partial sums flow top-to-bottom
-
-           Input Activations →
-           a0  a1  a2  a3
-           ↓   ↓   ↓   ↓
-     ┌────┬────┬────┬────┐
-w0 → │ PE │ PE │ PE │ PE │ → (partial sums out)
-     ├────┼────┼────┼────┤
-w1 → │ PE │ PE │ PE │ PE │
-     ├────┼────┼────┼────┤
-w2 → │ PE │ PE │ PE │ PE │
-     ├────┼────┼────┼────┤
-w3 → │ PE │ PE │ PE │ PE │
-     └────┴────┴────┴────┘
-           ↓   ↓   ↓   ↓
-         Output partial sums
-
-Each PE: accumulator += weight × input_activation
-After N cycles, bottom row outputs contain C[i][j] = Σ A[i][k] × B[k][j]
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Weight-Stationary Dataflow:</span></span>
+<span class="giallo-l"><span>  - Weights are pre-loaded into each PE (Processing Element)</span></span>
+<span class="giallo-l"><span>  - Activations flow left-to-right</span></span>
+<span class="giallo-l"><span>  - Partial sums flow top-to-bottom</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>           Input Activations →</span></span>
+<span class="giallo-l"><span>           a0  a1  a2  a3</span></span>
+<span class="giallo-l"><span>           ↓   ↓   ↓   ↓</span></span>
+<span class="giallo-l"><span>     ┌────┬────┬────┬────┐</span></span>
+<span class="giallo-l"><span>w0 → │ PE │ PE │ PE │ PE │ → (partial sums out)</span></span>
+<span class="giallo-l"><span>     ├────┼────┼────┼────┤</span></span>
+<span class="giallo-l"><span>w1 → │ PE │ PE │ PE │ PE │</span></span>
+<span class="giallo-l"><span>     ├────┼────┼────┼────┤</span></span>
+<span class="giallo-l"><span>w2 → │ PE │ PE │ PE │ PE │</span></span>
+<span class="giallo-l"><span>     ├────┼────┼────┼────┤</span></span>
+<span class="giallo-l"><span>w3 → │ PE │ PE │ PE │ PE │</span></span>
+<span class="giallo-l"><span>     └────┴────┴────┴────┘</span></span>
+<span class="giallo-l"><span>           ↓   ↓   ↓   ↓</span></span>
+<span class="giallo-l"><span>         Output partial sums</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Each PE: accumulator += weight × input_activation</span></span>
+<span class="giallo-l"><span>After N cycles, bottom row outputs contain C[i][j] = Σ A[i][k] × B[k][j]</span></span></code></pre>
 <p><strong>Pipeline timing</strong> for a 128×128 array:</p>
 <ul>
 <li>Cycle 0: a[0][0] enters PE[0][0]</li>
@@ -580,20 +581,19 @@ After N cycles, bottom row outputs contain C[i][j] = Σ A[i][k] × B[k][j]
 <h2 id="5-production-ai-accelerators">5. Production AI Accelerators</h2>
 <h3 id="5-1-cerebras-wse-3-wafer-scale-engine">5.1 Cerebras WSE-3 (Wafer-Scale Engine)</h3>
 <p>The most radical approach: <strong>one chip = one entire wafer</strong>.</p>
-<pre><code>┌─────────────────────────────────────┐
-│          WSE-3 (2024)               │
-│                                     │
-│  Die size: 46,225 mm² (full wafer)  │
-│  Transistors: 4 trillion            │
-│  Cores: 900,000                     │
-│  SRAM: 44 GB on-chip               │
-│  Memory BW: 21 PB/s (on-chip SRAM) │
-│  Interconnect: 214 Pb/s on-wafer   │
-│  FP16: ~125 PFLOPS                 │
-│  Process: TSMC 5nm                  │
-│  TDP: ~23 kW (liquid cooled)       │
-└─────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│          WSE-3 (2024)               │</span></span>
+<span class="giallo-l"><span>│                                     │</span></span>
+<span class="giallo-l"><span>│  Die size: 46,225 mm² (full wafer)  │</span></span>
+<span class="giallo-l"><span>│  Transistors: 4 trillion            │</span></span>
+<span class="giallo-l"><span>│  Cores: 900,000                     │</span></span>
+<span class="giallo-l"><span>│  SRAM: 44 GB on-chip               │</span></span>
+<span class="giallo-l"><span>│  Memory BW: 21 PB/s (on-chip SRAM) │</span></span>
+<span class="giallo-l"><span>│  Interconnect: 214 Pb/s on-wafer   │</span></span>
+<span class="giallo-l"><span>│  FP16: ~125 PFLOPS                 │</span></span>
+<span class="giallo-l"><span>│  Process: TSMC 5nm                  │</span></span>
+<span class="giallo-l"><span>│  TDP: ~23 kW (liquid cooled)       │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────┘</span></span></code></pre>
 <p><strong>Key innovations</strong>:</p>
 <ul>
 <li><strong>No HBM</strong>: All memory is SRAM on the wafer → 21 PB/s bandwidth (1000× GPU)</li>
@@ -604,91 +604,86 @@ After N cycles, bottom row outputs contain C[i][j] = Σ A[i][k] × B[k][j]
 </ul>
 <p><strong>When it shines</strong>: Memory-bandwidth-bound workloads (large LLM inference, sparse models).</p>
 <h3 id="5-2-graphcore-ipu-intelligence-processing-unit">5.2 Graphcore IPU (Intelligence Processing Unit)</h3>
-<pre><code>IPU Mk2 (Colossus GC200):
-  - 1,472 independent processing tiles
-  - Each tile: 1 core with 6 hardware threads + 624 KB SRAM
-  - Total SRAM: ~900 MB per chip
-  - FP16: 250 TFLOPS
-  - BSP (Bulk Synchronous Parallel) execution model
-
-Execution model:
-  Phase 1: COMPUTE — all tiles compute independently
-  Phase 2: EXCHANGE — all-to-all communication via exchange fabric
-  Phase 3: SYNC — barrier synchronization
-  Repeat.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>IPU Mk2 (Colossus GC200):</span></span>
+<span class="giallo-l"><span>  - 1,472 independent processing tiles</span></span>
+<span class="giallo-l"><span>  - Each tile: 1 core with 6 hardware threads + 624 KB SRAM</span></span>
+<span class="giallo-l"><span>  - Total SRAM: ~900 MB per chip</span></span>
+<span class="giallo-l"><span>  - FP16: 250 TFLOPS</span></span>
+<span class="giallo-l"><span>  - BSP (Bulk Synchronous Parallel) execution model</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Execution model:</span></span>
+<span class="giallo-l"><span>  Phase 1: COMPUTE — all tiles compute independently</span></span>
+<span class="giallo-l"><span>  Phase 2: EXCHANGE — all-to-all communication via exchange fabric</span></span>
+<span class="giallo-l"><span>  Phase 3: SYNC — barrier synchronization</span></span>
+<span class="giallo-l"><span>  Repeat.</span></span></code></pre>
 <p><strong>BSP model</strong>: Simplifies programming because you don't worry about race conditions during compute phases. Communication is explicit and synchronized. Good for sparse and irregular workloads.</p>
 <h3 id="5-3-groq-tsp-tensor-streaming-processor">5.3 Groq TSP (Tensor Streaming Processor)</h3>
-<pre><code>┌─────────────────────────────────────────┐
-│              Groq TSP                    │
-│                                         │
-│  Architecture: Deterministic dataflow   │
-│  - NO caches (everything compiler-      │
-│    scheduled)                           │
-│  - NO branch prediction                 │
-│  - NO runtime scheduling               │
-│  - 230 MB SRAM per chip                │
-│  - Time-deterministic: same input =    │
-│    exact same cycle count every time    │
-│                                         │
-│  Functional slices:                     │
-│  ┌─────┬─────┬─────┬─────┬─────┐       │
-│  │ MXM │ MXM │ VXM │ SXM │ MEM │       │
-│  │     │     │     │     │     │       │
-│  │Mat  │Mat  │Vec  │Scal │Mem  │       │
-│  │Mult │Mult │Op   │Op   │     │       │
-│  └─────┴─────┴─────┴─────┴─────┘       │
-│  Data streams between slices via        │
-│  compiler-scheduled superlanes          │
-│                                         │
-│  FP8: ~750 TOPS, INT8: ~750 TOPS      │
-│  14nm process, ~300W                    │
-└─────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│              Groq TSP                    │</span></span>
+<span class="giallo-l"><span>│                                         │</span></span>
+<span class="giallo-l"><span>│  Architecture: Deterministic dataflow   │</span></span>
+<span class="giallo-l"><span>│  - NO caches (everything compiler-      │</span></span>
+<span class="giallo-l"><span>│    scheduled)                           │</span></span>
+<span class="giallo-l"><span>│  - NO branch prediction                 │</span></span>
+<span class="giallo-l"><span>│  - NO runtime scheduling               │</span></span>
+<span class="giallo-l"><span>│  - 230 MB SRAM per chip                │</span></span>
+<span class="giallo-l"><span>│  - Time-deterministic: same input =    │</span></span>
+<span class="giallo-l"><span>│    exact same cycle count every time    │</span></span>
+<span class="giallo-l"><span>│                                         │</span></span>
+<span class="giallo-l"><span>│  Functional slices:                     │</span></span>
+<span class="giallo-l"><span>│  ┌─────┬─────┬─────┬─────┬─────┐       │</span></span>
+<span class="giallo-l"><span>│  │ MXM │ MXM │ VXM │ SXM │ MEM │       │</span></span>
+<span class="giallo-l"><span>│  │     │     │     │     │     │       │</span></span>
+<span class="giallo-l"><span>│  │Mat  │Mat  │Vec  │Scal │Mem  │       │</span></span>
+<span class="giallo-l"><span>│  │Mult │Mult │Op   │Op   │     │       │</span></span>
+<span class="giallo-l"><span>│  └─────┴─────┴─────┴─────┴─────┘       │</span></span>
+<span class="giallo-l"><span>│  Data streams between slices via        │</span></span>
+<span class="giallo-l"><span>│  compiler-scheduled superlanes          │</span></span>
+<span class="giallo-l"><span>│                                         │</span></span>
+<span class="giallo-l"><span>│  FP8: ~750 TOPS, INT8: ~750 TOPS      │</span></span>
+<span class="giallo-l"><span>│  14nm process, ~300W                    │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────┘</span></span></code></pre>
 <p><strong>Philosophy</strong>: Move all scheduling complexity from hardware to the compiler. Zero overhead at runtime → extremely high utilization and predictable latency. Perfect for inference where the computation graph is known at compile time.</p>
 <h3 id="5-4-tenstorrent-jim-keller-s-architecture">5.4 Tenstorrent (Jim Keller's Architecture)</h3>
-<pre><code>Wormhole Architecture:
-  - Tensix cores: RISC-V control + dedicated matrix/vector engines
-  - Each Tensix core:
-    ┌──────────────────────────────┐
-    │ 5× RISC-V cores (control)   │
-    │ 1× FPU (matrix engine)      │
-    │ 1× SFPU (vector engine)     │
-    │ 1.5 MB SRAM                 │
-    └──────────────────────────────┘
-  - 80 Tensix cores per chip
-  - 2D mesh NoC with Ethernet-based chip-to-chip
-
-Blackhole (latest):
-  - More Tensix cores, higher clocks
-  - Chiplet-ready architecture
-  - Open-source software stack
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Wormhole Architecture:</span></span>
+<span class="giallo-l"><span>  - Tensix cores: RISC-V control + dedicated matrix/vector engines</span></span>
+<span class="giallo-l"><span>  - Each Tensix core:</span></span>
+<span class="giallo-l"><span>    ┌──────────────────────────────┐</span></span>
+<span class="giallo-l"><span>    │ 5× RISC-V cores (control)   │</span></span>
+<span class="giallo-l"><span>    │ 1× FPU (matrix engine)      │</span></span>
+<span class="giallo-l"><span>    │ 1× SFPU (vector engine)     │</span></span>
+<span class="giallo-l"><span>    │ 1.5 MB SRAM                 │</span></span>
+<span class="giallo-l"><span>    └──────────────────────────────┘</span></span>
+<span class="giallo-l"><span>  - 80 Tensix cores per chip</span></span>
+<span class="giallo-l"><span>  - 2D mesh NoC with Ethernet-based chip-to-chip</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Blackhole (latest):</span></span>
+<span class="giallo-l"><span>  - More Tensix cores, higher clocks</span></span>
+<span class="giallo-l"><span>  - Chiplet-ready architecture</span></span>
+<span class="giallo-l"><span>  - Open-source software stack</span></span></code></pre>
 <p><strong>Philosophy</strong>: Commodity-like scalability. Each chip is relatively simple; scale by tiling many chips together with Ethernet fabric. Open ecosystem vs. NVIDIA's closed stack.</p>
 <h3 id="5-5-etched-sohu-transformer-specific-asic">5.5 Etched Sohu — Transformer-Specific ASIC</h3>
-<pre><code>┌─────────────────────────────────────┐
-│           Etched Sohu (2024)        │
-│                                     │
-│  Approach: Hardcode the entire      │
-│  transformer architecture into      │
-│  silicon. No programmability for    │
-│  other architectures.              │
-│                                     │
-│  - Attention, GEMM, LayerNorm,     │
-│    Softmax, RoPE all in hardware   │
-│  - 144 GB HBM3e                    │
-│  - Claim: 500K tok/s (Llama 70B)   │
-│  - TSMC 4nm                        │
-│  - 8× H100 inference throughput    │
-│    (claimed)                        │
-│                                     │
-│  Risk: If transformer architecture  │
-│  changes significantly, chip is     │
-│  obsolete. Betting on transformers  │
-│  being durable.                     │
-└─────────────────────────────────────┘
-</code></pre>
-<h3 id="5-6-other-notable-accelerators">5.6 Other Notable Accelerators</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│           Etched Sohu (2024)        │</span></span>
+<span class="giallo-l"><span>│                                     │</span></span>
+<span class="giallo-l"><span>│  Approach: Hardcode the entire      │</span></span>
+<span class="giallo-l"><span>│  transformer architecture into      │</span></span>
+<span class="giallo-l"><span>│  silicon. No programmability for    │</span></span>
+<span class="giallo-l"><span>│  other architectures.              │</span></span>
+<span class="giallo-l"><span>│                                     │</span></span>
+<span class="giallo-l"><span>│  - Attention, GEMM, LayerNorm,     │</span></span>
+<span class="giallo-l"><span>│    Softmax, RoPE all in hardware   │</span></span>
+<span class="giallo-l"><span>│  - 144 GB HBM3e                    │</span></span>
+<span class="giallo-l"><span>│  - Claim: 500K tok/s (Llama 70B)   │</span></span>
+<span class="giallo-l"><span>│  - TSMC 4nm                        │</span></span>
+<span class="giallo-l"><span>│  - 8× H100 inference throughput    │</span></span>
+<span class="giallo-l"><span>│    (claimed)                        │</span></span>
+<span class="giallo-l"><span>│                                     │</span></span>
+<span class="giallo-l"><span>│  Risk: If transformer architecture  │</span></span>
+<span class="giallo-l"><span>│  changes significantly, chip is     │</span></span>
+<span class="giallo-l"><span>│  obsolete. Betting on transformers  │</span></span>
+<span class="giallo-l"><span>│  being durable.                     │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────┘</span></span></code></pre><h3 id="5-6-other-notable-accelerators">5.6 Other Notable Accelerators</h3>
 <table><thead><tr><th>Chip</th><th>Company</th><th>Key Differentiator</th></tr></thead><tbody>
 <tr><td><strong>Trainium2</strong></td><td>AWS</td><td>NeuronCores with 32-wide SIMD, custom interconnect (Trn2 UltraServer: 64 chips)</td></tr>
 <tr><td><strong>MTIA v2</strong></td><td>Meta</td><td>Internal inference chip, INT8-optimized for recommendation</td></tr>
@@ -701,88 +696,84 @@ Blackhole (latest):
 <h2 id="6-systolic-arrays-and-dataflow-architectures">6. Systolic Arrays and Dataflow Architectures</h2>
 <h3 id="6-1-dataflow-taxonomy">6.1 Dataflow Taxonomy</h3>
 <p>The critical question in accelerator design: <strong>how do you move data</strong>?</p>
-<pre><code>┌─────────────────────────────────────────────────────────┐
-│                    DATAFLOW TAXONOMY                     │
-│                                                         │
-│  Weight Stationary (WS):                                │
-│    - Weights stay in PEs, activations stream through    │
-│    - Minimizes weight reads (largest tensor)            │
-│    - Used in: TPU, many systolic arrays                 │
-│                                                         │
-│  Output Stationary (OS):                                │
-│    - Outputs stay in PEs, weights+activations stream    │
-│    - Minimizes partial sum reads/writes                 │
-│    - Used in: ShiDianNao                                │
-│                                                         │
-│  Row Stationary (RS):                                   │
-│    - Each PE computes one row of the output             │
-│    - Maximizes data reuse at all levels                 │
-│    - Used in: Eyeriss                                   │
-│                                                         │
-│  No Local Reuse (NLR):                                  │
-│    - All data from global buffer every time             │
-│    - Simplest but most bandwidth-hungry                 │
-│    - Used in: some simple designs                       │
-│                                                         │
-│  Key metric: Energy per MAC operation                   │
-│    MAC itself:        ~1 pJ (FP16)                     │
-│    RF access:         ~1 pJ                            │
-│    Scratchpad access: ~5 pJ                            │
-│    DRAM access:       ~200 pJ                          │
-│                                                         │
-│  → Moving data costs 200× more energy than computing!   │
-│  → Dataflow choice is THE critical design decision      │
-└─────────────────────────────────────────────────────────┘
-</code></pre>
-<h3 id="6-2-eyeriss-row-stationary-dataflow">6.2 Eyeriss: Row Stationary Dataflow</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                    DATAFLOW TAXONOMY                     │</span></span>
+<span class="giallo-l"><span>│                                                         │</span></span>
+<span class="giallo-l"><span>│  Weight Stationary (WS):                                │</span></span>
+<span class="giallo-l"><span>│    - Weights stay in PEs, activations stream through    │</span></span>
+<span class="giallo-l"><span>│    - Minimizes weight reads (largest tensor)            │</span></span>
+<span class="giallo-l"><span>│    - Used in: TPU, many systolic arrays                 │</span></span>
+<span class="giallo-l"><span>│                                                         │</span></span>
+<span class="giallo-l"><span>│  Output Stationary (OS):                                │</span></span>
+<span class="giallo-l"><span>│    - Outputs stay in PEs, weights+activations stream    │</span></span>
+<span class="giallo-l"><span>│    - Minimizes partial sum reads/writes                 │</span></span>
+<span class="giallo-l"><span>│    - Used in: ShiDianNao                                │</span></span>
+<span class="giallo-l"><span>│                                                         │</span></span>
+<span class="giallo-l"><span>│  Row Stationary (RS):                                   │</span></span>
+<span class="giallo-l"><span>│    - Each PE computes one row of the output             │</span></span>
+<span class="giallo-l"><span>│    - Maximizes data reuse at all levels                 │</span></span>
+<span class="giallo-l"><span>│    - Used in: Eyeriss                                   │</span></span>
+<span class="giallo-l"><span>│                                                         │</span></span>
+<span class="giallo-l"><span>│  No Local Reuse (NLR):                                  │</span></span>
+<span class="giallo-l"><span>│    - All data from global buffer every time             │</span></span>
+<span class="giallo-l"><span>│    - Simplest but most bandwidth-hungry                 │</span></span>
+<span class="giallo-l"><span>│    - Used in: some simple designs                       │</span></span>
+<span class="giallo-l"><span>│                                                         │</span></span>
+<span class="giallo-l"><span>│  Key metric: Energy per MAC operation                   │</span></span>
+<span class="giallo-l"><span>│    MAC itself:        ~1 pJ (FP16)                     │</span></span>
+<span class="giallo-l"><span>│    RF access:         ~1 pJ                            │</span></span>
+<span class="giallo-l"><span>│    Scratchpad access: ~5 pJ                            │</span></span>
+<span class="giallo-l"><span>│    DRAM access:       ~200 pJ                          │</span></span>
+<span class="giallo-l"><span>│                                                         │</span></span>
+<span class="giallo-l"><span>│  → Moving data costs 200× more energy than computing!   │</span></span>
+<span class="giallo-l"><span>│  → Dataflow choice is THE critical design decision      │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────────────┘</span></span></code></pre><h3 id="6-2-eyeriss-row-stationary-dataflow">6.2 Eyeriss: Row Stationary Dataflow</h3>
 <p>Eyeriss (MIT, Chen et al., ISCA 2016) introduced the row stationary dataflow:</p>
-<pre><code>                  Global Buffer (108 KB SRAM)
-                         │
-            ┌────────────┼────────────┐
-            ▼            ▼            ▼
-     ┌──────────┐ ┌──────────┐ ┌──────────┐
-     │ PE Array  │ │ PE Array  │ │ PE Array  │   12×14 = 168 PEs
-     │ (14×12)  │ │          │ │          │
-     │          │ │          │ │          │
-     │ Each PE: │ │          │ │          │
-     │ - RF     │ │          │ │          │
-     │   (512B) │ │          │ │          │
-     │ - MAC    │ │          │ │          │
-     │ - Ctrl   │ │          │ │          │
-     └──────────┘ └──────────┘ └──────────┘
-
-Row Stationary mapping:
-- 1D convolution row (filter row × ifmap row) maps to one PE
-- PE does all multiplies+accumulates for that row pair
-- Adjacent PEs pass partial sums horizontally
-- Diagonal PEs share ifmap data
-→ Maximizes reuse of all data types (weights, ifmaps, psums)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                  Global Buffer (108 KB SRAM)</span></span>
+<span class="giallo-l"><span>                         │</span></span>
+<span class="giallo-l"><span>            ┌────────────┼────────────┐</span></span>
+<span class="giallo-l"><span>            ▼            ▼            ▼</span></span>
+<span class="giallo-l"><span>     ┌──────────┐ ┌──────────┐ ┌──────────┐</span></span>
+<span class="giallo-l"><span>     │ PE Array  │ │ PE Array  │ │ PE Array  │   12×14 = 168 PEs</span></span>
+<span class="giallo-l"><span>     │ (14×12)  │ │          │ │          │</span></span>
+<span class="giallo-l"><span>     │          │ │          │ │          │</span></span>
+<span class="giallo-l"><span>     │ Each PE: │ │          │ │          │</span></span>
+<span class="giallo-l"><span>     │ - RF     │ │          │ │          │</span></span>
+<span class="giallo-l"><span>     │   (512B) │ │          │ │          │</span></span>
+<span class="giallo-l"><span>     │ - MAC    │ │          │ │          │</span></span>
+<span class="giallo-l"><span>     │ - Ctrl   │ │          │ │          │</span></span>
+<span class="giallo-l"><span>     └──────────┘ └──────────┘ └──────────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Row Stationary mapping:</span></span>
+<span class="giallo-l"><span>- 1D convolution row (filter row × ifmap row) maps to one PE</span></span>
+<span class="giallo-l"><span>- PE does all multiplies+accumulates for that row pair</span></span>
+<span class="giallo-l"><span>- Adjacent PEs pass partial sums horizontally</span></span>
+<span class="giallo-l"><span>- Diagonal PEs share ifmap data</span></span>
+<span class="giallo-l"><span>→ Maximizes reuse of all data types (weights, ifmaps, psums)</span></span></code></pre>
 <p><strong>Eyeriss v2</strong> extended this with a hierarchical mesh NoC for flexible data delivery to support varied layer shapes.</p>
 <h3 id="6-3-nvdla-open-source-reference">6.3 NVDLA (Open Source Reference)</h3>
 <p>NVIDIA Deep Learning Accelerator — open-source Verilog for an inference accelerator:</p>
-<pre><code>┌────────────────────────────────────────────┐
-│                  NVDLA                      │
-│                                            │
-│  ┌──────────┐  ┌──────────┐  ┌─────────┐  │
-│  │Convolution│  │ SDP      │  │ PDP     │  │
-│  │ Engine    │  │(Single   │  │(Pooling │  │
-│  │(MAC array)│  │ Data     │  │ Engine) │  │
-│  │           │  │ Proc:    │  │         │  │
-│  │16×16 MACs │  │ BN,ReLU, │  │ Max/Avg │  │
-│  │           │  │ EltWise) │  │         │  │
-│  └──────────┘  └──────────┘  └─────────┘  │
-│                                            │
-│  ┌──────────┐  ┌──────────┐  ┌─────────┐  │
-│  │ CDP      │  │ RUBIK    │  │ Bridge  │  │
-│  │(Channel  │  │(Data     │  │ DMA     │  │
-│  │ Data     │  │ Reshape  │  │         │  │
-│  │ Proc:    │  │ Engine)  │  │ AXI     │  │
-│  │ LUT-     │  │          │  │ Master/ │  │
-│  │ based)   │  │          │  │ Slave   │  │
-│  └──────────┘  └──────────┘  └─────────┘  │
-└────────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│                  NVDLA                      │</span></span>
+<span class="giallo-l"><span>│                                            │</span></span>
+<span class="giallo-l"><span>│  ┌──────────┐  ┌──────────┐  ┌─────────┐  │</span></span>
+<span class="giallo-l"><span>│  │Convolution│  │ SDP      │  │ PDP     │  │</span></span>
+<span class="giallo-l"><span>│  │ Engine    │  │(Single   │  │(Pooling │  │</span></span>
+<span class="giallo-l"><span>│  │(MAC array)│  │ Data     │  │ Engine) │  │</span></span>
+<span class="giallo-l"><span>│  │           │  │ Proc:    │  │         │  │</span></span>
+<span class="giallo-l"><span>│  │16×16 MACs │  │ BN,ReLU, │  │ Max/Avg │  │</span></span>
+<span class="giallo-l"><span>│  │           │  │ EltWise) │  │         │  │</span></span>
+<span class="giallo-l"><span>│  └──────────┘  └──────────┘  └─────────┘  │</span></span>
+<span class="giallo-l"><span>│                                            │</span></span>
+<span class="giallo-l"><span>│  ┌──────────┐  ┌──────────┐  ┌─────────┐  │</span></span>
+<span class="giallo-l"><span>│  │ CDP      │  │ RUBIK    │  │ Bridge  │  │</span></span>
+<span class="giallo-l"><span>│  │(Channel  │  │(Data     │  │ DMA     │  │</span></span>
+<span class="giallo-l"><span>│  │ Data     │  │ Reshape  │  │         │  │</span></span>
+<span class="giallo-l"><span>│  │ Proc:    │  │ Engine)  │  │ AXI     │  │</span></span>
+<span class="giallo-l"><span>│  │ LUT-     │  │          │  │ Master/ │  │</span></span>
+<span class="giallo-l"><span>│  │ based)   │  │          │  │ Slave   │  │</span></span>
+<span class="giallo-l"><span>│  └──────────┘  └──────────┘  └─────────┘  │</span></span>
+<span class="giallo-l"><span>└────────────────────────────────────────────┘</span></span></code></pre>
 <p>Good starting point for learning accelerator RTL design. Available on GitHub.</p>
 <h3 id="6-4-design-space-exploration-timeloop-accelergy">6.4 Design Space Exploration: Timeloop + Accelergy</h3>
 <p><strong>Timeloop</strong> (NVIDIA/MIT) models the performance of different dataflow mappings:</p>
@@ -806,47 +797,44 @@ Row Stationary mapping:
 </ol>
 <h3 id="6-5-cgra-coarse-grained-reconfigurable-array">6.5 CGRA (Coarse-Grained Reconfigurable Array)</h3>
 <p>Between ASIC (fixed) and FPGA (fine-grained):</p>
-<pre><code>┌──────┬──────┬──────┬──────┐
-│ PE   │ PE   │ PE   │ PE   │  Each PE: ALU + small RF + routing
-├──────┼──────┼──────┼──────┤
-│ PE   │ PE   │ PE   │ PE   │  Reconfigurable interconnect
-├──────┼──────┼──────┼──────┤  between PEs
-│ PE   │ PE   │ PE   │ PE   │
-├──────┼──────┼──────┼──────┤  Config loaded at compile time
-│ PE   │ PE   │ PE   │ PE   │  (not per-cycle like FPGA)
-└──────┴──────┴──────┴──────┘
-
-Examples: SambaNova RDU, Intel Plasticine (Stanford), ADRES
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌──────┬──────┬──────┬──────┐</span></span>
+<span class="giallo-l"><span>│ PE   │ PE   │ PE   │ PE   │  Each PE: ALU + small RF + routing</span></span>
+<span class="giallo-l"><span>├──────┼──────┼──────┼──────┤</span></span>
+<span class="giallo-l"><span>│ PE   │ PE   │ PE   │ PE   │  Reconfigurable interconnect</span></span>
+<span class="giallo-l"><span>├──────┼──────┼──────┼──────┤  between PEs</span></span>
+<span class="giallo-l"><span>│ PE   │ PE   │ PE   │ PE   │</span></span>
+<span class="giallo-l"><span>├──────┼──────┼──────┼──────┤  Config loaded at compile time</span></span>
+<span class="giallo-l"><span>│ PE   │ PE   │ PE   │ PE   │  (not per-cycle like FPGA)</span></span>
+<span class="giallo-l"><span>└──────┴──────┴──────┴──────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Examples: SambaNova RDU, Intel Plasticine (Stanford), ADRES</span></span></code></pre>
 <hr />
 <h2 id="7-numerical-formats-for-ai-hardware">7. Numerical Formats for AI Hardware</h2>
 <h3 id="7-1-format-comparison">7.1 Format Comparison</h3>
-<pre><code>FP32 (IEEE 754):   [1 sign][8 exp][23 mantissa]  = 32 bits
-                    Range: ±3.4×10³⁸, Precision: ~7 decimal digits
-
-TF32 (NVIDIA):     [1 sign][8 exp][10 mantissa]  = 19 bits
-                    Same range as FP32, precision of FP16
-                    Used in Tensor Cores: FP32 input → TF32 multiply → FP32 accumulate
-
-BF16 (Google):     [1 sign][8 exp][7 mantissa]   = 16 bits
-                    Same range as FP32 (8-bit exponent)
-                    Precision: ~2 decimal digits
-                    Training-friendly: range matters more than precision
-
-FP16 (IEEE 754):   [1 sign][5 exp][10 mantissa]  = 16 bits
-                    Range: ±65504, Precision: ~3 decimal digits
-                    Limited range causes overflow in training
-
-FP8 E4M3:          [1 sign][4 exp][3 mantissa]   = 8 bits
-                    Range: ±448, used for forward pass (more precision)
-
-FP8 E5M2:          [1 sign][5 exp][2 mantissa]   = 8 bits
-                    Range: ±57344, used for backward pass (more range)
-
-FP4 E2M1:          [1 sign][2 exp][1 mantissa]   = 4 bits
-                    Range: ±6, Blackwell tensor cores
-</code></pre>
-<h3 id="7-2-hardware-implications">7.2 Hardware Implications</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>FP32 (IEEE 754):   [1 sign][8 exp][23 mantissa]  = 32 bits</span></span>
+<span class="giallo-l"><span>                    Range: ±3.4×10³⁸, Precision: ~7 decimal digits</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>TF32 (NVIDIA):     [1 sign][8 exp][10 mantissa]  = 19 bits</span></span>
+<span class="giallo-l"><span>                    Same range as FP32, precision of FP16</span></span>
+<span class="giallo-l"><span>                    Used in Tensor Cores: FP32 input → TF32 multiply → FP32 accumulate</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>BF16 (Google):     [1 sign][8 exp][7 mantissa]   = 16 bits</span></span>
+<span class="giallo-l"><span>                    Same range as FP32 (8-bit exponent)</span></span>
+<span class="giallo-l"><span>                    Precision: ~2 decimal digits</span></span>
+<span class="giallo-l"><span>                    Training-friendly: range matters more than precision</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>FP16 (IEEE 754):   [1 sign][5 exp][10 mantissa]  = 16 bits</span></span>
+<span class="giallo-l"><span>                    Range: ±65504, Precision: ~3 decimal digits</span></span>
+<span class="giallo-l"><span>                    Limited range causes overflow in training</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>FP8 E4M3:          [1 sign][4 exp][3 mantissa]   = 8 bits</span></span>
+<span class="giallo-l"><span>                    Range: ±448, used for forward pass (more precision)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>FP8 E5M2:          [1 sign][5 exp][2 mantissa]   = 8 bits</span></span>
+<span class="giallo-l"><span>                    Range: ±57344, used for backward pass (more range)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>FP4 E2M1:          [1 sign][2 exp][1 mantissa]   = 4 bits</span></span>
+<span class="giallo-l"><span>                    Range: ±6, Blackwell tensor cores</span></span></code></pre><h3 id="7-2-hardware-implications">7.2 Hardware Implications</h3>
 <p>Multiplier area/energy scales roughly quadratically with mantissa bits:</p>
 <table><thead><tr><th>Format</th><th>Multiplier Size (relative)</th><th>Accumulator</th><th>Typical Usage</th></tr></thead><tbody>
 <tr><td>FP32</td><td>1.0× (baseline)</td><td>FP32</td><td>CPU training</td></tr>
@@ -865,50 +853,48 @@ FP4 E2M1:          [1 sign][2 exp][1 mantissa]   = 4 bits
 </ul>
 <h3 id="7-3-microscaling-mx-formats">7.3 Microscaling (MX) Formats</h3>
 <p>OCP (Open Compute Project) standard for block-scaled formats:</p>
-<pre><code>Traditional per-tensor quantization:
-  tensor_quant = round(tensor / scale)     # one scale for entire tensor
-  Problem: outliers force large scale → wastes precision for normal values
-
-Block floating point / Microscaling:
-  Split tensor into blocks of K elements (K = 32 typical)
-  Each block shares ONE exponent (scale factor)
-  Each element stores only mantissa + sign
-
-  ┌─────────────────────────────────────────┐
-  │ Shared exponent (8-bit)                 │
-  │ ┌─────┬─────┬─────┬─────┬─────┬─────┐  │
-  │ │ e0  │ e1  │ e2  │ ... │ e31 │     │  │  Elements: sign + mantissa only
-  │ └─────┴─────┴─────┴─────┴─────┴─────┘  │
-  └─────────────────────────────────────────┘
-
-MX4:  8-bit shared exp + 32 × 4-bit elements  = effective 4.25 bits/element
-MX6:  8-bit shared exp + 32 × 6-bit elements  = effective 6.25 bits/element
-MX9:  8-bit shared exp + 32 × 9-bit elements  = effective 9.25 bits/element
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Traditional per-tensor quantization:</span></span>
+<span class="giallo-l"><span>  tensor_quant = round(tensor / scale)     # one scale for entire tensor</span></span>
+<span class="giallo-l"><span>  Problem: outliers force large scale → wastes precision for normal values</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Block floating point / Microscaling:</span></span>
+<span class="giallo-l"><span>  Split tensor into blocks of K elements (K = 32 typical)</span></span>
+<span class="giallo-l"><span>  Each block shares ONE exponent (scale factor)</span></span>
+<span class="giallo-l"><span>  Each element stores only mantissa + sign</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  ┌─────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>  │ Shared exponent (8-bit)                 │</span></span>
+<span class="giallo-l"><span>  │ ┌─────┬─────┬─────┬─────┬─────┬─────┐  │</span></span>
+<span class="giallo-l"><span>  │ │ e0  │ e1  │ e2  │ ... │ e31 │     │  │  Elements: sign + mantissa only</span></span>
+<span class="giallo-l"><span>  │ └─────┴─────┴─────┴─────┴─────┴─────┘  │</span></span>
+<span class="giallo-l"><span>  └─────────────────────────────────────────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>MX4:  8-bit shared exp + 32 × 4-bit elements  = effective 4.25 bits/element</span></span>
+<span class="giallo-l"><span>MX6:  8-bit shared exp + 32 × 6-bit elements  = effective 6.25 bits/element</span></span>
+<span class="giallo-l"><span>MX9:  8-bit shared exp + 32 × 9-bit elements  = effective 9.25 bits/element</span></span></code></pre>
 <p><strong>Hardware for MX</strong>: The shared exponent is applied as a shift to the accumulator, not per-element multiply. This means the multiplier only needs to handle the mantissa bits — significant area/power savings.</p>
 <h3 id="7-4-mixed-precision-training">7.4 Mixed-Precision Training</h3>
 <p>Standard recipe (Micikevicius et al., ICLR 2018):</p>
-<pre><code>┌─────────────────────────────────────────────┐
-│           Mixed-Precision Training           │
-│                                             │
-│  Master weights: FP32 (stored in memory)    │
-│         │                                   │
-│         ▼ cast to FP16/BF16                │
-│  Forward pass: FP16/BF16 compute            │
-│         │                                   │
-│         ▼                                   │
-│  Loss computation: FP32                      │
-│         │                                   │
-│         ▼ × loss_scale (e.g., 1024)         │
-│  Backward pass: FP16/BF16 compute           │
-│         │                                   │
-│         ▼ ÷ loss_scale                      │
-│  Gradient update: FP32 (master weights)      │
-│                                             │
-│  Loss scaling prevents gradient underflow    │
-│  in FP16 (values too small to represent)     │
-└─────────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│           Mixed-Precision Training           │</span></span>
+<span class="giallo-l"><span>│                                             │</span></span>
+<span class="giallo-l"><span>│  Master weights: FP32 (stored in memory)    │</span></span>
+<span class="giallo-l"><span>│         │                                   │</span></span>
+<span class="giallo-l"><span>│         ▼ cast to FP16/BF16                │</span></span>
+<span class="giallo-l"><span>│  Forward pass: FP16/BF16 compute            │</span></span>
+<span class="giallo-l"><span>│         │                                   │</span></span>
+<span class="giallo-l"><span>│         ▼                                   │</span></span>
+<span class="giallo-l"><span>│  Loss computation: FP32                      │</span></span>
+<span class="giallo-l"><span>│         │                                   │</span></span>
+<span class="giallo-l"><span>│         ▼ × loss_scale (e.g., 1024)         │</span></span>
+<span class="giallo-l"><span>│  Backward pass: FP16/BF16 compute           │</span></span>
+<span class="giallo-l"><span>│         │                                   │</span></span>
+<span class="giallo-l"><span>│         ▼ ÷ loss_scale                      │</span></span>
+<span class="giallo-l"><span>│  Gradient update: FP32 (master weights)      │</span></span>
+<span class="giallo-l"><span>│                                             │</span></span>
+<span class="giallo-l"><span>│  Loss scaling prevents gradient underflow    │</span></span>
+<span class="giallo-l"><span>│  in FP16 (values too small to represent)     │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────┘</span></span></code></pre>
 <p><strong>Hopper Transformer Engine</strong>: Automates FP8 training:</p>
 <ul>
 <li>Per-tensor dynamic scaling based on statistics from previous iteration</li>
@@ -918,74 +904,68 @@ MX9:  8-bit shared exp + 32 × 9-bit elements  = effective 9.25 bits/element
 </ul>
 <h3 id="7-5-stochastic-rounding">7.5 Stochastic Rounding</h3>
 <p>Instead of round-to-nearest-even:</p>
-<pre><code>Round-to-nearest:  3.7 → 4, 3.2 → 3 (deterministic)
-
-Stochastic:        3.7 → 4 with 70% probability, 3 with 30% probability
-                   3.2 → 4 with 20% probability, 3 with 80% probability
-
-Implementation: add a random number ∈ [0, 1) × ulp before truncating
-  val_rounded = floor(val + random() × ulp)
-
-Why it helps: In expectation, E[round(x)] = x
-  Regular rounding has systematic bias that accumulates
-  Stochastic rounding is unbiased → helps convergence in low precision
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Round-to-nearest:  3.7 → 4, 3.2 → 3 (deterministic)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Stochastic:        3.7 → 4 with 70% probability, 3 with 30% probability</span></span>
+<span class="giallo-l"><span>                   3.2 → 4 with 20% probability, 3 with 80% probability</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Implementation: add a random number ∈ [0, 1) × ulp before truncating</span></span>
+<span class="giallo-l"><span>  val_rounded = floor(val + random() × ulp)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Why it helps: In expectation, E[round(x)] = x</span></span>
+<span class="giallo-l"><span>  Regular rounding has systematic bias that accumulates</span></span>
+<span class="giallo-l"><span>  Stochastic rounding is unbiased → helps convergence in low precision</span></span></code></pre>
 <p>Hardware cost: Needs a PRNG (Pseudo-Random Number Generator) per PE — LFSR is cheapest (~20 gates).</p>
 <hr />
 <h2 id="8-llm-specific-hardware-design">8. LLM-Specific Hardware Design</h2>
 <h3 id="8-1-the-llm-inference-problem">8.1 The LLM Inference Problem</h3>
-<pre><code>Transformer inference has TWO distinct phases:
-
-PREFILL (processing the prompt):
-  - All tokens processed in parallel (like training)
-  - Compute-bound: large matrix multiplications
-  - Arithmetic intensity: ~O(d_model) FLOPS per byte
-  - GPU utilization: HIGH (80-95%)
-
-DECODE (generating tokens one at a time):
-  - Each token depends on ALL previous tokens (autoregressive)
-  - Batch size = 1 per sequence for the &quot;new&quot; token
-  - Memory-bound: read entire model weights for 1 token
-  - Arithmetic intensity: ~O(1) — just 2 FLOPS per weight byte read
-  - GPU utilization: LOW (1-5% compute, bottlenecked on memory BW)
-
-The decode phase is THE bottleneck for LLM inference.
-</code></pre>
-<h3 id="8-2-arithmetic-intensity-analysis">8.2 Arithmetic Intensity Analysis</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Transformer inference has TWO distinct phases:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>PREFILL (processing the prompt):</span></span>
+<span class="giallo-l"><span>  - All tokens processed in parallel (like training)</span></span>
+<span class="giallo-l"><span>  - Compute-bound: large matrix multiplications</span></span>
+<span class="giallo-l"><span>  - Arithmetic intensity: ~O(d_model) FLOPS per byte</span></span>
+<span class="giallo-l"><span>  - GPU utilization: HIGH (80-95%)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>DECODE (generating tokens one at a time):</span></span>
+<span class="giallo-l"><span>  - Each token depends on ALL previous tokens (autoregressive)</span></span>
+<span class="giallo-l"><span>  - Batch size = 1 per sequence for the &quot;new&quot; token</span></span>
+<span class="giallo-l"><span>  - Memory-bound: read entire model weights for 1 token</span></span>
+<span class="giallo-l"><span>  - Arithmetic intensity: ~O(1) — just 2 FLOPS per weight byte read</span></span>
+<span class="giallo-l"><span>  - GPU utilization: LOW (1-5% compute, bottlenecked on memory BW)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>The decode phase is THE bottleneck for LLM inference.</span></span></code></pre><h3 id="8-2-arithmetic-intensity-analysis">8.2 Arithmetic Intensity Analysis</h3>
 <p>For a transformer layer with dimension d=4096 (e.g., Llama 7B):</p>
-<pre><code>Key operation: Y = X × W where W is (4096 × 4096)
-
-Prefill (batch B tokens):
-  FLOPS = 2 × B × 4096 × 4096 = 33.5M × B FLOPS
-  Bytes = 4096 × 4096 × 2 (BF16 weights) + B × 4096 × 2 (input) ≈ 33.5MB (weights dominate)
-  Arithmetic Intensity = (33.5M × B) / 33.5M = B FLOPS/byte
-  For B=2048: AI = 2048 → compute-bound ✓
-
-Decode (B=1):
-  FLOPS = 2 × 1 × 4096 × 4096 = 33.5M FLOPS
-  Bytes = 33.5 MB (same weights read)
-  Arithmetic Intensity = 33.5M / 33.5M = 1 FLOP/byte
-  → Memory-bandwidth-bound ✗
-
-H100 has:
-  - 990 TFLOPS BF16 Tensor Core
-  - 3.35 TB/s HBM3 bandwidth
-  - Compute/BW ratio = 990T / 3.35T = 295 FLOPS/byte
-
-  → Need AI &gt; 295 to be compute-bound
-  → Decode at AI=1 uses only 1/295 = 0.34% of compute!
-</code></pre>
-<h3 id="8-3-kv-cache-management">8.3 KV Cache Management</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Key operation: Y = X × W where W is (4096 × 4096)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Prefill (batch B tokens):</span></span>
+<span class="giallo-l"><span>  FLOPS = 2 × B × 4096 × 4096 = 33.5M × B FLOPS</span></span>
+<span class="giallo-l"><span>  Bytes = 4096 × 4096 × 2 (BF16 weights) + B × 4096 × 2 (input) ≈ 33.5MB (weights dominate)</span></span>
+<span class="giallo-l"><span>  Arithmetic Intensity = (33.5M × B) / 33.5M = B FLOPS/byte</span></span>
+<span class="giallo-l"><span>  For B=2048: AI = 2048 → compute-bound ✓</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Decode (B=1):</span></span>
+<span class="giallo-l"><span>  FLOPS = 2 × 1 × 4096 × 4096 = 33.5M FLOPS</span></span>
+<span class="giallo-l"><span>  Bytes = 33.5 MB (same weights read)</span></span>
+<span class="giallo-l"><span>  Arithmetic Intensity = 33.5M / 33.5M = 1 FLOP/byte</span></span>
+<span class="giallo-l"><span>  → Memory-bandwidth-bound ✗</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>H100 has:</span></span>
+<span class="giallo-l"><span>  - 990 TFLOPS BF16 Tensor Core</span></span>
+<span class="giallo-l"><span>  - 3.35 TB/s HBM3 bandwidth</span></span>
+<span class="giallo-l"><span>  - Compute/BW ratio = 990T / 3.35T = 295 FLOPS/byte</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  → Need AI &gt; 295 to be compute-bound</span></span>
+<span class="giallo-l"><span>  → Decode at AI=1 uses only 1/295 = 0.34% of compute!</span></span></code></pre><h3 id="8-3-kv-cache-management">8.3 KV Cache Management</h3>
 <p>Each generated token needs attention over ALL previous tokens. The Key-Value cache stores precomputed K and V matrices:</p>
-<pre><code>KV Cache size per token per layer:
-  2 (K + V) × d_model × 2 bytes (BF16) = 2 × 4096 × 2 = 16 KB
-
-For Llama 70B (80 layers), 4K context:
-  80 layers × 4096 tokens × 8192 dim × 2 (K+V) × 2 bytes = 10.7 GB per sequence
-
-For batch=64:
-  64 × 10.7 GB = 686 GB — exceeds H100&#39;s 80 GB HBM!
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>KV Cache size per token per layer:</span></span>
+<span class="giallo-l"><span>  2 (K + V) × d_model × 2 bytes (BF16) = 2 × 4096 × 2 = 16 KB</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>For Llama 70B (80 layers), 4K context:</span></span>
+<span class="giallo-l"><span>  80 layers × 4096 tokens × 8192 dim × 2 (K+V) × 2 bytes = 10.7 GB per sequence</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>For batch=64:</span></span>
+<span class="giallo-l"><span>  64 × 10.7 GB = 686 GB — exceeds H100&#39;s 80 GB HBM!</span></span></code></pre>
 <p><strong>Hardware solutions</strong>:</p>
 <ul>
 <li><strong>Paged attention</strong>: KV cache stored in non-contiguous pages (vLLM approach), needs hardware page table support</li>
@@ -996,31 +976,30 @@ For batch=64:
 </ul>
 <h3 id="8-4-attention-hardware">8.4 Attention Hardware</h3>
 <p>FlashAttention (Dao et al.) is currently a software algorithm, but hardware implications:</p>
-<pre><code>Standard Attention:
-  S = Q × K^T          (N×N matrix — O(N²) memory)
-  P = softmax(S)
-  O = P × V
-
-  Problem: N×N attention matrix doesn&#39;t fit in SRAM for large N
-
-FlashAttention (tiled):
-  For each tile of Q (block size B_r):
-    For each tile of K, V (block size B_c):
-      Compute local S_ij = Q_i × K_j^T
-      Compute local softmax (with running max/sum correction)
-      Update output O_i
-    End
-  End
-
-  Never materializes the full N×N matrix — stays in SRAM
-
-Hardware FlashAttention accelerator would need:
-  1. Tile-sized SRAM buffers for Q, K, V tiles
-  2. Matrix multiply unit (same MXU as GEMM)
-  3. Softmax unit: exp, running max, running sum, divide
-  4. Online softmax accumulator (log-sum-exp correction)
-  5. Output accumulator with rescaling
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Standard Attention:</span></span>
+<span class="giallo-l"><span>  S = Q × K^T          (N×N matrix — O(N²) memory)</span></span>
+<span class="giallo-l"><span>  P = softmax(S)</span></span>
+<span class="giallo-l"><span>  O = P × V</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Problem: N×N attention matrix doesn&#39;t fit in SRAM for large N</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>FlashAttention (tiled):</span></span>
+<span class="giallo-l"><span>  For each tile of Q (block size B_r):</span></span>
+<span class="giallo-l"><span>    For each tile of K, V (block size B_c):</span></span>
+<span class="giallo-l"><span>      Compute local S_ij = Q_i × K_j^T</span></span>
+<span class="giallo-l"><span>      Compute local softmax (with running max/sum correction)</span></span>
+<span class="giallo-l"><span>      Update output O_i</span></span>
+<span class="giallo-l"><span>    End</span></span>
+<span class="giallo-l"><span>  End</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Never materializes the full N×N matrix — stays in SRAM</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Hardware FlashAttention accelerator would need:</span></span>
+<span class="giallo-l"><span>  1. Tile-sized SRAM buffers for Q, K, V tiles</span></span>
+<span class="giallo-l"><span>  2. Matrix multiply unit (same MXU as GEMM)</span></span>
+<span class="giallo-l"><span>  3. Softmax unit: exp, running max, running sum, divide</span></span>
+<span class="giallo-l"><span>  4. Online softmax accumulator (log-sum-exp correction)</span></span>
+<span class="giallo-l"><span>  5. Output accumulator with rescaling</span></span></code></pre>
 <p><strong>Dedicated Softmax hardware</strong>: The softmax operation (exp of each element, sum, divide) is expensive. Hardware approaches:</p>
 <ul>
 <li>Look-up table (LUT) for exp function</li>
@@ -1030,114 +1009,108 @@ Hardware FlashAttention accelerator would need:
 </ul>
 <h3 id="8-5-hardware-for-speculative-decoding">8.5 Hardware for Speculative Decoding</h3>
 <p>Speculative decoding uses a small "draft" model to predict several tokens, then the large model verifies them in one batch:</p>
-<pre><code>Traditional: Large model generates 1 token at a time
-  [Large] → tok1 → [Large] → tok2 → [Large] → tok3  (3 serial steps)
-
-Speculative: Draft model generates guesses, large model verifies in batch
-  [Draft] → tok1,tok2,tok3 (fast, 3 steps)
-  [Large] → verify all 3 at once (1 step, batch=3)
-  If all correct: 3 tokens for cost of ~1 large inference
-
-Hardware support:
-  - Dual compute paths: small model path + large model path
-  - Dedicated draft model engines (could be much smaller MXU)
-  - Fast verification logic (compare token probabilities)
-  - Speculative buffer for draft tokens
-</code></pre>
-<h3 id="8-6-moe-mixture-of-experts-hardware-challenges">8.6 MoE (Mixture of Experts) Hardware Challenges</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Traditional: Large model generates 1 token at a time</span></span>
+<span class="giallo-l"><span>  [Large] → tok1 → [Large] → tok2 → [Large] → tok3  (3 serial steps)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Speculative: Draft model generates guesses, large model verifies in batch</span></span>
+<span class="giallo-l"><span>  [Draft] → tok1,tok2,tok3 (fast, 3 steps)</span></span>
+<span class="giallo-l"><span>  [Large] → verify all 3 at once (1 step, batch=3)</span></span>
+<span class="giallo-l"><span>  If all correct: 3 tokens for cost of ~1 large inference</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Hardware support:</span></span>
+<span class="giallo-l"><span>  - Dual compute paths: small model path + large model path</span></span>
+<span class="giallo-l"><span>  - Dedicated draft model engines (could be much smaller MXU)</span></span>
+<span class="giallo-l"><span>  - Fast verification logic (compare token probabilities)</span></span>
+<span class="giallo-l"><span>  - Speculative buffer for draft tokens</span></span></code></pre><h3 id="8-6-moe-mixture-of-experts-hardware-challenges">8.6 MoE (Mixture of Experts) Hardware Challenges</h3>
 <p>MoE models (e.g., Mixtral 8×7B, GPT-4 rumored MoE) route each token to a subset of expert FFN blocks:</p>
-<pre><code>┌─────────────┐
-│   Router    │  ← Learned gating network
-│  (softmax)  │     selects top-K experts per token
-└──────┬──────┘
-  ┌────┴────┐
-  ▼         ▼
-┌────┐   ┌────┐   ┌────┐   ┌────┐
-│Exp0│   │Exp1│   │Exp2│   │Exp7│   ← 8 expert FFN blocks
-└────┘   └────┘   └────┘   └────┘     (only 2 active per token)
-
-Hardware challenges:
-1. LOAD IMBALANCE: Some experts get many tokens, others few
-   → Underutilizes compute if mapped statically
-   → Need dynamic load-balanced dispatch
-
-2. ALL-TO-ALL COMMUNICATION: Tokens must be routed to correct expert
-   → In multi-chip: each chip holds some experts
-   → Expert parallelism needs all-to-all shuffle
-   → Interconnect bandwidth is bottleneck
-
-3. MEMORY: All 8 experts&#39; weights in memory even if only 2 active
-   → More total parameters but same compute as dense
-   → Memory-capacity-bound, not compute-bound
-
-Hardware solutions:
-  - Expert buffer: Prefetch next layer&#39;s expert weights
-  - Dynamic routing NoC: On-chip network for token-to-expert dispatch
-  - Capacitated routing: Hardware enforces max tokens per expert
-  - Expert caching: Keep hot experts in fast memory, cold in HBM
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────┐</span></span>
+<span class="giallo-l"><span>│   Router    │  ← Learned gating network</span></span>
+<span class="giallo-l"><span>│  (softmax)  │     selects top-K experts per token</span></span>
+<span class="giallo-l"><span>└──────┬──────┘</span></span>
+<span class="giallo-l"><span>  ┌────┴────┐</span></span>
+<span class="giallo-l"><span>  ▼         ▼</span></span>
+<span class="giallo-l"><span>┌────┐   ┌────┐   ┌────┐   ┌────┐</span></span>
+<span class="giallo-l"><span>│Exp0│   │Exp1│   │Exp2│   │Exp7│   ← 8 expert FFN blocks</span></span>
+<span class="giallo-l"><span>└────┘   └────┘   └────┘   └────┘     (only 2 active per token)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Hardware challenges:</span></span>
+<span class="giallo-l"><span>1. LOAD IMBALANCE: Some experts get many tokens, others few</span></span>
+<span class="giallo-l"><span>   → Underutilizes compute if mapped statically</span></span>
+<span class="giallo-l"><span>   → Need dynamic load-balanced dispatch</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>2. ALL-TO-ALL COMMUNICATION: Tokens must be routed to correct expert</span></span>
+<span class="giallo-l"><span>   → In multi-chip: each chip holds some experts</span></span>
+<span class="giallo-l"><span>   → Expert parallelism needs all-to-all shuffle</span></span>
+<span class="giallo-l"><span>   → Interconnect bandwidth is bottleneck</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>3. MEMORY: All 8 experts&#39; weights in memory even if only 2 active</span></span>
+<span class="giallo-l"><span>   → More total parameters but same compute as dense</span></span>
+<span class="giallo-l"><span>   → Memory-capacity-bound, not compute-bound</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Hardware solutions:</span></span>
+<span class="giallo-l"><span>  - Expert buffer: Prefetch next layer&#39;s expert weights</span></span>
+<span class="giallo-l"><span>  - Dynamic routing NoC: On-chip network for token-to-expert dispatch</span></span>
+<span class="giallo-l"><span>  - Capacitated routing: Hardware enforces max tokens per expert</span></span>
+<span class="giallo-l"><span>  - Expert caching: Keep hot experts in fast memory, cold in HBM</span></span></code></pre>
 <hr />
 <h2 id="9-on-chip-interconnect-and-noc-design">9. On-Chip Interconnect and NoC Design</h2>
 <h3 id="9-1-topology-options">9.1 Topology Options</h3>
-<pre><code>Mesh (most common for AI accelerators):          Ring:
-  ┌──┐   ┌──┐   ┌──┐   ┌──┐                    ┌──┐ → ┌──┐
-  │PE│───│PE│───│PE│───│PE│                    │PE│   │PE│
-  └──┘   └──┘   └──┘   └──┘                    ↑  └──┘   └──┘ ↓
-    │      │      │      │                     ┌──┐         ┌──┐
-  ┌──┐   ┌──┐   ┌──┐   ┌──┐                  │PE│         │PE│
-  │PE│───│PE│───│PE│───│PE│                    └──┘ ← ┌──┘ ← └──┘
-  └──┘   └──┘   └──┘   └──┘
-
-Pros: Regular, scalable           Pros: Simple, low area
-Cons: Diameter = 2(√N-1)         Cons: Latency = O(N)
-
-Torus (mesh with wraparound):     Crossbar:
-  ┌──┐───┌──┐───┌──┐─┐            ┌──┐
-  │PE│   │PE│   │PE│ │          ──│PE│──┬──┬──┬──
-  └──┘   └──┘   └──┘ │            └──┘  │  │  │
-    │      │      │   │            ┌──┐  │  │  │
-  ┌──┐   ┌──┐   ┌──┐ │          ──│PE│──┼──┼──┼──
-  │PE│   │PE│   │PE│ │            └──┘  │  │  │
-  └──┘   └──┘   └──┘ │
-  └──────────────────┘           Pros: O(1) latency
-                                 Cons: O(N²) area — doesn&#39;t scale
-Pros: Halves diameter
-Cons: Long wires at edges
-</code></pre>
-<h3 id="9-2-router-microarchitecture">9.2 Router Microarchitecture</h3>
-<pre><code>┌──────────────────────────────────────────────┐
-│              NoC Router (5-port mesh)          │
-│                                              │
-│  ┌──────┐  ┌──────┐  ┌──────┐  ┌──────┐     │
-│  │Input │  │Input │  │Input │  │Input │     │
-│  │Buffer│  │Buffer│  │Buffer│  │Buffer│ ... │
-│  │ (N)  │  │ (S)  │  │ (E)  │  │ (W)  │     │
-│  └──┬───┘  └──┬───┘  └──┬───┘  └──┬───┘     │
-│     │         │         │         │          │
-│  ┌──▼─────────▼─────────▼─────────▼──┐       │
-│  │         Route Computation          │       │
-│  │    (XY routing: compare coords)    │       │
-│  └──────────────┬─────────────────────┘       │
-│                 │                             │
-│  ┌──────────────▼─────────────────────┐       │
-│  │        VC Allocation                │       │
-│  │   (assign virtual channel)          │       │
-│  └──────────────┬─────────────────────┘       │
-│                 │                             │
-│  ┌──────────────▼─────────────────────┐       │
-│  │      Switch Allocation              │       │
-│  │  (arbitrate for crossbar port)      │       │
-│  └──────────────┬─────────────────────┘       │
-│                 │                             │
-│  ┌──────────────▼─────────────────────┐       │
-│  │         5×5 Crossbar                │       │
-│  │    (flit traversal)                 │       │
-│  └────────────────────────────────────┘       │
-│                                              │
-│  Pipeline: RC → VA → SA → ST (4 cycles/hop)  │
-│  Can reduce to 1-2 cycles with speculation    │
-└──────────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Mesh (most common for AI accelerators):          Ring:</span></span>
+<span class="giallo-l"><span>  ┌──┐   ┌──┐   ┌──┐   ┌──┐                    ┌──┐ → ┌──┐</span></span>
+<span class="giallo-l"><span>  │PE│───│PE│───│PE│───│PE│                    │PE│   │PE│</span></span>
+<span class="giallo-l"><span>  └──┘   └──┘   └──┘   └──┘                    ↑  └──┘   └──┘ ↓</span></span>
+<span class="giallo-l"><span>    │      │      │      │                     ┌──┐         ┌──┐</span></span>
+<span class="giallo-l"><span>  ┌──┐   ┌──┐   ┌──┐   ┌──┐                  │PE│         │PE│</span></span>
+<span class="giallo-l"><span>  │PE│───│PE│───│PE│───│PE│                    └──┘ ← ┌──┘ ← └──┘</span></span>
+<span class="giallo-l"><span>  └──┘   └──┘   └──┘   └──┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Pros: Regular, scalable           Pros: Simple, low area</span></span>
+<span class="giallo-l"><span>Cons: Diameter = 2(√N-1)         Cons: Latency = O(N)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Torus (mesh with wraparound):     Crossbar:</span></span>
+<span class="giallo-l"><span>  ┌──┐───┌──┐───┌──┐─┐            ┌──┐</span></span>
+<span class="giallo-l"><span>  │PE│   │PE│   │PE│ │          ──│PE│──┬──┬──┬──</span></span>
+<span class="giallo-l"><span>  └──┘   └──┘   └──┘ │            └──┘  │  │  │</span></span>
+<span class="giallo-l"><span>    │      │      │   │            ┌──┐  │  │  │</span></span>
+<span class="giallo-l"><span>  ┌──┐   ┌──┐   ┌──┐ │          ──│PE│──┼──┼──┼──</span></span>
+<span class="giallo-l"><span>  │PE│   │PE│   │PE│ │            └──┘  │  │  │</span></span>
+<span class="giallo-l"><span>  └──┘   └──┘   └──┘ │</span></span>
+<span class="giallo-l"><span>  └──────────────────┘           Pros: O(1) latency</span></span>
+<span class="giallo-l"><span>                                 Cons: O(N²) area — doesn&#39;t scale</span></span>
+<span class="giallo-l"><span>Pros: Halves diameter</span></span>
+<span class="giallo-l"><span>Cons: Long wires at edges</span></span></code></pre><h3 id="9-2-router-microarchitecture">9.2 Router Microarchitecture</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌──────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│              NoC Router (5-port mesh)          │</span></span>
+<span class="giallo-l"><span>│                                              │</span></span>
+<span class="giallo-l"><span>│  ┌──────┐  ┌──────┐  ┌──────┐  ┌──────┐     │</span></span>
+<span class="giallo-l"><span>│  │Input │  │Input │  │Input │  │Input │     │</span></span>
+<span class="giallo-l"><span>│  │Buffer│  │Buffer│  │Buffer│  │Buffer│ ... │</span></span>
+<span class="giallo-l"><span>│  │ (N)  │  │ (S)  │  │ (E)  │  │ (W)  │     │</span></span>
+<span class="giallo-l"><span>│  └──┬───┘  └──┬───┘  └──┬───┘  └──┬───┘     │</span></span>
+<span class="giallo-l"><span>│     │         │         │         │          │</span></span>
+<span class="giallo-l"><span>│  ┌──▼─────────▼─────────▼─────────▼──┐       │</span></span>
+<span class="giallo-l"><span>│  │         Route Computation          │       │</span></span>
+<span class="giallo-l"><span>│  │    (XY routing: compare coords)    │       │</span></span>
+<span class="giallo-l"><span>│  └──────────────┬─────────────────────┘       │</span></span>
+<span class="giallo-l"><span>│                 │                             │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────▼─────────────────────┐       │</span></span>
+<span class="giallo-l"><span>│  │        VC Allocation                │       │</span></span>
+<span class="giallo-l"><span>│  │   (assign virtual channel)          │       │</span></span>
+<span class="giallo-l"><span>│  └──────────────┬─────────────────────┘       │</span></span>
+<span class="giallo-l"><span>│                 │                             │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────▼─────────────────────┐       │</span></span>
+<span class="giallo-l"><span>│  │      Switch Allocation              │       │</span></span>
+<span class="giallo-l"><span>│  │  (arbitrate for crossbar port)      │       │</span></span>
+<span class="giallo-l"><span>│  └──────────────┬─────────────────────┘       │</span></span>
+<span class="giallo-l"><span>│                 │                             │</span></span>
+<span class="giallo-l"><span>│  ┌──────────────▼─────────────────────┐       │</span></span>
+<span class="giallo-l"><span>│  │         5×5 Crossbar                │       │</span></span>
+<span class="giallo-l"><span>│  │    (flit traversal)                 │       │</span></span>
+<span class="giallo-l"><span>│  └────────────────────────────────────┘       │</span></span>
+<span class="giallo-l"><span>│                                              │</span></span>
+<span class="giallo-l"><span>│  Pipeline: RC → VA → SA → ST (4 cycles/hop)  │</span></span>
+<span class="giallo-l"><span>│  Can reduce to 1-2 cycles with speculation    │</span></span>
+<span class="giallo-l"><span>└──────────────────────────────────────────────┘</span></span></code></pre>
 <p><strong>Flow control</strong>:</p>
 <ul>
 <li><strong>Wormhole</strong>: Packet divided into flits. Header flit reserves path, data flits follow, tail releases. Low buffer requirements.</li>
@@ -1151,40 +1124,37 @@ Cons: Long wires at edges
 <li><strong>Bandwidth matching</strong>: Must sustain one element per PE per cycle</li>
 <li><strong>Multicast</strong>: Same weight/activation may go to multiple PEs</li>
 </ul>
-<pre><code>Data delivery for 128×128 systolic array:
-
-Option A: Direct wiring (no NoC)
-  - 128 input ports for activations (left edge)
-  - 128 input ports for weights (top edge)
-  - 128 output ports for results (bottom edge)
-  - Simple but inflexible, works for fixed dataflow
-
-Option B: Shared bus with arbitration
-  - Lower area but becomes bottleneck at scale
-
-Option C: Hierarchical mesh
-  - Global NoC moves tiles from memory to local buffers
-  - Local distribution network feeds PEs
-  - Most practical for large arrays
-</code></pre>
-<h3 id="9-4-axi-protocol-for-accelerator-interfaces">9.4 AXI Protocol (For Accelerator Interfaces)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Data delivery for 128×128 systolic array:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Option A: Direct wiring (no NoC)</span></span>
+<span class="giallo-l"><span>  - 128 input ports for activations (left edge)</span></span>
+<span class="giallo-l"><span>  - 128 input ports for weights (top edge)</span></span>
+<span class="giallo-l"><span>  - 128 output ports for results (bottom edge)</span></span>
+<span class="giallo-l"><span>  - Simple but inflexible, works for fixed dataflow</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Option B: Shared bus with arbitration</span></span>
+<span class="giallo-l"><span>  - Lower area but becomes bottleneck at scale</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Option C: Hierarchical mesh</span></span>
+<span class="giallo-l"><span>  - Global NoC moves tiles from memory to local buffers</span></span>
+<span class="giallo-l"><span>  - Local distribution network feeds PEs</span></span>
+<span class="giallo-l"><span>  - Most practical for large arrays</span></span></code></pre><h3 id="9-4-axi-protocol-for-accelerator-interfaces">9.4 AXI Protocol (For Accelerator Interfaces)</h3>
 <p>Most accelerators use AXI (Advanced eXtensible Interface) for memory access:</p>
-<pre><code>AXI4 channels:
-  Write: AW (address) + W (data) + B (response)
-  Read:  AR (address) + R (data)
-
-Key features for accelerators:
-  - Burst transfers: Up to 256 beats per transaction
-  - Outstanding transactions: Multiple in-flight (pipelining)
-  - Data width: 32 to 1024 bits
-  - QoS: Priority levels for latency-sensitive vs. bulk
-
-AXI-Stream (for streaming data between accelerator blocks):
-  - No address channel — just data flowing
-  - TVALID/TREADY handshake
-  - TLAST marks end of packet
-  - Simplest interface for PE-to-PE data flow
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>AXI4 channels:</span></span>
+<span class="giallo-l"><span>  Write: AW (address) + W (data) + B (response)</span></span>
+<span class="giallo-l"><span>  Read:  AR (address) + R (data)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Key features for accelerators:</span></span>
+<span class="giallo-l"><span>  - Burst transfers: Up to 256 beats per transaction</span></span>
+<span class="giallo-l"><span>  - Outstanding transactions: Multiple in-flight (pipelining)</span></span>
+<span class="giallo-l"><span>  - Data width: 32 to 1024 bits</span></span>
+<span class="giallo-l"><span>  - QoS: Priority levels for latency-sensitive vs. bulk</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>AXI-Stream (for streaming data between accelerator blocks):</span></span>
+<span class="giallo-l"><span>  - No address channel — just data flowing</span></span>
+<span class="giallo-l"><span>  - TVALID/TREADY handshake</span></span>
+<span class="giallo-l"><span>  - TLAST marks end of packet</span></span>
+<span class="giallo-l"><span>  - Simplest interface for PE-to-PE data flow</span></span></code></pre>
 <hr />
 <h2 id="10-chip-to-chip-interconnects-and-packaging">10. Chip-to-Chip Interconnects and Packaging</h2>
 <h3 id="10-1-nvlink-evolution">10.1 NVLink Evolution</h3>
@@ -1198,123 +1168,116 @@ AXI-Stream (for streaming data between accelerator blocks):
 <p><strong>NVSwitch</strong>: Crossbar switch chip connecting 8 GPUs with full bisection bandwidth. Each NVSwitch has 64 NVLink ports. DGX H100 uses 4 NVSwitch chips to connect 8 H100s.</p>
 <p><strong>NVLink C2C (Chip-to-Chip)</strong>: Die-to-die link in Blackwell — connects the two GPU dies in GB200 at 10 TB/s with 5× energy efficiency of NVLink 4.0.</p>
 <h3 id="10-2-advanced-packaging">10.2 Advanced Packaging</h3>
-<pre><code>2.5D Integration (CoWoS - Chip on Wafer on Substrate):
-  ┌─────────┐  ┌─────────┐  ┌─────────┐
-  │  GPU    │  │   HBM   │  │   HBM   │
-  │  Die    │  │  Stack  │  │  Stack  │
-  └────┬────┘  └────┬────┘  └────┬────┘
-  ─────┴──────────────┴──────────┴───────  ← Silicon interposer
-  ─────────────────────────────────────── ← Organic substrate
-
-  H100: GPU die + 6× HBM3 stacks on CoWoS interposer
-  Interposer: passive silicon with wiring layers
-  Micro-bump pitch: ~40 μm
-
-3D Integration (Foveros):
-  ┌─────────────────┐
-  │  Compute die    │  ← Active logic (top)
-  ├─────────────────┤
-  │  Base die       │  ← I/O, memory ctrl (bottom)
-  └─────────────────┘
-  Through-Silicon Vias (TSVs) connect dies
-  Bump pitch: ~36 μm (Foveros) → ~9 μm (Foveros Direct)
-
-EMIB (Embedded Multi-die Interconnect Bridge):
-  Instead of full interposer, embed small silicon bridges
-  in the package substrate only where dies meet
-  Used in Intel Ponte Vecchio
-
-Chiplet Architecture (MI300X):
-  ┌────┐ ┌────┐ ┌────┐ ┌────┐
-  │XCD0│ │XCD1│ │XCD2│ │XCD3│  ← 8 compute chiplets (5nm)
-  ├────┤ ├────┤ ├────┤ ├────┤
-  │XCD4│ │XCD5│ │XCD6│ │XCD7│
-  └──┬─┘ └──┬─┘ └──┬─┘ └──┬─┘
-  ───┴──────┴──────┴──────┴────  ← Active interposer
-  ┌────┐ ┌────┐ ┌────┐ ┌────┐
-  │IOD0│ │IOD1│ │IOD2│ │IOD3│  ← 4 I/O dies (6nm)
-  └────┘ └────┘ └────┘ └────┘    with HBM PHY + IF links
-</code></pre>
-<h3 id="10-3-ucie-universal-chiplet-interconnect-express">10.3 UCIe (Universal Chiplet Interconnect Express)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>2.5D Integration (CoWoS - Chip on Wafer on Substrate):</span></span>
+<span class="giallo-l"><span>  ┌─────────┐  ┌─────────┐  ┌─────────┐</span></span>
+<span class="giallo-l"><span>  │  GPU    │  │   HBM   │  │   HBM   │</span></span>
+<span class="giallo-l"><span>  │  Die    │  │  Stack  │  │  Stack  │</span></span>
+<span class="giallo-l"><span>  └────┬────┘  └────┬────┘  └────┬────┘</span></span>
+<span class="giallo-l"><span>  ─────┴──────────────┴──────────┴───────  ← Silicon interposer</span></span>
+<span class="giallo-l"><span>  ─────────────────────────────────────── ← Organic substrate</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  H100: GPU die + 6× HBM3 stacks on CoWoS interposer</span></span>
+<span class="giallo-l"><span>  Interposer: passive silicon with wiring layers</span></span>
+<span class="giallo-l"><span>  Micro-bump pitch: ~40 μm</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>3D Integration (Foveros):</span></span>
+<span class="giallo-l"><span>  ┌─────────────────┐</span></span>
+<span class="giallo-l"><span>  │  Compute die    │  ← Active logic (top)</span></span>
+<span class="giallo-l"><span>  ├─────────────────┤</span></span>
+<span class="giallo-l"><span>  │  Base die       │  ← I/O, memory ctrl (bottom)</span></span>
+<span class="giallo-l"><span>  └─────────────────┘</span></span>
+<span class="giallo-l"><span>  Through-Silicon Vias (TSVs) connect dies</span></span>
+<span class="giallo-l"><span>  Bump pitch: ~36 μm (Foveros) → ~9 μm (Foveros Direct)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>EMIB (Embedded Multi-die Interconnect Bridge):</span></span>
+<span class="giallo-l"><span>  Instead of full interposer, embed small silicon bridges</span></span>
+<span class="giallo-l"><span>  in the package substrate only where dies meet</span></span>
+<span class="giallo-l"><span>  Used in Intel Ponte Vecchio</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Chiplet Architecture (MI300X):</span></span>
+<span class="giallo-l"><span>  ┌────┐ ┌────┐ ┌────┐ ┌────┐</span></span>
+<span class="giallo-l"><span>  │XCD0│ │XCD1│ │XCD2│ │XCD3│  ← 8 compute chiplets (5nm)</span></span>
+<span class="giallo-l"><span>  ├────┤ ├────┤ ├────┤ ├────┤</span></span>
+<span class="giallo-l"><span>  │XCD4│ │XCD5│ │XCD6│ │XCD7│</span></span>
+<span class="giallo-l"><span>  └──┬─┘ └──┬─┘ └──┬─┘ └──┬─┘</span></span>
+<span class="giallo-l"><span>  ───┴──────┴──────┴──────┴────  ← Active interposer</span></span>
+<span class="giallo-l"><span>  ┌────┐ ┌────┐ ┌────┐ ┌────┐</span></span>
+<span class="giallo-l"><span>  │IOD0│ │IOD1│ │IOD2│ │IOD3│  ← 4 I/O dies (6nm)</span></span>
+<span class="giallo-l"><span>  └────┘ └────┘ └────┘ └────┘    with HBM PHY + IF links</span></span></code></pre><h3 id="10-3-ucie-universal-chiplet-interconnect-express">10.3 UCIe (Universal Chiplet Interconnect Express)</h3>
 <p>Open standard for die-to-die interconnect:</p>
-<pre><code>UCIe Specification:
-  Standard package:  4 GB/s per lane, 16 lanes per module
-  Advanced package:  16-32 GB/s per lane (shorter reach)
-
-  Protocol layers:
-    - Raw (PHY): electrical signaling
-    - Streaming: no protocol overhead
-    - CXL: memory coherency across chiplets
-    - PCIe: standard I/O
-
-  Enables mixing chiplets from different vendors/processes
-  E.g., 3nm compute chiplet + 5nm I/O chiplet + 7nm memory controller
-</code></pre>
-<h3 id="10-4-optical-interconnects">10.4 Optical Interconnects</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>UCIe Specification:</span></span>
+<span class="giallo-l"><span>  Standard package:  4 GB/s per lane, 16 lanes per module</span></span>
+<span class="giallo-l"><span>  Advanced package:  16-32 GB/s per lane (shorter reach)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Protocol layers:</span></span>
+<span class="giallo-l"><span>    - Raw (PHY): electrical signaling</span></span>
+<span class="giallo-l"><span>    - Streaming: no protocol overhead</span></span>
+<span class="giallo-l"><span>    - CXL: memory coherency across chiplets</span></span>
+<span class="giallo-l"><span>    - PCIe: standard I/O</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Enables mixing chiplets from different vendors/processes</span></span>
+<span class="giallo-l"><span>  E.g., 3nm compute chiplet + 5nm I/O chiplet + 7nm memory controller</span></span></code></pre><h3 id="10-4-optical-interconnects">10.4 Optical Interconnects</h3>
 <p>The future for chip-to-chip at scale:</p>
-<pre><code>Co-Packaged Optics (CPO):
-  - Optical transceiver integrated into the package (not a pluggable module)
-  - Eliminates SerDes power for electrical-to-optical conversion
-  - Bandwidth: 12.8-51.2 Tbps per package
-
-Silicon Photonics:
-  - Optical components (waveguides, modulators, detectors) built on silicon
-  - Compatible with CMOS fabrication
-  - Intel, GlobalFoundries, TSMC all have platforms
-
-TPU v4 uses Optical Circuit Switches (OCS):
-  - MEMS-based mirror array reconfigures optical paths
-  - Can rewire the 3D torus topology in milliseconds
-  - Enables flexible job placement across 4096 chips
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Co-Packaged Optics (CPO):</span></span>
+<span class="giallo-l"><span>  - Optical transceiver integrated into the package (not a pluggable module)</span></span>
+<span class="giallo-l"><span>  - Eliminates SerDes power for electrical-to-optical conversion</span></span>
+<span class="giallo-l"><span>  - Bandwidth: 12.8-51.2 Tbps per package</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Silicon Photonics:</span></span>
+<span class="giallo-l"><span>  - Optical components (waveguides, modulators, detectors) built on silicon</span></span>
+<span class="giallo-l"><span>  - Compatible with CMOS fabrication</span></span>
+<span class="giallo-l"><span>  - Intel, GlobalFoundries, TSMC all have platforms</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>TPU v4 uses Optical Circuit Switches (OCS):</span></span>
+<span class="giallo-l"><span>  - MEMS-based mirror array reconfigures optical paths</span></span>
+<span class="giallo-l"><span>  - Can rewire the 3D torus topology in milliseconds</span></span>
+<span class="giallo-l"><span>  - Enables flexible job placement across 4096 chips</span></span></code></pre>
 <hr />
 <h2 id="11-vlsi-design-flow-rtl-to-gdsii">11. VLSI Design Flow: RTL to GDSII</h2>
 <h3 id="11-1-complete-flow-overview">11.1 Complete Flow Overview</h3>
-<pre><code>┌─────────────────────┐
-│  1. Specification    │  ← Architecture definition, ISA, interfaces
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│  2. RTL Design       │  ← SystemVerilog / Chisel / SpinalHDL
-│     (Behavioral)     │     Write hardware description
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│  3. Functional       │  ← UVM testbenches, formal verification
-│     Verification     │     constrained random, coverage-driven
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│  4. Logic Synthesis  │  ← Synopsys Design Compiler / Cadence Genus
-│     RTL → Gates      │     Map to standard cells, optimize
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│  5. Floor Planning   │  ← Macro placement, power grid, I/O rings
-│                      │     Define die size and aspect ratio
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│  6. Place &amp; Route    │  ← Cadence Innovus / Synopsys ICC2
-│     (Physical)       │     Cell placement, clock tree, routing
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│  7. Sign-off         │  ← STA, power analysis, IR drop,
-│     Verification     │     signal integrity, DRC, LVS
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│  8. GDSII Tapeout    │  ← Send to foundry (TSMC, Samsung, Intel)
-│                      │     Mask generation, fabrication (~3 months)
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│  9. Packaging &amp;      │  ← Wire bonding or flip-chip
-│     Testing          │     Wafer test, package test, burn-in
-└─────────────────────┘
-</code></pre>
-<h3 id="11-2-rtl-design-languages">11.2 RTL Design Languages</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────┐</span></span>
+<span class="giallo-l"><span>│  1. Specification    │  ← Architecture definition, ISA, interfaces</span></span>
+<span class="giallo-l"><span>└──────────┬──────────┘</span></span>
+<span class="giallo-l"><span>           ▼</span></span>
+<span class="giallo-l"><span>┌─────────────────────┐</span></span>
+<span class="giallo-l"><span>│  2. RTL Design       │  ← SystemVerilog / Chisel / SpinalHDL</span></span>
+<span class="giallo-l"><span>│     (Behavioral)     │     Write hardware description</span></span>
+<span class="giallo-l"><span>└──────────┬──────────┘</span></span>
+<span class="giallo-l"><span>           ▼</span></span>
+<span class="giallo-l"><span>┌─────────────────────┐</span></span>
+<span class="giallo-l"><span>│  3. Functional       │  ← UVM testbenches, formal verification</span></span>
+<span class="giallo-l"><span>│     Verification     │     constrained random, coverage-driven</span></span>
+<span class="giallo-l"><span>└──────────┬──────────┘</span></span>
+<span class="giallo-l"><span>           ▼</span></span>
+<span class="giallo-l"><span>┌─────────────────────┐</span></span>
+<span class="giallo-l"><span>│  4. Logic Synthesis  │  ← Synopsys Design Compiler / Cadence Genus</span></span>
+<span class="giallo-l"><span>│     RTL → Gates      │     Map to standard cells, optimize</span></span>
+<span class="giallo-l"><span>└──────────┬──────────┘</span></span>
+<span class="giallo-l"><span>           ▼</span></span>
+<span class="giallo-l"><span>┌─────────────────────┐</span></span>
+<span class="giallo-l"><span>│  5. Floor Planning   │  ← Macro placement, power grid, I/O rings</span></span>
+<span class="giallo-l"><span>│                      │     Define die size and aspect ratio</span></span>
+<span class="giallo-l"><span>└──────────┬──────────┘</span></span>
+<span class="giallo-l"><span>           ▼</span></span>
+<span class="giallo-l"><span>┌─────────────────────┐</span></span>
+<span class="giallo-l"><span>│  6. Place &amp; Route    │  ← Cadence Innovus / Synopsys ICC2</span></span>
+<span class="giallo-l"><span>│     (Physical)       │     Cell placement, clock tree, routing</span></span>
+<span class="giallo-l"><span>└──────────┬──────────┘</span></span>
+<span class="giallo-l"><span>           ▼</span></span>
+<span class="giallo-l"><span>┌─────────────────────┐</span></span>
+<span class="giallo-l"><span>│  7. Sign-off         │  ← STA, power analysis, IR drop,</span></span>
+<span class="giallo-l"><span>│     Verification     │     signal integrity, DRC, LVS</span></span>
+<span class="giallo-l"><span>└──────────┬──────────┘</span></span>
+<span class="giallo-l"><span>           ▼</span></span>
+<span class="giallo-l"><span>┌─────────────────────┐</span></span>
+<span class="giallo-l"><span>│  8. GDSII Tapeout    │  ← Send to foundry (TSMC, Samsung, Intel)</span></span>
+<span class="giallo-l"><span>│                      │     Mask generation, fabrication (~3 months)</span></span>
+<span class="giallo-l"><span>└──────────┬──────────┘</span></span>
+<span class="giallo-l"><span>           ▼</span></span>
+<span class="giallo-l"><span>┌─────────────────────┐</span></span>
+<span class="giallo-l"><span>│  9. Packaging &amp;      │  ← Wire bonding or flip-chip</span></span>
+<span class="giallo-l"><span>│     Testing          │     Wafer test, package test, burn-in</span></span>
+<span class="giallo-l"><span>└─────────────────────┘</span></span></code></pre><h3 id="11-2-rtl-design-languages">11.2 RTL Design Languages</h3>
 <table><thead><tr><th>Language</th><th>Description</th><th>Used By</th></tr></thead><tbody>
 <tr><td><strong>SystemVerilog</strong></td><td>Industry standard, most EDA tool support</td><td>Everyone</td></tr>
 <tr><td><strong>Chisel</strong></td><td>Scala-embedded HDL, parameterized generators</td><td>RISC-V (Rocket, BOOM), academic</td></tr>
@@ -1326,48 +1289,45 @@ TPU v4 uses Optical Circuit Switches (OCS):
 <p>For an accelerator, SystemVerilog is the safest bet for EDA tool compatibility. Chisel is excellent for parameterized designs (e.g., configurable array sizes).</p>
 <h3 id="11-3-logic-synthesis-deep-dive">11.3 Logic Synthesis Deep Dive</h3>
 <p>Synthesis transforms RTL into a gate-level netlist optimized for timing, area, and power:</p>
-<pre><code>Input:  always_ff @(posedge clk)
-          result &lt;= a * b + c;      // behavioral multiply-accumulate
-
-Synthesis steps:
-  1. Elaboration: Build syntax tree, resolve parameters
-  2. GTECH mapping: Convert to generic gates (AND, OR, MUX, FLOP)
-  3. Technology mapping: Map to foundry standard cells
-     - Multiplier → chosen architecture (Booth, Wallace tree, etc.)
-     - Adder → chosen architecture (Kogge-Stone, Brent-Kung, etc.)
-  4. Optimization passes:
-     - Timing: Fix setup violations (resize cells, add buffers)
-     - Area: Share logic, remove redundancy
-     - Power: Clock gating insertion, operand isolation
-
-Output: Netlist of standard cells with timing constraints met
-
-Key constraints file (SDC):
-  create_clock -period 1.0 [get_ports clk]   # 1 GHz target
-  set_input_delay 0.2 -clock clk [all_inputs]
-  set_output_delay 0.2 -clock clk [all_outputs]
-  set_max_area 0                               # minimize area
-</code></pre>
-<h3 id="11-4-physical-design">11.4 Physical Design</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Input:  always_ff @(posedge clk)</span></span>
+<span class="giallo-l"><span>          result &lt;= a * b + c;      // behavioral multiply-accumulate</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Synthesis steps:</span></span>
+<span class="giallo-l"><span>  1. Elaboration: Build syntax tree, resolve parameters</span></span>
+<span class="giallo-l"><span>  2. GTECH mapping: Convert to generic gates (AND, OR, MUX, FLOP)</span></span>
+<span class="giallo-l"><span>  3. Technology mapping: Map to foundry standard cells</span></span>
+<span class="giallo-l"><span>     - Multiplier → chosen architecture (Booth, Wallace tree, etc.)</span></span>
+<span class="giallo-l"><span>     - Adder → chosen architecture (Kogge-Stone, Brent-Kung, etc.)</span></span>
+<span class="giallo-l"><span>  4. Optimization passes:</span></span>
+<span class="giallo-l"><span>     - Timing: Fix setup violations (resize cells, add buffers)</span></span>
+<span class="giallo-l"><span>     - Area: Share logic, remove redundancy</span></span>
+<span class="giallo-l"><span>     - Power: Clock gating insertion, operand isolation</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Output: Netlist of standard cells with timing constraints met</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Key constraints file (SDC):</span></span>
+<span class="giallo-l"><span>  create_clock -period 1.0 [get_ports clk]   # 1 GHz target</span></span>
+<span class="giallo-l"><span>  set_input_delay 0.2 -clock clk [all_inputs]</span></span>
+<span class="giallo-l"><span>  set_output_delay 0.2 -clock clk [all_outputs]</span></span>
+<span class="giallo-l"><span>  set_max_area 0                               # minimize area</span></span></code></pre><h3 id="11-4-physical-design">11.4 Physical Design</h3>
 <p><strong>Floor planning</strong>:</p>
-<pre><code>┌───────────────────────────────────────────┐
-│  I/O Ring (pad cells)                      │
-│  ┌─────────────────────────────────────┐   │
-│  │ ┌─────┐ ┌──────────┐ ┌──────────┐  │   │
-│  │ │SRAM │ │          │ │  SRAM    │  │   │
-│  │ │Macro│ │  Std Cell│ │  Macro   │  │   │
-│  │ │     │ │  Region  │ │          │  │   │
-│  │ └─────┘ │ (Place &amp; │ └──────────┘  │   │
-│  │         │  Route)  │              │   │
-│  │ ┌─────┐ │          │ ┌──────────┐  │   │
-│  │ │PLL  │ │          │ │  HBM PHY │  │   │
-│  │ │     │ │          │ │          │  │   │
-│  │ └─────┘ └──────────┘ └──────────┘  │   │
-│  │                                     │   │
-│  │  Power Grid (VDD/VSS mesh)          │   │
-│  └─────────────────────────────────────┘   │
-└───────────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌───────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│  I/O Ring (pad cells)                      │</span></span>
+<span class="giallo-l"><span>│  ┌─────────────────────────────────────┐   │</span></span>
+<span class="giallo-l"><span>│  │ ┌─────┐ ┌──────────┐ ┌──────────┐  │   │</span></span>
+<span class="giallo-l"><span>│  │ │SRAM │ │          │ │  SRAM    │  │   │</span></span>
+<span class="giallo-l"><span>│  │ │Macro│ │  Std Cell│ │  Macro   │  │   │</span></span>
+<span class="giallo-l"><span>│  │ │     │ │  Region  │ │          │  │   │</span></span>
+<span class="giallo-l"><span>│  │ └─────┘ │ (Place &amp; │ └──────────┘  │   │</span></span>
+<span class="giallo-l"><span>│  │         │  Route)  │              │   │</span></span>
+<span class="giallo-l"><span>│  │ ┌─────┐ │          │ ┌──────────┐  │   │</span></span>
+<span class="giallo-l"><span>│  │ │PLL  │ │          │ │  HBM PHY │  │   │</span></span>
+<span class="giallo-l"><span>│  │ │     │ │          │ │          │  │   │</span></span>
+<span class="giallo-l"><span>│  │ └─────┘ └──────────┘ └──────────┘  │   │</span></span>
+<span class="giallo-l"><span>│  │                                     │   │</span></span>
+<span class="giallo-l"><span>│  │  Power Grid (VDD/VSS mesh)          │   │</span></span>
+<span class="giallo-l"><span>│  └─────────────────────────────────────┘   │</span></span>
+<span class="giallo-l"><span>└───────────────────────────────────────────┘</span></span></code></pre>
 <p><strong>Clock Tree Synthesis (CTS)</strong>:
 The clock must reach every flip-flop at the same time (low skew):</p>
 <ul>
@@ -1380,33 +1340,31 @@ The clock must reach every flip-flop at the same time (low skew):</p>
 <hr />
 <h2 id="12-process-technology-and-transistor-design">12. Process Technology and Transistor Design</h2>
 <h3 id="12-1-finfet-and-beyond">12.1 FinFET and Beyond</h3>
-<pre><code>Planar MOSFET (&gt;22nm):          FinFET (22nm-3nm):
-         Gate                          Gate wraps 3 sides
-          │                            of vertical fin
-  ┌───────┴───────┐             ┌──────┴──────┐
-  │               │             │    ┌───┐    │
-──┤   Channel     ├──           │    │Fin│    │
-  │               │             │    │   │    │
-  └───────────────┘             └────┴───┴────┘
-Source         Drain            Better electrostatic control
-                                → less leakage, better scaling
-
-GAA/Nanosheet (2nm and below):
-         Gate wraps ALL 4 sides
-         of stacked nanosheets
-      ┌──────────────┐
-      │  ┌────────┐  │
-      │  │ Sheet  │  │
-      │  ├────────┤  │
-      │  │ Sheet  │  │
-      │  ├────────┤  │
-      │  │ Sheet  │  │
-      │  └────────┘  │
-      └──────────────┘
-  Even better control, more drive current
-  per footprint (stack more sheets)
-</code></pre>
-<h3 id="12-2-process-node-comparison">12.2 Process Node Comparison</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Planar MOSFET (&gt;22nm):          FinFET (22nm-3nm):</span></span>
+<span class="giallo-l"><span>         Gate                          Gate wraps 3 sides</span></span>
+<span class="giallo-l"><span>          │                            of vertical fin</span></span>
+<span class="giallo-l"><span>  ┌───────┴───────┐             ┌──────┴──────┐</span></span>
+<span class="giallo-l"><span>  │               │             │    ┌───┐    │</span></span>
+<span class="giallo-l"><span>──┤   Channel     ├──           │    │Fin│    │</span></span>
+<span class="giallo-l"><span>  │               │             │    │   │    │</span></span>
+<span class="giallo-l"><span>  └───────────────┘             └────┴───┴────┘</span></span>
+<span class="giallo-l"><span>Source         Drain            Better electrostatic control</span></span>
+<span class="giallo-l"><span>                                → less leakage, better scaling</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>GAA/Nanosheet (2nm and below):</span></span>
+<span class="giallo-l"><span>         Gate wraps ALL 4 sides</span></span>
+<span class="giallo-l"><span>         of stacked nanosheets</span></span>
+<span class="giallo-l"><span>      ┌──────────────┐</span></span>
+<span class="giallo-l"><span>      │  ┌────────┐  │</span></span>
+<span class="giallo-l"><span>      │  │ Sheet  │  │</span></span>
+<span class="giallo-l"><span>      │  ├────────┤  │</span></span>
+<span class="giallo-l"><span>      │  │ Sheet  │  │</span></span>
+<span class="giallo-l"><span>      │  ├────────┤  │</span></span>
+<span class="giallo-l"><span>      │  │ Sheet  │  │</span></span>
+<span class="giallo-l"><span>      │  └────────┘  │</span></span>
+<span class="giallo-l"><span>      └──────────────┘</span></span>
+<span class="giallo-l"><span>  Even better control, more drive current</span></span>
+<span class="giallo-l"><span>  per footprint (stack more sheets)</span></span></code></pre><h3 id="12-2-process-node-comparison">12.2 Process Node Comparison</h3>
 <table><thead><tr><th>Node</th><th>Foundry</th><th>Transistor</th><th>Density</th><th>AI Chips Using It</th></tr></thead><tbody>
 <tr><td><strong>7nm</strong></td><td>TSMC N7</td><td>FinFET</td><td>~91 MTr/mm²</td><td>A100, MI250X</td></tr>
 <tr><td><strong>5nm</strong></td><td>TSMC N5</td><td>FinFET</td><td>~173 MTr/mm²</td><td>M2, Dimensity 9000</td></tr>
@@ -1430,23 +1388,22 @@ GAA/Nanosheet (2nm and below):
 <hr />
 <h2 id="13-memory-design-for-accelerators">13. Memory Design for Accelerators</h2>
 <h3 id="13-1-sram-design">13.1 SRAM Design</h3>
-<pre><code>Standard 6T SRAM Cell:
-         WL (Word Line)
-          │         │
-    BL ──┤M1   M2├── BL_bar
-          │    ×    │
-         ┌┤M3  M4├┐
-   VDD ──┤        ├── VDD
-         └┤M5  M6├┘
-          │       │
-   VSS ───┘       └─── VSS
-
-  Read: Assert WL, sense voltage difference on BL/BL_bar
-  Write: Drive BL/BL_bar to desired value, assert WL
-
-  6T cell size (TSMC 7nm): ~0.027 μm²
-  Typical read latency: 0.5-1 ns (small SRAM), 1-3 ns (large SRAM)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Standard 6T SRAM Cell:</span></span>
+<span class="giallo-l"><span>         WL (Word Line)</span></span>
+<span class="giallo-l"><span>          │         │</span></span>
+<span class="giallo-l"><span>    BL ──┤M1   M2├── BL_bar</span></span>
+<span class="giallo-l"><span>          │    ×    │</span></span>
+<span class="giallo-l"><span>         ┌┤M3  M4├┐</span></span>
+<span class="giallo-l"><span>   VDD ──┤        ├── VDD</span></span>
+<span class="giallo-l"><span>         └┤M5  M6├┘</span></span>
+<span class="giallo-l"><span>          │       │</span></span>
+<span class="giallo-l"><span>   VSS ───┘       └─── VSS</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Read: Assert WL, sense voltage difference on BL/BL_bar</span></span>
+<span class="giallo-l"><span>  Write: Drive BL/BL_bar to desired value, assert WL</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  6T cell size (TSMC 7nm): ~0.027 μm²</span></span>
+<span class="giallo-l"><span>  Typical read latency: 0.5-1 ns (small SRAM), 1-3 ns (large SRAM)</span></span></code></pre>
 <p><strong>SRAM for accelerators</strong>:</p>
 <ul>
 <li>Register file: Multi-port SRAM (2R1W to 8R4W). Expensive in area — each port adds transistors.</li>
@@ -1455,173 +1412,161 @@ GAA/Nanosheet (2nm and below):
 <li>Compiler-generated SRAMs: Foundries provide memory compilers that generate SRAM blocks of any aspect ratio/size</li>
 </ul>
 <p><strong>SRAM vs Register File area</strong>:</p>
-<pre><code>1 KB register file (8R4W, 32-bit words): ~0.05 mm² at 7nm
-1 KB SRAM (single-port):                ~0.002 mm² at 7nm
-→ Register files are ~25× larger per bit than SRAM!
-→ This is why GPU register files dominate die area
-</code></pre>
-<h3 id="13-2-scratchpad-vs-cache">13.2 Scratchpad vs Cache</h3>
-<pre><code>Cache (hardware-managed):
-  + Transparent to software
-  + Handles irregular access patterns
-  - Tag storage overhead (~5-10% area)
-  - Conflict misses waste bandwidth
-  - Non-deterministic latency
-  - Cache coherence complexity
-
-Scratchpad (software-managed):
-  + No tag overhead → more usable storage
-  + Deterministic latency (always hits)
-  + Software controls exactly what&#39;s stored
-  + No coherence needed (private per core)
-  - Programmer/compiler must manage data movement
-  - DMA engines needed for async data transfers
-
-For AI accelerators: Scratchpad wins decisively
-  - Access patterns are regular and predictable
-  - Compiler can perfectly schedule data movement
-  - No wasted area on tags/coherence
-  - Used in: TPU, Cerebras, Groq, most custom ASICs
-</code></pre>
-<h3 id="13-3-hbm-phy-design">13.3 HBM PHY Design</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>1 KB register file (8R4W, 32-bit words): ~0.05 mm² at 7nm</span></span>
+<span class="giallo-l"><span>1 KB SRAM (single-port):                ~0.002 mm² at 7nm</span></span>
+<span class="giallo-l"><span>→ Register files are ~25× larger per bit than SRAM!</span></span>
+<span class="giallo-l"><span>→ This is why GPU register files dominate die area</span></span></code></pre><h3 id="13-2-scratchpad-vs-cache">13.2 Scratchpad vs Cache</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Cache (hardware-managed):</span></span>
+<span class="giallo-l"><span>  + Transparent to software</span></span>
+<span class="giallo-l"><span>  + Handles irregular access patterns</span></span>
+<span class="giallo-l"><span>  - Tag storage overhead (~5-10% area)</span></span>
+<span class="giallo-l"><span>  - Conflict misses waste bandwidth</span></span>
+<span class="giallo-l"><span>  - Non-deterministic latency</span></span>
+<span class="giallo-l"><span>  - Cache coherence complexity</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Scratchpad (software-managed):</span></span>
+<span class="giallo-l"><span>  + No tag overhead → more usable storage</span></span>
+<span class="giallo-l"><span>  + Deterministic latency (always hits)</span></span>
+<span class="giallo-l"><span>  + Software controls exactly what&#39;s stored</span></span>
+<span class="giallo-l"><span>  + No coherence needed (private per core)</span></span>
+<span class="giallo-l"><span>  - Programmer/compiler must manage data movement</span></span>
+<span class="giallo-l"><span>  - DMA engines needed for async data transfers</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>For AI accelerators: Scratchpad wins decisively</span></span>
+<span class="giallo-l"><span>  - Access patterns are regular and predictable</span></span>
+<span class="giallo-l"><span>  - Compiler can perfectly schedule data movement</span></span>
+<span class="giallo-l"><span>  - No wasted area on tags/coherence</span></span>
+<span class="giallo-l"><span>  - Used in: TPU, Cerebras, Groq, most custom ASICs</span></span></code></pre><h3 id="13-3-hbm-phy-design">13.3 HBM PHY Design</h3>
 <p>The HBM physical interface (PHY) is a critical design challenge:</p>
-<pre><code>HBM3 PHY requirements:
-  - 1024 data pins per stack (128 per channel × 8 channels)
-  - Pin speed: 6.4 Gbps
-  - Very short reach (mm-scale on interposer)
-  - Low power per bit (&lt; 3 pJ/bit)
-  - Per-pin training/calibration
-
-  PHY components:
-  ┌─────────────────────────────────────┐
-  │  TX driver (push-pull or CML)       │
-  │  RX receiver (sense amplifier)      │
-  │  DLL/PLL for clock generation       │
-  │  Per-lane deskew and calibration    │
-  │  Command/address interface          │
-  │  DRAM initialization state machine  │
-  │  BIST (Built-In Self-Test)          │
-  └─────────────────────────────────────┘
-
-  You can license HBM PHY IP from:
-  - Synopsys (DesignWare HBM PHY)
-  - Cadence (Denali HBM Controller + PHY)
-  - Rambus
-  Cost: $5-20M for license + royalties
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>HBM3 PHY requirements:</span></span>
+<span class="giallo-l"><span>  - 1024 data pins per stack (128 per channel × 8 channels)</span></span>
+<span class="giallo-l"><span>  - Pin speed: 6.4 Gbps</span></span>
+<span class="giallo-l"><span>  - Very short reach (mm-scale on interposer)</span></span>
+<span class="giallo-l"><span>  - Low power per bit (&lt; 3 pJ/bit)</span></span>
+<span class="giallo-l"><span>  - Per-pin training/calibration</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  PHY components:</span></span>
+<span class="giallo-l"><span>  ┌─────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>  │  TX driver (push-pull or CML)       │</span></span>
+<span class="giallo-l"><span>  │  RX receiver (sense amplifier)      │</span></span>
+<span class="giallo-l"><span>  │  DLL/PLL for clock generation       │</span></span>
+<span class="giallo-l"><span>  │  Per-lane deskew and calibration    │</span></span>
+<span class="giallo-l"><span>  │  Command/address interface          │</span></span>
+<span class="giallo-l"><span>  │  DRAM initialization state machine  │</span></span>
+<span class="giallo-l"><span>  │  BIST (Built-In Self-Test)          │</span></span>
+<span class="giallo-l"><span>  └─────────────────────────────────────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  You can license HBM PHY IP from:</span></span>
+<span class="giallo-l"><span>  - Synopsys (DesignWare HBM PHY)</span></span>
+<span class="giallo-l"><span>  - Cadence (Denali HBM Controller + PHY)</span></span>
+<span class="giallo-l"><span>  - Rambus</span></span>
+<span class="giallo-l"><span>  Cost: $5-20M for license + royalties</span></span></code></pre>
 <hr />
 <h2 id="14-power-delivery-and-thermal-design">14. Power Delivery and Thermal Design</h2>
 <h3 id="14-1-power-breakdown-of-a-typical-ai-chip">14.1 Power Breakdown of a Typical AI Chip</h3>
-<pre><code>H100 power breakdown (estimated ~700W TDP):
-
-  Tensor Cores + FP units:   ~35%  (245W)  ← Switching power in MACs
-  Register files:            ~15%  (105W)  ← High port count, large
-  SRAM (shared mem + L2):    ~12%  (84W)   ← Leakage-dominated at 4nm
-  Memory controllers + PHY:  ~15%  (105W)  ← SerDes, HBM PHY
-  NoC / Interconnect:        ~8%   (56W)   ← Crossbar, routers
-  Clock distribution:        ~8%   (56W)   ← Clock tree buffers
-  I/O (PCIe, NVLink):        ~5%   (35W)   ← SerDes transceivers
-  Other (control, misc):     ~2%   (14W)
-
-Power equation:
-  P_dynamic = α × C × V² × f
-    α = activity factor (0.1-0.3 typical)
-    C = total capacitance
-    V = supply voltage (~0.75V at 4nm)
-    f = clock frequency (~1.5-2 GHz)
-
-  P_leakage = I_leak × V
-    Grows exponentially with temperature and smaller nodes
-    At 3nm: leakage can be 30-50% of total power!
-</code></pre>
-<h3 id="14-2-power-management-techniques">14.2 Power Management Techniques</h3>
-<pre><code>Clock Gating:
-  - Gate the clock to inactive units
-  - Most effective technique (saves α × C × V² × f)
-  - Synthesis tools auto-insert clock gating for enable-guarded registers
-  - Coarse-grained: gate entire blocks (e.g., unused Tensor Cores)
-  - Fine-grained: gate individual register banks
-
-Power Gating:
-  - Cut VDD to sleeping blocks using header/footer switches
-  - Eliminates leakage (important at advanced nodes)
-  - Requires retention registers for state preservation
-  - Wake-up latency: ~100-1000 ns (must charge up local decaps)
-
-DVFS (Dynamic Voltage-Frequency Scaling):
-  - Reduce voltage + frequency together for power savings
-  - P ∝ V²f → halving V+f gives 8× power reduction
-  - Requires on-chip voltage regulators (LDO or buck converter)
-  - Typical GPU: 0.6V-1.1V range, 500 MHz-2 GHz
-
-  For AI accelerators:
-  - Prefill phase: max voltage, max frequency (compute-bound)
-  - Decode phase: reduce voltage, reduce frequency (memory-bound anyway)
-  - Save 30-50% power during decode with minimal performance impact
-</code></pre>
-<h3 id="14-3-cooling">14.3 Cooling</h3>
-<pre><code>                   AI Chip Cooling Solutions
-
-Air Cooling:        Liquid Cooling:       Immersion:
-  ┌─────────┐         ┌─────────┐          ┌─────────┐
-  │ Heatsink│         │Cold Plate│          │         │
-  │ + Fans  │         │ (water)  │          │ Dielectr│
-  │         │         │         │          │ Fluid    │
-  └────┬────┘         └────┬────┘          │ (entire │
-       │                   │               │ server  │
-  Max ~400W            Max ~1000W          │ submerge│
-  Typical data         Used in H100        │ d)      │
-  center GPU           DGX systems         └─────────┘
-                                           Max ~1500W+
-                                           Most efficient
-                                           TPU v3+ uses direct liquid
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>H100 power breakdown (estimated ~700W TDP):</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Tensor Cores + FP units:   ~35%  (245W)  ← Switching power in MACs</span></span>
+<span class="giallo-l"><span>  Register files:            ~15%  (105W)  ← High port count, large</span></span>
+<span class="giallo-l"><span>  SRAM (shared mem + L2):    ~12%  (84W)   ← Leakage-dominated at 4nm</span></span>
+<span class="giallo-l"><span>  Memory controllers + PHY:  ~15%  (105W)  ← SerDes, HBM PHY</span></span>
+<span class="giallo-l"><span>  NoC / Interconnect:        ~8%   (56W)   ← Crossbar, routers</span></span>
+<span class="giallo-l"><span>  Clock distribution:        ~8%   (56W)   ← Clock tree buffers</span></span>
+<span class="giallo-l"><span>  I/O (PCIe, NVLink):        ~5%   (35W)   ← SerDes transceivers</span></span>
+<span class="giallo-l"><span>  Other (control, misc):     ~2%   (14W)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Power equation:</span></span>
+<span class="giallo-l"><span>  P_dynamic = α × C × V² × f</span></span>
+<span class="giallo-l"><span>    α = activity factor (0.1-0.3 typical)</span></span>
+<span class="giallo-l"><span>    C = total capacitance</span></span>
+<span class="giallo-l"><span>    V = supply voltage (~0.75V at 4nm)</span></span>
+<span class="giallo-l"><span>    f = clock frequency (~1.5-2 GHz)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  P_leakage = I_leak × V</span></span>
+<span class="giallo-l"><span>    Grows exponentially with temperature and smaller nodes</span></span>
+<span class="giallo-l"><span>    At 3nm: leakage can be 30-50% of total power!</span></span></code></pre><h3 id="14-2-power-management-techniques">14.2 Power Management Techniques</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Clock Gating:</span></span>
+<span class="giallo-l"><span>  - Gate the clock to inactive units</span></span>
+<span class="giallo-l"><span>  - Most effective technique (saves α × C × V² × f)</span></span>
+<span class="giallo-l"><span>  - Synthesis tools auto-insert clock gating for enable-guarded registers</span></span>
+<span class="giallo-l"><span>  - Coarse-grained: gate entire blocks (e.g., unused Tensor Cores)</span></span>
+<span class="giallo-l"><span>  - Fine-grained: gate individual register banks</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Power Gating:</span></span>
+<span class="giallo-l"><span>  - Cut VDD to sleeping blocks using header/footer switches</span></span>
+<span class="giallo-l"><span>  - Eliminates leakage (important at advanced nodes)</span></span>
+<span class="giallo-l"><span>  - Requires retention registers for state preservation</span></span>
+<span class="giallo-l"><span>  - Wake-up latency: ~100-1000 ns (must charge up local decaps)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>DVFS (Dynamic Voltage-Frequency Scaling):</span></span>
+<span class="giallo-l"><span>  - Reduce voltage + frequency together for power savings</span></span>
+<span class="giallo-l"><span>  - P ∝ V²f → halving V+f gives 8× power reduction</span></span>
+<span class="giallo-l"><span>  - Requires on-chip voltage regulators (LDO or buck converter)</span></span>
+<span class="giallo-l"><span>  - Typical GPU: 0.6V-1.1V range, 500 MHz-2 GHz</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  For AI accelerators:</span></span>
+<span class="giallo-l"><span>  - Prefill phase: max voltage, max frequency (compute-bound)</span></span>
+<span class="giallo-l"><span>  - Decode phase: reduce voltage, reduce frequency (memory-bound anyway)</span></span>
+<span class="giallo-l"><span>  - Save 30-50% power during decode with minimal performance impact</span></span></code></pre><h3 id="14-3-cooling">14.3 Cooling</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                   AI Chip Cooling Solutions</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Air Cooling:        Liquid Cooling:       Immersion:</span></span>
+<span class="giallo-l"><span>  ┌─────────┐         ┌─────────┐          ┌─────────┐</span></span>
+<span class="giallo-l"><span>  │ Heatsink│         │Cold Plate│          │         │</span></span>
+<span class="giallo-l"><span>  │ + Fans  │         │ (water)  │          │ Dielectr│</span></span>
+<span class="giallo-l"><span>  │         │         │         │          │ Fluid    │</span></span>
+<span class="giallo-l"><span>  └────┬────┘         └────┬────┘          │ (entire │</span></span>
+<span class="giallo-l"><span>       │                   │               │ server  │</span></span>
+<span class="giallo-l"><span>  Max ~400W            Max ~1000W          │ submerge│</span></span>
+<span class="giallo-l"><span>  Typical data         Used in H100        │ d)      │</span></span>
+<span class="giallo-l"><span>  center GPU           DGX systems         └─────────┘</span></span>
+<span class="giallo-l"><span>                                           Max ~1500W+</span></span>
+<span class="giallo-l"><span>                                           Most efficient</span></span>
+<span class="giallo-l"><span>                                           TPU v3+ uses direct liquid</span></span></code></pre>
 <hr />
 <h2 id="15-verification-testing-and-tapeout">15. Verification, Testing, and Tapeout</h2>
 <h3 id="15-1-verification-landscape">15.1 Verification Landscape</h3>
 <p>Verification typically consumes <strong>60-70% of total design effort</strong>:</p>
-<pre><code>                    Verification Methods
-
-Coverage:           Cost:           Completeness:
-  ▲                   ▲                   ▲
-  │ Formal            │                   │ Formal
-  │ Verification      │                   │
-  │                   │ Emulation         │
-  │ Emulation         │ ($10M+)          │ Emulation
-  │                   │                   │
-  │ Simulation        │ Formal           │ Simulation
-  │ (UVM)             │                   │
-  │                   │ FPGA Proto       │ FPGA Proto
-  │ FPGA              │                   │
-  │ Prototyping       │ Simulation       │
-  └──────────────     └─────────────     └──────────────
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                    Verification Methods</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Coverage:           Cost:           Completeness:</span></span>
+<span class="giallo-l"><span>  ▲                   ▲                   ▲</span></span>
+<span class="giallo-l"><span>  │ Formal            │                   │ Formal</span></span>
+<span class="giallo-l"><span>  │ Verification      │                   │</span></span>
+<span class="giallo-l"><span>  │                   │ Emulation         │</span></span>
+<span class="giallo-l"><span>  │ Emulation         │ ($10M+)          │ Emulation</span></span>
+<span class="giallo-l"><span>  │                   │                   │</span></span>
+<span class="giallo-l"><span>  │ Simulation        │ Formal           │ Simulation</span></span>
+<span class="giallo-l"><span>  │ (UVM)             │                   │</span></span>
+<span class="giallo-l"><span>  │                   │ FPGA Proto       │ FPGA Proto</span></span>
+<span class="giallo-l"><span>  │ FPGA              │                   │</span></span>
+<span class="giallo-l"><span>  │ Prototyping       │ Simulation       │</span></span>
+<span class="giallo-l"><span>  └──────────────     └─────────────     └──────────────</span></span></code></pre>
 <p><strong>UVM (Universal Verification Methodology)</strong>:</p>
-<pre><code>┌──────────────────────────────────────┐
-│          UVM Testbench               │
-│                                      │
-│  ┌─────────┐  ┌───────────────────┐  │
-│  │Sequencer│→ │    Driver          │  │
-│  │(stimulus│  │ (drives DUT pins)  │──┼──→ DUT
-│  │ gen)    │  └───────────────────┘  │
-│  └─────────┘                         │
-│               ┌───────────────────┐  │
-│               │   Monitor         │←─┼──  DUT outputs
-│               │ (samples DUT)     │  │
-│               └────────┬──────────┘  │
-│                        │             │
-│               ┌────────▼──────────┐  │
-│               │   Scoreboard      │  │
-│               │ (check expected   │  │
-│               │  vs actual)       │  │
-│               └───────────────────┘  │
-│                                      │
-│  ┌─────────────────────────────────┐ │
-│  │ Coverage Collector              │ │
-│  │ (functional + code coverage)    │ │
-│  └─────────────────────────────────┘ │
-└──────────────────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌──────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│          UVM Testbench               │</span></span>
+<span class="giallo-l"><span>│                                      │</span></span>
+<span class="giallo-l"><span>│  ┌─────────┐  ┌───────────────────┐  │</span></span>
+<span class="giallo-l"><span>│  │Sequencer│→ │    Driver          │  │</span></span>
+<span class="giallo-l"><span>│  │(stimulus│  │ (drives DUT pins)  │──┼──→ DUT</span></span>
+<span class="giallo-l"><span>│  │ gen)    │  └───────────────────┘  │</span></span>
+<span class="giallo-l"><span>│  └─────────┘                         │</span></span>
+<span class="giallo-l"><span>│               ┌───────────────────┐  │</span></span>
+<span class="giallo-l"><span>│               │   Monitor         │←─┼──  DUT outputs</span></span>
+<span class="giallo-l"><span>│               │ (samples DUT)     │  │</span></span>
+<span class="giallo-l"><span>│               └────────┬──────────┘  │</span></span>
+<span class="giallo-l"><span>│                        │             │</span></span>
+<span class="giallo-l"><span>│               ┌────────▼──────────┐  │</span></span>
+<span class="giallo-l"><span>│               │   Scoreboard      │  │</span></span>
+<span class="giallo-l"><span>│               │ (check expected   │  │</span></span>
+<span class="giallo-l"><span>│               │  vs actual)       │  │</span></span>
+<span class="giallo-l"><span>│               └───────────────────┘  │</span></span>
+<span class="giallo-l"><span>│                                      │</span></span>
+<span class="giallo-l"><span>│  ┌─────────────────────────────────┐ │</span></span>
+<span class="giallo-l"><span>│  │ Coverage Collector              │ │</span></span>
+<span class="giallo-l"><span>│  │ (functional + code coverage)    │ │</span></span>
+<span class="giallo-l"><span>│  └─────────────────────────────────┘ │</span></span>
+<span class="giallo-l"><span>└──────────────────────────────────────┘</span></span></code></pre>
 <p><strong>Formal verification</strong>: Mathematically prove properties hold for ALL possible inputs (not just tested ones). Essential for:</p>
 <ul>
 <li>Protocol compliance (AXI, cache coherence)</li>
@@ -1629,70 +1574,65 @@ Coverage:           Cost:           Completeness:
 <li>Arithmetic correctness (multiplier, FPU)</li>
 </ul>
 <h3 id="15-2-dft-design-for-testability">15.2 DFT (Design for Testability)</h3>
-<pre><code>Scan Chain (for post-silicon manufacturing test):
-
-  Normal mode:  D → FF → Q        (functional operation)
-  Scan mode:    SI → FF → SO       (shift test patterns through chain)
-
-  ┌──────┐    ┌──────┐    ┌──────┐    ┌──────┐
-  │ FF 1 │───→│ FF 2 │───→│ FF 3 │───→│ FF N │───→ Scan Out
-  └──────┘    └──────┘    └──────┘    └──────┘
-  Scan In ───→
-
-  Process:
-  1. Shift test pattern in (scan mode)
-  2. Apply one clock in normal mode (capture)
-  3. Shift results out (scan mode)
-  4. Compare with expected results (detect manufacturing defects)
-
-Memory BIST (Built-In Self-Test):
-  - On-chip state machine that tests every SRAM bit
-  - March test patterns: March C- (march through 0s and 1s)
-  - Detects stuck-at faults, address decoder faults, coupling faults
-  - Repair: redundant rows/columns activated for faulty cells
-</code></pre>
-<h3 id="15-3-fpga-prototyping">15.3 FPGA Prototyping</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Scan Chain (for post-silicon manufacturing test):</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Normal mode:  D → FF → Q        (functional operation)</span></span>
+<span class="giallo-l"><span>  Scan mode:    SI → FF → SO       (shift test patterns through chain)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  ┌──────┐    ┌──────┐    ┌──────┐    ┌──────┐</span></span>
+<span class="giallo-l"><span>  │ FF 1 │───→│ FF 2 │───→│ FF 3 │───→│ FF N │───→ Scan Out</span></span>
+<span class="giallo-l"><span>  └──────┘    └──────┘    └──────┘    └──────┘</span></span>
+<span class="giallo-l"><span>  Scan In ───→</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Process:</span></span>
+<span class="giallo-l"><span>  1. Shift test pattern in (scan mode)</span></span>
+<span class="giallo-l"><span>  2. Apply one clock in normal mode (capture)</span></span>
+<span class="giallo-l"><span>  3. Shift results out (scan mode)</span></span>
+<span class="giallo-l"><span>  4. Compare with expected results (detect manufacturing defects)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Memory BIST (Built-In Self-Test):</span></span>
+<span class="giallo-l"><span>  - On-chip state machine that tests every SRAM bit</span></span>
+<span class="giallo-l"><span>  - March test patterns: March C- (march through 0s and 1s)</span></span>
+<span class="giallo-l"><span>  - Detects stuck-at faults, address decoder faults, coupling faults</span></span>
+<span class="giallo-l"><span>  - Repair: redundant rows/columns activated for faulty cells</span></span></code></pre><h3 id="15-3-fpga-prototyping">15.3 FPGA Prototyping</h3>
 <p>Before tapeout, verify the full design on FPGAs:</p>
-<pre><code>FPGA Prototyping Platforms:
-
-  Synopsys HAPS-100: Up to 4× VU19P FPGAs (~160M ASIC gates)
-  Cadence Protium X2: Similar scale, automated partitioning
-  Custom: Multiple Xilinx Alveo U280 or Intel Stratix 10
-
-  Typical speed: 10-50 MHz (vs 1+ GHz in silicon)
-  Good for: Software development, system validation, boot tests
-
-  For an AI accelerator:
-  - Implement a single PE or small 4×4 array on one FPGA
-  - Validate dataflow, memory interface, control logic
-  - Run actual inference workloads at reduced speed
-  - Catch bugs that simulation would take years to find
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>FPGA Prototyping Platforms:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Synopsys HAPS-100: Up to 4× VU19P FPGAs (~160M ASIC gates)</span></span>
+<span class="giallo-l"><span>  Cadence Protium X2: Similar scale, automated partitioning</span></span>
+<span class="giallo-l"><span>  Custom: Multiple Xilinx Alveo U280 or Intel Stratix 10</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Typical speed: 10-50 MHz (vs 1+ GHz in silicon)</span></span>
+<span class="giallo-l"><span>  Good for: Software development, system validation, boot tests</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  For an AI accelerator:</span></span>
+<span class="giallo-l"><span>  - Implement a single PE or small 4×4 array on one FPGA</span></span>
+<span class="giallo-l"><span>  - Validate dataflow, memory interface, control logic</span></span>
+<span class="giallo-l"><span>  - Run actual inference workloads at reduced speed</span></span>
+<span class="giallo-l"><span>  - Catch bugs that simulation would take years to find</span></span></code></pre>
 <hr />
 <h2 id="16-open-source-chip-design">16. Open-Source Chip Design</h2>
 <h3 id="16-1-open-source-rtl-to-gdsii-flow">16.1 Open-Source RTL-to-GDSII Flow</h3>
-<pre><code>┌─────────────────────────────────────────────────┐
-│              OpenLane 2 / OpenROAD Flow          │
-│                                                 │
-│  RTL ──→ Yosys (synthesis)                      │
-│      ──→ OpenSTA (timing analysis)              │
-│      ──→ OpenROAD:                              │
-│           - RePlAce (global placement)          │
-│           - TritonCTS (clock tree synthesis)     │
-│           - FastRoute + TritonRoute (routing)   │
-│           - OpenRCX (parasitic extraction)       │
-│      ──→ Magic (DRC, LVS)                       │
-│      ──→ KLayout (GDS viewing, DRC)             │
-│      ──→ GDSII output                           │
-│                                                 │
-│  Supported PDKs:                                │
-│  - SkyWater 130nm (SKY130) — Google-sponsored   │
-│  - GlobalFoundries 180nm (GF180MCU)             │
-│  - IHP 130nm (SG13G2) — with SiGe BiCMOS       │
-│  - ASAP7 (academic predictive 7nm)              │
-└─────────────────────────────────────────────────┘
-</code></pre>
-<h3 id="16-2-open-source-accelerator-projects">16.2 Open-Source Accelerator Projects</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│              OpenLane 2 / OpenROAD Flow          │</span></span>
+<span class="giallo-l"><span>│                                                 │</span></span>
+<span class="giallo-l"><span>│  RTL ──→ Yosys (synthesis)                      │</span></span>
+<span class="giallo-l"><span>│      ──→ OpenSTA (timing analysis)              │</span></span>
+<span class="giallo-l"><span>│      ──→ OpenROAD:                              │</span></span>
+<span class="giallo-l"><span>│           - RePlAce (global placement)          │</span></span>
+<span class="giallo-l"><span>│           - TritonCTS (clock tree synthesis)     │</span></span>
+<span class="giallo-l"><span>│           - FastRoute + TritonRoute (routing)   │</span></span>
+<span class="giallo-l"><span>│           - OpenRCX (parasitic extraction)       │</span></span>
+<span class="giallo-l"><span>│      ──→ Magic (DRC, LVS)                       │</span></span>
+<span class="giallo-l"><span>│      ──→ KLayout (GDS viewing, DRC)             │</span></span>
+<span class="giallo-l"><span>│      ──→ GDSII output                           │</span></span>
+<span class="giallo-l"><span>│                                                 │</span></span>
+<span class="giallo-l"><span>│  Supported PDKs:                                │</span></span>
+<span class="giallo-l"><span>│  - SkyWater 130nm (SKY130) — Google-sponsored   │</span></span>
+<span class="giallo-l"><span>│  - GlobalFoundries 180nm (GF180MCU)             │</span></span>
+<span class="giallo-l"><span>│  - IHP 130nm (SG13G2) — with SiGe BiCMOS       │</span></span>
+<span class="giallo-l"><span>│  - ASAP7 (academic predictive 7nm)              │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────┘</span></span></code></pre><h3 id="16-2-open-source-accelerator-projects">16.2 Open-Source Accelerator Projects</h3>
 <table><thead><tr><th>Project</th><th>Description</th><th>Language</th></tr></thead><tbody>
 <tr><td><strong>NVDLA</strong></td><td>NVIDIA inference accelerator</td><td>SystemVerilog</td></tr>
 <tr><td><strong>Gemmini</strong></td><td>Berkeley systolic array generator (RISC-V)</td><td>Chisel</td></tr>
@@ -1713,173 +1653,163 @@ Memory BIST (Built-In Self-Test):
 <hr />
 <h2 id="17-practical-path-to-building-your-own-chip">17. Practical Path to Building Your Own Chip</h2>
 <h3 id="17-1-recommended-learning-path">17.1 Recommended Learning Path</h3>
-<pre><code>Phase 1: FUNDAMENTALS (3-6 months)
-  ├── Learn SystemVerilog (or Chisel)
-  ├── Implement basic components: ALU, register file, SRAM controller
-  ├── Build a simple RISC-V CPU (from scratch or modify VexRiscv)
-  ├── Learn UVM basics for verification
-  └── Tool: Verilator (free simulator), GTKWave (waveform viewer)
-
-Phase 2: ACCELERATOR DESIGN (3-6 months)
-  ├── Design a small systolic array (8×8, INT8)
-  ├── Add scratchpad memory and DMA engine
-  ├── Implement weight stationary dataflow
-  ├── Connect to RISC-V host via AXI/RoCC
-  ├── Run a small neural network (MNIST MLP)
-  └── Tool: Gemmini (study and modify), Timeloop (explore design space)
-
-Phase 3: FPGA PROTOTYPING (3-6 months)
-  ├── Synthesize your design for Xilinx FPGA (Vivado)
-  ├── Target a board: Alveo U250/U280 or Zynq UltraScale+
-  ├── Validate with real workloads at reduced clock
-  ├── Profile: utilization, bandwidth, throughput
-  ├── Iterate on design (this is where most bugs are found)
-  └── Tool: Vivado, Vitis HLS for comparison
-
-Phase 4: ASIC TAPEOUT (6-12 months)
-  ├── Port design to ASIC flow (OpenLane or commercial)
-  ├── Target SkyWater 130nm (free) or GF 12nm (funded)
-  ├── Physical design: floor plan, power grid, timing closure
-  ├── Verification: DRC, LVS, STA sign-off
-  ├── Submit to Efabless shuttle (or commercial foundry)
-  └── Tool: OpenLane, OpenROAD, Magic, KLayout
-
-Phase 5: SCALING (ongoing)
-  ├── Move to advanced node (7nm+) — requires $50M+ or VC funding
-  ├── Add HBM integration (license PHY IP)
-  ├── Multi-die / chiplet architecture
-  ├── Build compiler stack (MLIR/TVM/XLA-based)
-  └── This is where it becomes a company, not a project
-</code></pre>
-<h3 id="17-2-cost-estimates">17.2 Cost Estimates</h3>
-<pre><code>Hobby/Academic (SkyWater 130nm):
-  Tools: Free (open-source)
-  Fabrication: Free (Efabless shuttle)
-  FPGA board: $200-$3000
-  Total: $500-$5000
-
-Startup MVP (GF 22nm or TSMC 28nm):
-  EDA tools: $500K-$2M/year (Synopsys/Cadence/Siemens)
-  Design team: 5-10 engineers × $200K = $1-2M/year
-  IP licenses: $1-3M (PHY, memory compiler, bus fabric)
-  Fabrication: $2-5M (mask set + wafers)
-  Total: $5-15M for first chip
-
-Competitive AI Chip (TSMC 5nm/4nm):
-  EDA tools: $5-10M/year
-  Design team: 50-200 engineers
-  IP licenses: $10-30M
-  Fabrication: $25-50M (mask set alone)
-  Packaging (CoWoS + HBM): $20-50M setup
-  Total: $100-500M for first chip
-  (This is why Cerebras, Groq, Tenstorrent raised $100M+)
-</code></pre>
-<h3 id="17-3-critical-decisions-for-your-chip">17.3 Critical Decisions for Your Chip</h3>
-<pre><code>1. WHAT WORKLOAD?
-   - Training only → need HBM, high compute, all-reduce support
-   - Inference only → can use SRAM-heavy design, lower power
-   - Transformer-specific → can hardcode attention/softmax
-   - General ML → need programmability (GPU-like or CGRA)
-
-2. WHAT PRECISION?
-   - FP8/BF16 minimum for training
-   - INT8/INT4 sufficient for inference
-   - Consider MX formats for best efficiency
-
-3. WHAT SCALE?
-   - Single chip inference → simpler, focus on memory BW
-   - Multi-chip training → need high-BW interconnect (expensive!)
-
-4. PROGRAMMABILITY vs EFFICIENCY?
-   - Fully programmable (GPU-like): Max flexibility, lower efficiency
-   - Configurable (CGRA): Good balance
-   - Fixed-function (TPU-like): Highest efficiency, limited scope
-   - Hardcoded (Etched-like): Max efficiency, one architecture only
-
-5. MEMORY ARCHITECTURE?
-   - HBM: High bandwidth, expensive, needs interposer
-   - LPDDR5: Cheaper, lower bandwidth, simpler packaging
-   - SRAM-only (Cerebras/Groq): Massive on-chip, limited capacity
-   - Hybrid: SRAM scratchpad + HBM backing store (most common)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Phase 1: FUNDAMENTALS (3-6 months)</span></span>
+<span class="giallo-l"><span>  ├── Learn SystemVerilog (or Chisel)</span></span>
+<span class="giallo-l"><span>  ├── Implement basic components: ALU, register file, SRAM controller</span></span>
+<span class="giallo-l"><span>  ├── Build a simple RISC-V CPU (from scratch or modify VexRiscv)</span></span>
+<span class="giallo-l"><span>  ├── Learn UVM basics for verification</span></span>
+<span class="giallo-l"><span>  └── Tool: Verilator (free simulator), GTKWave (waveform viewer)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Phase 2: ACCELERATOR DESIGN (3-6 months)</span></span>
+<span class="giallo-l"><span>  ├── Design a small systolic array (8×8, INT8)</span></span>
+<span class="giallo-l"><span>  ├── Add scratchpad memory and DMA engine</span></span>
+<span class="giallo-l"><span>  ├── Implement weight stationary dataflow</span></span>
+<span class="giallo-l"><span>  ├── Connect to RISC-V host via AXI/RoCC</span></span>
+<span class="giallo-l"><span>  ├── Run a small neural network (MNIST MLP)</span></span>
+<span class="giallo-l"><span>  └── Tool: Gemmini (study and modify), Timeloop (explore design space)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Phase 3: FPGA PROTOTYPING (3-6 months)</span></span>
+<span class="giallo-l"><span>  ├── Synthesize your design for Xilinx FPGA (Vivado)</span></span>
+<span class="giallo-l"><span>  ├── Target a board: Alveo U250/U280 or Zynq UltraScale+</span></span>
+<span class="giallo-l"><span>  ├── Validate with real workloads at reduced clock</span></span>
+<span class="giallo-l"><span>  ├── Profile: utilization, bandwidth, throughput</span></span>
+<span class="giallo-l"><span>  ├── Iterate on design (this is where most bugs are found)</span></span>
+<span class="giallo-l"><span>  └── Tool: Vivado, Vitis HLS for comparison</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Phase 4: ASIC TAPEOUT (6-12 months)</span></span>
+<span class="giallo-l"><span>  ├── Port design to ASIC flow (OpenLane or commercial)</span></span>
+<span class="giallo-l"><span>  ├── Target SkyWater 130nm (free) or GF 12nm (funded)</span></span>
+<span class="giallo-l"><span>  ├── Physical design: floor plan, power grid, timing closure</span></span>
+<span class="giallo-l"><span>  ├── Verification: DRC, LVS, STA sign-off</span></span>
+<span class="giallo-l"><span>  ├── Submit to Efabless shuttle (or commercial foundry)</span></span>
+<span class="giallo-l"><span>  └── Tool: OpenLane, OpenROAD, Magic, KLayout</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Phase 5: SCALING (ongoing)</span></span>
+<span class="giallo-l"><span>  ├── Move to advanced node (7nm+) — requires $50M+ or VC funding</span></span>
+<span class="giallo-l"><span>  ├── Add HBM integration (license PHY IP)</span></span>
+<span class="giallo-l"><span>  ├── Multi-die / chiplet architecture</span></span>
+<span class="giallo-l"><span>  ├── Build compiler stack (MLIR/TVM/XLA-based)</span></span>
+<span class="giallo-l"><span>  └── This is where it becomes a company, not a project</span></span></code></pre><h3 id="17-2-cost-estimates">17.2 Cost Estimates</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Hobby/Academic (SkyWater 130nm):</span></span>
+<span class="giallo-l"><span>  Tools: Free (open-source)</span></span>
+<span class="giallo-l"><span>  Fabrication: Free (Efabless shuttle)</span></span>
+<span class="giallo-l"><span>  FPGA board: $200-$3000</span></span>
+<span class="giallo-l"><span>  Total: $500-$5000</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Startup MVP (GF 22nm or TSMC 28nm):</span></span>
+<span class="giallo-l"><span>  EDA tools: $500K-$2M/year (Synopsys/Cadence/Siemens)</span></span>
+<span class="giallo-l"><span>  Design team: 5-10 engineers × $200K = $1-2M/year</span></span>
+<span class="giallo-l"><span>  IP licenses: $1-3M (PHY, memory compiler, bus fabric)</span></span>
+<span class="giallo-l"><span>  Fabrication: $2-5M (mask set + wafers)</span></span>
+<span class="giallo-l"><span>  Total: $5-15M for first chip</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Competitive AI Chip (TSMC 5nm/4nm):</span></span>
+<span class="giallo-l"><span>  EDA tools: $5-10M/year</span></span>
+<span class="giallo-l"><span>  Design team: 50-200 engineers</span></span>
+<span class="giallo-l"><span>  IP licenses: $10-30M</span></span>
+<span class="giallo-l"><span>  Fabrication: $25-50M (mask set alone)</span></span>
+<span class="giallo-l"><span>  Packaging (CoWoS + HBM): $20-50M setup</span></span>
+<span class="giallo-l"><span>  Total: $100-500M for first chip</span></span>
+<span class="giallo-l"><span>  (This is why Cerebras, Groq, Tenstorrent raised $100M+)</span></span></code></pre><h3 id="17-3-critical-decisions-for-your-chip">17.3 Critical Decisions for Your Chip</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>1. WHAT WORKLOAD?</span></span>
+<span class="giallo-l"><span>   - Training only → need HBM, high compute, all-reduce support</span></span>
+<span class="giallo-l"><span>   - Inference only → can use SRAM-heavy design, lower power</span></span>
+<span class="giallo-l"><span>   - Transformer-specific → can hardcode attention/softmax</span></span>
+<span class="giallo-l"><span>   - General ML → need programmability (GPU-like or CGRA)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>2. WHAT PRECISION?</span></span>
+<span class="giallo-l"><span>   - FP8/BF16 minimum for training</span></span>
+<span class="giallo-l"><span>   - INT8/INT4 sufficient for inference</span></span>
+<span class="giallo-l"><span>   - Consider MX formats for best efficiency</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>3. WHAT SCALE?</span></span>
+<span class="giallo-l"><span>   - Single chip inference → simpler, focus on memory BW</span></span>
+<span class="giallo-l"><span>   - Multi-chip training → need high-BW interconnect (expensive!)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>4. PROGRAMMABILITY vs EFFICIENCY?</span></span>
+<span class="giallo-l"><span>   - Fully programmable (GPU-like): Max flexibility, lower efficiency</span></span>
+<span class="giallo-l"><span>   - Configurable (CGRA): Good balance</span></span>
+<span class="giallo-l"><span>   - Fixed-function (TPU-like): Highest efficiency, limited scope</span></span>
+<span class="giallo-l"><span>   - Hardcoded (Etched-like): Max efficiency, one architecture only</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>5. MEMORY ARCHITECTURE?</span></span>
+<span class="giallo-l"><span>   - HBM: High bandwidth, expensive, needs interposer</span></span>
+<span class="giallo-l"><span>   - LPDDR5: Cheaper, lower bandwidth, simpler packaging</span></span>
+<span class="giallo-l"><span>   - SRAM-only (Cerebras/Groq): Massive on-chip, limited capacity</span></span>
+<span class="giallo-l"><span>   - Hybrid: SRAM scratchpad + HBM backing store (most common)</span></span></code></pre>
 <hr />
 <h2 id="18-performance-analysis-roofline-model">18. Performance Analysis: Roofline Model</h2>
 <h3 id="18-1-roofline-for-ai-accelerators">18.1 Roofline for AI Accelerators</h3>
-<pre><code>Performance           Compute Ceiling
-(FLOPS)              ─────────────────────────────────
-   │                /
-   │               / ← Memory BW ceiling (slope = BW)
-   │              /
-   │             /
-   │            /
-   │           /
-   │          /  Ridge point = Peak FLOPS / Peak BW
-   │         /   (operational intensity where compute = memory)
-   │        /
-   │       /
-   │      /
-   │     /
-   │    /
-   │   /
-   └──/──────────────────────────────────
-      Arithmetic Intensity (FLOPS/Byte)
-
-H100 Roofline:
-  Peak BF16 Tensor: 990 TFLOPS
-  Peak HBM BW: 3.35 TB/s
-  Ridge point: 990T / 3.35T = 295 FLOPS/byte
-
-  Operation         | AI (FLOPS/byte) | Bound
-  ─────────────────────────────────────────────
-  GEMM (large batch)| 1000+           | Compute
-  GEMM (batch=1)    | 1-2             | Memory
-  Attention (long)  | 100+            | Compute
-  Softmax           | ~5              | Memory
-  LayerNorm         | ~10             | Memory
-  Activation (ReLU) | ~0.25           | Memory
-  Embedding lookup  | ~0.5            | Memory
-</code></pre>
-<h3 id="18-2-designing-for-the-right-ridge-point">18.2 Designing for the Right Ridge Point</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Performance           Compute Ceiling</span></span>
+<span class="giallo-l"><span>(FLOPS)              ─────────────────────────────────</span></span>
+<span class="giallo-l"><span>   │                /</span></span>
+<span class="giallo-l"><span>   │               / ← Memory BW ceiling (slope = BW)</span></span>
+<span class="giallo-l"><span>   │              /</span></span>
+<span class="giallo-l"><span>   │             /</span></span>
+<span class="giallo-l"><span>   │            /</span></span>
+<span class="giallo-l"><span>   │           /</span></span>
+<span class="giallo-l"><span>   │          /  Ridge point = Peak FLOPS / Peak BW</span></span>
+<span class="giallo-l"><span>   │         /   (operational intensity where compute = memory)</span></span>
+<span class="giallo-l"><span>   │        /</span></span>
+<span class="giallo-l"><span>   │       /</span></span>
+<span class="giallo-l"><span>   │      /</span></span>
+<span class="giallo-l"><span>   │     /</span></span>
+<span class="giallo-l"><span>   │    /</span></span>
+<span class="giallo-l"><span>   │   /</span></span>
+<span class="giallo-l"><span>   └──/──────────────────────────────────</span></span>
+<span class="giallo-l"><span>      Arithmetic Intensity (FLOPS/Byte)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>H100 Roofline:</span></span>
+<span class="giallo-l"><span>  Peak BF16 Tensor: 990 TFLOPS</span></span>
+<span class="giallo-l"><span>  Peak HBM BW: 3.35 TB/s</span></span>
+<span class="giallo-l"><span>  Ridge point: 990T / 3.35T = 295 FLOPS/byte</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  Operation         | AI (FLOPS/byte) | Bound</span></span>
+<span class="giallo-l"><span>  ─────────────────────────────────────────────</span></span>
+<span class="giallo-l"><span>  GEMM (large batch)| 1000+           | Compute</span></span>
+<span class="giallo-l"><span>  GEMM (batch=1)    | 1-2             | Memory</span></span>
+<span class="giallo-l"><span>  Attention (long)  | 100+            | Compute</span></span>
+<span class="giallo-l"><span>  Softmax           | ~5              | Memory</span></span>
+<span class="giallo-l"><span>  LayerNorm         | ~10             | Memory</span></span>
+<span class="giallo-l"><span>  Activation (ReLU) | ~0.25           | Memory</span></span>
+<span class="giallo-l"><span>  Embedding lookup  | ~0.5            | Memory</span></span></code></pre><h3 id="18-2-designing-for-the-right-ridge-point">18.2 Designing for the Right Ridge Point</h3>
 <p>If your chip targets LLM inference (decode phase), the workload has AI ≈ 1-2 FLOPS/byte. A chip with a ridge point of 295 (like H100) wastes 99% of compute during decode.</p>
 <p><strong>Better design for inference</strong>:</p>
-<pre><code>Option A: More bandwidth, less compute
-  - SRAM-heavy design (like Groq): 230 MB SRAM at 80 TB/s
-  - Ridge point: 750 TOPS / 80 TB/s = ~9 FLOPS/byte
-  - Much better utilization at AI=1-2
-
-Option B: Larger batch sizes (increase AI)
-  - Continuous batching: batch many sequences together
-  - If batch=128: AI = 128 → still memory-bound on H100
-  - If batch=256: AI = 256 → close to ridge point
-
-Option C: Quantize (increase effective bandwidth)
-  - INT4 model: 4× less bytes to read per parameter
-  - Effective AI increases 4×: from 1 to 4 FLOPS/byte
-  - Need INT4 compute units (cheap in area)
-</code></pre>
-<h3 id="18-3-sizing-your-chip">18.3 Sizing Your Chip</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Option A: More bandwidth, less compute</span></span>
+<span class="giallo-l"><span>  - SRAM-heavy design (like Groq): 230 MB SRAM at 80 TB/s</span></span>
+<span class="giallo-l"><span>  - Ridge point: 750 TOPS / 80 TB/s = ~9 FLOPS/byte</span></span>
+<span class="giallo-l"><span>  - Much better utilization at AI=1-2</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Option B: Larger batch sizes (increase AI)</span></span>
+<span class="giallo-l"><span>  - Continuous batching: batch many sequences together</span></span>
+<span class="giallo-l"><span>  - If batch=128: AI = 128 → still memory-bound on H100</span></span>
+<span class="giallo-l"><span>  - If batch=256: AI = 256 → close to ridge point</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Option C: Quantize (increase effective bandwidth)</span></span>
+<span class="giallo-l"><span>  - INT4 model: 4× less bytes to read per parameter</span></span>
+<span class="giallo-l"><span>  - Effective AI increases 4×: from 1 to 4 FLOPS/byte</span></span>
+<span class="giallo-l"><span>  - Need INT4 compute units (cheap in area)</span></span></code></pre><h3 id="18-3-sizing-your-chip">18.3 Sizing Your Chip</h3>
 <p>Example: Design a chip for Llama 70B inference at 100 tokens/s per user</p>
-<pre><code>Model: 70B params × 2 bytes (BF16) = 140 GB
-Decode: Must read all 140 GB per token
-Target: 100 tokens/s × 140 GB/token = 14 TB/s memory bandwidth needed
-
-Option 1: HBM approach
-  HBM3e at 1.2 TB/s per stack → need 12 stacks → 3-4 chips
-  Cost: expensive, high power
-
-Option 2: SRAM approach (Groq-like)
-  44 GB SRAM at 21 PB/s → bandwidth not an issue
-  But 44 GB &lt; 140 GB → need weight streaming from external memory
-  With 1.2 TB/s external I/O: 140 GB / 1.2 TB/s = 117 ms per token = ~8.5 tok/s
-  Need 12 WSE chips to hit 100 tok/s (layer-parallel)
-
-Option 3: INT4 quantization
-  35 GB model, need 3.5 TB/s
-  3 stacks HBM3e = 3.6 TB/s → fits on ONE chip!
-  Minimal quality loss with good quantization (GPTQ, AWQ)
-
-→ Quantization is the single most impactful hardware/software co-design choice
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Model: 70B params × 2 bytes (BF16) = 140 GB</span></span>
+<span class="giallo-l"><span>Decode: Must read all 140 GB per token</span></span>
+<span class="giallo-l"><span>Target: 100 tokens/s × 140 GB/token = 14 TB/s memory bandwidth needed</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Option 1: HBM approach</span></span>
+<span class="giallo-l"><span>  HBM3e at 1.2 TB/s per stack → need 12 stacks → 3-4 chips</span></span>
+<span class="giallo-l"><span>  Cost: expensive, high power</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Option 2: SRAM approach (Groq-like)</span></span>
+<span class="giallo-l"><span>  44 GB SRAM at 21 PB/s → bandwidth not an issue</span></span>
+<span class="giallo-l"><span>  But 44 GB &lt; 140 GB → need weight streaming from external memory</span></span>
+<span class="giallo-l"><span>  With 1.2 TB/s external I/O: 140 GB / 1.2 TB/s = 117 ms per token = ~8.5 tok/s</span></span>
+<span class="giallo-l"><span>  Need 12 WSE chips to hit 100 tok/s (layer-parallel)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Option 3: INT4 quantization</span></span>
+<span class="giallo-l"><span>  35 GB model, need 3.5 TB/s</span></span>
+<span class="giallo-l"><span>  3 stacks HBM3e = 3.6 TB/s → fits on ONE chip!</span></span>
+<span class="giallo-l"><span>  Minimal quality loss with good quantization (GPTQ, AWQ)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>→ Quantization is the single most impactful hardware/software co-design choice</span></span></code></pre>
 <hr />
 <h2 id="19-key-papers-and-references">19. Key Papers and References</h2>
 <h3 id="gpu-architecture">GPU Architecture</h3>

@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -110,14 +133,13 @@
 <h3 id="1-2-write-ahead-logging-wal-the-core-principle">1.2 Write-Ahead Logging (WAL) - The Core Principle</h3>
 <p><strong>Definition</strong>: Before any modification to the database is written to disk, a log record describing the change must first be written to stable storage.</p>
 <p><strong>The WAL Protocol (Mohan et al., ARIES, 1992):</strong></p>
-<pre><code>WRITE-AHEAD LOGGING RULE:
-  Before a database page is written to disk, all log records
-  pertaining to changes on that page must be flushed to the log.
-
-FORCE-LOG-AT-COMMIT RULE:
-  Before a transaction commits, all its log records must be
-  flushed to stable storage.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>WRITE-AHEAD LOGGING RULE:</span></span>
+<span class="giallo-l"><span>  Before a database page is written to disk, all log records</span></span>
+<span class="giallo-l"><span>  pertaining to changes on that page must be flushed to the log.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>FORCE-LOG-AT-COMMIT RULE:</span></span>
+<span class="giallo-l"><span>  Before a transaction commits, all its log records must be</span></span>
+<span class="giallo-l"><span>  flushed to stable storage.</span></span></code></pre>
 <p><strong>Why this works:</strong></p>
 <ol>
 <li>If system crashes before commit, log doesn't contain commit record -&gt; rollback</li>
@@ -135,14 +157,13 @@ FORCE-LOG-AT-COMMIT RULE:
 <p><strong>Key insight</strong>: WAL separates the "durability" problem (did the change survive?) from the "consistency" problem (is the database in a valid state?).</p>
 <h3 id="1-4-log-sequence-numbers-lsn">1.4 Log Sequence Numbers (LSN)</h3>
 <p>Every modification generates a monotonically increasing LSN:</p>
-<pre><code>LSN:  1    2    3    4    5    6    7    8    ...
-      |    |    |    |    |    |    |    |
-      v    v    v    v    v    v    v    v
-Log: [T1  [T1  [T2  [T1  [T2  [T1  [T2  [T2
-      B]   W]   B]   W]   W]   C]   W]   C]
-
-B = Begin, W = Write, C = Commit
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>LSN:  1    2    3    4    5    6    7    8    ...</span></span>
+<span class="giallo-l"><span>      |    |    |    |    |    |    |    |</span></span>
+<span class="giallo-l"><span>      v    v    v    v    v    v    v    v</span></span>
+<span class="giallo-l"><span>Log: [T1  [T1  [T2  [T1  [T2  [T1  [T2  [T2</span></span>
+<span class="giallo-l"><span>      B]   W]   B]   W]   W]   C]   W]   C]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>B = Begin, W = Write, C = Commit</span></span></code></pre>
 <p>Each database page stores its <code>PageLSN</code> - the LSN of the last log record that modified it. During recovery:</p>
 <ul>
 <li>If <code>PageLSN &gt;= LogRecordLSN</code>, the change is already on the page (skip)</li>
@@ -153,22 +174,21 @@ B = Begin, W = Write, C = Commit
 <h3 id="2-1-what-is-a-torn-page">2.1 What is a Torn Page?</h3>
 <p>A <strong>torn page</strong> (also called a <strong>partial write</strong> or <strong>fractured page</strong>) occurs when a system crash happens during a write operation, leaving a page in a partially updated state.</p>
 <p><strong>Scenario:</strong></p>
-<pre><code>Database Page (8KB) being written to disk:
-
-Time T0: Original page on disk
-         [Header | Row1 | Row2 | Row3 | Row4 | Free Space]
-
-Time T1: Application modifies Row2, Row3
-         Buffer: [Header&#39; | Row1 | Row2&#39; | Row3&#39; | Row4 | Free Space]
-
-Time T2: OS starts writing page to disk
-         Disk:   [Header&#39; | Row1 | Row2&#39; | &lt;POWER FAILURE&gt;
-
-Time T3: After recovery
-         Disk:   [Header&#39; | Row1 | Row2&#39; | Row3 | Row4 | Free Space]
-                                          ^^^^^
-                                          OLD DATA!
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Database Page (8KB) being written to disk:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Time T0: Original page on disk</span></span>
+<span class="giallo-l"><span>         [Header | Row1 | Row2 | Row3 | Row4 | Free Space]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Time T1: Application modifies Row2, Row3</span></span>
+<span class="giallo-l"><span>         Buffer: [Header&#39; | Row1 | Row2&#39; | Row3&#39; | Row4 | Free Space]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Time T2: OS starts writing page to disk</span></span>
+<span class="giallo-l"><span>         Disk:   [Header&#39; | Row1 | Row2&#39; | &lt;POWER FAILURE&gt;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Time T3: After recovery</span></span>
+<span class="giallo-l"><span>         Disk:   [Header&#39; | Row1 | Row2&#39; | Row3 | Row4 | Free Space]</span></span>
+<span class="giallo-l"><span>                                          ^^^^^</span></span>
+<span class="giallo-l"><span>                                          OLD DATA!</span></span></code></pre>
 <p><strong>The problem:</strong> The page header says "I contain modifications from LSN X" but part of the page still has old data from LSN Y.</p>
 <h3 id="2-2-why-does-this-happen">2.2 Why Does This Happen?</h3>
 <p><strong>Physical reality of disk writes:</strong></p>
@@ -202,125 +222,109 @@ Time T3: After recovery
 </ol>
 <h3 id="2-3-the-corruption-scenarios">2.3 The Corruption Scenarios</h3>
 <p><strong>Scenario 1: Header updated, data not</strong></p>
-<pre><code>Page after crash:
-  LSN = 100 (new)
-  Data = old (LSN 50)
-
-Recovery thinks: &quot;Page is at LSN 100, no redo needed&quot;
-Reality: Page is corrupt, missing changes from LSN 51-100
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Page after crash:</span></span>
+<span class="giallo-l"><span>  LSN = 100 (new)</span></span>
+<span class="giallo-l"><span>  Data = old (LSN 50)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Recovery thinks: &quot;Page is at LSN 100, no redo needed&quot;</span></span>
+<span class="giallo-l"><span>Reality: Page is corrupt, missing changes from LSN 51-100</span></span></code></pre>
 <p><strong>Scenario 2: Data updated, header not</strong></p>
-<pre><code>Page after crash:
-  LSN = 50 (old)
-  Data = mixed old/new
-
-Recovery thinks: &quot;Page is at LSN 50, redo from 51&quot;
-Reality: Redo applies changes to partially updated page -&gt; more corruption
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Page after crash:</span></span>
+<span class="giallo-l"><span>  LSN = 50 (old)</span></span>
+<span class="giallo-l"><span>  Data = mixed old/new</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Recovery thinks: &quot;Page is at LSN 50, redo from 51&quot;</span></span>
+<span class="giallo-l"><span>Reality: Redo applies changes to partially updated page -&gt; more corruption</span></span></code></pre>
 <p><strong>Scenario 3: Checksum invalidated</strong></p>
-<pre><code>Page after crash:
-  Checksum = old
-  Data = mixed old/new
-
-At least we can detect this! (if checksums are enabled)
-</code></pre>
-<h3 id="2-4-why-wal-alone-doesn-t-solve-this">2.4 Why WAL Alone Doesn't Solve This</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Page after crash:</span></span>
+<span class="giallo-l"><span>  Checksum = old</span></span>
+<span class="giallo-l"><span>  Data = mixed old/new</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>At least we can detect this! (if checksums are enabled)</span></span></code></pre><h3 id="2-4-why-wal-alone-doesn-t-solve-this">2.4 Why WAL Alone Doesn't Solve This</h3>
 <p><strong>Common misconception:</strong> "WAL guarantees recovery, so torn pages aren't a problem."</p>
 <p><strong>Reality:</strong> WAL guarantees you can <strong>redo</strong> changes, but redo assumes pages are in a <strong>valid prior state</strong>. A torn page is neither the old state nor the new state - it's an invalid hybrid.</p>
-<pre><code>Scenario:
-1. Page at LSN 50
-2. Transaction modifies page, logged at LSN 51
-3. Crash during page write
-4. Page on disk is torn (part LSN 50, part LSN 51)
-5. Recovery reads page, sees PageLSN = 51
-6. Recovery skips LSN 51 (thinks it&#39;s already applied)
-7. Page remains corrupt FOREVER
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Scenario:</span></span>
+<span class="giallo-l"><span>1. Page at LSN 50</span></span>
+<span class="giallo-l"><span>2. Transaction modifies page, logged at LSN 51</span></span>
+<span class="giallo-l"><span>3. Crash during page write</span></span>
+<span class="giallo-l"><span>4. Page on disk is torn (part LSN 50, part LSN 51)</span></span>
+<span class="giallo-l"><span>5. Recovery reads page, sees PageLSN = 51</span></span>
+<span class="giallo-l"><span>6. Recovery skips LSN 51 (thinks it&#39;s already applied)</span></span>
+<span class="giallo-l"><span>7. Page remains corrupt FOREVER</span></span></code></pre>
 <hr />
 <h2 id="3-postgresql-s-full-page-writes-fpw">3. PostgreSQL's Full Page Writes (FPW)</h2>
 <h3 id="3-1-the-solution-full-page-images">3.1 The Solution: Full Page Images</h3>
 <p>PostgreSQL's approach: After a checkpoint, the <strong>first</strong> time a page is modified, write a <strong>complete copy</strong> of the page to WAL before writing the modification.</p>
-<pre><code>WAL Record with FPW:
-+------------------+
-| XLogRecord Header|
-+------------------+
-| Full Page Image  | &lt;- Complete 8KB page copy
-| (8KB)            |
-+------------------+
-| Modification Data| &lt;- The actual change
-+------------------+
-</code></pre>
-<h3 id="3-2-how-fpw-works">3.2 How FPW Works</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>WAL Record with FPW:</span></span>
+<span class="giallo-l"><span>+------------------+</span></span>
+<span class="giallo-l"><span>| XLogRecord Header|</span></span>
+<span class="giallo-l"><span>+------------------+</span></span>
+<span class="giallo-l"><span>| Full Page Image  | &lt;- Complete 8KB page copy</span></span>
+<span class="giallo-l"><span>| (8KB)            |</span></span>
+<span class="giallo-l"><span>+------------------+</span></span>
+<span class="giallo-l"><span>| Modification Data| &lt;- The actual change</span></span>
+<span class="giallo-l"><span>+------------------+</span></span></code></pre><h3 id="3-2-how-fpw-works">3.2 How FPW Works</h3>
 <p><strong>Checkpoint cycle:</strong></p>
-<pre><code>Checkpoint at LSN 1000
-  |
-  v
-Page A first modified at LSN 1001 -&gt; FPW (full image of page A)
-Page A modified at LSN 1002 -&gt; NO FPW (already have image since checkpoint)
-Page A modified at LSN 1003 -&gt; NO FPW
-  |
-  v
-Checkpoint at LSN 2000
-  |
-  v
-Page A first modified at LSN 2001 -&gt; FPW (new full image)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Checkpoint at LSN 1000</span></span>
+<span class="giallo-l"><span>  |</span></span>
+<span class="giallo-l"><span>  v</span></span>
+<span class="giallo-l"><span>Page A first modified at LSN 1001 -&gt; FPW (full image of page A)</span></span>
+<span class="giallo-l"><span>Page A modified at LSN 1002 -&gt; NO FPW (already have image since checkpoint)</span></span>
+<span class="giallo-l"><span>Page A modified at LSN 1003 -&gt; NO FPW</span></span>
+<span class="giallo-l"><span>  |</span></span>
+<span class="giallo-l"><span>  v</span></span>
+<span class="giallo-l"><span>Checkpoint at LSN 2000</span></span>
+<span class="giallo-l"><span>  |</span></span>
+<span class="giallo-l"><span>  v</span></span>
+<span class="giallo-l"><span>Page A first modified at LSN 2001 -&gt; FPW (new full image)</span></span></code></pre>
 <p><strong>Recovery with FPW:</strong></p>
-<pre><code>1. Crash during page write
-2. Page on disk is torn
-3. Recovery reads WAL from last checkpoint
-4. Finds FPW record for the page
-5. Overwrites entire page with the full image from WAL
-6. Continues recovery from that point
-7. Page is now in a KNOWN GOOD state
-</code></pre>
-<h3 id="3-3-postgresql-implementation-details">3.3 PostgreSQL Implementation Details</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>1. Crash during page write</span></span>
+<span class="giallo-l"><span>2. Page on disk is torn</span></span>
+<span class="giallo-l"><span>3. Recovery reads WAL from last checkpoint</span></span>
+<span class="giallo-l"><span>4. Finds FPW record for the page</span></span>
+<span class="giallo-l"><span>5. Overwrites entire page with the full image from WAL</span></span>
+<span class="giallo-l"><span>6. Continues recovery from that point</span></span>
+<span class="giallo-l"><span>7. Page is now in a KNOWN GOOD state</span></span></code></pre><h3 id="3-3-postgresql-implementation-details">3.3 PostgreSQL Implementation Details</h3>
 <p><strong>Key structures (from <code>xlog.h</code>):</strong></p>
-<pre><code data-lang="c">/* Full-page image header */
-typedef struct XLogRecordBlockImageHeader
-{
-    uint16      length;         /* Length of image data */
-    uint16      hole_offset;    /* Offset of hole */
-    uint8       bimg_info;      /* Flags */
-} XLogRecordBlockImageHeader;
-
-/* Flags */
-#define BKPIMAGE_HAS_HOLE       0x01  /* Page has hole (sparse) */
-#define BKPIMAGE_IS_COMPRESSED  0x02  /* Image is compressed */
-#define BKPIMAGE_APPLY          0x04  /* Apply image during recovery */
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">/*</span><span class="z-comment"> Full-page image header </span><span class="z-punctuation z-definition z-comment">*/</span></span>
+<span class="giallo-l"><span class="z-keyword">typedef</span><span class="z-storage z-type"> struct</span><span> XLogRecordBlockImageHeader</span></span>
+<span class="giallo-l"><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span>    uint16      length</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">         /*</span><span class="z-comment"> Length of image data </span><span class="z-punctuation z-definition z-comment">*/</span></span>
+<span class="giallo-l"><span>    uint16      hole_offset</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">    /*</span><span class="z-comment"> Offset of hole </span><span class="z-punctuation z-definition z-comment">*/</span></span>
+<span class="giallo-l"><span>    uint8       bimg_info</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">      /*</span><span class="z-comment"> Flags </span><span class="z-punctuation z-definition z-comment">*/</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span> XLogRecordBlockImageHeader</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">/*</span><span class="z-comment"> Flags </span><span class="z-punctuation z-definition z-comment">*/</span></span>
+<span class="giallo-l"><span class="z-punctuation">#</span><span class="z-keyword z-control z-directive">define</span><span class="z-entity z-name z-function"> BKPIMAGE_HAS_HOLE</span><span class="z-keyword z-other z-unit">       0x</span><span class="z-constant">01</span><span class="z-punctuation z-definition z-comment">  /*</span><span class="z-comment"> Page has hole (sparse) </span><span class="z-punctuation z-definition z-comment">*/</span></span>
+<span class="giallo-l"><span class="z-punctuation">#</span><span class="z-keyword z-control z-directive">define</span><span class="z-entity z-name z-function"> BKPIMAGE_IS_COMPRESSED</span><span class="z-keyword z-other z-unit">  0x</span><span class="z-constant">02</span><span class="z-punctuation z-definition z-comment">  /*</span><span class="z-comment"> Image is compressed </span><span class="z-punctuation z-definition z-comment">*/</span></span>
+<span class="giallo-l"><span class="z-punctuation">#</span><span class="z-keyword z-control z-directive">define</span><span class="z-entity z-name z-function"> BKPIMAGE_APPLY</span><span class="z-keyword z-other z-unit">          0x</span><span class="z-constant">04</span><span class="z-punctuation z-definition z-comment">  /*</span><span class="z-comment"> Apply image during recovery </span><span class="z-punctuation z-definition z-comment">*/</span></span></code></pre>
 <p><strong>The FPW decision logic (simplified from <code>XLogInsert</code>):</strong></p>
-<pre><code data-lang="c">static bool
-XLogCheckBufferNeedsBackup(Buffer buffer)
-{
-    /*
-     * If the page has been modified since the last checkpoint,
-     * we don&#39;t need a full-page image.
-     */
-    if (PageGetLSN(page) &gt;= RedoRecPtr)
-        return false;  /* Page already modified since checkpoint */
-
-    return true;  /* Need full-page image */
-}
-</code></pre>
-<h3 id="3-4-configuration-options">3.4 Configuration Options</h3>
-<pre><code data-lang="sql">-- Main switch (on by default, DO NOT DISABLE IN PRODUCTION)
-full_page_writes = on
-
--- Compression to reduce WAL size (PostgreSQL 9.5+)
-wal_compression = on
-
--- Checksum validation
-data_checksums = on  -- Set at initdb time
-</code></pre>
-<h3 id="3-5-the-performance-cost">3.5 The Performance Cost</h3>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-storage z-modifier">static</span><span class="z-storage z-type"> bool</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">XLogCheckBufferNeedsBackup</span><span class="z-punctuation">(</span><span>Buffer </span><span class="z-variable z-parameter">buffer</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    /*</span></span>
+<span class="giallo-l"><span class="z-comment">     * If the page has been modified since the last checkpoint,</span></span>
+<span class="giallo-l"><span class="z-comment">     * we don&#39;t need a full-page image.</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">     */</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    if</span><span class="z-punctuation"> (</span><span class="z-entity z-name z-function">PageGetLSN</span><span class="z-punctuation">(</span><span>page</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> &gt;=</span><span> RedoRecPtr</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        return</span><span class="z-constant"> false</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  /*</span><span class="z-comment"> Page already modified since checkpoint </span><span class="z-punctuation z-definition z-comment">*/</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">    return</span><span class="z-constant"> true</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  /*</span><span class="z-comment"> Need full-page image </span><span class="z-punctuation z-definition z-comment">*/</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre><h3 id="3-4-configuration-options">3.4 Configuration Options</h3>
+<pre class="giallo z-code"><code data-lang="sql"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> Main switch (on by default, DO NOT DISABLE IN PRODUCTION)</span></span>
+<span class="giallo-l"><span>full_page_writes </span><span class="z-keyword z-operator">=</span><span class="z-keyword"> on</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> Compression to reduce WAL size (PostgreSQL 9.5+)</span></span>
+<span class="giallo-l"><span>wal_compression </span><span class="z-keyword z-operator">=</span><span class="z-keyword"> on</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> Checksum validation</span></span>
+<span class="giallo-l"><span>data_checksums </span><span class="z-keyword z-operator">=</span><span class="z-keyword"> on</span><span class="z-punctuation z-definition z-comment">  --</span><span class="z-comment"> Set at initdb time</span></span></code></pre><h3 id="3-5-the-performance-cost">3.5 The Performance Cost</h3>
 <p><strong>WAL amplification:</strong></p>
-<pre><code>Without FPW:
-  UPDATE single row -&gt; ~100 bytes of WAL
-
-With FPW (first modification after checkpoint):
-  UPDATE single row -&gt; ~8KB of WAL (8000% increase!)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Without FPW:</span></span>
+<span class="giallo-l"><span>  UPDATE single row -&gt; ~100 bytes of WAL</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>With FPW (first modification after checkpoint):</span></span>
+<span class="giallo-l"><span>  UPDATE single row -&gt; ~8KB of WAL (8000% increase!)</span></span></code></pre>
 <p><strong>Real-world impact:</strong></p>
 <ul>
 <li>WAL volume increases 2-10x with FPW</li>
@@ -330,19 +334,16 @@ With FPW (first modification after checkpoint):
 <li>Recovery takes longer (more data to process)</li>
 </ul>
 <p><strong>Benchmark example:</strong></p>
-<pre><code>Workload: OLTP with random single-row updates
-
-Without FPW: 50,000 TPS, 100 MB/s WAL
-With FPW:    45,000 TPS, 800 MB/s WAL
-
-Cost: 10% TPS reduction, 8x WAL volume
-</code></pre>
-<h3 id="3-6-optimizations">3.6 Optimizations</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Workload: OLTP with random single-row updates</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Without FPW: 50,000 TPS, 100 MB/s WAL</span></span>
+<span class="giallo-l"><span>With FPW:    45,000 TPS, 800 MB/s WAL</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Cost: 10% TPS reduction, 8x WAL volume</span></span></code></pre><h3 id="3-6-optimizations">3.6 Optimizations</h3>
 <p><strong>1. Hole punching:</strong>
 If page has contiguous free space, don't write it:</p>
-<pre><code>Page: [Header|Data|Data|    FREE SPACE    ]
-FPW:  [Header|Data|Data] &lt;- Only non-empty part
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Page: [Header|Data|Data|    FREE SPACE    ]</span></span>
+<span class="giallo-l"><span>FPW:  [Header|Data|Data] &lt;- Only non-empty part</span></span></code></pre>
 <p><strong>2. Compression (wal_compression = on):</strong>
 Compress full page images before writing to WAL.
 Typical compression ratio: 2-4x for text-heavy pages.</p>
@@ -353,29 +354,27 @@ Less frequent checkpoints = less FPW, but longer recovery.</p>
 <h2 id="4-alternative-approaches-by-system">4. Alternative Approaches by System</h2>
 <h3 id="4-1-mysql-innodb-doublewrite-buffer">4.1 MySQL/InnoDB: Doublewrite Buffer</h3>
 <p><strong>Concept:</strong> Write pages to a special "doublewrite buffer" area first, then to their final location.</p>
-<pre><code>Modification Flow:
-1. Modify page in buffer pool
-2. Write page to doublewrite buffer (sequential write)
-3. fsync() doublewrite buffer
-4. Write page to actual tablespace location
-5. (No immediate fsync - can batch)
-
-Recovery:
-1. Read doublewrite buffer
-2. For each page in doublewrite:
-   - Read corresponding page from tablespace
-   - If tablespace page is corrupt, copy from doublewrite
-   - If both OK, use tablespace page (more recent)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Modification Flow:</span></span>
+<span class="giallo-l"><span>1. Modify page in buffer pool</span></span>
+<span class="giallo-l"><span>2. Write page to doublewrite buffer (sequential write)</span></span>
+<span class="giallo-l"><span>3. fsync() doublewrite buffer</span></span>
+<span class="giallo-l"><span>4. Write page to actual tablespace location</span></span>
+<span class="giallo-l"><span>5. (No immediate fsync - can batch)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Recovery:</span></span>
+<span class="giallo-l"><span>1. Read doublewrite buffer</span></span>
+<span class="giallo-l"><span>2. For each page in doublewrite:</span></span>
+<span class="giallo-l"><span>   - Read corresponding page from tablespace</span></span>
+<span class="giallo-l"><span>   - If tablespace page is corrupt, copy from doublewrite</span></span>
+<span class="giallo-l"><span>   - If both OK, use tablespace page (more recent)</span></span></code></pre>
 <p><strong>Implementation:</strong></p>
-<pre><code>Doublewrite buffer: 2MB (128 pages of 16KB)
-Location: ibdata1 (system tablespace) or dedicated file
-
-Two regions:
-- First write: pages 0-63
-- Second write: pages 64-127
-(Alternating to ensure at least one complete copy)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Doublewrite buffer: 2MB (128 pages of 16KB)</span></span>
+<span class="giallo-l"><span>Location: ibdata1 (system tablespace) or dedicated file</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Two regions:</span></span>
+<span class="giallo-l"><span>- First write: pages 0-63</span></span>
+<span class="giallo-l"><span>- Second write: pages 64-127</span></span>
+<span class="giallo-l"><span>(Alternating to ensure at least one complete copy)</span></span></code></pre>
 <p><strong>Pros:</strong></p>
 <ul>
 <li>WAL stays small (no full page images in redo log)</li>
@@ -395,17 +394,15 @@ Two regions:
 </ul>
 <h3 id="4-2-sql-server-torn-page-detection-shadow-paging">4.2 SQL Server: Torn Page Detection + Shadow Paging</h3>
 <p><strong>Option 1: Torn Page Detection</strong></p>
-<pre><code>Each 512-byte sector gets a 2-bit &quot;torn bit&quot; pattern:
-- Before write: Set pattern A
-- After write: Should be pattern A in all sectors
-- If mixed patterns: Page is torn
-
-Detection only - does not prevent, only detects.
-Requires restore from backup if torn page found.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Each 512-byte sector gets a 2-bit &quot;torn bit&quot; pattern:</span></span>
+<span class="giallo-l"><span>- Before write: Set pattern A</span></span>
+<span class="giallo-l"><span>- After write: Should be pattern A in all sectors</span></span>
+<span class="giallo-l"><span>- If mixed patterns: Page is torn</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Detection only - does not prevent, only detects.</span></span>
+<span class="giallo-l"><span>Requires restore from backup if torn page found.</span></span></code></pre>
 <p><strong>Option 2: Page Checksums</strong></p>
-<pre><code data-lang="sql">ALTER DATABASE MyDB SET PAGE_VERIFY CHECKSUM
-</code></pre>
+<pre class="giallo z-code"><code data-lang="sql"><span class="giallo-l"><span class="z-keyword">ALTER</span><span class="z-keyword"> DATABASE</span><span> MyDB </span><span class="z-keyword">SET</span><span class="z-keyword"> PAGE_VERIFY</span><span class="z-keyword"> CHECKSUM</span></span></code></pre>
 <p><strong>Option 3: Shadow Pages (older method)</strong></p>
 <ul>
 <li>Write new page to new location</li>
@@ -423,23 +420,21 @@ Requires restore from backup if torn page found.
 <p><strong>Key difference:</strong> Oracle often runs on enterprise storage with battery-backed write caches, where atomic writes are guaranteed at the storage layer.</p>
 <h3 id="4-4-sqlite-rollback-journal-wal-mode">4.4 SQLite: Rollback Journal + WAL Mode</h3>
 <p><strong>Rollback Journal Mode (default):</strong></p>
-<pre><code>1. Before modifying page, copy original to journal
-2. Modify page in place
-3. On commit, delete journal
-
-Recovery:
-- If journal exists, roll back by restoring pages from journal
-- Journal acts as &quot;undo&quot; log
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>1. Before modifying page, copy original to journal</span></span>
+<span class="giallo-l"><span>2. Modify page in place</span></span>
+<span class="giallo-l"><span>3. On commit, delete journal</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Recovery:</span></span>
+<span class="giallo-l"><span>- If journal exists, roll back by restoring pages from journal</span></span>
+<span class="giallo-l"><span>- Journal acts as &quot;undo&quot; log</span></span></code></pre>
 <p><strong>WAL Mode (modern SQLite):</strong></p>
-<pre><code>1. Write changes to WAL file (append-only)
-2. Pages in main database are read-only during transactions
-3. Checkpoint merges WAL back to main database
-
-Recovery:
-- Replay WAL from last checkpoint
-- Main database always has consistent point-in-time state
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>1. Write changes to WAL file (append-only)</span></span>
+<span class="giallo-l"><span>2. Pages in main database are read-only during transactions</span></span>
+<span class="giallo-l"><span>3. Checkpoint merges WAL back to main database</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Recovery:</span></span>
+<span class="giallo-l"><span>- Replay WAL from last checkpoint</span></span>
+<span class="giallo-l"><span>- Main database always has consistent point-in-time state</span></span></code></pre>
 <p><strong>Torn page handling:</strong></p>
 <ul>
 <li>SQLite uses 4KB pages (matches typical filesystem block)</li>
@@ -449,14 +444,13 @@ Recovery:
 </ul>
 <h3 id="4-5-rocksdb-no-in-place-updates-lsm-tree">4.5 RocksDB: No In-Place Updates (LSM-Tree)</h3>
 <p><strong>Key insight:</strong> LSM-trees never modify data in place.</p>
-<pre><code>Write path:
-1. Write to WAL (append-only)
-2. Insert to MemTable (in-memory)
-3. When MemTable full, flush to SST file (new file, never modified)
-
-SST files are immutable - written once, then only deleted
-No partial writes possible - file is either complete or doesn&#39;t exist
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Write path:</span></span>
+<span class="giallo-l"><span>1. Write to WAL (append-only)</span></span>
+<span class="giallo-l"><span>2. Insert to MemTable (in-memory)</span></span>
+<span class="giallo-l"><span>3. When MemTable full, flush to SST file (new file, never modified)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>SST files are immutable - written once, then only deleted</span></span>
+<span class="giallo-l"><span>No partial writes possible - file is either complete or doesn&#39;t exist</span></span></code></pre>
 <p><strong>Torn page protection: NOT NEEDED</strong></p>
 <p>Why? Because:</p>
 <ol>
@@ -466,26 +460,23 @@ No partial writes possible - file is either complete or doesn&#39;t exist
 <li>Recovery: Read manifest, use only complete SST files</li>
 </ol>
 <p><strong>The MANIFEST:</strong></p>
-<pre><code>MANIFEST-000001:
-  Version 1: SST files [001, 002, 003]
-  Version 2: SST files [001, 002, 003, 004]  &lt;- compaction
-  Version 3: SST files [001, 005]            &lt;- cleanup
-
-Recovery reads MANIFEST to know current valid state
-</code></pre>
-<h3 id="4-6-duckdb-copy-on-write-checksums">4.6 DuckDB: Copy-on-Write + Checksums</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>MANIFEST-000001:</span></span>
+<span class="giallo-l"><span>  Version 1: SST files [001, 002, 003]</span></span>
+<span class="giallo-l"><span>  Version 2: SST files [001, 002, 003, 004]  &lt;- compaction</span></span>
+<span class="giallo-l"><span>  Version 3: SST files [001, 005]            &lt;- cleanup</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Recovery reads MANIFEST to know current valid state</span></span></code></pre><h3 id="4-6-duckdb-copy-on-write-checksums">4.6 DuckDB: Copy-on-Write + Checksums</h3>
 <p><strong>Architecture:</strong></p>
 <ul>
 <li>In-memory first, spill to disk as needed</li>
 <li>Copy-on-write for persistent storage</li>
 <li>No in-place modifications to data pages</li>
 </ul>
-<pre><code>Write path:
-1. Create new version of modified block
-2. Write new block to new location
-3. Update metadata atomically
-4. Old block available for reads until switch
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Write path:</span></span>
+<span class="giallo-l"><span>1. Create new version of modified block</span></span>
+<span class="giallo-l"><span>2. Write new block to new location</span></span>
+<span class="giallo-l"><span>3. Update metadata atomically</span></span>
+<span class="giallo-l"><span>4. Old block available for reads until switch</span></span></code></pre>
 <p><strong>Torn page handling:</strong></p>
 <ul>
 <li>Never overwrite existing data</li>
@@ -495,15 +486,13 @@ Recovery reads MANIFEST to know current valid state
 </ul>
 <h3 id="4-7-foundationdb-copy-on-write-b-trees">4.7 FoundationDB: Copy-on-Write B-Trees</h3>
 <p><strong>Approach:</strong> Similar to DuckDB but for distributed OLTP.</p>
-<pre><code>Write path:
-1. Copy path from leaf to root
-2. Write new pages (don&#39;t modify old)
-3. Atomic pointer swing at root
-4. Old pages garbage collected
-
-Result: Always crash-consistent without torn page concerns
-</code></pre>
-<h3 id="4-8-cockroachdb-leverages-rocksdb">4.8 CockroachDB: Leverages RocksDB</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Write path:</span></span>
+<span class="giallo-l"><span>1. Copy path from leaf to root</span></span>
+<span class="giallo-l"><span>2. Write new pages (don&#39;t modify old)</span></span>
+<span class="giallo-l"><span>3. Atomic pointer swing at root</span></span>
+<span class="giallo-l"><span>4. Old pages garbage collected</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Result: Always crash-consistent without torn page concerns</span></span></code></pre><h3 id="4-8-cockroachdb-leverages-rocksdb">4.8 CockroachDB: Leverages RocksDB</h3>
 <p>CockroachDB uses RocksDB (now Pebble) as its storage layer:</p>
 <ul>
 <li>Inherits LSM-tree's immutability</li>
@@ -522,37 +511,35 @@ Result: Always crash-consistent without torn page concerns
 </ul>
 <p><strong>The Dual WAL Architecture:</strong></p>
 <p>TigerBeetle maintains TWO write-ahead logs:</p>
-<pre><code>Primary WAL:   [Header1|Data1] [Header2|Data2] [Header3|Data3] ...
-                   |              |              |
-                   v              v              v
-Secondary WAL: [Header1]      [Header2]      [Header3]      ...
-               (headers only, lightweight copy)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Primary WAL:   [Header1|Data1] [Header2|Data2] [Header3|Data3] ...</span></span>
+<span class="giallo-l"><span>                   |              |              |</span></span>
+<span class="giallo-l"><span>                   v              v              v</span></span>
+<span class="giallo-l"><span>Secondary WAL: [Header1]      [Header2]      [Header3]      ...</span></span>
+<span class="giallo-l"><span>               (headers only, lightweight copy)</span></span></code></pre>
 <p><strong>Why two WALs?</strong></p>
 <p>This solves a critical problem that most databases get wrong:</p>
-<pre><code>Traditional database with single WAL:
-
-WAL: [Record1] [Record2] [Record3] [CORRUPTED] [Record5] [Record6]
-                              ^
-                         bit rot here
-
-Traditional recovery: &quot;Corruption found, truncate from Record3 forward&quot;
-Result: Records 4, 5, 6 LOST even though they were committed!
-
-TigerBeetle with dual WAL:
-
-Primary WAL:   [H1|D1] [H2|D2] [H3|D3] [CORRUPTED] [H5|D5] [H6|D6]
-Secondary WAL: [H1]    [H2]    [H3]    [H4]        [H5]    [H6]
-                                        ^
-                              Header intact in secondary!
-
-TigerBeetle recovery:
-1. Detect corruption at position 4 in primary
-2. Check secondary WAL - header H4 is intact
-3. Know that Record 4 was committed (header exists)
-4. Request Record 4&#39;s data from replica cluster
-5. ALL records preserved!
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Traditional database with single WAL:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>WAL: [Record1] [Record2] [Record3] [CORRUPTED] [Record5] [Record6]</span></span>
+<span class="giallo-l"><span>                              ^</span></span>
+<span class="giallo-l"><span>                         bit rot here</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Traditional recovery: &quot;Corruption found, truncate from Record3 forward&quot;</span></span>
+<span class="giallo-l"><span>Result: Records 4, 5, 6 LOST even though they were committed!</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>TigerBeetle with dual WAL:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Primary WAL:   [H1|D1] [H2|D2] [H3|D3] [CORRUPTED] [H5|D5] [H6|D6]</span></span>
+<span class="giallo-l"><span>Secondary WAL: [H1]    [H2]    [H3]    [H4]        [H5]    [H6]</span></span>
+<span class="giallo-l"><span>                                        ^</span></span>
+<span class="giallo-l"><span>                              Header intact in secondary!</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>TigerBeetle recovery:</span></span>
+<span class="giallo-l"><span>1. Detect corruption at position 4 in primary</span></span>
+<span class="giallo-l"><span>2. Check secondary WAL - header H4 is intact</span></span>
+<span class="giallo-l"><span>3. Know that Record 4 was committed (header exists)</span></span>
+<span class="giallo-l"><span>4. Request Record 4&#39;s data from replica cluster</span></span>
+<span class="giallo-l"><span>5. ALL records preserved!</span></span></code></pre>
 <p><strong>Key insight:</strong> The dual WAL lets TigerBeetle distinguish between:</p>
 <ul>
 <li><strong>Corruption at end of log</strong> (torn write from power loss) -&gt; safe to truncate</li>
@@ -560,13 +547,12 @@ TigerBeetle recovery:
 </ul>
 <p><strong>Hash-Chaining:</strong></p>
 <p>Every prepare message (unit of WAL entry) includes a checksum pointer to the previous entry:</p>
-<pre><code>Prepare N: {
-    sequence: N,
-    checksum: 0xABCD1234,           // My checksum
-    parent_checksum: 0x5678EFGH,    // Previous prepare&#39;s checksum
-    data: [...],
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Prepare N: {</span></span>
+<span class="giallo-l"><span>    sequence: N,</span></span>
+<span class="giallo-l"><span>    checksum: 0xABCD1234,           // My checksum</span></span>
+<span class="giallo-l"><span>    parent_checksum: 0x5678EFGH,    // Previous prepare&#39;s checksum</span></span>
+<span class="giallo-l"><span>    data: [...],</span></span>
+<span class="giallo-l"><span>}</span></span></code></pre>
 <p>This creates a cryptographic chain from the beginning of history:</p>
 <ul>
 <li>If any single bit is corrupted, the chain breaks</li>
@@ -577,36 +563,33 @@ TigerBeetle recovery:
 <p><strong>Direct I/O by Design:</strong></p>
 <p>TigerBeetle uses <code>O_DIRECT</code> exclusively and NEVER uses buffered I/O.</p>
 <p><strong>Why?</strong> The 2018 paper "Can Applications Recover from fsync Failures?" (Pillai et al.) showed that:</p>
-<pre><code>Buffered I/O fsync failure scenario:
-
-1. Application writes data to page cache
-2. fsync() called
-3. Disk returns EIO error (bad sector)
-4. Kernel marks page as CLEAN (not dirty)
-5. Application retries fsync()
-6. Kernel says &quot;nothing to write, page is clean&quot;
-7. Application thinks data is durable
-8. DATA IS LOST - never actually written!
-
-Both PostgreSQL and MySQL had this bug.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Buffered I/O fsync failure scenario:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>1. Application writes data to page cache</span></span>
+<span class="giallo-l"><span>2. fsync() called</span></span>
+<span class="giallo-l"><span>3. Disk returns EIO error (bad sector)</span></span>
+<span class="giallo-l"><span>4. Kernel marks page as CLEAN (not dirty)</span></span>
+<span class="giallo-l"><span>5. Application retries fsync()</span></span>
+<span class="giallo-l"><span>6. Kernel says &quot;nothing to write, page is clean&quot;</span></span>
+<span class="giallo-l"><span>7. Application thinks data is durable</span></span>
+<span class="giallo-l"><span>8. DATA IS LOST - never actually written!</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Both PostgreSQL and MySQL had this bug.</span></span></code></pre>
 <p>TigerBeetle's solution: bypass the page cache entirely.</p>
-<pre><code>Direct I/O requirements:
-- All buffers aligned to 4KB sector boundaries
-- All I/O sizes multiples of sector size
-- User-space buffer management (no kernel page cache)
-- Explicit control over durability
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Direct I/O requirements:</span></span>
+<span class="giallo-l"><span>- All buffers aligned to 4KB sector boundaries</span></span>
+<span class="giallo-l"><span>- All I/O sizes multiples of sector size</span></span>
+<span class="giallo-l"><span>- User-space buffer management (no kernel page cache)</span></span>
+<span class="giallo-l"><span>- Explicit control over durability</span></span></code></pre>
 <p><strong>io_uring Integration:</strong></p>
 <p>TigerBeetle is built around Linux's io_uring for zero-syscall I/O:</p>
-<pre><code>Traditional I/O path:
-  Application -&gt; syscall -&gt; kernel -&gt; driver -&gt; disk
-  (context switch per operation)
-
-io_uring path:
-  Application -&gt; shared ring buffer &lt;- kernel polls
-  (no context switches, kernel processes batches)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Traditional I/O path:</span></span>
+<span class="giallo-l"><span>  Application -&gt; syscall -&gt; kernel -&gt; driver -&gt; disk</span></span>
+<span class="giallo-l"><span>  (context switch per operation)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>io_uring path:</span></span>
+<span class="giallo-l"><span>  Application -&gt; shared ring buffer &lt;- kernel polls</span></span>
+<span class="giallo-l"><span>  (no context switches, kernel processes batches)</span></span></code></pre>
 <p>Benefits:</p>
 <ul>
 <li>Unified API for storage AND network I/O</li>
@@ -618,46 +601,42 @@ io_uring path:
 <p><strong>Protocol-Aware Recovery (PAR):</strong></p>
 <p>Based on the FAST'18 Best Paper "Protocol-Aware Recovery for Consensus-Based Storage" (Alagappan et al.):</p>
 <p>Traditional replicated systems treat storage and consensus as separate:</p>
-<pre><code>Node A: [Storage Engine] &lt;-- crashes independently
-Node B: [Storage Engine] &lt;-- crashes independently
-Node C: [Storage Engine] &lt;-- crashes independently
-        [Consensus Layer] &lt;-- assumes perfect storage below
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Node A: [Storage Engine] &lt;-- crashes independently</span></span>
+<span class="giallo-l"><span>Node B: [Storage Engine] &lt;-- crashes independently</span></span>
+<span class="giallo-l"><span>Node C: [Storage Engine] &lt;-- crashes independently</span></span>
+<span class="giallo-l"><span>        [Consensus Layer] &lt;-- assumes perfect storage below</span></span></code></pre>
 <p>TigerBeetle integrates them:</p>
-<pre><code>Cluster: [Storage + Consensus integrated]
-         - Storage faults communicated to consensus
-         - Consensus redundancy used to repair storage
-         - Single corrupted node healed from cluster
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Cluster: [Storage + Consensus integrated]</span></span>
+<span class="giallo-l"><span>         - Storage faults communicated to consensus</span></span>
+<span class="giallo-l"><span>         - Consensus redundancy used to repair storage</span></span>
+<span class="giallo-l"><span>         - Single corrupted node healed from cluster</span></span></code></pre>
 <p><strong>Recovery scenarios:</strong></p>
-<pre><code>Scenario: Node A has corrupted WAL entry at position 100
-
-Traditional Raft/Paxos:
-  - Node A restarts
-  - Finds corruption
-  - ??? (undefined behavior, often data loss or unavailability)
-
-TigerBeetle PAR:
-  1. Node A detects corruption via checksum/hash-chain
-  2. Node A sends repair request to cluster
-  3. Nodes B, C provide the correct data for position 100
-  4. Node A repairs its local storage
-  5. Cluster continues operating
-  6. No data loss, no unavailability
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Scenario: Node A has corrupted WAL entry at position 100</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Traditional Raft/Paxos:</span></span>
+<span class="giallo-l"><span>  - Node A restarts</span></span>
+<span class="giallo-l"><span>  - Finds corruption</span></span>
+<span class="giallo-l"><span>  - ??? (undefined behavior, often data loss or unavailability)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>TigerBeetle PAR:</span></span>
+<span class="giallo-l"><span>  1. Node A detects corruption via checksum/hash-chain</span></span>
+<span class="giallo-l"><span>  2. Node A sends repair request to cluster</span></span>
+<span class="giallo-l"><span>  3. Nodes B, C provide the correct data for position 100</span></span>
+<span class="giallo-l"><span>  4. Node A repairs its local storage</span></span>
+<span class="giallo-l"><span>  5. Cluster continues operating</span></span>
+<span class="giallo-l"><span>  6. No data loss, no unavailability</span></span></code></pre>
 <p><strong>NACK Protocol for View Changes:</strong></p>
 <p>During leader election, a critical question: "What was actually committed?"</p>
-<pre><code>View change scenario:
-  - Old leader had entries [1, 2, 3, 4, 5]
-  - Entry 5 might have been partially replicated
-  - New leader needs to know: &quot;Was 5 committed?&quot;
-
-TigerBeetle&#39;s NACK:
-  - Replicas positively state: &quot;I NEVER accepted entry 5&quot;
-  - If 4/6 replicas NACK entry 5, it was never committed
-  - Safe to discard entry 5 without data loss
-  - Even works if entry 5 is corrupted on some nodes
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>View change scenario:</span></span>
+<span class="giallo-l"><span>  - Old leader had entries [1, 2, 3, 4, 5]</span></span>
+<span class="giallo-l"><span>  - Entry 5 might have been partially replicated</span></span>
+<span class="giallo-l"><span>  - New leader needs to know: &quot;Was 5 committed?&quot;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>TigerBeetle&#39;s NACK:</span></span>
+<span class="giallo-l"><span>  - Replicas positively state: &quot;I NEVER accepted entry 5&quot;</span></span>
+<span class="giallo-l"><span>  - If 4/6 replicas NACK entry 5, it was never committed</span></span>
+<span class="giallo-l"><span>  - Safe to discard entry 5 without data loss</span></span>
+<span class="giallo-l"><span>  - Even works if entry 5 is corrupted on some nodes</span></span></code></pre>
 <p><strong>Immutable Data Model:</strong></p>
 <p>All data in TigerBeetle is immutable:</p>
 <ul>
@@ -668,74 +647,69 @@ TigerBeetle&#39;s NACK:
 </ul>
 <p><strong>Superblock Protection:</strong></p>
 <p>The superblock (root of the data structure) is stored 4 times:</p>
-<pre><code>Disk layout:
-[Superblock Copy 0][Superblock Copy 1][Superblock Copy 2][Superblock Copy 3]
-     |                   |                  |                  |
-     +------- Each copy has sequence number + checksums -------+
-
-Write protocol:
-1. Write new superblock to next copy position
-2. Read back and verify
-3. Advance copy pointer
-
-Recovery:
-- Read all 4 copies
-- Use highest valid sequence number
-- Can survive up to 3 corrupted copies
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Disk layout:</span></span>
+<span class="giallo-l"><span>[Superblock Copy 0][Superblock Copy 1][Superblock Copy 2][Superblock Copy 3]</span></span>
+<span class="giallo-l"><span>     |                   |                  |                  |</span></span>
+<span class="giallo-l"><span>     +------- Each copy has sequence number + checksums -------+</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Write protocol:</span></span>
+<span class="giallo-l"><span>1. Write new superblock to next copy position</span></span>
+<span class="giallo-l"><span>2. Read back and verify</span></span>
+<span class="giallo-l"><span>3. Advance copy pointer</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Recovery:</span></span>
+<span class="giallo-l"><span>- Read all 4 copies</span></span>
+<span class="giallo-l"><span>- Use highest valid sequence number</span></span>
+<span class="giallo-l"><span>- Can survive up to 3 corrupted copies</span></span></code></pre>
 <p><strong>LSM-Tree for Derived State:</strong></p>
 <p>While the WAL is the source of truth, derived state uses an LSM-tree:</p>
-<pre><code>Prepare messages -&gt; WAL (source of truth)
-                 -&gt; LSM tree (derived state, for fast lookups)
-
-LSM blocks:
-- 0.5 MiB each
-- Checksummed and hash-chained
-- Referenced by address + checksum (not just address)
-- Immutable once written
-- Corruption repaired from replicas
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Prepare messages -&gt; WAL (source of truth)</span></span>
+<span class="giallo-l"><span>                 -&gt; LSM tree (derived state, for fast lookups)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>LSM blocks:</span></span>
+<span class="giallo-l"><span>- 0.5 MiB each</span></span>
+<span class="giallo-l"><span>- Checksummed and hash-chained</span></span>
+<span class="giallo-l"><span>- Referenced by address + checksum (not just address)</span></span>
+<span class="giallo-l"><span>- Immutable once written</span></span>
+<span class="giallo-l"><span>- Corruption repaired from replicas</span></span></code></pre>
 <p><strong>Testing: The VOPR Simulator:</strong></p>
 <p>TigerBeetle uses a 1024-core fuzzing simulator called VOPR:</p>
-<pre><code>VOPR fault injection:
-- Corrupt random bits (cosmic rays)
-- Replace file chunks (misdirected writes)
-- Lose writes entirely
-- Inject latency (gray failures)
-- All at double-digit percentages simultaneously!
-
-Test criteria:
-- No committed data lost
-- No availability loss (unless majority corrupted)
-- Cluster self-heals when faults are minority
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>VOPR fault injection:</span></span>
+<span class="giallo-l"><span>- Corrupt random bits (cosmic rays)</span></span>
+<span class="giallo-l"><span>- Replace file chunks (misdirected writes)</span></span>
+<span class="giallo-l"><span>- Lose writes entirely</span></span>
+<span class="giallo-l"><span>- Inject latency (gray failures)</span></span>
+<span class="giallo-l"><span>- All at double-digit percentages simultaneously!</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Test criteria:</span></span>
+<span class="giallo-l"><span>- No committed data lost</span></span>
+<span class="giallo-l"><span>- No availability loss (unless majority corrupted)</span></span>
+<span class="giallo-l"><span>- Cluster self-heals when faults are minority</span></span></code></pre>
 <p><strong>Jepsen Analysis Results (2025):</strong></p>
 <p>Kyle Kingsbury's Jepsen tested TigerBeetle 0.16.11:</p>
-<pre><code>Findings:
-- &quot;Exceptional resilience to disk corruption&quot;
-- Recovered from bitflips on minority nodes
-- Grid zone tolerated loss of all but one copy
-- Safely halted (rather than corrupting) on majority corruption
-
-Issues found and fixed:
-- Superblock padding corruption caused crash (fixed in 0.16.26)
-- WAL head vulnerability in helical fault patterns (documented limitation)
-- Node recovery procedure was undocumented (fixed in 0.16.43)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Findings:</span></span>
+<span class="giallo-l"><span>- &quot;Exceptional resilience to disk corruption&quot;</span></span>
+<span class="giallo-l"><span>- Recovered from bitflips on minority nodes</span></span>
+<span class="giallo-l"><span>- Grid zone tolerated loss of all but one copy</span></span>
+<span class="giallo-l"><span>- Safely halted (rather than corrupting) on majority corruption</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Issues found and fixed:</span></span>
+<span class="giallo-l"><span>- Superblock padding corruption caused crash (fixed in 0.16.26)</span></span>
+<span class="giallo-l"><span>- WAL head vulnerability in helical fault patterns (documented limitation)</span></span>
+<span class="giallo-l"><span>- Node recovery procedure was undocumented (fixed in 0.16.43)</span></span></code></pre>
 <p><strong>Performance Characteristics:</strong></p>
-<pre><code>Batching amortizes costs:
-- 100 transfers in batch: ~50ms latency
-- 10,000 transfers in batch: ~20ms latency (LOWER!)
-
-Why? Little&#39;s Law - larger batches amortize:
-- fsync cost
-- Consensus round-trip
-- Network overhead
-
-TigerBeetle throughput:
-- 175k-245k transfers/second (Linux, tuned)
-- Up to 1M+ transfers/second with large batches
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Batching amortizes costs:</span></span>
+<span class="giallo-l"><span>- 100 transfers in batch: ~50ms latency</span></span>
+<span class="giallo-l"><span>- 10,000 transfers in batch: ~20ms latency (LOWER!)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Why? Little&#39;s Law - larger batches amortize:</span></span>
+<span class="giallo-l"><span>- fsync cost</span></span>
+<span class="giallo-l"><span>- Consensus round-trip</span></span>
+<span class="giallo-l"><span>- Network overhead</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>TigerBeetle throughput:</span></span>
+<span class="giallo-l"><span>- 175k-245k transfers/second (Linux, tuned)</span></span>
+<span class="giallo-l"><span>- Up to 1M+ transfers/second with large batches</span></span></code></pre>
 <p><strong>Trade-offs:</strong></p>
 <table><thead><tr><th>Aspect</th><th>TigerBeetle Approach</th><th>Trade-off</th></tr></thead><tbody>
 <tr><td>Flexibility</td><td>Financial accounting only</td><td>Cannot be general-purpose DB</td></tr>
@@ -793,37 +767,30 @@ TigerBeetle throughput:
 </ul>
 <h3 id="5-2-storage-atomic-write-guarantees">5.2 Storage Atomic Write Guarantees</h3>
 <p><strong>Linux O_ATOMIC (proposed, not standard):</strong></p>
-<pre><code data-lang="c">// Hypothetical API for atomic writes
-int fd = open(&quot;datafile&quot;, O_RDWR | O_ATOMIC);
-// All writes up to atomic_max_bytes are atomic
-pwrite(fd, page, PAGE_SIZE, offset);
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Hypothetical API for atomic writes</span></span>
+<span class="giallo-l"><span class="z-storage z-type">int</span><span> fd </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> open</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">datafile</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">,</span><span> O_RDWR </span><span class="z-keyword z-operator">|</span><span> O_ATOMIC</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> All writes up to atomic_max_bytes are atomic</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">pwrite</span><span class="z-punctuation">(</span><span>fd</span><span class="z-punctuation">,</span><span> page</span><span class="z-punctuation">,</span><span> PAGE_SIZE</span><span class="z-punctuation">,</span><span> offset</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre>
 <p><strong>NVMe Atomic Write Unit:</strong></p>
-<pre><code>AWUN (Atomic Write Unit Normal): Guaranteed atomic write size
-AWUPF (Atomic Write Unit Power Fail): Atomic size during power fail
-
-Modern NVMe typically: AWUN = 4KB, AWUPF = 4KB
-Some enterprise: AWUN = 16KB+
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>AWUN (Atomic Write Unit Normal): Guaranteed atomic write size</span></span>
+<span class="giallo-l"><span>AWUPF (Atomic Write Unit Power Fail): Atomic size during power fail</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Modern NVMe typically: AWUN = 4KB, AWUPF = 4KB</span></span>
+<span class="giallo-l"><span>Some enterprise: AWUN = 16KB+</span></span></code></pre>
 <p><strong>Checking your drive (Linux):</strong></p>
-<pre><code data-lang="bash"># Check NVMe atomic write capabilities
-nvme id-ns /dev/nvme0n1 -H | grep -i atomic
-</code></pre>
-<h3 id="5-3-mysql-s-atomic-write-support">5.3 MySQL's Atomic Write Support</h3>
+<pre class="giallo z-code"><code data-lang="shellscript"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Check NVMe atomic write capabilities</span></span>
+<span class="giallo-l"><span class="z-entity z-name">nvme</span><span class="z-string"> id-ns</span><span class="z-string"> /dev/nvme0n1</span><span class="z-constant"> -</span><span class="z-constant">H</span><span class="z-keyword z-operator"> |</span><span class="z-entity z-name"> grep</span><span class="z-constant"> -</span><span class="z-constant">i</span><span class="z-string"> atomic</span></span></code></pre><h3 id="5-3-mysql-s-atomic-write-support">5.3 MySQL's Atomic Write Support</h3>
 <p>MySQL 8.0 can detect and use atomic writes:</p>
-<pre><code data-lang="ini"># my.cnf
-innodb_use_native_aio = ON
-innodb_doublewrite = ON  # Auto-disabled if atomic writes detected
-
-# MySQL auto-detects:
-# - Fusion-io directFS
-# - Atomic write capable SSDs
-# - Some cloud storage
-</code></pre>
+<pre class="giallo z-code"><code data-lang="ini"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> my.cnf</span></span>
+<span class="giallo-l"><span class="z-keyword">innodb_use_native_aio</span><span class="z-punctuation"> =</span><span> ON</span></span>
+<span class="giallo-l"><span class="z-keyword">innodb_doublewrite</span><span class="z-punctuation"> =</span><span> ON  </span><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Auto-disabled if atomic writes detected</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> MySQL auto-detects:</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> - Fusion-io directFS</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> - Atomic write capable SSDs</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> - Some cloud storage</span></span></code></pre>
 <p><strong>Log message:</strong></p>
-<pre><code>[Note] InnoDB: Atomic write detected, disabling doublewrite buffer
-</code></pre>
-<h3 id="5-4-postgresql-and-atomic-writes">5.4 PostgreSQL and Atomic Writes</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>[Note] InnoDB: Atomic write detected, disabling doublewrite buffer</span></span></code></pre><h3 id="5-4-postgresql-and-atomic-writes">5.4 PostgreSQL and Atomic Writes</h3>
 <p><strong>Current state (as of PG 16):</strong></p>
 <ul>
 <li>No automatic detection of atomic writes</li>
@@ -831,17 +798,15 @@ innodb_doublewrite = ON  # Auto-disabled if atomic writes detected
 <li>Community discussion ongoing</li>
 </ul>
 <p><strong>Potential future:</strong></p>
-<pre><code data-lang="c">// Hypothetical PostgreSQL addition
-bool
-XLogNeedFPW(Buffer buffer)
-{
-    if (io_supports_atomic_write(PageSize))
-        return false;  // Storage guarantees atomicity
-
-    return PageGetLSN(page) &lt; RedoRecPtr;
-}
-</code></pre>
-<h3 id="5-5-cloud-storage-atomicity">5.5 Cloud Storage Atomicity</h3>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Hypothetical PostgreSQL addition</span></span>
+<span class="giallo-l"><span class="z-storage z-type">bool</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">XLogNeedFPW</span><span class="z-punctuation">(</span><span>Buffer </span><span class="z-variable z-parameter">buffer</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    if</span><span class="z-punctuation"> (</span><span class="z-entity z-name z-function">io_supports_atomic_write</span><span class="z-punctuation">(</span><span>PageSize</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        return</span><span class="z-constant"> false</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Storage guarantees atomicity</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">    return</span><span class="z-entity z-name z-function"> PageGetLSN</span><span class="z-punctuation">(</span><span>page</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> &lt;</span><span> RedoRecPtr</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre><h3 id="5-5-cloud-storage-atomicity">5.5 Cloud Storage Atomicity</h3>
 <p><strong>AWS EBS:</strong></p>
 <ul>
 <li>io2 Block Express: 64KB atomic writes</li>
@@ -876,69 +841,61 @@ XLogNeedFPW(Buffer buffer)
 </ul>
 <h3 id="6-2-postgresql-data-checksums">6.2 PostgreSQL Data Checksums</h3>
 <p><strong>Enable at cluster creation:</strong></p>
-<pre><code data-lang="bash">initdb --data-checksums -D /var/lib/postgresql/data
-# Or
-pg_checksums --enable -D /var/lib/postgresql/data  # PG 12+, requires stop
-</code></pre>
+<pre class="giallo z-code"><code data-lang="shellscript"><span class="giallo-l"><span class="z-entity z-name">initdb</span><span class="z-constant"> -</span><span class="z-constant">-data-checksums</span><span class="z-constant"> -</span><span class="z-constant">D</span><span class="z-string"> /var/lib/postgresql/data</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">#</span><span class="z-comment"> Or</span></span>
+<span class="giallo-l"><span class="z-entity z-name">pg_checksums</span><span class="z-constant"> -</span><span class="z-constant">-enable</span><span class="z-constant"> -</span><span class="z-constant">D</span><span class="z-string"> /var/lib/postgresql/data</span><span class="z-punctuation z-definition z-comment">  #</span><span class="z-comment"> PG 12+, requires stop</span></span></code></pre>
 <p><strong>How it works:</strong></p>
-<pre><code data-lang="c">/* From src/include/storage/checksum.h */
-
-/* CRC-32C of page content (excluding pd_checksum field itself) */
-uint16
-pg_checksum_page(char *page, BlockNumber blkno)
-{
-    uint32 crc = pg_crc32c(0, page + offset, size);
-
-    /* Include block number to detect wrong-page-at-wrong-location */
-    crc = pg_crc32c(crc, &amp;blkno, sizeof(blkno));
-
-    return (uint16) crc;  /* Truncated to 16 bits */
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">/*</span><span class="z-comment"> From src/include/storage/checksum.h </span><span class="z-punctuation z-definition z-comment">*/</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">/*</span><span class="z-comment"> CRC-32C of page content (excluding pd_checksum field itself) </span><span class="z-punctuation z-definition z-comment">*/</span></span>
+<span class="giallo-l"><span>uint16</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">pg_checksum_page</span><span class="z-punctuation">(</span><span class="z-storage z-type">char</span><span class="z-keyword z-operator"> *</span><span class="z-variable z-parameter">page</span><span class="z-punctuation">,</span><span> BlockNumber </span><span class="z-variable z-parameter">blkno</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span>    uint32 crc </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> pg_crc32c</span><span class="z-punctuation">(</span><span class="z-constant">0</span><span class="z-punctuation">,</span><span> page </span><span class="z-keyword z-operator">+</span><span> offset</span><span class="z-punctuation">,</span><span> size</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    /*</span><span class="z-comment"> Include block number to detect wrong-page-at-wrong-location </span><span class="z-punctuation z-definition z-comment">*/</span></span>
+<span class="giallo-l"><span>    crc </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> pg_crc32c</span><span class="z-punctuation">(</span><span>crc</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span>blkno</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> sizeof</span><span class="z-punctuation">(</span><span>blkno</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">    return</span><span class="z-punctuation"> (</span><span>uint16</span><span class="z-punctuation">)</span><span> crc</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  /*</span><span class="z-comment"> Truncated to 16 bits </span><span class="z-punctuation z-definition z-comment">*/</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <p><strong>Checksum location:</strong></p>
-<pre><code>Page Header:
-+---------------+
-| pd_lsn        | 8 bytes
-| pd_checksum   | 2 bytes &lt;- Checksum stored here
-| pd_flags      | 2 bytes
-| pd_lower      | 2 bytes
-| pd_upper      | 2 bytes
-| pd_special    | 2 bytes
-| pd_pagesize   | 2 bytes
-| pd_version    | 2 bytes
-+---------------+
-</code></pre>
-<h3 id="6-3-when-checksums-alone-are-insufficient">6.3 When Checksums Alone Are Insufficient</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Page Header:</span></span>
+<span class="giallo-l"><span>+---------------+</span></span>
+<span class="giallo-l"><span>| pd_lsn        | 8 bytes</span></span>
+<span class="giallo-l"><span>| pd_checksum   | 2 bytes &lt;- Checksum stored here</span></span>
+<span class="giallo-l"><span>| pd_flags      | 2 bytes</span></span>
+<span class="giallo-l"><span>| pd_lower      | 2 bytes</span></span>
+<span class="giallo-l"><span>| pd_upper      | 2 bytes</span></span>
+<span class="giallo-l"><span>| pd_special    | 2 bytes</span></span>
+<span class="giallo-l"><span>| pd_pagesize   | 2 bytes</span></span>
+<span class="giallo-l"><span>| pd_version    | 2 bytes</span></span>
+<span class="giallo-l"><span>+---------------+</span></span></code></pre><h3 id="6-3-when-checksums-alone-are-insufficient">6.3 When Checksums Alone Are Insufficient</h3>
 <p><strong>Scenario: Silent corruption without FPW</strong></p>
-<pre><code>1. Checkpoint at LSN 100
-2. Page modified at LSN 101 (no FPW because full_page_writes = off)
-3. Crash during write at LSN 101
-4. Page on disk: torn, checksum invalid
-5. Recovery reads page -&gt; checksum fails
-6. PANIC: Database cannot recover!
-
-PostgreSQL has no way to reconstruct the page without FPW.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>1. Checkpoint at LSN 100</span></span>
+<span class="giallo-l"><span>2. Page modified at LSN 101 (no FPW because full_page_writes = off)</span></span>
+<span class="giallo-l"><span>3. Crash during write at LSN 101</span></span>
+<span class="giallo-l"><span>4. Page on disk: torn, checksum invalid</span></span>
+<span class="giallo-l"><span>5. Recovery reads page -&gt; checksum fails</span></span>
+<span class="giallo-l"><span>6. PANIC: Database cannot recover!</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>PostgreSQL has no way to reconstruct the page without FPW.</span></span></code></pre>
 <p><strong>Detection without recourse = data loss</strong></p>
 <h3 id="6-4-the-checksum-fpw-synergy">6.4 The Checksum + FPW Synergy</h3>
-<pre><code>With both checksums AND full_page_writes:
-
-1. Checkpoint at LSN 100
-2. Page modified at LSN 101, FPW written
-3. Crash during write at LSN 101
-4. Page on disk: torn, checksum invalid
-5. Recovery reads page -&gt; checksum fails
-6. Recovery finds FPW at LSN 101
-7. Restore page from FPW
-8. Verify checksum now passes
-9. Recovery continues successfully
-</code></pre>
-<h3 id="6-5-mysql-checksums">6.5 MySQL Checksums</h3>
-<pre><code data-lang="sql">-- InnoDB checksum algorithm
-SET GLOBAL innodb_checksum_algorithm = &#39;crc32&#39;;
-
--- Options: crc32, strict_crc32, innodb, strict_innodb, none
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>With both checksums AND full_page_writes:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>1. Checkpoint at LSN 100</span></span>
+<span class="giallo-l"><span>2. Page modified at LSN 101, FPW written</span></span>
+<span class="giallo-l"><span>3. Crash during write at LSN 101</span></span>
+<span class="giallo-l"><span>4. Page on disk: torn, checksum invalid</span></span>
+<span class="giallo-l"><span>5. Recovery reads page -&gt; checksum fails</span></span>
+<span class="giallo-l"><span>6. Recovery finds FPW at LSN 101</span></span>
+<span class="giallo-l"><span>7. Restore page from FPW</span></span>
+<span class="giallo-l"><span>8. Verify checksum now passes</span></span>
+<span class="giallo-l"><span>9. Recovery continues successfully</span></span></code></pre><h3 id="6-5-mysql-checksums">6.5 MySQL Checksums</h3>
+<pre class="giallo z-code"><code data-lang="sql"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> InnoDB checksum algorithm</span></span>
+<span class="giallo-l"><span class="z-keyword">SET</span><span class="z-keyword"> GLOBAL</span><span> innodb_checksum_algorithm </span><span class="z-keyword z-operator">=</span><span class="z-punctuation"> &#39;</span><span class="z-string">crc32</span><span class="z-punctuation">&#39;</span><span>;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> Options: crc32, strict_crc32, innodb, strict_innodb, none</span></span></code></pre>
 <p><strong>InnoDB stores checksums at:</strong></p>
 <ul>
 <li>Beginning of page: old-style checksum</li>
@@ -952,25 +909,23 @@ SET GLOBAL innodb_checksum_algorithm = &#39;crc32&#39;;
 <li>Generally recommended: Always enable</li>
 </ul>
 <p><strong>Benchmark:</strong></p>
-<pre><code>pgbench -c 10 -T 60
-
-Without checksums: 15,234 TPS
-With checksums:    14,998 TPS
-
-Overhead: ~1.5%
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>pgbench -c 10 -T 60</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Without checksums: 15,234 TPS</span></span>
+<span class="giallo-l"><span>With checksums:    14,998 TPS</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Overhead: ~1.5%</span></span></code></pre>
 <hr />
 <h2 id="7-why-some-systems-don-t-need-fpw">7. Why Some Systems Don't Need FPW</h2>
 <h3 id="7-1-lsm-tree-based-systems">7.1 LSM-Tree Based Systems</h3>
 <p><strong>Key property:</strong> Append-only writes, immutable files</p>
-<pre><code>RocksDB/LevelDB write path:
-1. Append to WAL (sequential, atomic at record level)
-2. Insert to MemTable (memory)
-3. Flush MemTable to new SST file (new file = atomic creation)
-4. Update MANIFEST (atomic file operation)
-
-No step involves modifying an existing data file!
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>RocksDB/LevelDB write path:</span></span>
+<span class="giallo-l"><span>1. Append to WAL (sequential, atomic at record level)</span></span>
+<span class="giallo-l"><span>2. Insert to MemTable (memory)</span></span>
+<span class="giallo-l"><span>3. Flush MemTable to new SST file (new file = atomic creation)</span></span>
+<span class="giallo-l"><span>4. Update MANIFEST (atomic file operation)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>No step involves modifying an existing data file!</span></span></code></pre>
 <p><strong>Why it works:</strong></p>
 <ul>
 <li>SST files written sequentially, then made read-only</li>
@@ -980,15 +935,14 @@ No step involves modifying an existing data file!
 </ul>
 <h3 id="7-2-copy-on-write-systems">7.2 Copy-on-Write Systems</h3>
 <p><strong>Examples:</strong> ZFS, btrfs, DuckDB, FoundationDB</p>
-<pre><code>COW write path:
-1. Read block at location A
-2. Modify in memory
-3. Write modified block to NEW location B
-4. Update parent pointer atomically
-5. Old block at A is now free
-
-At no point is existing data overwritten!
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>COW write path:</span></span>
+<span class="giallo-l"><span>1. Read block at location A</span></span>
+<span class="giallo-l"><span>2. Modify in memory</span></span>
+<span class="giallo-l"><span>3. Write modified block to NEW location B</span></span>
+<span class="giallo-l"><span>4. Update parent pointer atomically</span></span>
+<span class="giallo-l"><span>5. Old block at A is now free</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>At no point is existing data overwritten!</span></span></code></pre>
 <p><strong>Why it works:</strong></p>
 <ul>
 <li>Crash before pointer update -&gt; old block still valid</li>
@@ -997,11 +951,10 @@ At no point is existing data overwritten!
 </ul>
 <h3 id="7-3-append-only-systems">7.3 Append-Only Systems</h3>
 <p><strong>Examples:</strong> Event sourcing, immutable logs, Kafka</p>
-<pre><code>Append-only log:
-Record 1 | Record 2 | Record 3 | Record 4 | &lt;EOF&gt;
-                                          ^
-                              Crash here = truncate to Record 3
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Append-only log:</span></span>
+<span class="giallo-l"><span>Record 1 | Record 2 | Record 3 | Record 4 | &lt;EOF&gt;</span></span>
+<span class="giallo-l"><span>                                          ^</span></span>
+<span class="giallo-l"><span>                              Crash here = truncate to Record 3</span></span></code></pre>
 <p><strong>Recovery:</strong></p>
 <ul>
 <li>Scan from start or last checkpoint</li>
@@ -1011,20 +964,19 @@ Record 1 | Record 2 | Record 3 | Record 4 | &lt;EOF&gt;
 </ul>
 <h3 id="7-4-in-memory-systems-with-checkpointing">7.4 In-Memory Systems with Checkpointing</h3>
 <p><strong>Examples:</strong> Redis, VoltDB, MemSQL/SingleStore</p>
-<pre><code>In-memory operation:
-- All data in memory
-- Periodic snapshots to disk
-- Snapshot is atomic (COW or fork-based)
-
-Write path:
-1. Modify in memory (atomic at operation level)
-2. Append to AOF/WAL
-3. Periodic snapshot
-
-Recovery:
-1. Load last snapshot
-2. Replay WAL since snapshot
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>In-memory operation:</span></span>
+<span class="giallo-l"><span>- All data in memory</span></span>
+<span class="giallo-l"><span>- Periodic snapshots to disk</span></span>
+<span class="giallo-l"><span>- Snapshot is atomic (COW or fork-based)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Write path:</span></span>
+<span class="giallo-l"><span>1. Modify in memory (atomic at operation level)</span></span>
+<span class="giallo-l"><span>2. Append to AOF/WAL</span></span>
+<span class="giallo-l"><span>3. Periodic snapshot</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Recovery:</span></span>
+<span class="giallo-l"><span>1. Load last snapshot</span></span>
+<span class="giallo-l"><span>2. Replay WAL since snapshot</span></span></code></pre>
 <p><strong>Why FPW unnecessary:</strong></p>
 <ul>
 <li>Memory operations are atomic</li>
@@ -1043,111 +995,103 @@ Recovery:
 <hr />
 <h2 id="8-trade-off-analysis">8. Trade-off Analysis</h2>
 <h3 id="8-1-write-amplification-comparison">8.1 Write Amplification Comparison</h3>
-<pre><code>WRITE AMPLIFICATION FACTORS:
-
-PostgreSQL (B-tree, FPW on):
-  User write: 100 bytes
-  Page modification: 8KB page touch
-  WAL: 100 bytes + 8KB FPW (first after checkpoint) = 8.1KB
-  Data file: 8KB
-  Total write amplification: 80x-160x first write, ~1.2x subsequent
-
-MySQL/InnoDB (B-tree, doublewrite):
-  User write: 100 bytes
-  Page modification: 16KB page touch
-  WAL: ~100 bytes
-  Doublewrite: 16KB
-  Data file: 16KB
-  Total write amplification: ~320x first write (but sequential!)
-
-RocksDB (LSM-tree):
-  User write: 100 bytes
-  WAL: ~100 bytes
-  MemTable: memory only
-  Flush: amortized across many writes
-  Compaction: additional amplification (10-30x total)
-  Total write amplification: 10-30x (but all sequential)
-
-DuckDB (COW, analytics):
-  User write: typically bulk
-  New blocks: proportional to modified data
-  No in-place modification
-  Total write amplification: ~1-2x for bulk writes
-</code></pre>
-<h3 id="8-2-recovery-time-comparison">8.2 Recovery Time Comparison</h3>
-<pre><code>RECOVERY TIME (for 100GB database, 1GB WAL):
-
-PostgreSQL:
-- Scan 1GB WAL
-- Apply FPW images (potentially many GBs of page images)
-- Redo remaining changes
-- ~5-15 minutes typical
-
-MySQL/InnoDB:
-- Check doublewrite buffer
-- Repair any torn pages
-- Apply redo log
-- ~2-5 minutes typical
-
-RocksDB:
-- Read MANIFEST
-- Verify SST files
-- Replay WAL (small, since SSTs capture most data)
-- ~30 seconds to 2 minutes typical
-
-COW systems (ZFS, btrfs):
-- No recovery needed
-- Just mount last consistent state
-- ~seconds
-</code></pre>
-<h3 id="8-3-space-overhead-comparison">8.3 Space Overhead Comparison</h3>
-<pre><code>SPACE OVERHEAD:
-
-PostgreSQL FPW:
-- WAL size increase: 2-10x
-- Additional archive storage
-- Longer replication lag
-
-MySQL doublewrite:
-- Fixed 2MB buffer
-- No WAL size increase
-- Minimal space overhead
-
-LSM-tree systems:
-- Space amplification from levels: 10-20x
-- No torn page overhead per se
-
-COW systems:
-- Space for old versions until garbage collected
-- Typically 10-30% overhead
-</code></pre>
-<h3 id="8-4-complexity-comparison">8.4 Complexity Comparison</h3>
-<pre><code>IMPLEMENTATION COMPLEXITY:
-
-PostgreSQL FPW:
-  + Simple concept
-  + Well-tested
-  - Performance overhead
-  - WAL management complexity
-
-MySQL doublewrite:
-  + Separate from redo log
-  + Small fixed overhead
-  - Extra I/O path
-  - Sequential write dependency
-
-LSM-tree (no torn page handling):
-  + Naturally atomic
-  - Compaction complexity
-  - Read amplification
-
-COW:
-  + Elegant
-  + Snapshot capability
-  - Garbage collection
-  - Space management
-</code></pre>
-<h3 id="8-5-decision-matrix">8.5 Decision Matrix</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>WRITE AMPLIFICATION FACTORS:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>PostgreSQL (B-tree, FPW on):</span></span>
+<span class="giallo-l"><span>  User write: 100 bytes</span></span>
+<span class="giallo-l"><span>  Page modification: 8KB page touch</span></span>
+<span class="giallo-l"><span>  WAL: 100 bytes + 8KB FPW (first after checkpoint) = 8.1KB</span></span>
+<span class="giallo-l"><span>  Data file: 8KB</span></span>
+<span class="giallo-l"><span>  Total write amplification: 80x-160x first write, ~1.2x subsequent</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>MySQL/InnoDB (B-tree, doublewrite):</span></span>
+<span class="giallo-l"><span>  User write: 100 bytes</span></span>
+<span class="giallo-l"><span>  Page modification: 16KB page touch</span></span>
+<span class="giallo-l"><span>  WAL: ~100 bytes</span></span>
+<span class="giallo-l"><span>  Doublewrite: 16KB</span></span>
+<span class="giallo-l"><span>  Data file: 16KB</span></span>
+<span class="giallo-l"><span>  Total write amplification: ~320x first write (but sequential!)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>RocksDB (LSM-tree):</span></span>
+<span class="giallo-l"><span>  User write: 100 bytes</span></span>
+<span class="giallo-l"><span>  WAL: ~100 bytes</span></span>
+<span class="giallo-l"><span>  MemTable: memory only</span></span>
+<span class="giallo-l"><span>  Flush: amortized across many writes</span></span>
+<span class="giallo-l"><span>  Compaction: additional amplification (10-30x total)</span></span>
+<span class="giallo-l"><span>  Total write amplification: 10-30x (but all sequential)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>DuckDB (COW, analytics):</span></span>
+<span class="giallo-l"><span>  User write: typically bulk</span></span>
+<span class="giallo-l"><span>  New blocks: proportional to modified data</span></span>
+<span class="giallo-l"><span>  No in-place modification</span></span>
+<span class="giallo-l"><span>  Total write amplification: ~1-2x for bulk writes</span></span></code></pre><h3 id="8-2-recovery-time-comparison">8.2 Recovery Time Comparison</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>RECOVERY TIME (for 100GB database, 1GB WAL):</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>PostgreSQL:</span></span>
+<span class="giallo-l"><span>- Scan 1GB WAL</span></span>
+<span class="giallo-l"><span>- Apply FPW images (potentially many GBs of page images)</span></span>
+<span class="giallo-l"><span>- Redo remaining changes</span></span>
+<span class="giallo-l"><span>- ~5-15 minutes typical</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>MySQL/InnoDB:</span></span>
+<span class="giallo-l"><span>- Check doublewrite buffer</span></span>
+<span class="giallo-l"><span>- Repair any torn pages</span></span>
+<span class="giallo-l"><span>- Apply redo log</span></span>
+<span class="giallo-l"><span>- ~2-5 minutes typical</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>RocksDB:</span></span>
+<span class="giallo-l"><span>- Read MANIFEST</span></span>
+<span class="giallo-l"><span>- Verify SST files</span></span>
+<span class="giallo-l"><span>- Replay WAL (small, since SSTs capture most data)</span></span>
+<span class="giallo-l"><span>- ~30 seconds to 2 minutes typical</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>COW systems (ZFS, btrfs):</span></span>
+<span class="giallo-l"><span>- No recovery needed</span></span>
+<span class="giallo-l"><span>- Just mount last consistent state</span></span>
+<span class="giallo-l"><span>- ~seconds</span></span></code></pre><h3 id="8-3-space-overhead-comparison">8.3 Space Overhead Comparison</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>SPACE OVERHEAD:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>PostgreSQL FPW:</span></span>
+<span class="giallo-l"><span>- WAL size increase: 2-10x</span></span>
+<span class="giallo-l"><span>- Additional archive storage</span></span>
+<span class="giallo-l"><span>- Longer replication lag</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>MySQL doublewrite:</span></span>
+<span class="giallo-l"><span>- Fixed 2MB buffer</span></span>
+<span class="giallo-l"><span>- No WAL size increase</span></span>
+<span class="giallo-l"><span>- Minimal space overhead</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>LSM-tree systems:</span></span>
+<span class="giallo-l"><span>- Space amplification from levels: 10-20x</span></span>
+<span class="giallo-l"><span>- No torn page overhead per se</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>COW systems:</span></span>
+<span class="giallo-l"><span>- Space for old versions until garbage collected</span></span>
+<span class="giallo-l"><span>- Typically 10-30% overhead</span></span></code></pre><h3 id="8-4-complexity-comparison">8.4 Complexity Comparison</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>IMPLEMENTATION COMPLEXITY:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>PostgreSQL FPW:</span></span>
+<span class="giallo-l"><span>  + Simple concept</span></span>
+<span class="giallo-l"><span>  + Well-tested</span></span>
+<span class="giallo-l"><span>  - Performance overhead</span></span>
+<span class="giallo-l"><span>  - WAL management complexity</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>MySQL doublewrite:</span></span>
+<span class="giallo-l"><span>  + Separate from redo log</span></span>
+<span class="giallo-l"><span>  + Small fixed overhead</span></span>
+<span class="giallo-l"><span>  - Extra I/O path</span></span>
+<span class="giallo-l"><span>  - Sequential write dependency</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>LSM-tree (no torn page handling):</span></span>
+<span class="giallo-l"><span>  + Naturally atomic</span></span>
+<span class="giallo-l"><span>  - Compaction complexity</span></span>
+<span class="giallo-l"><span>  - Read amplification</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>COW:</span></span>
+<span class="giallo-l"><span>  + Elegant</span></span>
+<span class="giallo-l"><span>  + Snapshot capability</span></span>
+<span class="giallo-l"><span>  - Garbage collection</span></span>
+<span class="giallo-l"><span>  - Space management</span></span></code></pre><h3 id="8-5-decision-matrix">8.5 Decision Matrix</h3>
 <table><thead><tr><th>Workload</th><th>Recommended Approach</th><th>Why</th></tr></thead><tbody>
 <tr><td>OLTP, random writes</td><td>FPW or Doublewrite</td><td>Must handle torn pages</td></tr>
 <tr><td>Analytics, bulk writes</td><td>COW or LSM</td><td>Less critical, bulk atomic</td></tr>
@@ -1260,41 +1204,37 @@ COW:
 </ol>
 <h3 id="9-2-emerging-techniques">9.2 Emerging Techniques</h3>
 <p><strong>1. Persistent Memory (PMem):</strong></p>
-<pre><code>Intel Optane / CXL Memory:
-- Byte-addressable persistent storage
-- Sub-microsecond latency
-- Atomic 8-byte writes guaranteed
-
-Implications:
-- Fine-grained logging possible
-- No torn page problem at 8-byte level
-- New recovery algorithms needed
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Intel Optane / CXL Memory:</span></span>
+<span class="giallo-l"><span>- Byte-addressable persistent storage</span></span>
+<span class="giallo-l"><span>- Sub-microsecond latency</span></span>
+<span class="giallo-l"><span>- Atomic 8-byte writes guaranteed</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Implications:</span></span>
+<span class="giallo-l"><span>- Fine-grained logging possible</span></span>
+<span class="giallo-l"><span>- No torn page problem at 8-byte level</span></span>
+<span class="giallo-l"><span>- New recovery algorithms needed</span></span></code></pre>
 <p><strong>Research:</strong></p>
 <ul>
 <li>"RECIPE: Converting Concurrent DRAM Indexes to Persistent-Memory Indexes" (SOSP 2019)</li>
 <li>"Zen: A High-Throughput Log-Free OLTP Engine" (VLDB 2021)</li>
 </ul>
 <p><strong>2. Asynchronous I/O + io_uring:</strong></p>
-<pre><code>Linux io_uring:
-- Kernel-bypass I/O submission
-- Batching and polling modes
-- IORING_OP_WRITE_FIXED for atomic writes
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Linux io_uring:</span></span>
+<span class="giallo-l"><span>- Kernel-bypass I/O submission</span></span>
+<span class="giallo-l"><span>- Batching and polling modes</span></span>
+<span class="giallo-l"><span>- IORING_OP_WRITE_FIXED for atomic writes</span></span></code></pre>
 <p><strong>Implication:</strong> Efficient batched fsync enables more frequent durability points.</p>
 <p><strong>3. Learned Checkpointing:</strong></p>
-<pre><code>Use ML to predict:
-- When to checkpoint (minimize recovery time vs performance)
-- Which pages to prioritize
-- Optimal FPW compression settings
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Use ML to predict:</span></span>
+<span class="giallo-l"><span>- When to checkpoint (minimize recovery time vs performance)</span></span>
+<span class="giallo-l"><span>- Which pages to prioritize</span></span>
+<span class="giallo-l"><span>- Optimal FPW compression settings</span></span></code></pre>
 <p><strong>Research:</strong> Emerging area, no definitive papers yet.</p>
 <p><strong>4. Hardware Acceleration:</strong></p>
-<pre><code>Computational storage:
-- Offload checksum calculation to SSD controller
-- Transparent compression at storage layer
-- Hardware-assisted atomic writes
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Computational storage:</span></span>
+<span class="giallo-l"><span>- Offload checksum calculation to SSD controller</span></span>
+<span class="giallo-l"><span>- Transparent compression at storage layer</span></span>
+<span class="giallo-l"><span>- Hardware-assisted atomic writes</span></span></code></pre>
 <p><strong>Products:</strong> Samsung SmartSSD, ScaleFlux, Pliops</p>
 <h3 id="9-3-industry-innovations">9.3 Industry Innovations</h3>
 <p><strong>MySQL 8.0 Doublewrite Buffer v2:</strong></p>
@@ -1368,58 +1308,53 @@ Implications:
 <li>Either run PostgreSQL recovery first, or implement WAL replay</li>
 </ul>
 <p><strong>Code implications:</strong></p>
-<pre><code data-lang="rust">fn validate_page(page: &amp;[u8], block_num: u32) -&gt; Result&lt;(), Error&gt; {
-    // 1. Check page header magic
-    let header = PageHeaderData::parse(page)?;
-
-    // 2. Verify checksum if enabled
-    if data_checksums_enabled {
-        let expected = header.pd_checksum;
-        let actual = pg_checksum_page(page, block_num);
-        if expected != actual {
-            return Err(Error::ChecksumMismatch {
-                block: block_num,
-                expected,
-                actual,
-            });
-        }
-    }
-
-    // 3. Validate LSN is reasonable
-    if header.pd_lsn &gt; current_redo_ptr {
-        // Page may be from future (clock skew) or corrupted
-        warn!(&quot;Page LSN ahead of redo pointer&quot;);
-    }
-
-    Ok(())
-}
-</code></pre>
-<h3 id="10-2-for-postgresql-users-dbas">10.2 For PostgreSQL Users/DBAs</h3>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-keyword">fn</span><span class="z-entity z-name z-function"> validate_page</span><span class="z-punctuation">(</span><span class="z-variable z-other">page</span><span class="z-keyword z-operator">:</span><span class="z-keyword z-operator"> &amp;</span><span class="z-punctuation">[</span><span class="z-entity z-name z-type">u8</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span><span class="z-variable z-other"> block_num</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u32</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> Result</span><span class="z-punctuation">&lt;</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span><span class="z-entity z-name z-type"> Error</span><span class="z-punctuation">&gt;</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> 1. Check page header magic</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-variable z-other"> header</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-type"> PageHeaderData</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">parse</span><span class="z-punctuation">(</span><span class="z-variable z-other">page</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">?</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> 2. Verify checksum if enabled</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    if</span><span class="z-variable z-other"> data_checksums_enabled</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">        let</span><span class="z-variable z-other"> expected</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> header</span><span class="z-keyword z-operator">.</span><span>pd_checksum</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">        let</span><span class="z-variable z-other"> actual</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-function"> pg_checksum_page</span><span class="z-punctuation">(</span><span class="z-variable z-other">page</span><span class="z-punctuation">,</span><span class="z-variable z-other"> block_num</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-variable z-other"> expected</span><span class="z-keyword z-operator"> !=</span><span class="z-variable z-other"> actual</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">            return</span><span class="z-entity z-name z-type"> Err</span><span class="z-punctuation">(</span><span class="z-entity z-name z-type">Error</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-type">ChecksumMismatch</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">                block</span><span class="z-keyword z-operator">:</span><span class="z-variable z-other"> block_num</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-variable z-other">                expected</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-variable z-other">                actual</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">            }</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> 3. Validate LSN is reasonable</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    if</span><span class="z-variable z-other"> header</span><span class="z-keyword z-operator">.</span><span>pd_lsn</span><span class="z-keyword z-operator"> &gt;</span><span class="z-variable z-other"> current_redo_ptr</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">        //</span><span class="z-comment"> Page may be from future (clock skew) or corrupted</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">        warn!</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">Page LSN ahead of redo pointer</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">    Ok</span><span class="z-punctuation">(</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre><h3 id="10-2-for-postgresql-users-dbas">10.2 For PostgreSQL Users/DBAs</h3>
 <p><strong>Always enable:</strong></p>
-<pre><code data-lang="sql">-- postgresql.conf
-full_page_writes = on     -- DO NOT DISABLE
-data_checksums = on       -- Enable at initdb
-
--- For performance with FPW:
-wal_compression = on      -- Reduces WAL size
-checkpoint_timeout = 15min -- Longer = fewer FPW
-max_wal_size = 4GB        -- Allow more between checkpoints
-</code></pre>
+<pre class="giallo z-code"><code data-lang="sql"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> postgresql.conf</span></span>
+<span class="giallo-l"><span>full_page_writes </span><span class="z-keyword z-operator">=</span><span class="z-keyword"> on</span><span class="z-punctuation z-definition z-comment">     --</span><span class="z-comment"> DO NOT DISABLE</span></span>
+<span class="giallo-l"><span>data_checksums </span><span class="z-keyword z-operator">=</span><span class="z-keyword"> on</span><span class="z-punctuation z-definition z-comment">       --</span><span class="z-comment"> Enable at initdb</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> For performance with FPW:</span></span>
+<span class="giallo-l"><span>wal_compression </span><span class="z-keyword z-operator">=</span><span class="z-keyword"> on</span><span class="z-punctuation z-definition z-comment">      --</span><span class="z-comment"> Reduces WAL size</span></span>
+<span class="giallo-l"><span>checkpoint_timeout </span><span class="z-keyword z-operator">=</span><span> 15min </span><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> Longer = fewer FPW</span></span>
+<span class="giallo-l"><span>max_wal_size </span><span class="z-keyword z-operator">=</span><span> 4GB        </span><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> Allow more between checkpoints</span></span></code></pre>
 <p><strong>Monitoring:</strong></p>
-<pre><code data-lang="sql">-- Check FPW frequency
-SELECT pg_stat_wal.* FROM pg_stat_wal;
-
--- Estimate FPW overhead
-SELECT
-    wal_bytes,
-    wal_fpi  -- Full page images written
-FROM pg_stat_wal;
-
--- Check checksum status
-SHOW data_checksums;
-SELECT pg_control_checkpoint();
-</code></pre>
-<h3 id="10-3-for-database-system-designers">10.3 For Database System Designers</h3>
+<pre class="giallo z-code"><code data-lang="sql"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> Check FPW frequency</span></span>
+<span class="giallo-l"><span class="z-keyword">SELECT</span><span> pg_stat_wal.</span><span class="z-keyword z-operator">*</span><span class="z-keyword"> FROM</span><span> pg_stat_wal;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> Estimate FPW overhead</span></span>
+<span class="giallo-l"><span class="z-keyword">SELECT</span></span>
+<span class="giallo-l"><span>    wal_bytes,</span></span>
+<span class="giallo-l"><span>    wal_fpi  </span><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> Full page images written</span></span>
+<span class="giallo-l"><span class="z-keyword">FROM</span><span> pg_stat_wal;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> Check checksum status</span></span>
+<span class="giallo-l"><span>SHOW data_checksums;</span></span>
+<span class="giallo-l"><span class="z-keyword">SELECT</span><span> pg_control_checkpoint</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span>;</span></span></code></pre><h3 id="10-3-for-database-system-designers">10.3 For Database System Designers</h3>
 <p><strong>Questions to answer:</strong></p>
 <ol>
 <li>

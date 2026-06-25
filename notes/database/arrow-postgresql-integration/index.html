@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -106,22 +129,21 @@
 <li><strong>Verdict</strong>: ✅ Chosen - Essential for PostgreSQL compatibility</li>
 </ul>
 <p><strong>Implementation example</strong>:</p>
-<pre><code data-lang="rust">use arrow::datatypes::{Field, DataType, Schema};
-use std::collections::HashMap;
-
-let field = Field::new(&quot;id&quot;, DataType::Int32, false)
-    .with_metadata(HashMap::from([
-        (&quot;pg:typoid&quot;.to_string(), &quot;23&quot;.to_string()),
-        (&quot;pg:typmod&quot;.to_string(), &quot;-1&quot;.to_string()),
-        (&quot;pg:attnum&quot;.to_string(), &quot;1&quot;.to_string()),
-    ]));
-
-let schema = Schema::new(vec![field])
-    .with_metadata(HashMap::from([
-        (&quot;pg:oid&quot;.to_string(), &quot;16384&quot;.to_string()),
-        (&quot;pg:relname&quot;.to_string(), &quot;users&quot;.to_string()),
-    ]));
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-keyword">use</span><span class="z-entity z-name"> arrow</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name">datatypes</span><span class="z-keyword z-operator">::</span><span class="z-punctuation">{</span><span class="z-entity z-name z-type">Field</span><span class="z-punctuation">,</span><span class="z-entity z-name z-type"> DataType</span><span class="z-punctuation">,</span><span class="z-entity z-name z-type"> Schema</span><span class="z-punctuation">}</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword">use</span><span class="z-entity z-name"> std</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name">collections</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-type">HashMap</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">let</span><span class="z-variable z-other"> field</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-type"> Field</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">new</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">id</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">,</span><span class="z-entity z-name"> DataType</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-type">Int32</span><span class="z-punctuation">,</span><span class="z-constant"> false</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">    .</span><span class="z-entity z-name z-function">with_metadata</span><span class="z-punctuation">(</span><span class="z-entity z-name">HashMap</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">from</span><span class="z-punctuation">(</span><span class="z-punctuation">[</span></span>
+<span class="giallo-l"><span class="z-punctuation">        (</span><span class="z-punctuation">&quot;</span><span class="z-string">pg:typoid</span><span class="z-punctuation">&quot;</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">to_string</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span><span class="z-punctuation"> &quot;</span><span class="z-string">23</span><span class="z-punctuation">&quot;</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">to_string</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">        (</span><span class="z-punctuation">&quot;</span><span class="z-string">pg:typmod</span><span class="z-punctuation">&quot;</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">to_string</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span><span class="z-punctuation"> &quot;</span><span class="z-string">-1</span><span class="z-punctuation">&quot;</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">to_string</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">        (</span><span class="z-punctuation">&quot;</span><span class="z-string">pg:attnum</span><span class="z-punctuation">&quot;</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">to_string</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span><span class="z-punctuation"> &quot;</span><span class="z-string">1</span><span class="z-punctuation">&quot;</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">to_string</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">    ]</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">let</span><span class="z-variable z-other"> schema</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-type"> Schema</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">new</span><span class="z-punctuation">(</span><span class="z-entity z-name z-function">vec!</span><span class="z-punctuation">[</span><span class="z-variable z-other">field</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">    .</span><span class="z-entity z-name z-function">with_metadata</span><span class="z-punctuation">(</span><span class="z-entity z-name">HashMap</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">from</span><span class="z-punctuation">(</span><span class="z-punctuation">[</span></span>
+<span class="giallo-l"><span class="z-punctuation">        (</span><span class="z-punctuation">&quot;</span><span class="z-string">pg:oid</span><span class="z-punctuation">&quot;</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">to_string</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span><span class="z-punctuation"> &quot;</span><span class="z-string">16384</span><span class="z-punctuation">&quot;</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">to_string</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">        (</span><span class="z-punctuation">&quot;</span><span class="z-string">pg:relname</span><span class="z-punctuation">&quot;</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">to_string</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span><span class="z-punctuation"> &quot;</span><span class="z-string">users</span><span class="z-punctuation">&quot;</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">to_string</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">    ]</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre>
 <hr />
 <h3 id="2-dictionary-encoding">2. Dictionary Encoding</h3>
 <ul>
@@ -145,20 +167,19 @@ let schema = Schema::new(vec![field])
 <li><strong>Verdict</strong>: ✅ Chosen - Use adaptive heuristic (dictionary if <code>unique_count/total &lt; 0.1</code>)</li>
 </ul>
 <p><strong>Implementation strategy</strong>:</p>
-<pre><code data-lang="rust">use std::collections::HashMap;
-
-struct ColumnStats {
-    unique_values: HashMap&lt;String, usize&gt;,
-    total_count: usize,
-}
-
-impl ColumnStats {
-    fn should_use_dictionary(&amp;self) -&gt; bool {
-        let cardinality_ratio = self.unique_values.len() as f64 / self.total_count as f64;
-        cardinality_ratio &lt; 0.1 // Use dictionary if &lt; 10% unique
-    }
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-keyword">use</span><span class="z-entity z-name"> std</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name">collections</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-type">HashMap</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span class="z-entity z-name z-type"> ColumnStats</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    unique_values</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> HashMap</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">String</span><span class="z-punctuation">,</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation">&gt;</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    total_count</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword">impl</span><span class="z-entity z-name z-type"> ColumnStats</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword">    fn</span><span class="z-entity z-name z-function"> should_use_dictionary</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-variable">self</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> bool</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">        let</span><span class="z-variable z-other"> cardinality_ratio</span><span class="z-keyword z-operator"> =</span><span class="z-variable"> self</span><span class="z-keyword z-operator">.</span><span>unique_values</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">len</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword"> as</span><span class="z-entity z-name z-type"> f64</span><span class="z-keyword z-operator"> /</span><span class="z-variable"> self</span><span class="z-keyword z-operator">.</span><span>total_count </span><span class="z-keyword">as</span><span class="z-entity z-name z-type"> f64</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        cardinality_ratio</span><span class="z-keyword z-operator"> &lt;</span><span class="z-constant"> 0</span><span class="z-punctuation">.</span><span class="z-constant">1</span><span class="z-punctuation z-definition z-comment"> //</span><span class="z-comment"> Use dictionary if &lt; 10% unique</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <hr />
 <h3 id="3-extension-types-for-postgresql-specific-types">3. Extension Types for PostgreSQL-Specific Types</h3>
 <ul>
@@ -187,23 +208,22 @@ impl ColumnStats {
 <li><strong>Verdict</strong>: ✅ Chosen - Required for type fidelity</li>
 </ul>
 <p><strong>Example</strong>:</p>
-<pre><code data-lang="rust">// UUID extension type
-let uuid_type = DataType::Extension(
-    &quot;postgresql.uuid&quot;.to_string(),
-    Box::new(DataType::FixedSizeBinary(16)),
-    None,
-);
-
-// NUMERIC with precision &gt; 38 (Decimal128 limit)
-let high_precision_numeric = DataType::Extension(
-    &quot;postgresql.numeric&quot;.to_string(),
-    Box::new(DataType::Utf8),
-    Some(serde_json::json!({
-        &quot;precision&quot;: 100,
-        &quot;scale&quot;: 20
-    }).to_string()),
-);
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> UUID extension type</span></span>
+<span class="giallo-l"><span class="z-storage z-type">let</span><span class="z-variable z-other"> uuid_type</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-type"> DataType</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">Extension</span><span class="z-punctuation">(</span></span>
+<span class="giallo-l"><span class="z-punctuation">    &quot;</span><span class="z-string">postgresql.uuid</span><span class="z-punctuation">&quot;</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">to_string</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-entity z-name">    Box</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">new</span><span class="z-punctuation">(</span><span class="z-entity z-name">DataType</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">FixedSizeBinary</span><span class="z-punctuation">(</span><span class="z-constant">16</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">    None</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> NUMERIC with precision &gt; 38 (Decimal128 limit)</span></span>
+<span class="giallo-l"><span class="z-storage z-type">let</span><span class="z-variable z-other"> high_precision_numeric</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-type"> DataType</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">Extension</span><span class="z-punctuation">(</span></span>
+<span class="giallo-l"><span class="z-punctuation">    &quot;</span><span class="z-string">postgresql.numeric</span><span class="z-punctuation">&quot;</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">to_string</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-entity z-name">    Box</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">new</span><span class="z-punctuation">(</span><span class="z-entity z-name">DataType</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-type">Utf8</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">    Some</span><span class="z-punctuation">(</span><span class="z-entity z-name">serde_json</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name z-function">json!</span><span class="z-punctuation">(</span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span class="z-punctuation">        &quot;</span><span class="z-string">precision</span><span class="z-punctuation">&quot;</span><span class="z-keyword z-operator">:</span><span class="z-constant"> 100</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">        &quot;</span><span class="z-string">scale</span><span class="z-punctuation">&quot;</span><span class="z-keyword z-operator">:</span><span class="z-constant"> 20</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">to_string</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre>
 <hr />
 <h3 id="4-memory-mapping-vs-buffered-i-o">4. Memory Mapping vs Buffered I/O</h3>
 <table><thead><tr><th>Aspect</th><th>mmap()</th><th>Buffered read()</th></tr></thead><tbody>
@@ -238,20 +258,19 @@ let high_precision_numeric = DataType::Extension(
 <li><strong>Verdict</strong>: ✅ <strong>Chosen for initial implementation</strong></li>
 </ul>
 <p><strong>Visibility check code</strong> (simplified):</p>
-<pre><code data-lang="rust">const HEAP_XMIN_COMMITTED: u16 = 0x0100;
-const HEAP_XMIN_INVALID: u16 = 0x0200;
-const HEAP_XMAX_COMMITTED: u16 = 0x0400;
-const HEAP_XMAX_INVALID: u16 = 0x0800;
-
-fn is_tuple_visible_simple(t_infomask: u16) -&gt; bool {
-    // For stopped database with hint bits
-    let xmin_committed = (t_infomask &amp; HEAP_XMIN_COMMITTED) != 0;
-    let xmin_invalid = (t_infomask &amp; HEAP_XMIN_INVALID) != 0;
-    let xmax_invalid = (t_infomask &amp; HEAP_XMAX_INVALID) != 0;
-
-    xmin_committed &amp;&amp; !xmin_invalid &amp;&amp; xmax_invalid
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> HEAP_XMIN_COMMITTED</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x0100</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> HEAP_XMIN_INVALID</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x0200</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> HEAP_XMAX_COMMITTED</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x0400</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> HEAP_XMAX_INVALID</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x0800</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword">fn</span><span class="z-entity z-name z-function"> is_tuple_visible_simple</span><span class="z-punctuation">(</span><span class="z-variable z-other">t_infomask</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> bool</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> For stopped database with hint bits</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-variable z-other"> xmin_committed</span><span class="z-keyword z-operator"> =</span><span class="z-punctuation"> (</span><span class="z-variable z-other">t_infomask</span><span class="z-keyword z-operator"> &amp;</span><span class="z-constant"> HEAP_XMIN_COMMITTED</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> !=</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-variable z-other"> xmin_invalid</span><span class="z-keyword z-operator"> =</span><span class="z-punctuation"> (</span><span class="z-variable z-other">t_infomask</span><span class="z-keyword z-operator"> &amp;</span><span class="z-constant"> HEAP_XMIN_INVALID</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> !=</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-variable z-other"> xmax_invalid</span><span class="z-keyword z-operator"> =</span><span class="z-punctuation"> (</span><span class="z-variable z-other">t_infomask</span><span class="z-keyword z-operator"> &amp;</span><span class="z-constant"> HEAP_XMAX_INVALID</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> !=</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-variable z-other">    xmin_committed</span><span class="z-keyword z-operator z-logical"> &amp;&amp;</span><span class="z-keyword z-operator z-logical"> !</span><span class="z-variable z-other">xmin_invalid</span><span class="z-keyword z-operator z-logical"> &amp;&amp;</span><span class="z-variable z-other"> xmax_invalid</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <hr />
 <h3 id="6-toast-handling-options">6. TOAST Handling Options</h3>
 <h4 id="option-a-skip-toast-columns">Option A: Skip TOAST columns</h4>
@@ -271,19 +290,18 @@ fn is_tuple_visible_simple(t_infomask: u16) -&gt; bool {
 <li><strong>Verdict</strong>: 🔮 Consider Later - Optimization for selective queries</li>
 </ul>
 <p><strong>TOAST detection</strong>:</p>
-<pre><code data-lang="rust">const VARTAG_EXTERNAL: u8 = 0x01;
-const VARTAG_INDIRECT: u8 = 0x02;
-const VARTAG_COMPRESSED: u8 = 0x03;
-
-fn is_toast_pointer(varlena_data: &amp;[u8]) -&gt; bool {
-    if varlena_data.len() &lt; 1 {
-        return false;
-    }
-
-    let tag = varlena_data[0];
-    matches!(tag, VARTAG_EXTERNAL | VARTAG_INDIRECT)
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> VARTAG_EXTERNAL</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u8</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x01</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> VARTAG_INDIRECT</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u8</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x02</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> VARTAG_COMPRESSED</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u8</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x03</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword">fn</span><span class="z-entity z-name z-function"> is_toast_pointer</span><span class="z-punctuation">(</span><span class="z-variable z-other">varlena_data</span><span class="z-keyword z-operator">:</span><span class="z-keyword z-operator"> &amp;</span><span class="z-punctuation">[</span><span class="z-entity z-name z-type">u8</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> bool</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    if</span><span class="z-variable z-other"> varlena_data</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">len</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation"> &lt;</span><span class="z-constant"> 1</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        return</span><span class="z-constant"> false</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-variable z-other"> tag</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> varlena_data</span><span class="z-punctuation">[</span><span class="z-constant">0</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">    matches!</span><span class="z-punctuation">(</span><span class="z-variable z-other">tag</span><span class="z-punctuation">,</span><span class="z-constant"> VARTAG_EXTERNAL</span><span class="z-keyword z-operator z-logical"> |</span><span class="z-constant"> VARTAG_INDIRECT</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <hr />
 <h3 id="7-recordbatch-sizing-strategy">7. RecordBatch Sizing Strategy</h3>
 <p><strong>Analysis</strong>:</p>
@@ -293,23 +311,22 @@ fn is_toast_pointer(varlena_data: &amp;[u8]) -&gt; bool {
 <li>Sweet spot: 8192-65536 rows OR 256KB-1MB data</li>
 </ul>
 <p><strong>Verdict</strong>: ✅ Adaptive sizing: <code>target_batch_bytes / avg_row_bytes</code>, clamped to [1024, 65536]</p>
-<pre><code data-lang="rust">struct BatchSizer {
-    target_bytes: usize, // 256KB default
-    min_rows: usize,     // 1024
-    max_rows: usize,     // 65536
-}
-
-impl BatchSizer {
-    fn calculate_batch_size(&amp;self, avg_row_bytes: usize) -&gt; usize {
-        if avg_row_bytes == 0 {
-            return self.min_rows;
-        }
-
-        let target_rows = self.target_bytes / avg_row_bytes;
-        target_rows.clamp(self.min_rows, self.max_rows)
-    }
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-storage z-type">struct</span><span class="z-entity z-name z-type"> BatchSizer</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    target_bytes</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment"> //</span><span class="z-comment"> 256KB default</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    min_rows</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">     //</span><span class="z-comment"> 1024</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    max_rows</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">     //</span><span class="z-comment"> 65536</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword">impl</span><span class="z-entity z-name z-type"> BatchSizer</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword">    fn</span><span class="z-entity z-name z-function"> calculate_batch_size</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-variable">self</span><span class="z-punctuation">,</span><span class="z-variable z-other"> avg_row_bytes</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-variable z-other"> avg_row_bytes</span><span class="z-keyword z-operator"> ==</span><span class="z-constant"> 0</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">            return</span><span class="z-variable"> self</span><span class="z-keyword z-operator">.</span><span>min_rows</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">        let</span><span class="z-variable z-other"> target_rows</span><span class="z-keyword z-operator"> =</span><span class="z-variable"> self</span><span class="z-keyword z-operator">.</span><span>target_bytes </span><span class="z-keyword z-operator">/</span><span class="z-variable z-other"> avg_row_bytes</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        target_rows</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">clamp</span><span class="z-punctuation">(</span><span class="z-variable">self</span><span class="z-keyword z-operator">.</span><span>min_rows</span><span class="z-punctuation">,</span><span class="z-variable"> self</span><span class="z-keyword z-operator">.</span><span>max_rows</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <hr />
 <h3 id="8-parallel-processing-strategies">8. Parallel Processing Strategies</h3>
 <h4 id="page-level-parallelism">Page-level parallelism</h4>
@@ -318,16 +335,14 @@ impl BatchSizer {
 <li><strong>Cons</strong>: Merge overhead, memory per thread</li>
 <li><strong>Verdict</strong>: ✅ <strong>Chosen</strong> - Use rayon for page iteration</li>
 </ul>
-<pre><code data-lang="rust">use rayon::prelude::*;
-
-fn convert_pages_parallel(pages: Vec&lt;Page&gt;) -&gt; Result&lt;Vec&lt;RecordBatch&gt;&gt; {
-    pages
-        .par_iter()
-        .map(|page| convert_page_to_batch(page))
-        .collect::&lt;Result&lt;Vec&lt;_&gt;&gt;&gt;()
-}
-</code></pre>
-<h4 id="column-level-parallelism">Column-level parallelism</h4>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-keyword">use</span><span class="z-entity z-name"> rayon</span><span class="z-keyword z-operator">::</span><span class="z-entity z-name">prelude</span><span class="z-keyword z-operator">::</span><span class="z-keyword z-operator">*</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword">fn</span><span class="z-entity z-name z-function"> convert_pages_parallel</span><span class="z-punctuation">(</span><span class="z-variable z-other">pages</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> Vec</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">Page</span><span class="z-punctuation">&gt;</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> Result</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">Vec</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">RecordBatch</span><span class="z-punctuation">&gt;</span><span class="z-punctuation">&gt;</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    pages</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">        .</span><span class="z-entity z-name z-function">par_iter</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">        .</span><span class="z-entity z-name z-function">map</span><span class="z-punctuation">(</span><span class="z-keyword z-operator z-logical">|</span><span class="z-variable z-other">page</span><span class="z-keyword z-operator z-logical">|</span><span class="z-entity z-name z-function"> convert_page_to_batch</span><span class="z-punctuation">(</span><span class="z-variable z-other">page</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">        .</span><span class="z-entity z-name z-function">collect</span><span class="z-keyword z-operator">::</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">Result</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">Vec</span><span class="z-punctuation">&lt;</span><span class="z-variable z-other">_</span><span class="z-punctuation">&gt;</span><span class="z-punctuation">&gt;</span><span class="z-punctuation">&gt;</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre><h4 id="column-level-parallelism">Column-level parallelism</h4>
 <ul>
 <li><strong>Verdict</strong>: 🔮 Consider Later - Optimization for wide tables</li>
 </ul>
@@ -337,147 +352,140 @@ fn convert_pages_parallel(pages: Vec&lt;Page&gt;) -&gt; Result&lt;Vec&lt;RecordB
 <li><strong>Implementation note</strong>: PostgreSQL and Arrow both use LSB-first bit packing with <code>1 = valid</code></li>
 <li><strong>Verdict</strong>: ✅ Direct conversion possible</li>
 </ul>
-<pre><code data-lang="rust">fn convert_null_bitmap(pg_bitmap: &amp;[u8], natts: usize) -&gt; Vec&lt;u8&gt; {
-    // PostgreSQL null bitmap: 1 = null (inverted!)
-    // Arrow validity bitmap: 1 = valid
-
-    let num_bytes = (natts + 7) / 8;
-    let mut arrow_bitmap = vec![0u8; num_bytes];
-
-    for i in 0..natts {
-        let pg_is_null = (pg_bitmap[i / 8] &amp; (1 &lt;&lt; (i % 8))) != 0;
-        if !pg_is_null {
-            arrow_bitmap[i / 8] |= 1 &lt;&lt; (i % 8);
-        }
-    }
-
-    arrow_bitmap
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-keyword">fn</span><span class="z-entity z-name z-function"> convert_null_bitmap</span><span class="z-punctuation">(</span><span class="z-variable z-other">pg_bitmap</span><span class="z-keyword z-operator">:</span><span class="z-keyword z-operator"> &amp;</span><span class="z-punctuation">[</span><span class="z-entity z-name z-type">u8</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span><span class="z-variable z-other"> natts</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> Vec</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">u8</span><span class="z-punctuation">&gt;</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> PostgreSQL null bitmap: 1 = null (inverted!)</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Arrow validity bitmap: 1 = valid</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-variable z-other"> num_bytes</span><span class="z-keyword z-operator"> =</span><span class="z-punctuation"> (</span><span class="z-variable z-other">natts</span><span class="z-keyword z-operator"> +</span><span class="z-constant"> 7</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> /</span><span class="z-constant"> 8</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-storage z-modifier"> mut</span><span class="z-variable z-other"> arrow_bitmap</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-function"> vec!</span><span class="z-punctuation">[</span><span class="z-constant">0</span><span class="z-entity z-name z-type">u8</span><span class="z-punctuation">;</span><span class="z-variable z-other"> num_bytes</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">    for</span><span class="z-variable z-other"> i</span><span class="z-keyword"> in</span><span class="z-constant"> 0</span><span class="z-keyword z-operator">..</span><span class="z-variable z-other">natts</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">        let</span><span class="z-variable z-other"> pg_is_null</span><span class="z-keyword z-operator"> =</span><span class="z-punctuation"> (</span><span class="z-variable z-other">pg_bitmap</span><span class="z-punctuation">[</span><span class="z-variable z-other">i</span><span class="z-keyword z-operator"> /</span><span class="z-constant"> 8</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> &amp;</span><span class="z-punctuation"> (</span><span class="z-constant">1</span><span class="z-keyword z-operator z-logical"> &lt;&lt;</span><span class="z-punctuation"> (</span><span class="z-variable z-other">i</span><span class="z-keyword z-operator"> %</span><span class="z-constant"> 8</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> !=</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-keyword z-operator z-logical"> !</span><span class="z-variable z-other">pg_is_null</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">            arrow_bitmap</span><span class="z-punctuation">[</span><span class="z-variable z-other">i</span><span class="z-keyword z-operator"> /</span><span class="z-constant"> 8</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> |=</span><span class="z-constant"> 1</span><span class="z-keyword z-operator z-logical"> &lt;&lt;</span><span class="z-punctuation"> (</span><span class="z-variable z-other">i</span><span class="z-keyword z-operator"> %</span><span class="z-constant"> 8</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-variable z-other">    arrow_bitmap</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <hr />
 <h3 id="10-hot-chain-following">10. HOT Chain Following</h3>
 <ul>
 <li><strong>Description</strong>: Follow Heap-Only-Tuple chains to find visible tuple version</li>
 <li><strong>Verdict</strong>: ✅ <strong>Chosen</strong> - Required for updated tables</li>
 </ul>
-<pre><code data-lang="rust">const HEAP_HOT_UPDATED: u16 = 0x4000;
-const HEAP_ONLY_TUPLE: u16 = 0x8000;
-
-fn follow_hot_chain(page: &amp;Page, initial_offset: u16) -&gt; Option&lt;u16&gt; {
-    let mut current_offset = initial_offset;
-
-    loop {
-        let tuple = page.get_tuple(current_offset)?;
-        let t_infomask = tuple.t_infomask;
-
-        if (t_infomask &amp; HEAP_HOT_UPDATED) == 0 {
-            // End of chain
-            return Some(current_offset);
-        }
-
-        // Follow ctid to next version
-        let (block, offset) = tuple.t_ctid;
-        if block != page.block_number {
-            // Chain left the page
-            return Some(current_offset);
-        }
-
-        current_offset = offset;
-    }
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> HEAP_HOT_UPDATED</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x4000</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> HEAP_ONLY_TUPLE</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x8000</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword">fn</span><span class="z-entity z-name z-function"> follow_hot_chain</span><span class="z-punctuation">(</span><span class="z-variable z-other">page</span><span class="z-keyword z-operator">:</span><span class="z-keyword z-operator"> &amp;</span><span class="z-entity z-name z-type">Page</span><span class="z-punctuation">,</span><span class="z-variable z-other"> initial_offset</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> Option</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">u16</span><span class="z-punctuation">&gt;</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-storage z-modifier"> mut</span><span class="z-variable z-other"> current_offset</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> initial_offset</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">    loop</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">        let</span><span class="z-variable z-other"> tuple</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> page</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">get_tuple</span><span class="z-punctuation">(</span><span class="z-variable z-other">current_offset</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">?</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">        let</span><span class="z-variable z-other"> t_infomask</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> tuple</span><span class="z-keyword z-operator">.</span><span>t_infomask</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-punctuation"> (</span><span class="z-variable z-other">t_infomask</span><span class="z-keyword z-operator"> &amp;</span><span class="z-constant"> HEAP_HOT_UPDATED</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> ==</span><span class="z-constant"> 0</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">            //</span><span class="z-comment"> End of chain</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">            return</span><span class="z-entity z-name z-type"> Some</span><span class="z-punctuation">(</span><span class="z-variable z-other">current_offset</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">        //</span><span class="z-comment"> Follow ctid to next version</span></span>
+<span class="giallo-l"><span class="z-storage z-type">        let</span><span class="z-punctuation"> (</span><span class="z-variable z-other">block</span><span class="z-punctuation">,</span><span class="z-variable z-other"> offset</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> tuple</span><span class="z-keyword z-operator">.</span><span>t_ctid</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">        if</span><span class="z-variable z-other"> block</span><span class="z-keyword z-operator"> !=</span><span class="z-variable z-other"> page</span><span class="z-keyword z-operator">.</span><span>block_number </span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">            //</span><span class="z-comment"> Chain left the page</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">            return</span><span class="z-entity z-name z-type"> Some</span><span class="z-punctuation">(</span><span class="z-variable z-other">current_offset</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">        }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-variable z-other">        current_offset</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> offset</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <hr />
 <h2 id="postgresql-specific-implementation-details">PostgreSQL-Specific Implementation Details</h2>
 <h3 id="tuple-header-structure">Tuple Header Structure</h3>
-<pre><code data-lang="rust">#[repr(C)]
-struct HeapTupleHeaderData {
-    t_xmin: u32,      // Creating transaction
-    t_xmax: u32,      // Deleting transaction
-    t_cid_xvac: u32,  // Command ID or vacuum XID
-    t_ctid: ItemPointerData, // (block: u32, offset: u16)
-    t_infomask2: u16, // Flags + natts
-    t_infomask: u16,  // Flags
-    t_hoff: u8,       // Offset to data
-    // Null bitmap follows if HEAP_HASNULL set
-}
-
-// Key constants
-const HEAP_HASNULL: u16 = 0x0001;
-const HEAP_HASVARWIDTH: u16 = 0x0002;
-const HEAP_HASEXTERNAL: u16 = 0x0004;  // Has TOAST pointer
-const HEAP_XMIN_COMMITTED: u16 = 0x0100;
-const HEAP_XMIN_INVALID: u16 = 0x0200;
-const HEAP_XMAX_COMMITTED: u16 = 0x0400;
-const HEAP_XMAX_INVALID: u16 = 0x0800;
-const HEAP_HOT_UPDATED: u16 = 0x4000;
-const HEAP_ONLY_TUPLE: u16 = 0x8000;
-</code></pre>
-<h3 id="alignment-handling">Alignment Handling</h3>
-<pre><code data-lang="rust">fn align_offset(offset: usize, alignment: usize) -&gt; usize {
-    (offset + alignment - 1) &amp; !(alignment - 1)
-}
-
-fn read_attribute_with_alignment(
-    data: &amp;[u8],
-    mut offset: usize,
-    attr: &amp;PgAttribute,
-) -&gt; (usize, &amp;[u8]) {
-    // Apply alignment for non-varlena types
-    if attr.attlen &gt; 0 &amp;&amp; attr.attalign &gt; 1 {
-        offset = align_offset(offset, attr.attalign as usize);
-    }
-
-    // Read the value
-    let value = match attr.attlen {
-        len if len &gt; 0 =&gt; &amp;data[offset..offset + len as usize],
-        -1 =&gt; read_varlena(data, offset),
-        -2 =&gt; read_cstring(data, offset),
-        _ =&gt; panic!(&quot;Invalid attlen&quot;),
-    };
-
-    let next_offset = offset + value.len();
-    (next_offset, value)
-}
-</code></pre>
-<h3 id="numeric-conversion">NUMERIC Conversion</h3>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-punctuation">#</span><span class="z-punctuation">[</span><span>repr</span><span class="z-punctuation">(</span><span class="z-entity z-name z-type">C</span><span class="z-punctuation">)</span><span class="z-punctuation">]</span></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span class="z-entity z-name z-type"> HeapTupleHeaderData</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    t_xmin</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u32</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">      //</span><span class="z-comment"> Creating transaction</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    t_xmax</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u32</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">      //</span><span class="z-comment"> Deleting transaction</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    t_cid_xvac</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u32</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Command ID or vacuum XID</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    t_ctid</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> ItemPointerData</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment"> //</span><span class="z-comment"> (block: u32, offset: u16)</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    t_infomask2</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment"> //</span><span class="z-comment"> Flags + natts</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    t_infomask</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Flags</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    t_hoff</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u8</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">       //</span><span class="z-comment"> Offset to data</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Null bitmap follows if HEAP_HASNULL set</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Key constants</span></span>
+<span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> HEAP_HASNULL</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x0001</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> HEAP_HASVARWIDTH</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x0002</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> HEAP_HASEXTERNAL</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x0004</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Has TOAST pointer</span></span>
+<span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> HEAP_XMIN_COMMITTED</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x0100</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> HEAP_XMIN_INVALID</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x0200</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> HEAP_XMAX_COMMITTED</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x0400</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> HEAP_XMAX_INVALID</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x0800</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> HEAP_HOT_UPDATED</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x4000</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> HEAP_ONLY_TUPLE</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> u16</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0x8000</span><span class="z-punctuation">;</span></span></code></pre><h3 id="alignment-handling">Alignment Handling</h3>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-keyword">fn</span><span class="z-entity z-name z-function"> align_offset</span><span class="z-punctuation">(</span><span class="z-variable z-other">offset</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation">,</span><span class="z-variable z-other"> alignment</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation">    (</span><span class="z-variable z-other">offset</span><span class="z-keyword z-operator"> +</span><span class="z-variable z-other"> alignment</span><span class="z-keyword z-operator"> -</span><span class="z-constant"> 1</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> &amp;</span><span class="z-keyword z-operator z-logical"> !</span><span class="z-punctuation">(</span><span class="z-variable z-other">alignment</span><span class="z-keyword z-operator"> -</span><span class="z-constant"> 1</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword">fn</span><span class="z-entity z-name z-function"> read_attribute_with_alignment</span><span class="z-punctuation">(</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    data</span><span class="z-keyword z-operator">:</span><span class="z-keyword z-operator"> &amp;</span><span class="z-punctuation">[</span><span class="z-entity z-name z-type">u8</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">    mut</span><span class="z-variable z-other"> offset</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    attr</span><span class="z-keyword z-operator">:</span><span class="z-keyword z-operator"> &amp;</span><span class="z-entity z-name z-type">PgAttribute</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-punctuation"> (</span><span class="z-entity z-name z-type">usize</span><span class="z-punctuation">,</span><span class="z-keyword z-operator"> &amp;</span><span class="z-punctuation">[</span><span class="z-entity z-name z-type">u8</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Apply alignment for non-varlena types</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    if</span><span class="z-variable z-other"> attr</span><span class="z-keyword z-operator">.</span><span>attlen</span><span class="z-keyword z-operator"> &gt;</span><span class="z-constant"> 0</span><span class="z-keyword z-operator z-logical"> &amp;&amp;</span><span class="z-variable z-other"> attr</span><span class="z-keyword z-operator">.</span><span>attalign</span><span class="z-keyword z-operator"> &gt;</span><span class="z-constant"> 1</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        offset</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-function"> align_offset</span><span class="z-punctuation">(</span><span class="z-variable z-other">offset</span><span class="z-punctuation">,</span><span class="z-variable z-other"> attr</span><span class="z-keyword z-operator">.</span><span>attalign </span><span class="z-keyword">as</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Read the value</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-variable z-other"> value</span><span class="z-keyword z-operator"> =</span><span class="z-keyword z-control"> match</span><span class="z-variable z-other"> attr</span><span class="z-keyword z-operator">.</span><span>attlen </span><span class="z-punctuation">{</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        len</span><span class="z-keyword z-control"> if</span><span class="z-variable z-other"> len</span><span class="z-keyword z-operator"> &gt;</span><span class="z-constant"> 0</span><span class="z-keyword z-operator"> =&gt;</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-other">data</span><span class="z-punctuation">[</span><span class="z-variable z-other">offset</span><span class="z-keyword z-operator">..</span><span class="z-variable z-other">offset</span><span class="z-keyword z-operator"> +</span><span class="z-variable z-other"> len</span><span class="z-keyword"> as</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">        -</span><span class="z-constant">1</span><span class="z-keyword z-operator"> =&gt;</span><span class="z-entity z-name z-function"> read_varlena</span><span class="z-punctuation">(</span><span class="z-variable z-other">data</span><span class="z-punctuation">,</span><span class="z-variable z-other"> offset</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-keyword z-operator">        -</span><span class="z-constant">2</span><span class="z-keyword z-operator"> =&gt;</span><span class="z-entity z-name z-function"> read_cstring</span><span class="z-punctuation">(</span><span class="z-variable z-other">data</span><span class="z-punctuation">,</span><span class="z-variable z-other"> offset</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        _</span><span class="z-keyword z-operator"> =&gt;</span><span class="z-entity z-name z-function"> panic!</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">Invalid attlen</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-variable z-other"> next_offset</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> offset</span><span class="z-keyword z-operator"> +</span><span class="z-variable z-other"> value</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">len</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    (</span><span class="z-variable z-other">next_offset</span><span class="z-punctuation">,</span><span class="z-variable z-other"> value</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre><h3 id="numeric-conversion">NUMERIC Conversion</h3>
 <p>PostgreSQL NUMERIC uses base-10000 digits:</p>
-<pre><code data-lang="rust">const NBASE: i16 = 10000;
-
-struct NumericVar {
-    ndigits: i16,  // Number of base-10000 digits
-    weight: i16,   // Position of first digit (10000^weight)
-    sign: i16,     // 0x0000 = positive, 0x4000 = negative
-    dscale: i16,   // Display scale (decimal places)
-    digits: Vec&lt;i16&gt;, // Base-10000 digits
-}
-
-fn pg_numeric_to_arrow_decimal128(numeric_data: &amp;[u8]) -&gt; Result&lt;i128&gt; {
-    let ndigits = read_i16(&amp;numeric_data[0..2]);
-    let weight = read_i16(&amp;numeric_data[2..4]);
-    let sign = read_i16(&amp;numeric_data[4..6]);
-    let dscale = read_i16(&amp;numeric_data[6..8]);
-
-    let mut result: i128 = 0;
-    let digits = &amp;numeric_data[8..];
-
-    // Convert base-10000 to base-10
-    for i in 0..ndigits {
-        let digit = read_i16(&amp;digits[(i * 2) as usize..((i + 1) * 2) as usize]) as i128;
-        result = result * (NBASE as i128) + digit;
-    }
-
-    // Adjust for scale: multiply by 10^dscale
-    let scale_factor = 10_i128.pow(dscale as u32);
-    result *= scale_factor;
-
-    // Apply sign
-    if sign == 0x4000 {
-        result = -result;
-    }
-
-    Ok(result)
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="rust"><span class="giallo-l"><span class="z-storage z-type">const</span><span class="z-constant"> NBASE</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> i16</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 10000</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">struct</span><span class="z-entity z-name z-type"> NumericVar</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    ndigits</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> i16</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Number of base-10000 digits</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    weight</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> i16</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> Position of first digit (10000^weight)</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    sign</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> i16</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">     //</span><span class="z-comment"> 0x0000 = positive, 0x4000 = negative</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    dscale</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> i16</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> Display scale (decimal places)</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    digits</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> Vec</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">i16</span><span class="z-punctuation">&gt;</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment"> //</span><span class="z-comment"> Base-10000 digits</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword">fn</span><span class="z-entity z-name z-function"> pg_numeric_to_arrow_decimal128</span><span class="z-punctuation">(</span><span class="z-variable z-other">numeric_data</span><span class="z-keyword z-operator">:</span><span class="z-keyword z-operator"> &amp;</span><span class="z-punctuation">[</span><span class="z-entity z-name z-type">u8</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -&gt;</span><span class="z-entity z-name z-type"> Result</span><span class="z-punctuation">&lt;</span><span class="z-entity z-name z-type">i128</span><span class="z-punctuation">&gt;</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-variable z-other"> ndigits</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-function"> read_i16</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-variable z-other">numeric_data</span><span class="z-punctuation">[</span><span class="z-constant">0</span><span class="z-keyword z-operator">..</span><span class="z-constant">2</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-variable z-other"> weight</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-function"> read_i16</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-variable z-other">numeric_data</span><span class="z-punctuation">[</span><span class="z-constant">2</span><span class="z-keyword z-operator">..</span><span class="z-constant">4</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-variable z-other"> sign</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-function"> read_i16</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-variable z-other">numeric_data</span><span class="z-punctuation">[</span><span class="z-constant">4</span><span class="z-keyword z-operator">..</span><span class="z-constant">6</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-variable z-other"> dscale</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-function"> read_i16</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-variable z-other">numeric_data</span><span class="z-punctuation">[</span><span class="z-constant">6</span><span class="z-keyword z-operator">..</span><span class="z-constant">8</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-storage z-modifier"> mut</span><span class="z-variable z-other"> result</span><span class="z-keyword z-operator">:</span><span class="z-entity z-name z-type"> i128</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-variable z-other"> digits</span><span class="z-keyword z-operator"> =</span><span class="z-keyword z-operator"> &amp;</span><span class="z-variable z-other">numeric_data</span><span class="z-punctuation">[</span><span class="z-constant">8</span><span class="z-keyword z-operator">..</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Convert base-10000 to base-10</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    for</span><span class="z-variable z-other"> i</span><span class="z-keyword"> in</span><span class="z-constant"> 0</span><span class="z-keyword z-operator">..</span><span class="z-variable z-other">ndigits</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">        let</span><span class="z-variable z-other"> digit</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-function"> read_i16</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">&amp;</span><span class="z-variable z-other">digits</span><span class="z-punctuation">[</span><span class="z-punctuation">(</span><span class="z-variable z-other">i</span><span class="z-keyword z-operator"> *</span><span class="z-constant"> 2</span><span class="z-punctuation">)</span><span class="z-keyword"> as</span><span class="z-entity z-name z-type"> usize</span><span class="z-keyword z-operator">..</span><span class="z-punctuation">(</span><span class="z-punctuation">(</span><span class="z-variable z-other">i</span><span class="z-keyword z-operator"> +</span><span class="z-constant"> 1</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> *</span><span class="z-constant"> 2</span><span class="z-punctuation">)</span><span class="z-keyword"> as</span><span class="z-entity z-name z-type"> usize</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span><span class="z-keyword"> as</span><span class="z-entity z-name z-type"> i128</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        result</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other"> result</span><span class="z-keyword z-operator"> *</span><span class="z-punctuation"> (</span><span class="z-constant">NBASE</span><span class="z-keyword"> as</span><span class="z-entity z-name z-type"> i128</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> +</span><span class="z-variable z-other"> digit</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Adjust for scale: multiply by 10^dscale</span></span>
+<span class="giallo-l"><span class="z-storage z-type">    let</span><span class="z-variable z-other"> scale_factor</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 10_</span><span class="z-entity z-name z-type">i128</span><span class="z-keyword z-operator">.</span><span class="z-entity z-name z-function">pow</span><span class="z-punctuation">(</span><span class="z-variable z-other">dscale</span><span class="z-keyword"> as</span><span class="z-entity z-name z-type"> u32</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other">    result</span><span class="z-keyword z-operator"> *=</span><span class="z-variable z-other"> scale_factor</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Apply sign</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    if</span><span class="z-variable z-other"> sign</span><span class="z-keyword z-operator"> ==</span><span class="z-constant"> 0x4000</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        result</span><span class="z-keyword z-operator"> =</span><span class="z-keyword z-operator"> -</span><span class="z-variable z-other">result</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-entity z-name z-type">    Ok</span><span class="z-punctuation">(</span><span class="z-variable z-other">result</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <hr />
 <h2 id="key-papers-resources">Key Papers &amp; Resources</h2>
 <h3 id="foundational">Foundational</h3>

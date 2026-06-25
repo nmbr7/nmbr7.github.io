@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -84,26 +107,24 @@
 <h2 id="overview">Overview</h2>
 <p>DuckDB is an in-process analytical (OLAP) database, sometimes called "SQLite for analytics." It runs embedded in the host process (no client/server), stores a database in a single file, and is built around a <strong>vectorized, push-based, morsel-driven</strong> execution engine over a <strong>columnar, block-compressed</strong> storage format. The architecture descends from the MonetDB lineage: vectorized execution from MonetDB/X100 (Boncz, Zukowski, Nes, "MonetDB/X100: Hyper-Pipelining Query Execution", CIDR 2005) and morsel-driven parallelism from HyPer/Umbra (Leis et al., "Morsel-Driven Parallelism", SIGMOD 2014; Neumann &amp; Freitag, "Umbra: A Disk-Based System with In-Memory Performance", CIDR 2020).</p>
 <p>The foundational system paper is Raasveldt &amp; Mühleisen, "DuckDB: an Embeddable Analytical Database" (SIGMOD 2019 demo). The result-serialization work that motivated the column-at-a-time client protocol is Raasveldt &amp; Mühleisen, "Don't Hold My Data Hostage – A Case for Client Protocol Redesign" (VLDB 2017).</p>
-<pre><code>   SQL ──▶ Parser ──▶ Binder ──▶ Logical Plan ──▶ Optimizer (DPhyp, pushdown,
-                                                              filter injection)
-                                                        │
-                                                        ▼
-   Result ◀── Vectorized Engine ◀── Physical Plan ──▶ Scheduler (morsels, tasks)
-                    │                                        │
-                    ▼                                        ▼
-            Buffer Manager ◀────────────────────▶ Single-File Storage (blocks)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>   SQL ──▶ Parser ──▶ Binder ──▶ Logical Plan ──▶ Optimizer (DPhyp, pushdown,</span></span>
+<span class="giallo-l"><span>                                                              filter injection)</span></span>
+<span class="giallo-l"><span>                                                        │</span></span>
+<span class="giallo-l"><span>                                                        ▼</span></span>
+<span class="giallo-l"><span>   Result ◀── Vectorized Engine ◀── Physical Plan ──▶ Scheduler (morsels, tasks)</span></span>
+<span class="giallo-l"><span>                    │                                        │</span></span>
+<span class="giallo-l"><span>                    ▼                                        ▼</span></span>
+<span class="giallo-l"><span>            Buffer Manager ◀────────────────────▶ Single-File Storage (blocks)</span></span></code></pre>
 <hr />
 <h2 id="1-storage-format">1. Storage Format</h2>
 <p>DuckDB stores a database as a single file divided into fixed-size <strong>blocks</strong>. Source: <code>src/storage/</code>, esp. <code>single_file_block_manager.cpp</code>, <code>block.cpp</code>, <code>storage_info.cpp</code>. The format is described in Mark Raasveldt's storage blog posts (2022) and the official storage docs.</p>
 <h3 id="1-1-file-and-block-layout">1.1 File and block layout</h3>
 <p>The file begins with three headers, each occupying one "header block" region (4096 bytes each), followed by data blocks.</p>
-<pre><code> offset 0           4096            8192            12288        12288 + N*262144
- ┌───────────────┬───────────────┬───────────────┬───────────────────────────┐
- │ Main Header   │ Database      │ Database      │  Data blocks (262144 each) │
- │ (magic+ver)   │ Header  H0    │ Header  H1    │  blk0 blk1 blk2 ...        │
- └───────────────┴───────────────┴───────────────┴───────────────────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span> offset 0           4096            8192            12288        12288 + N*262144</span></span>
+<span class="giallo-l"><span> ┌───────────────┬───────────────┬───────────────┬───────────────────────────┐</span></span>
+<span class="giallo-l"><span> │ Main Header   │ Database      │ Database      │  Data blocks (262144 each) │</span></span>
+<span class="giallo-l"><span> │ (magic+ver)   │ Header  H0    │ Header  H1    │  blk0 blk1 blk2 ...        │</span></span>
+<span class="giallo-l"><span> └───────────────┴───────────────┴───────────────┴───────────────────────────┘</span></span></code></pre>
 <p><strong>Main header</strong> (<code>MainHeader</code>):</p>
 <table><thead><tr><th>Field</th><th>Size</th><th>Encoding</th></tr></thead><tbody>
 <tr><td>checksum</td><td>8 bytes</td><td>uint64 xxHash of header body</td></tr>
@@ -128,14 +149,13 @@
 <p><strong>Metadata blocks.</strong> The catalog (schemas, tables, view definitions) and per-table storage metadata (row group pointers, column segment trees, statistics) are serialized into <strong>metadata blocks</strong>, a separate allocation that packs many small metadata entries into 256 KiB blocks via <code>MetadataManager</code> to avoid wasting a full block per tiny object.</p>
 <h3 id="1-2-row-groups-and-column-segments">1.2 Row groups and column segments</h3>
 <p>A table is stored as a list of <strong>row groups</strong>, each holding up to <code>ROW_GROUP_SIZE = 122880</code> rows (= 60 × 2048 vectors). Each row group stores one <strong>ColumnData</strong> per column; a column's data is a tree of <strong>column segments</strong>, each segment ≈ one block's worth of compressed values plus per-segment statistics (min, max, null count, distinct estimate).</p>
-<pre><code>Table
- ├─ RowGroup[0]  (rows 0 .. 122879)
- │    ├─ Column &quot;id&quot;   : Segment(min,max,...) → block 17
- │    ├─ Column &quot;name&quot; : Segment(...)         → block 18..20 (overflow for strings)
- │    └─ row versions / validity
- ├─ RowGroup[1]  (rows 122880 ..)
- └─ ...
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Table</span></span>
+<span class="giallo-l"><span> ├─ RowGroup[0]  (rows 0 .. 122879)</span></span>
+<span class="giallo-l"><span> │    ├─ Column &quot;id&quot;   : Segment(min,max,...) → block 17</span></span>
+<span class="giallo-l"><span> │    ├─ Column &quot;name&quot; : Segment(...)         → block 18..20 (overflow for strings)</span></span>
+<span class="giallo-l"><span> │    └─ row versions / validity</span></span>
+<span class="giallo-l"><span> ├─ RowGroup[1]  (rows 122880 ..)</span></span>
+<span class="giallo-l"><span> └─ ...</span></span></code></pre>
 <p>Row-group-level and segment-level statistics drive <strong>zone-map skipping</strong>: a scan with predicate <code>WHERE x &gt; 100</code> skips any segment whose <code>max &lt;= 100</code>.</p>
 <h3 id="1-3-compression">1.3 Compression</h3>
 <p>Compression is chosen <strong>per column segment</strong> by a two-phase scheme (no sampling — DuckDB scans the whole segment, which usually fits in cache): an <strong>Analyze</strong> pass asks every applicable compression function to estimate the final compressed size for that segment, then the cheapest wins, then a <strong>Compress</strong> pass writes it. Each function exposes <code>init_analyze / analyze / final_analyze / init_compression / compress / compress_finalize</code> and a matching scan/decompress path (<code>src/storage/compression/</code>).</p>
@@ -170,9 +190,7 @@
 <p><code>src/execution/</code>, <code>src/common/types/vector.cpp</code>. Vectorized execution amortizes per-tuple interpreter overhead across <code>STANDARD_VECTOR_SIZE = 2048</code> values processed per call (MonetDB/X100, CIDR 2005).</p>
 <h3 id="3-1-vector-representations">3.1 Vector representations</h3>
 <p>A <code>Vector</code> is a typed container of up to 2048 values with a <strong>physical type</strong> plus a <code>VectorType</code>:</p>
-<pre><code>Vector { type, VectorType, data ptr, validity_mask (bitset), aux (string heap / child) }
-</code></pre>
-<table><thead><tr><th>VectorType</th><th>Layout</th><th>Use</th></tr></thead><tbody>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Vector { type, VectorType, data ptr, validity_mask (bitset), aux (string heap / child) }</span></span></code></pre><table><thead><tr><th>VectorType</th><th>Layout</th><th>Use</th></tr></thead><tbody>
 <tr><td>FLAT</td><td>contiguous array of N values + validity bitmask</td><td>default materialized form</td></tr>
 <tr><td>CONSTANT</td><td>single value, logically broadcast to all N rows</td><td>scalar / literal</td></tr>
 <tr><td>DICTIONARY</td><td>a child Vector (dict) + a <strong>selection vector</strong> of indices into it</td><td>output of filters, dict scans</td></tr>
@@ -181,36 +199,29 @@
 <p>CONSTANT and SEQUENCE store O(1) data for N rows; DICTIONARY shares one physical child across many logical positions — the basis for <strong>zero-copy</strong> transforms.</p>
 <h3 id="3-2-selection-vectors">3.2 Selection vectors</h3>
 <p>Filters do not compact data; they produce a <strong>SelectionVector</strong> — an array of indices (<code>sel_t</code>) into the underlying vector picking surviving rows. Operators thread the selection vector downstream, so a filtered vector of 2048 rows down to 30 survivors costs no memcpy until materialization forces a flatten. This is the vectorized analogue of late materialization.</p>
-<pre><code>data:  [a b c d e f g h ...]   (2048 flat)
-sel :  [1 3 6]                 → logical view = [b d g]   (3 rows)
-</code></pre>
-<h3 id="3-3-push-based-pipelines">3.3 Push-based pipelines</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>data:  [a b c d e f g h ...]   (2048 flat)</span></span>
+<span class="giallo-l"><span>sel :  [1 3 6]                 → logical view = [b d g]   (3 rows)</span></span></code></pre><h3 id="3-3-push-based-pipelines">3.3 Push-based pipelines</h3>
 <p>DuckDB uses a <strong>push</strong> model (not Volcano pull). A query plan is split into <strong>pipelines</strong>; each pipeline is a chain <code>Source → Operator* → Sink</code>. The source produces chunks and <em>pushes</em> them through operators into the sink:</p>
-<pre><code>class Source   { GetData(chunk)  -&gt; produces DataChunk }   // scan, read-group
-class Operator { Execute(in,out) -&gt; transforms chunk   }   // filter, project
-class Sink      { Sink(chunk); Combine(); Finalize();  }   // HT build, agg, sort
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>class Source   { GetData(chunk)  -&gt; produces DataChunk }   // scan, read-group</span></span>
+<span class="giallo-l"><span>class Operator { Execute(in,out) -&gt; transforms chunk   }   // filter, project</span></span>
+<span class="giallo-l"><span>class Sink      { Sink(chunk); Combine(); Finalize();  }   // HT build, agg, sort</span></span></code></pre>
 <p>A <strong>pipeline breaker</strong> is an operator that must consume its entire input before producing output — it is a <code>Sink</code>. The hash-join build side, the aggregate, and the sort are breakers: they materialize into <strong>pipeline-local sink state</strong> during <code>Sink</code>, merge thread-local states in <code>Combine</code>, finish in <code>Finalize</code>, and then act as the <strong>Source</strong> of a <em>downstream</em> pipeline. This is how a join splits into a build pipeline (breaker) and a probe pipeline.</p>
-<pre><code>Pipeline 1 (build):  Scan(B) ─▶ HashJoin.Sink  (builds HT)   [breaker]
-Pipeline 2 (probe):  Scan(A) ─▶ HashJoin.Operator(probe HT) ─▶ Aggregate.Sink
-</code></pre>
-<h3 id="3-4-key-physical-operators">3.4 Key physical operators</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Pipeline 1 (build):  Scan(B) ─▶ HashJoin.Sink  (builds HT)   [breaker]</span></span>
+<span class="giallo-l"><span>Pipeline 2 (probe):  Scan(A) ─▶ HashJoin.Operator(probe HT) ─▶ Aggregate.Sink</span></span></code></pre><h3 id="3-4-key-physical-operators">3.4 Key physical operators</h3>
 <p><strong>Hash join</strong> (<code>physical_hash_join.cpp</code>). Build side fills a <code>JoinHashTable</code>: rows are serialized into a row-layout (fixed-width columns inline, variable-width into a string heap) in partitioned blocks; each entry carries a hash and a chain pointer. The HT is a pointer array; collisions chain. A <strong>Bloom filter</strong> (perfect-hash / small filter) is built over build-side keys and pushed to the probe scan so non-matching probe rows are discarded early (and the filter can be injected as a runtime predicate at the scan — see §5).</p>
-<pre><code>JoinHashTable entry (row layout):
- ┌──────────┬──────────────┬───────────────┬─────────────┐
- │ hash (8) │ next_ptr (8) │ key cols ...  │ payload ... │
- └──────────┴──────────────┴───────────────┴─────────────┘
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>JoinHashTable entry (row layout):</span></span>
+<span class="giallo-l"><span> ┌──────────┬──────────────┬───────────────┬─────────────┐</span></span>
+<span class="giallo-l"><span> │ hash (8) │ next_ptr (8) │ key cols ...  │ payload ... │</span></span>
+<span class="giallo-l"><span> └──────────┴──────────────┴───────────────┴─────────────┘</span></span></code></pre>
 <p><strong>Aggregate</strong> (<code>physical_hashaggregate.cpp</code>). Grouped aggregation uses a <strong>partitioned</strong> hash table: the group key is hashed, the high bits select one of P radix partitions, each with its own hash table. Thread-local partitioned HTs are merged partition-wise in <code>Combine</code> (no global lock), and partitions can be finalized/spilled independently. Aggregate states (sum, count, sketches) live inline in the HT row.</p>
 <p><strong>Sort</strong> (<code>physical_order.cpp</code>). DuckDB sorts on a <strong>normalized key</strong> (radix-comparable encoding of all ORDER BY columns into a single comparable byte string, NULLs and DESC handled by bit-flips), then runs an <strong>LSD radix sort</strong> on the key within each thread, spills sorted runs if needed, and <strong>k-way merges</strong> runs. Normalized keys make comparison a memcmp, eliminating per-column branchy comparators.</p>
 <hr />
 <h2 id="4-morsel-driven-parallelism">4. Morsel-Driven Parallelism</h2>
 <p><code>src/parallel/</code>, esp. <code>executor.cpp</code>, <code>pipeline_executor.cpp</code>, <code>task_scheduler.cpp</code>. Model from Leis et al., SIGMOD 2014.</p>
 <p>A <strong>morsel</strong> is a small chunk of the source's input range (e.g. a contiguous slice of a row group / a set of vectors). The source operator hands out morsels on demand. The executor runs a fixed pool of worker threads; each thread repeatedly <strong>pulls a task</strong>, where a task is "run this pipeline on the next morsel."</p>
-<pre><code>Source range:  [────────── row groups ──────────]
-                 m0   m1   m2   m3   m4   m5  ...      (morsels)
-Threads:        T0   T1   T2   T0   T1   T2  ...      (dynamic assignment)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Source range:  [────────── row groups ──────────]</span></span>
+<span class="giallo-l"><span>                 m0   m1   m2   m3   m4   m5  ...      (morsels)</span></span>
+<span class="giallo-l"><span>Threads:        T0   T1   T2   T0   T1   T2  ...      (dynamic assignment)</span></span></code></pre>
 <p><strong>Pipeline parallelism.</strong> A pipeline is run by N parallel <code>PipelineExecutor</code> instances — one per thread. Each instance owns <strong>thread-local operator state and a thread-local sink state</strong>, but they <strong>share read-only state</strong> such as the join's already-built hash table. Each thread independently grabs morsels, pushes them through its operator chain, and accumulates into its local sink state; <code>Combine</code> then merges local states. Because morsels are handed out dynamically, a thread that finishes its work simply requests the next morsel — this is <strong>work stealing</strong> at morsel granularity, giving automatic load balancing across skew without static partitioning.</p>
 <p><strong>Tasks and finish tasks.</strong> The scheduler distinguishes regular pipeline tasks from a <strong>finish task</strong> that runs once after all morsels of a pipeline are consumed (it triggers <code>Combine</code>/<code>Finalize</code> and readies the dependent pipeline).</p>
 <p><strong>Dependencies.</strong> Pipelines form a DAG via the <code>MetaPipeline</code>: a breaker's build pipeline must <code>Finalize</code> before its probe pipeline starts. The executor schedules pipelines respecting these edges; independent pipelines (e.g. two build sides of different joins) run concurrently. Scheduling order is a topological order of the pipeline dependency graph, with all leaves runnable immediately.</p>
@@ -236,11 +247,10 @@ Threads:        T0   T1   T2   T0   T1   T2  ...      (dynamic assignment)
 <h2 id="7-mvcc-and-transactions">7. MVCC and Transactions</h2>
 <p><code>src/transaction/</code>. DuckDB implements <strong>snapshot isolation</strong> with in-memory multi-versioning, in the HyPer style (Neumann, Mühlbauer, Kemper, "Fast Serializable Multi-Version Concurrency Control for Main-Memory Database Systems", SIGMOD 2015).</p>
 <p><strong>Version storage.</strong> Tables are updated <strong>in place</strong>; the <em>previous</em> versions of modified tuples are kept in per-transaction <strong>undo buffers</strong> forming a <strong>version chain</strong>. Each transaction has a <code>transaction_id</code> (above a high-water mark while running) and, on commit, a monotonically increasing <code>commit_id</code> (timestamp). A row stores the id of the writer; readers compare against their snapshot to decide whether to see the current value or walk the undo chain to the version valid as of their start timestamp.</p>
-<pre><code>current tuple (in column store)  ──▶  UndoBuffer entry (prev value, txn ts)
-                                          └─▶ older entry ...
-Reader with snapshot T sees newest version with commit_id ≤ T,
-else follows the chain.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>current tuple (in column store)  ──▶  UndoBuffer entry (prev value, txn ts)</span></span>
+<span class="giallo-l"><span>                                          └─▶ older entry ...</span></span>
+<span class="giallo-l"><span>Reader with snapshot T sees newest version with commit_id ≤ T,</span></span>
+<span class="giallo-l"><span>else follows the chain.</span></span></code></pre>
 <p><strong>Isolation.</strong> Snapshot isolation: each transaction reads a consistent snapshot fixed at start; writes are buffered and made visible atomically at commit by stamping <code>commit_id</code>. Write-write conflicts (two txns updating the same row) are detected and the later committer aborts. Inserts/deletes are tracked similarly via version info on row groups (<code>RowVersionManager</code>).</p>
 <p><strong>Durability / recovery.</strong> Commits append to the WAL and fsync (§1.4). Recovery replays WAL since the last checkpoint; checkpointing folds committed data into the columnar file and garbage-collects undo buffers whose versions are no longer visible to any active transaction. ACID in the single-file format = WAL (A, D) + snapshot MVCC (I) + checkpoint header ping-pong (atomic, durable consistency point).</p>
 <hr />

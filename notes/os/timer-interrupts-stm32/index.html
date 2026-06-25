@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -82,19 +105,17 @@
     <h1 class="r-header">Timer Interrupts STM32</h1>
     <h1 id="timer-interrupts-in-stm32-chips">Timer Interrupts in STM32 Chips</h1>
 <h2 id="hardware-architecture">Hardware Architecture</h2>
-<pre><code>HSI/HSE Crystal (8-25 MHz)
-        ↓
-    PLL (multiply/divide)
-        ↓
-    System Clock (SYSCLK) → up to 72-480 MHz
-        ↓
-    APB Bus Prescaler
-        ↓
-    Timer Peripheral (TIM1, TIM2, etc.)
-        ↓
-    NVIC → CPU Interrupt
-</code></pre>
-<h2 id="timer-types">Timer Types</h2>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>HSI/HSE Crystal (8-25 MHz)</span></span>
+<span class="giallo-l"><span>        ↓</span></span>
+<span class="giallo-l"><span>    PLL (multiply/divide)</span></span>
+<span class="giallo-l"><span>        ↓</span></span>
+<span class="giallo-l"><span>    System Clock (SYSCLK) → up to 72-480 MHz</span></span>
+<span class="giallo-l"><span>        ↓</span></span>
+<span class="giallo-l"><span>    APB Bus Prescaler</span></span>
+<span class="giallo-l"><span>        ↓</span></span>
+<span class="giallo-l"><span>    Timer Peripheral (TIM1, TIM2, etc.)</span></span>
+<span class="giallo-l"><span>        ↓</span></span>
+<span class="giallo-l"><span>    NVIC → CPU Interrupt</span></span></code></pre><h2 id="timer-types">Timer Types</h2>
 <table><thead><tr><th>Timer</th><th>Bits</th><th>Features</th></tr></thead><tbody>
 <tr><td>SysTick</td><td>24-bit</td><td>ARM core timer, OS ticks</td></tr>
 <tr><td>TIM1/TIM8</td><td>16-bit</td><td>Advanced, PWM, motor control</td></tr>
@@ -104,70 +125,56 @@
 </tbody></table>
 <h2 id="systick-rtos-tick-timer">SysTick (RTOS Tick Timer)</h2>
 <p>Built into ARM Cortex-M core:</p>
-<pre><code data-lang="c">// Configure 1ms tick at 72MHz
-SysTick-&gt;LOAD = 72000 - 1;    // Reload value
-SysTick-&gt;VAL = 0;              // Clear current
-SysTick-&gt;CTRL = 0x07;          // Enable, interrupt, use CPU clock
-</code></pre>
-<pre><code>CTRL register:
-  bit 0: ENABLE
-  bit 1: TICKINT (enable interrupt)
-  bit 2: CLKSOURCE (0=AHB/8, 1=AHB)
-</code></pre>
-<h2 id="general-timer-operation">General Timer Operation</h2>
-<pre><code data-lang="c">// TIM2 example - 1 second interrupt at 72MHz
-RCC-&gt;APB1ENR |= RCC_APB1ENR_TIM2EN;  // Enable clock
-
-TIM2-&gt;PSC = 7200 - 1;    // Prescaler: 72MHz / 7200 = 10kHz
-TIM2-&gt;ARR = 10000 - 1;   // Auto-reload: 10kHz / 10000 = 1Hz
-TIM2-&gt;DIER = TIM_DIER_UIE;  // Update interrupt enable
-TIM2-&gt;CR1 = TIM_CR1_CEN;    // Counter enable
-
-NVIC_EnableIRQ(TIM2_IRQn);
-</code></pre>
-<h2 id="interrupt-flow">Interrupt Flow</h2>
-<pre><code>Timer counter (CNT)
-        ↓
-Counts up each clock tick
-        ↓
-CNT == ARR (auto-reload register)?
-        ↓
-Set UIF flag (update interrupt flag)
-        ↓
-If DIER.UIE set → trigger NVIC
-        ↓
-NVIC interrupts CPU
-        ↓
-CPU jumps to TIM2_IRQHandler()
-</code></pre>
-<h2 id="irq-handler">IRQ Handler</h2>
-<pre><code data-lang="c">void TIM2_IRQHandler(void) {
-    if (TIM2-&gt;SR &amp; TIM_SR_UIF) {
-        TIM2-&gt;SR &amp;= ~TIM_SR_UIF;  // Clear flag
-
-        // Your code here
-        jiffies++;
-    }
-}
-</code></pre>
-<h2 id="clock-tree-example-stm32f4">Clock Tree Example (STM32F4)</h2>
-<pre><code>HSE 8MHz
-    ↓
-PLL ×42 ÷2 = 168 MHz (SYSCLK)
-    ↓
-AHB prescaler /1 = 168 MHz
-    ↓
-APB1 prescaler /4 = 42 MHz (timers get ×2 = 84 MHz)
-APB2 prescaler /2 = 84 MHz (timers get ×2 = 168 MHz)
-</code></pre>
-<h2 id="check-timer-clock">Check Timer Clock</h2>
-<pre><code data-lang="c">// HAL way
-uint32_t tim_clk = HAL_RCC_GetPCLK1Freq();
-if (RCC-&gt;CFGR &amp; RCC_CFGR_PPRE1) {
-    tim_clk *= 2;  // Timer gets 2x if APB prescaler &gt; 1
-}
-</code></pre>
-<h2 id="key-registers">Key Registers</h2>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Configure 1ms tick at 72MHz</span></span>
+<span class="giallo-l"><span>SysTick</span><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">&gt;</span><span>LOAD </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 72000</span><span class="z-keyword z-operator"> -</span><span class="z-constant"> 1</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Reload value</span></span>
+<span class="giallo-l"><span>SysTick</span><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">&gt;</span><span>VAL </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">              //</span><span class="z-comment"> Clear current</span></span>
+<span class="giallo-l"><span>SysTick</span><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">&gt;</span><span>CTRL </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-other z-unit"> 0x</span><span class="z-constant">07</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">          //</span><span class="z-comment"> Enable, interrupt, use CPU clock</span></span></code></pre><pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>CTRL register:</span></span>
+<span class="giallo-l"><span>  bit 0: ENABLE</span></span>
+<span class="giallo-l"><span>  bit 1: TICKINT (enable interrupt)</span></span>
+<span class="giallo-l"><span>  bit 2: CLKSOURCE (0=AHB/8, 1=AHB)</span></span></code></pre><h2 id="general-timer-operation">General Timer Operation</h2>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> TIM2 example - 1 second interrupt at 72MHz</span></span>
+<span class="giallo-l"><span>RCC</span><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">&gt;</span><span>APB1ENR </span><span class="z-keyword z-operator">|=</span><span> RCC_APB1ENR_TIM2EN</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Enable clock</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>TIM2</span><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">&gt;</span><span>PSC </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 7200</span><span class="z-keyword z-operator"> -</span><span class="z-constant"> 1</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Prescaler: 72MHz / 7200 = 10kHz</span></span>
+<span class="giallo-l"><span>TIM2</span><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">&gt;</span><span>ARR </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 10000</span><span class="z-keyword z-operator"> -</span><span class="z-constant"> 1</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> Auto-reload: 10kHz / 10000 = 1Hz</span></span>
+<span class="giallo-l"><span>TIM2</span><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">&gt;</span><span>DIER </span><span class="z-keyword z-operator">=</span><span> TIM_DIER_UIE</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Update interrupt enable</span></span>
+<span class="giallo-l"><span>TIM2</span><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">&gt;</span><span>CR1 </span><span class="z-keyword z-operator">=</span><span> TIM_CR1_CEN</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> Counter enable</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">NVIC_EnableIRQ</span><span class="z-punctuation">(</span><span>TIM2_IRQn</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre><h2 id="interrupt-flow">Interrupt Flow</h2>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Timer counter (CNT)</span></span>
+<span class="giallo-l"><span>        ↓</span></span>
+<span class="giallo-l"><span>Counts up each clock tick</span></span>
+<span class="giallo-l"><span>        ↓</span></span>
+<span class="giallo-l"><span>CNT == ARR (auto-reload register)?</span></span>
+<span class="giallo-l"><span>        ↓</span></span>
+<span class="giallo-l"><span>Set UIF flag (update interrupt flag)</span></span>
+<span class="giallo-l"><span>        ↓</span></span>
+<span class="giallo-l"><span>If DIER.UIE set → trigger NVIC</span></span>
+<span class="giallo-l"><span>        ↓</span></span>
+<span class="giallo-l"><span>NVIC interrupts CPU</span></span>
+<span class="giallo-l"><span>        ↓</span></span>
+<span class="giallo-l"><span>CPU jumps to TIM2_IRQHandler()</span></span></code></pre><h2 id="irq-handler">IRQ Handler</h2>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-storage z-type">void</span><span class="z-entity z-name z-function"> TIM2_IRQHandler</span><span class="z-punctuation">(</span><span class="z-storage z-type">void</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    if</span><span class="z-punctuation"> (</span><span class="z-variable z-other">TIM2</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">SR</span><span class="z-keyword z-operator"> &amp;</span><span> TIM_SR_UIF</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-variable z-other">        TIM2</span><span class="z-punctuation">-&gt;</span><span class="z-variable z-other">SR</span><span class="z-keyword z-operator"> &amp;=</span><span class="z-keyword z-operator"> ~</span><span>TIM_SR_UIF</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Clear flag</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">        //</span><span class="z-comment"> Your code here</span></span>
+<span class="giallo-l"><span>        jiffies</span><span class="z-keyword z-operator">++</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">    }</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre><h2 id="clock-tree-example-stm32f4">Clock Tree Example (STM32F4)</h2>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>HSE 8MHz</span></span>
+<span class="giallo-l"><span>    ↓</span></span>
+<span class="giallo-l"><span>PLL ×42 ÷2 = 168 MHz (SYSCLK)</span></span>
+<span class="giallo-l"><span>    ↓</span></span>
+<span class="giallo-l"><span>AHB prescaler /1 = 168 MHz</span></span>
+<span class="giallo-l"><span>    ↓</span></span>
+<span class="giallo-l"><span>APB1 prescaler /4 = 42 MHz (timers get ×2 = 84 MHz)</span></span>
+<span class="giallo-l"><span>APB2 prescaler /2 = 84 MHz (timers get ×2 = 168 MHz)</span></span></code></pre><h2 id="check-timer-clock">Check Timer Clock</h2>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> HAL way</span></span>
+<span class="giallo-l"><span class="z-storage z-type">uint32_t</span><span> tim_clk </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> HAL_RCC_GetPCLK1Freq</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">if</span><span class="z-punctuation"> (</span><span>RCC</span><span class="z-keyword z-operator">-</span><span class="z-keyword z-operator">&gt;</span><span>CFGR </span><span class="z-keyword z-operator">&amp;</span><span> RCC_CFGR_PPRE1</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>    tim_clk </span><span class="z-keyword z-operator">*=</span><span class="z-constant"> 2</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> Timer gets 2x if APB prescaler &gt; 1</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre><h2 id="key-registers">Key Registers</h2>
 <table><thead><tr><th>Register</th><th>Function</th></tr></thead><tbody>
 <tr><td>CR1</td><td>Control (enable, direction)</td></tr>
 <tr><td>PSC</td><td>Prescaler</td></tr>

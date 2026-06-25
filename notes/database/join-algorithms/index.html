@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -117,35 +140,32 @@
 <h3 id="1-nested-loop-join-nlj">1. Nested Loop Join (NLJ)</h3>
 <p>The simplest join algorithm. Three variants with dramatically different performance.</p>
 <h4 id="1a-tuple-at-a-time-nested-loop-join-simple-nlj">1a. Tuple-at-a-Time Nested Loop Join (Simple NLJ)</h4>
-<pre><code>for each tuple r in R:
-    for each tuple s in S:
-        if theta(r, s):      // join predicate
-            emit (r, s)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>for each tuple r in R:</span></span>
+<span class="giallo-l"><span>    for each tuple s in S:</span></span>
+<span class="giallo-l"><span>        if theta(r, s):      // join predicate</span></span>
+<span class="giallo-l"><span>            emit (r, s)</span></span></code></pre>
 <p><strong>I/O Cost</strong>: <code>B(R) + |R| * B(S)</code></p>
 <p>For each tuple of R, we scan all of S. Since R has <code>|R|</code> tuples and each requires a full scan of S (<code>B(S)</code> pages), the cost is enormous.</p>
 <p><strong>Example</strong>: R = 1000 pages, S = 5000 pages, 100 tuples/page.
 Cost = 1000 + (100 * 1000) * 5000 = 500,001,000 page I/Os.</p>
 <p><strong>When to use</strong>: Almost never in disk-based systems. Acceptable only when both relations fit in cache and are tiny (&lt; few hundred tuples).</p>
 <h4 id="1b-block-page-nested-loop-join-bnlj">1b. Block (Page) Nested Loop Join (BNLJ)</h4>
-<pre><code>for each block b_R of R (using M-2 pages):
-    for each page p_S of S:
-        for each tuple r in b_R:
-            for each tuple s in p_S:
-                if theta(r, s):
-                    emit (r, s)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>for each block b_R of R (using M-2 pages):</span></span>
+<span class="giallo-l"><span>    for each page p_S of S:</span></span>
+<span class="giallo-l"><span>        for each tuple r in b_R:</span></span>
+<span class="giallo-l"><span>            for each tuple s in p_S:</span></span>
+<span class="giallo-l"><span>                if theta(r, s):</span></span>
+<span class="giallo-l"><span>                    emit (r, s)</span></span></code></pre>
 <p><strong>I/O Cost</strong>: <code>B(R) + ceil(B(R) / (M-2)) * B(S)</code></p>
 <p>We read R in chunks of (M-2) pages, using one page for S input and one for output. For each chunk of R, we scan all of S once.</p>
 <p><strong>Example</strong>: R = 1000 pages, S = 5000 pages, M = 102 pages.
 Cost = 1000 + ceil(1000/100) * 5000 = 1000 + 10 * 5000 = 51,000 page I/Os.</p>
 <p><strong>Key insight</strong>: Always put the smaller relation in the outer loop. If R fits in M-2 pages, cost reduces to <code>B(R) + B(S)</code> (one scan each).</p>
 <h4 id="1c-index-nested-loop-join-inlj">1c. Index Nested Loop Join (INLJ)</h4>
-<pre><code>for each tuple r in R:
-    use index on S.join_key to find matching tuples
-    for each matching tuple s:
-        emit (r, s)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>for each tuple r in R:</span></span>
+<span class="giallo-l"><span>    use index on S.join_key to find matching tuples</span></span>
+<span class="giallo-l"><span>    for each matching tuple s:</span></span>
+<span class="giallo-l"><span>        emit (r, s)</span></span></code></pre>
 <p><strong>I/O Cost</strong>: <code>B(R) + |R| * C_index</code></p>
 <p>Where <code>C_index</code> is the cost of one index lookup:</p>
 <ul>
@@ -156,41 +176,37 @@ Cost = 1000 + ceil(1000/100) * 5000 = 1000 + 10 * 5000 = 51,000 page I/Os.</p>
 <p><strong>Example</strong>: R = 1000 pages (100K tuples), S has clustered B-tree (h=3).
 Cost = 1000 + 100,000 * 4 = 401,000 page I/Os.</p>
 <p><strong>When optimal</strong>: Small outer relation, selective join predicate, index on inner relation's join key. This is the standard strategy for OLTP point lookups and foreign-key traversals.</p>
-<pre><code>            Nested Loop Join Performance Summary
-            =====================================
-
-Variant     | I/O Cost                        | Best When
-------------|--------------------------------|---------------------------
-Simple NLJ  | B(R) + |R| * B(S)             | Never (theoretical baseline)
-Block NLJ   | B(R) + ceil(B(R)/(M-2))*B(S)  | No index, small R
-Index NLJ   | B(R) + |R| * C_index          | Good index on S, small R
-</code></pre>
-<h3 id="2-sort-merge-join-smj">2. Sort-Merge Join (SMJ)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>            Nested Loop Join Performance Summary</span></span>
+<span class="giallo-l"><span>            =====================================</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Variant     | I/O Cost                        | Best When</span></span>
+<span class="giallo-l"><span>------------|--------------------------------|---------------------------</span></span>
+<span class="giallo-l"><span>Simple NLJ  | B(R) + |R| * B(S)             | Never (theoretical baseline)</span></span>
+<span class="giallo-l"><span>Block NLJ   | B(R) + ceil(B(R)/(M-2))*B(S)  | No index, small R</span></span>
+<span class="giallo-l"><span>Index NLJ   | B(R) + |R| * C_index          | Good index on S, small R</span></span></code></pre><h3 id="2-sort-merge-join-smj">2. Sort-Merge Join (SMJ)</h3>
 <p>Two phases: sort both relations on the join key, then merge.</p>
 <h4 id="algorithm">Algorithm</h4>
-<pre><code>Phase 1: Sort
-    Sort R on join key -&gt; R&#39;
-    Sort S on join key -&gt; S&#39;
-
-Phase 2: Merge
-    r_ptr = first tuple in R&#39;
-    s_ptr = first tuple in S&#39;
-    while r_ptr and s_ptr are valid:
-        if R&#39;.key &lt; S&#39;.key:
-            advance r_ptr
-        elif R&#39;.key &gt; S&#39;.key:
-            advance s_ptr
-        else:  // match
-            // Mark start of matching group in S
-            s_mark = s_ptr
-            while r_ptr.key == s_ptr.key:
-                while s_ptr.key == r_ptr.key:
-                    emit (r_ptr, s_ptr)
-                    advance s_ptr
-                advance r_ptr
-                reset s_ptr to s_mark  // backtrack for duplicate keys
-</code></pre>
-<h4 id="i-o-cost-analysis">I/O Cost Analysis</h4>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Phase 1: Sort</span></span>
+<span class="giallo-l"><span>    Sort R on join key -&gt; R&#39;</span></span>
+<span class="giallo-l"><span>    Sort S on join key -&gt; S&#39;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Phase 2: Merge</span></span>
+<span class="giallo-l"><span>    r_ptr = first tuple in R&#39;</span></span>
+<span class="giallo-l"><span>    s_ptr = first tuple in S&#39;</span></span>
+<span class="giallo-l"><span>    while r_ptr and s_ptr are valid:</span></span>
+<span class="giallo-l"><span>        if R&#39;.key &lt; S&#39;.key:</span></span>
+<span class="giallo-l"><span>            advance r_ptr</span></span>
+<span class="giallo-l"><span>        elif R&#39;.key &gt; S&#39;.key:</span></span>
+<span class="giallo-l"><span>            advance s_ptr</span></span>
+<span class="giallo-l"><span>        else:  // match</span></span>
+<span class="giallo-l"><span>            // Mark start of matching group in S</span></span>
+<span class="giallo-l"><span>            s_mark = s_ptr</span></span>
+<span class="giallo-l"><span>            while r_ptr.key == s_ptr.key:</span></span>
+<span class="giallo-l"><span>                while s_ptr.key == r_ptr.key:</span></span>
+<span class="giallo-l"><span>                    emit (r_ptr, s_ptr)</span></span>
+<span class="giallo-l"><span>                    advance s_ptr</span></span>
+<span class="giallo-l"><span>                advance r_ptr</span></span>
+<span class="giallo-l"><span>                reset s_ptr to s_mark  // backtrack for duplicate keys</span></span></code></pre><h4 id="i-o-cost-analysis">I/O Cost Analysis</h4>
 <p><strong>External sort cost per relation</strong> (using replacement-selection or quicksort):</p>
 <ul>
 <li>Pass 0 (run generation): <code>2 * B(R)</code> I/Os (read + write all pages)</li>
@@ -219,65 +235,61 @@ Total: 30,000 page I/Os.</p>
 <h3 id="3-hash-join">3. Hash Join</h3>
 <p>The workhorse of analytical query processing. Three major variants.</p>
 <h4 id="3a-simple-classic-hash-join">3a. Simple (Classic) Hash Join</h4>
-<pre><code>Build Phase:
-    for each tuple r in R:
-        insert r into in-memory hash table HT using h(r.join_key)
-
-Probe Phase:
-    for each tuple s in S:
-        probe HT using h(s.join_key)
-        for each matching r in HT bucket:
-            if r.join_key == s.join_key:  // resolve collisions
-                emit (r, s)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Build Phase:</span></span>
+<span class="giallo-l"><span>    for each tuple r in R:</span></span>
+<span class="giallo-l"><span>        insert r into in-memory hash table HT using h(r.join_key)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Probe Phase:</span></span>
+<span class="giallo-l"><span>    for each tuple s in S:</span></span>
+<span class="giallo-l"><span>        probe HT using h(s.join_key)</span></span>
+<span class="giallo-l"><span>        for each matching r in HT bucket:</span></span>
+<span class="giallo-l"><span>            if r.join_key == s.join_key:  // resolve collisions</span></span>
+<span class="giallo-l"><span>                emit (r, s)</span></span></code></pre>
 <p><strong>Requirements</strong>: Hash table on R must fit in memory. <code>HT(R) &lt;= M</code> pages.</p>
 <p><strong>I/O Cost</strong>: <code>B(R) + B(S)</code> (optimal -- single scan of each relation)</p>
 <p><strong>CPU Cost</strong>: <code>O(|R| + |S|)</code> expected, assuming good hash function.</p>
 <p><strong>When to use</strong>: Build side fits in memory. This is the most common scenario in OLAP.</p>
 <h4 id="3b-grace-hash-join-partition-based">3b. Grace Hash Join (Partition-Based)</h4>
 <p>When neither relation fits in memory, partition both using the same hash function, then join matching partitions.</p>
-<pre><code>Partition Phase:
-    // Partition R into M-1 buckets using hash function h1
-    for each tuple r in R:
-        write r to partition h1(r.join_key) % (M-1)
-    // Partition S into M-1 buckets using same h1
-    for each tuple s in S:
-        write s to partition h1(s.join_key) % (M-1)
-
-Probe Phase:
-    for i = 0 to M-2:
-        // Load R_i into memory, build hash table using h2
-        build hash table on R_i using h2 (different from h1)
-        // Probe with S_i
-        for each tuple s in S_i:
-            probe hash table using h2(s.join_key)
-            emit matches
-</code></pre>
-<pre><code>   Grace Hash Join: Partition Phase
-   =================================
-
-   R                                S
-   +--------+                      +--------+
-   | tuples | --h1()--&gt; Buckets    | tuples | --h1()--&gt; Buckets
-   +--------+                      +--------+
-
-   R_0  R_1  R_2 ... R_{M-2}      S_0  S_1  S_2 ... S_{M-2}
-   [==] [==] [==]     [====]      [==] [==] [==]     [====]
-     |    |    |         |          |    |    |         |
-     v    v    v         v          v    v    v         v
-    disk disk disk     disk       disk disk disk     disk
-
-   Probe Phase: For each i, load R_i, build HT, probe with S_i
-   =============================================================
-
-   R_i (in memory)         S_i (streaming)
-   +----------------+      +--------+
-   | Hash Table h2  | &lt;--- | tuples |
-   +----------------+      +--------+
-          |
-          v
-       matches
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Partition Phase:</span></span>
+<span class="giallo-l"><span>    // Partition R into M-1 buckets using hash function h1</span></span>
+<span class="giallo-l"><span>    for each tuple r in R:</span></span>
+<span class="giallo-l"><span>        write r to partition h1(r.join_key) % (M-1)</span></span>
+<span class="giallo-l"><span>    // Partition S into M-1 buckets using same h1</span></span>
+<span class="giallo-l"><span>    for each tuple s in S:</span></span>
+<span class="giallo-l"><span>        write s to partition h1(s.join_key) % (M-1)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Probe Phase:</span></span>
+<span class="giallo-l"><span>    for i = 0 to M-2:</span></span>
+<span class="giallo-l"><span>        // Load R_i into memory, build hash table using h2</span></span>
+<span class="giallo-l"><span>        build hash table on R_i using h2 (different from h1)</span></span>
+<span class="giallo-l"><span>        // Probe with S_i</span></span>
+<span class="giallo-l"><span>        for each tuple s in S_i:</span></span>
+<span class="giallo-l"><span>            probe hash table using h2(s.join_key)</span></span>
+<span class="giallo-l"><span>            emit matches</span></span></code></pre><pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>   Grace Hash Join: Partition Phase</span></span>
+<span class="giallo-l"><span>   =================================</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>   R                                S</span></span>
+<span class="giallo-l"><span>   +--------+                      +--------+</span></span>
+<span class="giallo-l"><span>   | tuples | --h1()--&gt; Buckets    | tuples | --h1()--&gt; Buckets</span></span>
+<span class="giallo-l"><span>   +--------+                      +--------+</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>   R_0  R_1  R_2 ... R_{M-2}      S_0  S_1  S_2 ... S_{M-2}</span></span>
+<span class="giallo-l"><span>   [==] [==] [==]     [====]      [==] [==] [==]     [====]</span></span>
+<span class="giallo-l"><span>     |    |    |         |          |    |    |         |</span></span>
+<span class="giallo-l"><span>     v    v    v         v          v    v    v         v</span></span>
+<span class="giallo-l"><span>    disk disk disk     disk       disk disk disk     disk</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>   Probe Phase: For each i, load R_i, build HT, probe with S_i</span></span>
+<span class="giallo-l"><span>   =============================================================</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>   R_i (in memory)         S_i (streaming)</span></span>
+<span class="giallo-l"><span>   +----------------+      +--------+</span></span>
+<span class="giallo-l"><span>   | Hash Table h2  | &lt;--- | tuples |</span></span>
+<span class="giallo-l"><span>   +----------------+      +--------+</span></span>
+<span class="giallo-l"><span>          |</span></span>
+<span class="giallo-l"><span>          v</span></span>
+<span class="giallo-l"><span>       matches</span></span></code></pre>
 <p><strong>I/O Cost</strong>: <code>3 * (B(R) + B(S))</code></p>
 <ul>
 <li>Read R + S for partitioning: <code>B(R) + B(S)</code></li>
@@ -288,78 +300,72 @@ Probe Phase:
 <p><strong>Recursive partitioning</strong>: If a partition is still too large, apply another round of partitioning with a different hash function. Cost increases to <code>2 * (B(R) + B(S)) * ceil(log_{M-1}(B(R)/M)) + B(R) + B(S)</code>.</p>
 <h4 id="3c-hybrid-hash-join">3c. Hybrid Hash Join</h4>
 <p>Optimization over Grace: keep one partition of R in memory during the partition phase, avoiding writing and re-reading it.</p>
-<pre><code>Partition Phase:
-    // Partition 0 of R stays in memory as a hash table
-    // Partitions 1..k are written to disk
-    for each tuple r in R:
-        p = h1(r.join_key) % k
-        if p == 0:
-            insert into in-memory hash table
-        else:
-            write to disk partition p
-
-    // Partition S: partition 0 is immediately probed
-    for each tuple s in S:
-        p = h1(s.join_key) % k
-        if p == 0:
-            probe in-memory hash table, emit matches
-        else:
-            write to disk partition p
-
-Remaining Partitions:
-    for i = 1 to k-1:
-        load R_i, build hash table, probe with S_i
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Partition Phase:</span></span>
+<span class="giallo-l"><span>    // Partition 0 of R stays in memory as a hash table</span></span>
+<span class="giallo-l"><span>    // Partitions 1..k are written to disk</span></span>
+<span class="giallo-l"><span>    for each tuple r in R:</span></span>
+<span class="giallo-l"><span>        p = h1(r.join_key) % k</span></span>
+<span class="giallo-l"><span>        if p == 0:</span></span>
+<span class="giallo-l"><span>            insert into in-memory hash table</span></span>
+<span class="giallo-l"><span>        else:</span></span>
+<span class="giallo-l"><span>            write to disk partition p</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    // Partition S: partition 0 is immediately probed</span></span>
+<span class="giallo-l"><span>    for each tuple s in S:</span></span>
+<span class="giallo-l"><span>        p = h1(s.join_key) % k</span></span>
+<span class="giallo-l"><span>        if p == 0:</span></span>
+<span class="giallo-l"><span>            probe in-memory hash table, emit matches</span></span>
+<span class="giallo-l"><span>        else:</span></span>
+<span class="giallo-l"><span>            write to disk partition p</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Remaining Partitions:</span></span>
+<span class="giallo-l"><span>    for i = 1 to k-1:</span></span>
+<span class="giallo-l"><span>        load R_i, build hash table, probe with S_i</span></span></code></pre>
 <p><strong>I/O Cost</strong>: <code>3 * (B(R) + B(S)) - 2 * (M - k)</code> where <code>(M - k)</code> pages are used for the in-memory partition.</p>
 <p>In the best case (R fits entirely in memory), this degenerates to the simple hash join: <code>B(R) + B(S)</code>.</p>
 <p><strong>Advantage</strong>: Smoothly adapts between in-memory and fully partitioned execution. Most production systems implement this variant.</p>
-<pre><code>    Hash Join Variant Comparison
-    ============================
-
-    Variant      | I/O Cost          | Memory Req.  | Notes
-    -------------|-------------------|-------------|---------------------------
-    Simple       | B(R)+B(S)         | HT(R)&lt;=M    | Optimal when R fits
-    Grace        | 3*(B(R)+B(S))     | B(R)&lt;=M^2   | Clean partitioning
-    Hybrid       | Between above     | Adaptive     | Best general-purpose
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>    Hash Join Variant Comparison</span></span>
+<span class="giallo-l"><span>    ============================</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    Variant      | I/O Cost          | Memory Req.  | Notes</span></span>
+<span class="giallo-l"><span>    -------------|-------------------|-------------|---------------------------</span></span>
+<span class="giallo-l"><span>    Simple       | B(R)+B(S)         | HT(R)&lt;=M    | Optimal when R fits</span></span>
+<span class="giallo-l"><span>    Grace        | 3*(B(R)+B(S))     | B(R)&lt;=M^2   | Clean partitioning</span></span>
+<span class="giallo-l"><span>    Hybrid       | Between above     | Adaptive     | Best general-purpose</span></span></code></pre>
 <hr />
 <h2 id="modern-and-advanced-join-algorithms">Modern and Advanced Join Algorithms</h2>
 <h3 id="4-radix-hash-join-cache-conscious-hash-join">4. Radix Hash Join (Cache-Conscious Hash Join)</h3>
 <p>Proposed to address the primary bottleneck of hash joins on modern hardware: <strong>TLB and cache misses</strong> during the build and probe phases. Random access to a large hash table causes cache thrashing.</p>
 <h4 id="core-idea">Core Idea</h4>
 <p>Multi-pass radix partitioning ensures that each partition fits in the CPU cache (typically L2: 256KB-1MB). Joins within cache-resident partitions avoid TLB misses and exploit spatial locality.</p>
-<pre><code>Radix Partition Phase (multi-pass):
-    // Pass 1: Partition on bits b1..bk of hash (coarse)
-    // Pass 2: Partition on bits bk+1..bm (fine)
-    // ... until each partition fits in L2 cache
-
-Build + Probe Phase:
-    for each partition pair (R_i, S_i):
-        // Both fit in L2 cache
-        build hash table on R_i
-        probe with S_i
-</code></pre>
-<pre><code>    Radix Partitioning (2-pass example)
-    ====================================
-
-    Input R:  [a b c d e f g h i j k l m n o p]
-                        |
-              Pass 1: partition on bits 0-1
-                        |
-         +------+------+------+------+
-         | a e  | b f  | c g  | d h  |
-         | i m  | j n  | k o  | l p  |
-         +------+------+------+------+
-           P0     P1     P2     P3
-                        |
-              Pass 2: partition on bits 2-3
-                        |
-    P0: [a,i] [e,m]   P1: [b,j] [f,n]   ... (16 sub-partitions)
-
-    Each sub-partition fits in L2 cache.
-    Build + probe happens entirely in cache.
-</code></pre>
-<h4 id="tuning-parameters">Tuning Parameters</h4>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Radix Partition Phase (multi-pass):</span></span>
+<span class="giallo-l"><span>    // Pass 1: Partition on bits b1..bk of hash (coarse)</span></span>
+<span class="giallo-l"><span>    // Pass 2: Partition on bits bk+1..bm (fine)</span></span>
+<span class="giallo-l"><span>    // ... until each partition fits in L2 cache</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Build + Probe Phase:</span></span>
+<span class="giallo-l"><span>    for each partition pair (R_i, S_i):</span></span>
+<span class="giallo-l"><span>        // Both fit in L2 cache</span></span>
+<span class="giallo-l"><span>        build hash table on R_i</span></span>
+<span class="giallo-l"><span>        probe with S_i</span></span></code></pre><pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>    Radix Partitioning (2-pass example)</span></span>
+<span class="giallo-l"><span>    ====================================</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    Input R:  [a b c d e f g h i j k l m n o p]</span></span>
+<span class="giallo-l"><span>                        |</span></span>
+<span class="giallo-l"><span>              Pass 1: partition on bits 0-1</span></span>
+<span class="giallo-l"><span>                        |</span></span>
+<span class="giallo-l"><span>         +------+------+------+------+</span></span>
+<span class="giallo-l"><span>         | a e  | b f  | c g  | d h  |</span></span>
+<span class="giallo-l"><span>         | i m  | j n  | k o  | l p  |</span></span>
+<span class="giallo-l"><span>         +------+------+------+------+</span></span>
+<span class="giallo-l"><span>           P0     P1     P2     P3</span></span>
+<span class="giallo-l"><span>                        |</span></span>
+<span class="giallo-l"><span>              Pass 2: partition on bits 2-3</span></span>
+<span class="giallo-l"><span>                        |</span></span>
+<span class="giallo-l"><span>    P0: [a,i] [e,m]   P1: [b,j] [f,n]   ... (16 sub-partitions)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    Each sub-partition fits in L2 cache.</span></span>
+<span class="giallo-l"><span>    Build + probe happens entirely in cache.</span></span></code></pre><h4 id="tuning-parameters">Tuning Parameters</h4>
 <p>The number of radix bits is chosen based on hardware:</p>
 <ul>
 <li><strong>L2 cache size</strong> <code>C_L2</code>: Partitions must satisfy <code>|R_i| * tuple_size &lt; C_L2</code></li>
@@ -383,13 +389,12 @@ Build + Probe Phase:
 <p>Designed for NUMA architectures where cross-socket memory access is expensive.</p>
 <h4 id="core-idea-1">Core Idea</h4>
 <p>Each thread sorts its local partition independently (no cross-NUMA traffic during sort). Then, each thread merges its local sorted run against all other sorted runs.</p>
-<pre><code>Phase 1: Local Sort
-    Each thread T_i sorts its local partition R_i of R
-
-Phase 2: Parallel Merge
-    Each thread T_i merges sorted R_i with all sorted S_j partitions
-    No data movement across NUMA nodes during sort phase
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Phase 1: Local Sort</span></span>
+<span class="giallo-l"><span>    Each thread T_i sorts its local partition R_i of R</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Phase 2: Parallel Merge</span></span>
+<span class="giallo-l"><span>    Each thread T_i merges sorted R_i with all sorted S_j partitions</span></span>
+<span class="giallo-l"><span>    No data movement across NUMA nodes during sort phase</span></span></code></pre>
 <p><strong>Advantage</strong>: Avoids NUMA-remote writes entirely during the sort phase. The merge phase accesses remote data read-only, which is faster than remote writes.</p>
 <p><strong>Disadvantage</strong>: Redundant work -- each thread reads all of S. Total work is <code>O(n * |S|)</code> where n is thread count.</p>
 <p><strong>Key paper</strong>: Albutiu, Kemper, Neumann: "Massively Parallel Sort-Merge Joins in Main-Memory Multi-Core Database Systems", VLDB 2012.</p>
@@ -404,128 +409,120 @@ Phase 2: Parallel Merge
 <p>where <code>x_i</code> are the optimal solution to the fractional edge cover LP. For the triangle query with <code>|R| = |S| = |T| = N</code>, this gives <code>O(N^{3/2})</code>.</p>
 <h4 id="generic-join-ngo-porat-re-rudra-pods-2012">Generic Join (Ngo, Porat, Re, Rudra -- PODS 2012)</h4>
 <p>The first worst-case optimal algorithm. It processes one attribute at a time:</p>
-<pre><code>GenericJoin(Q, bound_vars, assignment):
-    if all variables bound:
-        emit assignment
-        return
-
-    Pick next variable x
-    // Intersect the domains of x across all relations containing x
-    D_x = INTERSECT over all R_i containing x:
-              { v : exists tuple in R_i matching assignment with x=v }
-
-    for each v in D_x:
-        GenericJoin(Q, bound_vars + {x}, assignment + {x=v})
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>GenericJoin(Q, bound_vars, assignment):</span></span>
+<span class="giallo-l"><span>    if all variables bound:</span></span>
+<span class="giallo-l"><span>        emit assignment</span></span>
+<span class="giallo-l"><span>        return</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    Pick next variable x</span></span>
+<span class="giallo-l"><span>    // Intersect the domains of x across all relations containing x</span></span>
+<span class="giallo-l"><span>    D_x = INTERSECT over all R_i containing x:</span></span>
+<span class="giallo-l"><span>              { v : exists tuple in R_i matching assignment with x=v }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    for each v in D_x:</span></span>
+<span class="giallo-l"><span>        GenericJoin(Q, bound_vars + {x}, assignment + {x=v})</span></span></code></pre>
 <p><strong>Complexity</strong>: <code>O(|Q|_max * |attrs|)</code> where <code>|Q|_max</code> is the AGM bound. This is optimal up to the attribute count factor.</p>
 <h4 id="leapfrog-triejoin-veldhuizen-icdt-2014">Leapfrog TrieJoin (Veldhuizen, ICDT 2014)</h4>
 <p>A practical, elegant implementation of WCOJ using sorted trie iterators.</p>
-<pre><code>Data Structure: Each relation stored as a sorted trie (lexicographic order)
-    R(A,B): sorted on (A, B)
-    S(B,C): sorted on (B, C)
-    T(A,C): sorted on (A, C)
-
-Algorithm:
-    // Variable ordering: A, B, C
-    // Level 0: iterate over A values
-    for each A value via LeapfrogJoin on {R.A, T.A}:
-        // Level 1: iterate over B values for this A
-        for each B value via LeapfrogJoin on {R.B(A=a), S.B}:
-            // Level 2: iterate over C values for this (A,B)
-            for each C value via LeapfrogJoin on {S.C(B=b), T.C(A=a)}:
-                emit (a, b, c)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Data Structure: Each relation stored as a sorted trie (lexicographic order)</span></span>
+<span class="giallo-l"><span>    R(A,B): sorted on (A, B)</span></span>
+<span class="giallo-l"><span>    S(B,C): sorted on (B, C)</span></span>
+<span class="giallo-l"><span>    T(A,C): sorted on (A, C)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Algorithm:</span></span>
+<span class="giallo-l"><span>    // Variable ordering: A, B, C</span></span>
+<span class="giallo-l"><span>    // Level 0: iterate over A values</span></span>
+<span class="giallo-l"><span>    for each A value via LeapfrogJoin on {R.A, T.A}:</span></span>
+<span class="giallo-l"><span>        // Level 1: iterate over B values for this A</span></span>
+<span class="giallo-l"><span>        for each B value via LeapfrogJoin on {R.B(A=a), S.B}:</span></span>
+<span class="giallo-l"><span>            // Level 2: iterate over C values for this (A,B)</span></span>
+<span class="giallo-l"><span>            for each C value via LeapfrogJoin on {S.C(B=b), T.C(A=a)}:</span></span>
+<span class="giallo-l"><span>                emit (a, b, c)</span></span></code></pre>
 <p><strong>LeapfrogJoin on k sorted iterators</strong>:</p>
-<pre><code>LeapfrogJoin(iter_1, ..., iter_k):
-    // All iterators positioned; find common values
-    Sort iterators by current value
-    loop:
-        if iter_1.value == iter_k.value:
-            emit value       // all agree
-            advance all iterators
-        else:
-            // iter_1 has smallest value, iter_k has largest
-            // leap iter_1 forward to seek(iter_k.value)
-            iter_1.seek(iter_k.value)
-            rotate iterator order
-            if any iterator exhausted: break
-</code></pre>
-<pre><code>    LeapfrogJoin Example on 3 Iterators
-    ====================================
-
-    iter_A: [1, 3, 5, 7, 9, 12, 15]
-    iter_B: [2, 3, 6, 9, 11, 15]
-    iter_C: [1, 3, 8, 9, 14, 15]
-
-    Step 1: Sort by current value
-            iter_A=1, iter_C=1, iter_B=2
-            min=1, max=2 -&gt; not equal
-            Seek iter_A to 2 -&gt; lands on 3
-
-    Step 2: iter_B=2, iter_A=3, iter_C=1
-            Seek iter_C to 3 -&gt; lands on 3
-            iter_B=2, iter_A=3, iter_C=3
-            Seek iter_B to 3 -&gt; lands on 3
-            All equal at 3! EMIT 3.
-
-    Step 3: Advance all. iter_A=5, iter_B=6, iter_C=8
-            Seek iter_A to 8 -&gt; lands on 9
-            Seek iter_B to 9 -&gt; lands on 9
-            Seek iter_C to 9 -&gt; lands on 9
-            All equal at 9! EMIT 9.
-
-    ... continues until iterators exhausted.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>LeapfrogJoin(iter_1, ..., iter_k):</span></span>
+<span class="giallo-l"><span>    // All iterators positioned; find common values</span></span>
+<span class="giallo-l"><span>    Sort iterators by current value</span></span>
+<span class="giallo-l"><span>    loop:</span></span>
+<span class="giallo-l"><span>        if iter_1.value == iter_k.value:</span></span>
+<span class="giallo-l"><span>            emit value       // all agree</span></span>
+<span class="giallo-l"><span>            advance all iterators</span></span>
+<span class="giallo-l"><span>        else:</span></span>
+<span class="giallo-l"><span>            // iter_1 has smallest value, iter_k has largest</span></span>
+<span class="giallo-l"><span>            // leap iter_1 forward to seek(iter_k.value)</span></span>
+<span class="giallo-l"><span>            iter_1.seek(iter_k.value)</span></span>
+<span class="giallo-l"><span>            rotate iterator order</span></span>
+<span class="giallo-l"><span>            if any iterator exhausted: break</span></span></code></pre><pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>    LeapfrogJoin Example on 3 Iterators</span></span>
+<span class="giallo-l"><span>    ====================================</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    iter_A: [1, 3, 5, 7, 9, 12, 15]</span></span>
+<span class="giallo-l"><span>    iter_B: [2, 3, 6, 9, 11, 15]</span></span>
+<span class="giallo-l"><span>    iter_C: [1, 3, 8, 9, 14, 15]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    Step 1: Sort by current value</span></span>
+<span class="giallo-l"><span>            iter_A=1, iter_C=1, iter_B=2</span></span>
+<span class="giallo-l"><span>            min=1, max=2 -&gt; not equal</span></span>
+<span class="giallo-l"><span>            Seek iter_A to 2 -&gt; lands on 3</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    Step 2: iter_B=2, iter_A=3, iter_C=1</span></span>
+<span class="giallo-l"><span>            Seek iter_C to 3 -&gt; lands on 3</span></span>
+<span class="giallo-l"><span>            iter_B=2, iter_A=3, iter_C=3</span></span>
+<span class="giallo-l"><span>            Seek iter_B to 3 -&gt; lands on 3</span></span>
+<span class="giallo-l"><span>            All equal at 3! EMIT 3.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    Step 3: Advance all. iter_A=5, iter_B=6, iter_C=8</span></span>
+<span class="giallo-l"><span>            Seek iter_A to 8 -&gt; lands on 9</span></span>
+<span class="giallo-l"><span>            Seek iter_B to 9 -&gt; lands on 9</span></span>
+<span class="giallo-l"><span>            Seek iter_C to 9 -&gt; lands on 9</span></span>
+<span class="giallo-l"><span>            All equal at 9! EMIT 9.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    ... continues until iterators exhausted.</span></span></code></pre>
 <p><strong>Complexity</strong>: Worst-case optimal up to a log factor. <code>O(|Q|_AGM * log(N))</code> where N is the max relation size. The log factor comes from binary search in seek operations.</p>
 <p><strong>Practical significance</strong>: LogicBlox/RelationalAI uses LeapfrogTrieJoin as their core join engine. DuckDB added WCOJ support via adaptive factorization (CIDR 2025). Graph databases benefit enormously from WCOJ for cycle queries.</p>
 <h3 id="7-adaptive-join-algorithms">7. Adaptive Join Algorithms</h3>
 <p>Joins that adjust their strategy at runtime based on observed data characteristics.</p>
 <h4 id="eddies-avnur-and-hellerstein-sigmod-2000">Eddies (Avnur and Hellerstein, SIGMOD 2000)</h4>
 <p>Route individual tuples through a set of join operators adaptively. A central "eddy" router observes throughput and selectivity, sending tuples to operators that are currently most efficient.</p>
-<pre><code>                   +--------+
-      R tuples --&gt; | Eddy   | --&gt; Output
-      S tuples --&gt; | Router | --&gt;
-      T tuples --&gt; |        |
-                   +--------+
-                    /  |   \
-                   v   v    v
-                  J1   J2   J3
-              (R&gt;&lt;S)(S&gt;&lt;T)(R&gt;&lt;T)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                   +--------+</span></span>
+<span class="giallo-l"><span>      R tuples --&gt; | Eddy   | --&gt; Output</span></span>
+<span class="giallo-l"><span>      S tuples --&gt; | Router | --&gt;</span></span>
+<span class="giallo-l"><span>      T tuples --&gt; |        |</span></span>
+<span class="giallo-l"><span>                   +--------+</span></span>
+<span class="giallo-l"><span>                    /  |   \</span></span>
+<span class="giallo-l"><span>                   v   v    v</span></span>
+<span class="giallo-l"><span>                  J1   J2   J3</span></span>
+<span class="giallo-l"><span>              (R&gt;&lt;S)(S&gt;&lt;T)(R&gt;&lt;T)</span></span></code></pre>
 <p><strong>Key insight</strong>: Adapts to runtime conditions (data skew, index availability, memory pressure) without re-planning.</p>
 <h4 id="stem-state-modules-raman-and-hellerstein-vldb-2003">SteM (STate Modules) -- Raman and Hellerstein, VLDB 2003</h4>
 <p>Extension of eddies using state modules that maintain hash tables. Each SteM can function as either build-side or probe-side of a hash join, enabling symmetric processing.</p>
 <h4 id="xjoin-urhan-and-franklin-icde-2000">XJoin (Urhan and Franklin, ICDE 2000)</h4>
 <p>Designed for streaming/online environments where data arrives at unpredictable rates.</p>
-<pre><code>Phase 1 (in-memory):
-    As tuples arrive from R and S:
-        Insert into respective in-memory hash tables
-        Probe the OTHER table&#39;s hash table for matches
-        (Symmetric: each new tuple probes the other side)
-
-Phase 2 (cleanup):
-    When memory fills, flush partitions to disk
-    Later, join flushed partitions using standard hash join
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Phase 1 (in-memory):</span></span>
+<span class="giallo-l"><span>    As tuples arrive from R and S:</span></span>
+<span class="giallo-l"><span>        Insert into respective in-memory hash tables</span></span>
+<span class="giallo-l"><span>        Probe the OTHER table&#39;s hash table for matches</span></span>
+<span class="giallo-l"><span>        (Symmetric: each new tuple probes the other side)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Phase 2 (cleanup):</span></span>
+<span class="giallo-l"><span>    When memory fills, flush partitions to disk</span></span>
+<span class="giallo-l"><span>    Later, join flushed partitions using standard hash join</span></span></code></pre>
 <p><strong>Advantage</strong>: Produces results incrementally as data arrives. Ideal for streaming, federated queries, and interactive systems where time-to-first-result matters.</p>
 <h4 id="hash-merge-join-adaptive">Hash-Merge Join (adaptive)</h4>
 <p>Starts as a hash join. If memory is exhausted, switches to sort-merge on remaining data. Combines the speed of in-memory hashing with the graceful degradation of sort-merge.</p>
 <h3 id="8-vectorized-and-simd-join-techniques">8. Vectorized and SIMD Join Techniques</h3>
 <p>Modern CPUs offer SIMD (Single Instruction, Multiple Data) instructions that process 4-16 values simultaneously. Join algorithms can exploit this.</p>
 <h4 id="vectorized-hash-table-probing">Vectorized Hash Table Probing</h4>
-<pre><code>// Scalar probe: 1 key at a time
-for each key in probe_batch:
-    bucket = hash(key) % num_buckets
-    scan chain at bucket for match
-
-// Vectorized probe: process VECTOR_SIZE keys simultaneously
-keys    = load_vector(probe_batch, offset, VECTOR_SIZE)
-hashes  = hash_vector(keys)             // SIMD hash
-buckets = modulo_vector(hashes, num_buckets)  // SIMD mod
-entries = gather(hash_table, buckets)    // SIMD gather
-matches = compare_vector(keys, entries)  // SIMD compare
-// Process matches, handle collisions for mismatches
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>// Scalar probe: 1 key at a time</span></span>
+<span class="giallo-l"><span>for each key in probe_batch:</span></span>
+<span class="giallo-l"><span>    bucket = hash(key) % num_buckets</span></span>
+<span class="giallo-l"><span>    scan chain at bucket for match</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>// Vectorized probe: process VECTOR_SIZE keys simultaneously</span></span>
+<span class="giallo-l"><span>keys    = load_vector(probe_batch, offset, VECTOR_SIZE)</span></span>
+<span class="giallo-l"><span>hashes  = hash_vector(keys)             // SIMD hash</span></span>
+<span class="giallo-l"><span>buckets = modulo_vector(hashes, num_buckets)  // SIMD mod</span></span>
+<span class="giallo-l"><span>entries = gather(hash_table, buckets)    // SIMD gather</span></span>
+<span class="giallo-l"><span>matches = compare_vector(keys, entries)  // SIMD compare</span></span>
+<span class="giallo-l"><span>// Process matches, handle collisions for mismatches</span></span></code></pre>
 <p><strong>Key techniques</strong>:</p>
 <ul>
 <li><strong>SIMD gather</strong>: Load non-contiguous memory locations into a SIMD register (AVX2 <code>_mm256_i32gather</code>)</li>
@@ -534,16 +531,14 @@ matches = compare_vector(keys, entries)  // SIMD compare
 </ul>
 <h4 id="vectorized-partitioning-for-radix-join">Vectorized Partitioning (for Radix Join)</h4>
 <p>Software write-combine buffers avoid TLB misses during partitioning:</p>
-<pre><code>// Without SWCB: random writes to N partitions -&gt; N TLB entries needed
-// With SWCB: buffer a cache line of tuples per partition, flush when full
-
-for each tuple t:
-    p = radix_partition(t.key)
-    swcb[p].append(t)
-    if swcb[p].full():  // cache-line sized buffer
-        flush swcb[p] to partition[p]  // sequential write
-</code></pre>
-<h4 id="performance-impact">Performance Impact</h4>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>// Without SWCB: random writes to N partitions -&gt; N TLB entries needed</span></span>
+<span class="giallo-l"><span>// With SWCB: buffer a cache line of tuples per partition, flush when full</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>for each tuple t:</span></span>
+<span class="giallo-l"><span>    p = radix_partition(t.key)</span></span>
+<span class="giallo-l"><span>    swcb[p].append(t)</span></span>
+<span class="giallo-l"><span>    if swcb[p].full():  // cache-line sized buffer</span></span>
+<span class="giallo-l"><span>        flush swcb[p] to partition[p]  // sequential write</span></span></code></pre><h4 id="performance-impact">Performance Impact</h4>
 <ul>
 <li>Vectorized hash probing: <strong>2-4x</strong> speedup over scalar on AVX2/AVX-512</li>
 <li>SIMD partitioning: <strong>1.5-3x</strong> speedup</li>
@@ -558,26 +553,24 @@ for each tuple t:
 <p>Reduce the data flowing into expensive joins by pre-filtering using information from other parts of the query plan.</p>
 <h4 id="semi-join-reduction">Semi-Join Reduction</h4>
 <p>Before joining R and S, compute the set of join key values that actually exist in S, and filter R to only those matching keys. This is especially valuable in distributed settings where R and S are on different nodes.</p>
-<pre><code>Step 1: Compute pi_{join_key}(S)         // project S onto join key
-Step 2: R&#39; = R SEMI-JOIN pi_{join_key}(S) // filter R
-Step 3: R&#39; JOIN S                         // join reduced R with S
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Step 1: Compute pi_{join_key}(S)         // project S onto join key</span></span>
+<span class="giallo-l"><span>Step 2: R&#39; = R SEMI-JOIN pi_{join_key}(S) // filter R</span></span>
+<span class="giallo-l"><span>Step 3: R&#39; JOIN S                         // join reduced R with S</span></span></code></pre>
 <p><strong>Cost</strong>: Extra pass over S to extract keys + filter R. Beneficial when the semi-join significantly reduces |R|.</p>
 <h4 id="bloom-filter-optimization">Bloom Filter Optimization</h4>
 <p>Instead of sending the exact set of join keys, build a compact Bloom filter:</p>
-<pre><code>Build Phase:
-    Create Bloom filter BF from S.join_key values
-
-Probe Phase:
-    for each tuple r in R:
-        if BF.might_contain(r.join_key):
-            keep r (may be false positive)
-        else:
-            discard r (guaranteed not in S)
-
-Join Phase:
-    Join filtered R&#39; with S
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Build Phase:</span></span>
+<span class="giallo-l"><span>    Create Bloom filter BF from S.join_key values</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Probe Phase:</span></span>
+<span class="giallo-l"><span>    for each tuple r in R:</span></span>
+<span class="giallo-l"><span>        if BF.might_contain(r.join_key):</span></span>
+<span class="giallo-l"><span>            keep r (may be false positive)</span></span>
+<span class="giallo-l"><span>        else:</span></span>
+<span class="giallo-l"><span>            discard r (guaranteed not in S)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Join Phase:</span></span>
+<span class="giallo-l"><span>    Join filtered R&#39; with S</span></span></code></pre>
 <p><strong>Advantages</strong>:</p>
 <ul>
 <li>Bloom filter is tiny (few KB to few MB) compared to the key set</li>
@@ -589,42 +582,38 @@ Join Phase:
 <h3 id="10-hash-table-designs-for-joins">10. Hash Table Designs for Joins</h3>
 <p>The hash table is the central data structure for hash joins. Different designs have dramatically different performance characteristics.</p>
 <h4 id="chained-bucket-hash-table">Chained (Bucket) Hash Table</h4>
-<pre><code>+---+---+---+---+---+---+---+---+
-| 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |  Directory (pointers)
-+---+---+---+---+---+---+---+---+
-  |       |           |
-  v       v           v
- [a]-&gt;[d] [b]        [c]-&gt;[e]-&gt;[f]     Chains (linked lists)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>+---+---+---+---+---+---+---+---+</span></span>
+<span class="giallo-l"><span>| 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |  Directory (pointers)</span></span>
+<span class="giallo-l"><span>+---+---+---+---+---+---+---+---+</span></span>
+<span class="giallo-l"><span>  |       |           |</span></span>
+<span class="giallo-l"><span>  v       v           v</span></span>
+<span class="giallo-l"><span> [a]-&gt;[d] [b]        [c]-&gt;[e]-&gt;[f]     Chains (linked lists)</span></span></code></pre>
 <p><strong>Pros</strong>: Simple, handles variable-length keys, no clustering issues.
 <strong>Cons</strong>: Pointer chasing (cache miss per chain hop), poor memory locality.</p>
 <h4 id="open-addressing-linear-probing">Open Addressing (Linear Probing)</h4>
-<pre><code>+---+---+---+---+---+---+---+---+
-| a |   | b |   | c | d | e |   |  Flat array
-+---+---+---+---+---+---+---+---+
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>+---+---+---+---+---+---+---+---+</span></span>
+<span class="giallo-l"><span>| a |   | b |   | c | d | e |   |  Flat array</span></span>
+<span class="giallo-l"><span>+---+---+---+---+---+---+---+---+</span></span></code></pre>
 <p><strong>Pros</strong>: Cache-friendly (sequential scan on collision), no pointer overhead.
 <strong>Cons</strong>: Clustering degrades performance at high load factors, deletion is complex, poor for n:m joins.</p>
 <h4 id="concise-hash-table-used-in-hyper-umbra">Concise Hash Table (used in HyPer/Umbra)</h4>
 <p>Two arrays: a dense tuple array and a hash directory with offsets.</p>
-<pre><code>Hash Directory:     [2|0|1|3|0|0|0|1]  (counts per bucket)
-Offset Array:       [0|2|2|3|6|6|6|6]  (prefix sum)
-Dense Tuple Store:  [a,d | b | c,e,f | g]
-                     ^       ^
-                     bucket0  bucket2
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Hash Directory:     [2|0|1|3|0|0|0|1]  (counts per bucket)</span></span>
+<span class="giallo-l"><span>Offset Array:       [0|2|2|3|6|6|6|6]  (prefix sum)</span></span>
+<span class="giallo-l"><span>Dense Tuple Store:  [a,d | b | c,e,f | g]</span></span>
+<span class="giallo-l"><span>                     ^       ^</span></span>
+<span class="giallo-l"><span>                     bucket0  bucket2</span></span></code></pre>
 <p><strong>Pros</strong>: Excellent cache behavior (sequential scan of dense array), very compact.
 <strong>Cons</strong>: Build requires two passes (count + insert).</p>
 <h4 id="unchained-adjacency-array-hash-table-birler-et-al-damon-2024-best-paper">Unchained Adjacency-Array Hash Table (Birler et al., DaMoN 2024, Best Paper)</h4>
 <p>Combines build-side partitioning, adjacency array layout, Bloom filters, pipelined probes, and software write-combine buffers:</p>
-<pre><code>Phase 1: Count keys per bucket
-Phase 2: Prefix sum to compute offsets
-Phase 3: Insert tuples into adjacency array at computed positions
-
-Directory:  [offset_0, offset_1, ..., offset_n]
-Tuples:     [bucket_0 tuples | bucket_1 tuples | ...]
-Bloom:      [filter bits for rapid rejection]
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Phase 1: Count keys per bucket</span></span>
+<span class="giallo-l"><span>Phase 2: Prefix sum to compute offsets</span></span>
+<span class="giallo-l"><span>Phase 3: Insert tuples into adjacency array at computed positions</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Directory:  [offset_0, offset_1, ..., offset_n]</span></span>
+<span class="giallo-l"><span>Tuples:     [bucket_0 tuples | bucket_1 tuples | ...]</span></span>
+<span class="giallo-l"><span>Bloom:      [filter bits for rapid rejection]</span></span></code></pre>
 <p><strong>Performance</strong>: Outperforms open addressing by 2x on average for relational queries and up to 20x for graph queries with heavy n:m joins.</p>
 <h4 id="linear-chained-hash-table-gross-et-al-cidr-2025">Linear-Chained Hash Table (Gross et al., CIDR 2025)</h4>
 <p>Used in DuckDB for adaptive factorization. Collisions resolved with linear probing (next bucket), but entries form logical chains. Enables "3D hash join" where probe emits chain pointers instead of expanding results:</p>
@@ -636,32 +625,30 @@ Bloom:      [filter bits for rapid rejection]
 <h2 id="distributed-join-algorithms">Distributed Join Algorithms</h2>
 <h3 id="11-broadcast-join-replication">11. Broadcast Join (Replication)</h3>
 <p>Send the entire smaller relation to all nodes holding partitions of the larger relation.</p>
-<pre><code>    Coordinator                Node 1          Node 2          Node 3
-    +----------+              +------+         +------+         +------+
-    | R (small)|  broadcast   | R    |         | R    |         | R    |
-    |          | -----------&gt; | S_1  |         | S_2  |         | S_3  |
-    +----------+              |JOIN  |         |JOIN  |         |JOIN  |
-                              +------+         +------+         +------+
-                                |                |                |
-                                v                v                v
-                             Result_1         Result_2         Result_3
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>    Coordinator                Node 1          Node 2          Node 3</span></span>
+<span class="giallo-l"><span>    +----------+              +------+         +------+         +------+</span></span>
+<span class="giallo-l"><span>    | R (small)|  broadcast   | R    |         | R    |         | R    |</span></span>
+<span class="giallo-l"><span>    |          | -----------&gt; | S_1  |         | S_2  |         | S_3  |</span></span>
+<span class="giallo-l"><span>    +----------+              |JOIN  |         |JOIN  |         |JOIN  |</span></span>
+<span class="giallo-l"><span>                              +------+         +------+         +------+</span></span>
+<span class="giallo-l"><span>                                |                |                |</span></span>
+<span class="giallo-l"><span>                                v                v                v</span></span>
+<span class="giallo-l"><span>                             Result_1         Result_2         Result_3</span></span></code></pre>
 <p><strong>Network cost</strong>: <code>|R| * (N-1)</code> where N is the number of nodes. Each node receives a full copy of R.</p>
 <p><strong>When optimal</strong>: <code>|R| &lt;&lt; |S|</code> and <code>|R|</code> fits in memory on each node. Spark's default threshold: <code>spark.sql.autoBroadcastJoinThreshold = 10MB</code>.</p>
 <p><strong>Advantages</strong>: No shuffling of S (which is large), single-pass execution, no skew issues on S side.</p>
 <p><strong>Disadvantages</strong>: Prohibitive for large R, memory pressure on all nodes, redundant storage.</p>
 <h3 id="12-shuffle-repartition-hash-partitioned-join">12. Shuffle (Repartition / Hash-Partitioned) Join</h3>
 <p>Both relations are hash-partitioned on the join key and sent to the same set of nodes.</p>
-<pre><code>    Node 1 (R_1, S_1)     Node 2 (R_2, S_2)     Node 3 (R_3, S_3)
-         |                      |                      |
-         | hash-partition on join key (shuffle)
-         v                      v                      v
-    +----------+           +----------+           +----------+
-    | R&#39;_1,S&#39;_1|           | R&#39;_2,S&#39;_2|           | R&#39;_3,S&#39;_3|
-    | local    |           | local    |           | local    |
-    | hash join|           | hash join|           | hash join|
-    +----------+           +----------+           +----------+
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>    Node 1 (R_1, S_1)     Node 2 (R_2, S_2)     Node 3 (R_3, S_3)</span></span>
+<span class="giallo-l"><span>         |                      |                      |</span></span>
+<span class="giallo-l"><span>         | hash-partition on join key (shuffle)</span></span>
+<span class="giallo-l"><span>         v                      v                      v</span></span>
+<span class="giallo-l"><span>    +----------+           +----------+           +----------+</span></span>
+<span class="giallo-l"><span>    | R&#39;_1,S&#39;_1|           | R&#39;_2,S&#39;_2|           | R&#39;_3,S&#39;_3|</span></span>
+<span class="giallo-l"><span>    | local    |           | local    |           | local    |</span></span>
+<span class="giallo-l"><span>    | hash join|           | hash join|           | hash join|</span></span>
+<span class="giallo-l"><span>    +----------+           +----------+           +----------+</span></span></code></pre>
 <p><strong>Network cost</strong>: <code>|R| + |S|</code> (every tuple is sent exactly once).</p>
 <p><strong>When optimal</strong>: Both R and S are large and not co-partitioned on the join key.</p>
 <p><strong>Skew problem</strong>: If join key values are highly skewed (e.g., one value appears in 50% of tuples), one node gets overloaded. Mitigation strategies:</p>
@@ -671,58 +658,54 @@ Bloom:      [filter bits for rapid rejection]
 </ul>
 <h3 id="13-semi-join-reduction-in-distributed-settings">13. Semi-Join Reduction in Distributed Settings</h3>
 <p>Minimize network transfer by pre-filtering.</p>
-<pre><code>    Site A (has R)                    Site B (has S)
-    +------------+                    +------------+
-    | R          |  1. Send BF(R)     | S          |
-    |            | -----------------&gt; |            |
-    |            |                    | Filter S   |
-    |            |  2. Send S&#39;        | using BF   |
-    |            | &lt;----------------- | S&#39; = S     |
-    |            |                    | semi-join  |
-    | R JOIN S&#39;  |                    | BF(R)      |
-    +------------+                    +------------+
-
-    BF(R) = Bloom filter on R&#39;s join keys (compact, few KB)
-    S&#39; = tuples of S that pass the Bloom filter (much smaller than S)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>    Site A (has R)                    Site B (has S)</span></span>
+<span class="giallo-l"><span>    +------------+                    +------------+</span></span>
+<span class="giallo-l"><span>    | R          |  1. Send BF(R)     | S          |</span></span>
+<span class="giallo-l"><span>    |            | -----------------&gt; |            |</span></span>
+<span class="giallo-l"><span>    |            |                    | Filter S   |</span></span>
+<span class="giallo-l"><span>    |            |  2. Send S&#39;        | using BF   |</span></span>
+<span class="giallo-l"><span>    |            | &lt;----------------- | S&#39; = S     |</span></span>
+<span class="giallo-l"><span>    |            |                    | semi-join  |</span></span>
+<span class="giallo-l"><span>    | R JOIN S&#39;  |                    | BF(R)      |</span></span>
+<span class="giallo-l"><span>    +------------+                    +------------+</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    BF(R) = Bloom filter on R&#39;s join keys (compact, few KB)</span></span>
+<span class="giallo-l"><span>    S&#39; = tuples of S that pass the Bloom filter (much smaller than S)</span></span></code></pre>
 <p><strong>Network cost</strong>: <code>|BF(R)| + |S'|</code> where <code>|S'| &lt;&lt; |S|</code> if the join is selective.</p>
 <p><strong>Two-phase semi-join</strong>: Send BF(R) to filter S, then send BF(S') back to filter R, then join. Worth it when the join is very selective and network is the bottleneck.</p>
 <h3 id="14-track-join-parallel-partition-discovery">14. Track Join (Parallel Partition Discovery)</h3>
 <p>An optimization for co-located data. If R and S are both range-partitioned on a related key, the join can be decomposed into independent sub-joins without any data movement:</p>
-<pre><code>If R partitioned on R.key as: [0-100], [101-200], [201-300]
-   S partitioned on S.key as: [0-100], [101-200], [201-300]
-
-Then: R[0-100] JOIN S[0-100], R[101-200] JOIN S[101-200], ...
-      All independent, no shuffling needed.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>If R partitioned on R.key as: [0-100], [101-200], [201-300]</span></span>
+<span class="giallo-l"><span>   S partitioned on S.key as: [0-100], [101-200], [201-300]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Then: R[0-100] JOIN S[0-100], R[101-200] JOIN S[101-200], ...</span></span>
+<span class="giallo-l"><span>      All independent, no shuffling needed.</span></span></code></pre>
 <p><strong>When applicable</strong>: Both tables co-partitioned (same partition key, same partition boundaries). CockroachDB and TiDB exploit this when tables share partition schemes.</p>
 <h3 id="15-distributed-sort-merge-join">15. Distributed Sort-Merge Join</h3>
-<pre><code>Phase 1: Range-partition both R and S using sampled splitters
-    - Sample keys from both relations
-    - Determine range boundaries
-    - Shuffle tuples to appropriate nodes based on range
-
-Phase 2: Local sort-merge join at each node
-    - Each node sorts its partition of R and S
-    - Performs standard merge join
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Phase 1: Range-partition both R and S using sampled splitters</span></span>
+<span class="giallo-l"><span>    - Sample keys from both relations</span></span>
+<span class="giallo-l"><span>    - Determine range boundaries</span></span>
+<span class="giallo-l"><span>    - Shuffle tuples to appropriate nodes based on range</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Phase 2: Local sort-merge join at each node</span></span>
+<span class="giallo-l"><span>    - Each node sorts its partition of R and S</span></span>
+<span class="giallo-l"><span>    - Performs standard merge join</span></span></code></pre>
 <p><strong>Network cost</strong>: <code>|R| + |S|</code> (same as shuffle join).</p>
 <p><strong>Advantage over hash shuffle</strong>: Output is globally sorted. Useful when downstream operators need sorted data (e.g., window functions, ORDER BY).</p>
 <h3 id="16-symmetric-hash-join-streaming">16. Symmetric Hash Join (Streaming)</h3>
 <p>For streaming environments where tuples arrive asynchronously from both sides.</p>
-<pre><code>Hash Table for R: HT_R
-Hash Table for S: HT_S
-
-on_arrival(tuple t from R):
-    insert t into HT_R
-    probe HT_S for matches with t
-    emit all matches
-
-on_arrival(tuple t from S):
-    insert t into HT_S
-    probe HT_R for matches with t
-    emit all matches
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Hash Table for R: HT_R</span></span>
+<span class="giallo-l"><span>Hash Table for S: HT_S</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>on_arrival(tuple t from R):</span></span>
+<span class="giallo-l"><span>    insert t into HT_R</span></span>
+<span class="giallo-l"><span>    probe HT_S for matches with t</span></span>
+<span class="giallo-l"><span>    emit all matches</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>on_arrival(tuple t from S):</span></span>
+<span class="giallo-l"><span>    insert t into HT_S</span></span>
+<span class="giallo-l"><span>    probe HT_R for matches with t</span></span>
+<span class="giallo-l"><span>    emit all matches</span></span></code></pre>
 <p><strong>Properties</strong>:</p>
 <ul>
 <li>Non-blocking: produces output as soon as any match exists</li>
@@ -733,39 +716,36 @@ on_arrival(tuple t from S):
 <h3 id="17-mapreduce-style-joins">17. MapReduce-Style Joins</h3>
 <h4 id="reduce-side-join">Reduce-Side Join</h4>
 <p>Both relations emit <code>(join_key, tagged_value)</code> pairs. The shuffle groups all values with the same key together. The reducer performs a local cross product.</p>
-<pre><code>Map(R):  for each (k, v) in R: emit (k, (&quot;R&quot;, v))
-Map(S):  for each (k, v) in S: emit (k, (&quot;S&quot;, v))
-
-Shuffle: group by key
-
-Reduce(key, values):
-    R_vals = [v for (tag, v) in values if tag == &quot;R&quot;]
-    S_vals = [v for (tag, v) in values if tag == &quot;S&quot;]
-    for r in R_vals:
-        for s in S_vals:
-            emit (key, r, s)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Map(R):  for each (k, v) in R: emit (k, (&quot;R&quot;, v))</span></span>
+<span class="giallo-l"><span>Map(S):  for each (k, v) in S: emit (k, (&quot;S&quot;, v))</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Shuffle: group by key</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Reduce(key, values):</span></span>
+<span class="giallo-l"><span>    R_vals = [v for (tag, v) in values if tag == &quot;R&quot;]</span></span>
+<span class="giallo-l"><span>    S_vals = [v for (tag, v) in values if tag == &quot;S&quot;]</span></span>
+<span class="giallo-l"><span>    for r in R_vals:</span></span>
+<span class="giallo-l"><span>        for s in S_vals:</span></span>
+<span class="giallo-l"><span>            emit (key, r, s)</span></span></code></pre>
 <p><strong>Cost</strong>: Full shuffle of both relations. Simple but inefficient for broadcast-suitable joins.</p>
 <h4 id="map-side-join">Map-Side Join</h4>
 <p>Requires one relation (R) to be small enough to load into memory on each mapper.</p>
-<pre><code>Setup: Distribute R to all map tasks (via distributed cache)
-
-Map(S_split):
-    Load R into hash table
-    for each (k, v) in S_split:
-        probe hash table for matches
-        emit matches
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Setup: Distribute R to all map tasks (via distributed cache)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Map(S_split):</span></span>
+<span class="giallo-l"><span>    Load R into hash table</span></span>
+<span class="giallo-l"><span>    for each (k, v) in S_split:</span></span>
+<span class="giallo-l"><span>        probe hash table for matches</span></span>
+<span class="giallo-l"><span>        emit matches</span></span></code></pre>
 <p><strong>Cost</strong>: Broadcast R, then single-pass over S. Equivalent to broadcast join.</p>
 <h4 id="replicated-join-for-multi-way-joins-in-mapreduce">Replicated Join (for multi-way joins in MapReduce)</h4>
 <p>For theta-joins or multi-way joins, partition the join space into a grid and replicate tuples:</p>
-<pre><code>Two relations R(A) and S(B) with theta condition: R.A + S.B &lt; 100
-
-Partition space into p x q grid cells.
-Each R tuple sent to q cells (replicated across one dimension).
-Each S tuple sent to p cells (replicated across other dimension).
-Each cell independently evaluates theta condition.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Two relations R(A) and S(B) with theta condition: R.A + S.B &lt; 100</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Partition space into p x q grid cells.</span></span>
+<span class="giallo-l"><span>Each R tuple sent to q cells (replicated across one dimension).</span></span>
+<span class="giallo-l"><span>Each S tuple sent to p cells (replicated across other dimension).</span></span>
+<span class="giallo-l"><span>Each cell independently evaluates theta condition.</span></span></code></pre>
 <p><strong>Key paper</strong>: Okcan and Riedewald: "Processing Theta-Joins using MapReduce", SIGMOD 2011.</p>
 <h3 id="18-theta-joins-in-distributed-settings">18. Theta Joins in Distributed Settings</h3>
 <p>Non-equi-joins (e.g., <code>R.A &lt; S.B</code>) cannot use hash partitioning. Strategies:</p>
@@ -779,14 +759,13 @@ Each cell independently evaluates theta condition.
 <h2 id="join-trees-and-plan-shapes">Join Trees and Plan Shapes</h2>
 <p>The optimizer must decide the order in which to join multiple tables. The shape of the resulting join tree significantly impacts performance.</p>
 <h3 id="left-deep-trees">Left-Deep Trees</h3>
-<pre><code>         JOIN
-        /    \
-      JOIN    T4
-     /    \
-   JOIN    T3
-  /    \
-T1     T2
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>         JOIN</span></span>
+<span class="giallo-l"><span>        /    \</span></span>
+<span class="giallo-l"><span>      JOIN    T4</span></span>
+<span class="giallo-l"><span>     /    \</span></span>
+<span class="giallo-l"><span>   JOIN    T3</span></span>
+<span class="giallo-l"><span>  /    \</span></span>
+<span class="giallo-l"><span>T1     T2</span></span></code></pre>
 <p><strong>Properties</strong>:</p>
 <ul>
 <li>Every right child is a base relation (leaf)</li>
@@ -796,14 +775,13 @@ T1     T2
 <li>Limited parallelism: linear chain, each operator depends on the previous</li>
 </ul>
 <h3 id="right-deep-trees">Right-Deep Trees</h3>
-<pre><code>    JOIN
-   /    \
-  T1   JOIN
-      /    \
-     T2   JOIN
-          /    \
-         T3    T4
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>    JOIN</span></span>
+<span class="giallo-l"><span>   /    \</span></span>
+<span class="giallo-l"><span>  T1   JOIN</span></span>
+<span class="giallo-l"><span>      /    \</span></span>
+<span class="giallo-l"><span>     T2   JOIN</span></span>
+<span class="giallo-l"><span>          /    \</span></span>
+<span class="giallo-l"><span>         T3    T4</span></span></code></pre>
 <p><strong>Properties</strong>:</p>
 <ul>
 <li>Every left child is a base relation</li>
@@ -812,12 +790,11 @@ T1     T2
 <li>Requires enough memory for all hash tables simultaneously: <code>sum(HT(T_i))</code></li>
 </ul>
 <h3 id="bushy-trees">Bushy Trees</h3>
-<pre><code>       JOIN
-      /    \
-   JOIN    JOIN
-  /    \  /    \
-T1    T2 T3    T4
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>       JOIN</span></span>
+<span class="giallo-l"><span>      /    \</span></span>
+<span class="giallo-l"><span>   JOIN    JOIN</span></span>
+<span class="giallo-l"><span>  /    \  /    \</span></span>
+<span class="giallo-l"><span>T1    T2 T3    T4</span></span></code></pre>
 <p><strong>Properties</strong>:</p>
 <ul>
 <li>Interior nodes can have non-leaf children on both sides</li>
@@ -827,12 +804,11 @@ T1    T2 T3    T4
 <li>Harder to enumerate: DPccp/DPhyp needed for efficient search</li>
 </ul>
 <h3 id="comparison">Comparison</h3>
-<pre><code>Plan Shape  | Search Space    | Parallelism    | Memory         | Pipeline
-------------|----------------|----------------|----------------|----------
-Left-deep   | O(n!)          | Limited        | 1 HT at a time | Full
-Right-deep  | O(n!)          | Build parallel | All HTs in mem | Full
-Bushy       | O(4^n / n^1.5) | Max parallel   | Flexible       | Partial
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Plan Shape  | Search Space    | Parallelism    | Memory         | Pipeline</span></span>
+<span class="giallo-l"><span>------------|----------------|----------------|----------------|----------</span></span>
+<span class="giallo-l"><span>Left-deep   | O(n!)          | Limited        | 1 HT at a time | Full</span></span>
+<span class="giallo-l"><span>Right-deep  | O(n!)          | Build parallel | All HTs in mem | Full</span></span>
+<span class="giallo-l"><span>Bushy       | O(4^n / n^1.5) | Max parallel   | Flexible       | Partial</span></span></code></pre>
 <p>Most modern optimizers (DuckDB, CockroachDB, Umbra) consider bushy plans. PostgreSQL's GEQO (Genetic Query Optimizer) kicks in at &gt;= 12 tables because exhaustive enumeration is too expensive.</p>
 <hr />
 <h2 id="multi-way-joins-and-query-optimization">Multi-Way Joins and Query Optimization</h2>
@@ -840,29 +816,27 @@ Bushy       | O(4^n / n^1.5) | Max parallel   | Flexible       | Partial
 <p>Given n tables, find the optimal join order. This is one of the hardest problems in query optimization.</p>
 <h4 id="dynamic-programming-dpsize-system-r-style">Dynamic Programming: DPsize (System R style)</h4>
 <p>The classic bottom-up approach from Selinger et al. (SIGMOD 1979):</p>
-<pre><code>// Build optimal plan for each subset of relations
-for size = 1 to n:
-    for each subset S of size &#39;size&#39;:
-        for each way to split S into (S1, S2) where S1 JOIN S2 is valid:
-            cost = Cost(best_plan(S1)) + Cost(best_plan(S2)) + JoinCost(S1, S2)
-            if cost &lt; best_plan(S):
-                best_plan(S) = Plan(S1, S2)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>// Build optimal plan for each subset of relations</span></span>
+<span class="giallo-l"><span>for size = 1 to n:</span></span>
+<span class="giallo-l"><span>    for each subset S of size &#39;size&#39;:</span></span>
+<span class="giallo-l"><span>        for each way to split S into (S1, S2) where S1 JOIN S2 is valid:</span></span>
+<span class="giallo-l"><span>            cost = Cost(best_plan(S1)) + Cost(best_plan(S2)) + JoinCost(S1, S2)</span></span>
+<span class="giallo-l"><span>            if cost &lt; best_plan(S):</span></span>
+<span class="giallo-l"><span>                best_plan(S) = Plan(S1, S2)</span></span></code></pre>
 <p><strong>Complexity</strong>: <code>O(3^n)</code> with pruning, <code>O(2^n)</code> space.</p>
 <p><strong>Limitation</strong>: Considers only left-deep trees in the original System R formulation. Extended to bushy trees, but enumerates many disconnected subsets wastefully.</p>
 <h4 id="dpccp-moerkotte-and-neumann-sigmod-2006">DPccp (Moerkotte and Neumann, SIGMOD 2006)</h4>
 <p><strong>Dynamic Programming on Connected subgraph-Complement Pairs.</strong> Only enumerates pairs of subsets <code>(S1, S2)</code> that are both connected in the join graph and connected to each other. Avoids generating cross products.</p>
-<pre><code>DPccp(JoinGraph G):
-    for each vertex v in G:
-        dpTable[{v}] = AccessPlan(v)
-
-    for each connected subgraph S in G (in increasing size):
-        for each connected complement C of S in G:
-            // (S, C) is a csg-cmp pair
-            plan = MakeJoin(dpTable[S], dpTable[C])
-            if plan.cost &lt; dpTable[S union C].cost:
-                dpTable[S union C] = plan
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>DPccp(JoinGraph G):</span></span>
+<span class="giallo-l"><span>    for each vertex v in G:</span></span>
+<span class="giallo-l"><span>        dpTable[{v}] = AccessPlan(v)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    for each connected subgraph S in G (in increasing size):</span></span>
+<span class="giallo-l"><span>        for each connected complement C of S in G:</span></span>
+<span class="giallo-l"><span>            // (S, C) is a csg-cmp pair</span></span>
+<span class="giallo-l"><span>            plan = MakeJoin(dpTable[S], dpTable[C])</span></span>
+<span class="giallo-l"><span>            if plan.cost &lt; dpTable[S union C].cost:</span></span>
+<span class="giallo-l"><span>                dpTable[S union C] = plan</span></span></code></pre>
 <p><strong>Complexity</strong>: <code>O(3^n)</code> worst case, but much faster in practice because it skips disconnected subsets.</p>
 <p><strong>Limitation</strong>: Only handles binary (simple) join predicates, not hyperedges.</p>
 <h4 id="dphyp-moerkotte-and-neumann-icde-2008">DPhyp (Moerkotte and Neumann, ICDE 2008)</h4>
@@ -870,10 +844,9 @@ for size = 1 to n:
 <p>Models the join graph as a hypergraph where hyperedges connect sets of relations. The algorithm enumerates connected subgraph-complement pairs on the hypergraph.</p>
 <p><strong>Used by</strong>: MySQL 8.0.23+ (hypergraph optimizer), DuckDB, Umbra/CedarDB.</p>
 <h4 id="greedy-operator-ordering-goo">Greedy Operator Ordering (GOO)</h4>
-<pre><code>while more than one relation remains:
-    pick the pair (R_i, R_j) with minimum estimated join cost
-    replace R_i and R_j with their join result
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>while more than one relation remains:</span></span>
+<span class="giallo-l"><span>    pick the pair (R_i, R_j) with minimum estimated join cost</span></span>
+<span class="giallo-l"><span>    replace R_i and R_j with their join result</span></span></code></pre>
 <p><strong>Complexity</strong>: <code>O(n^3)</code> (n iterations, each scanning <code>O(n^2)</code> pairs).</p>
 <p><strong>Quality</strong>: No optimality guarantee, but surprisingly good in practice. Useful as a fallback for very large queries where DP is infeasible.</p>
 <h4 id="genetic-algorithms-geqo-in-postgresql">Genetic Algorithms (GEQO in PostgreSQL)</h4>
@@ -887,13 +860,12 @@ for size = 1 to n:
 <p><strong>Rationale</strong>: <code>12! = 479,001,600</code> left-deep trees; DP on all subsets has <code>2^12 = 4096</code> entries for left-deep, but bushy search is <code>O(3^12 ~= 500K)</code> -- still feasible, but PostgreSQL is conservative.</p>
 <h3 id="cardinality-estimation-and-join-performance">Cardinality Estimation and Join Performance</h3>
 <p>Join ordering decisions depend critically on cardinality estimates. Errors compound multiplicatively through a plan:</p>
-<pre><code>True cardinality:  |R JOIN S| = 1000,  |R JOIN S JOIN T| = 5000
-Estimated:         |R JOIN S| = 100,   |R JOIN S JOIN T| = 50
-                   (10x under)          (100x under)
-
-Impact: Optimizer chooses nested loop join expecting 50 tuples,
-        actually gets 5000. 100x slower.
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>True cardinality:  |R JOIN S| = 1000,  |R JOIN S JOIN T| = 5000</span></span>
+<span class="giallo-l"><span>Estimated:         |R JOIN S| = 100,   |R JOIN S JOIN T| = 50</span></span>
+<span class="giallo-l"><span>                   (10x under)          (100x under)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Impact: Optimizer chooses nested loop join expecting 50 tuples,</span></span>
+<span class="giallo-l"><span>        actually gets 5000. 100x slower.</span></span></code></pre>
 <p><strong>Key insight</strong> from Leis et al., "How Good Are Query Optimizers, Really?", VLDB 2015: On the Join Order Benchmark (JOB), PostgreSQL's estimates are off by orders of magnitude for multi-way joins. The main sources of error:</p>
 <ol>
 <li>Independence assumption (attribute values are uncorrelated)</li>
@@ -908,37 +880,34 @@ Impact: Optimizer chooses nested loop join expecting 50 tuples,
 </ul>
 <h3 id="cost-models-for-joins">Cost Models for Joins</h3>
 <p>A cost model assigns a numeric cost to each physical operator. Typical components:</p>
-<pre><code>Cost(HashJoin(R, S)) =
-    C_cpu * (|R| + |S|)           // hash + compare
-  + C_io  * (B(R) + B(S))        // read cost
-  + C_mem * HT(R)                 // memory for hash table
-  + C_net * transfer(R, S)        // network (distributed only)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Cost(HashJoin(R, S)) =</span></span>
+<span class="giallo-l"><span>    C_cpu * (|R| + |S|)           // hash + compare</span></span>
+<span class="giallo-l"><span>  + C_io  * (B(R) + B(S))        // read cost</span></span>
+<span class="giallo-l"><span>  + C_mem * HT(R)                 // memory for hash table</span></span>
+<span class="giallo-l"><span>  + C_net * transfer(R, S)        // network (distributed only)</span></span></code></pre>
 <p><strong>Calibration challenge</strong>: The weights <code>C_cpu</code>, <code>C_io</code>, <code>C_mem</code>, <code>C_net</code> depend on hardware. PostgreSQL uses hand-tuned constants (<code>seq_page_cost = 1.0</code>, <code>random_page_cost = 4.0</code>, <code>cpu_tuple_cost = 0.01</code>). These are notoriously hard to get right, especially on cloud hardware with variable I/O latency.</p>
 <h3 id="join-enumeration-summary">Join Enumeration Summary</h3>
-<pre><code>Algorithm    | Complexity   | Trees          | Predicates    | Used By
--------------|-------------|----------------|---------------|------------------
-DPsize       | O(3^n)      | Left-deep      | Binary        | System R (1979)
-DPccp        | O(3^n)*     | Bushy          | Binary        | Research
-DPhyp        | O(3^n)*     | Bushy          | Hypergraph    | MySQL, DuckDB, Umbra
-GOO          | O(n^3)      | Greedy         | Any           | Fallback
-GEQO         | O(gen*pop)  | Left-deep      | Any           | PostgreSQL (&gt;=12 tbls)
-Linearized DP| O(n*2^n)    | Left-deep only | Binary        | Classic textbook
-
-* Much faster in practice due to connectivity pruning
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Algorithm    | Complexity   | Trees          | Predicates    | Used By</span></span>
+<span class="giallo-l"><span>-------------|-------------|----------------|---------------|------------------</span></span>
+<span class="giallo-l"><span>DPsize       | O(3^n)      | Left-deep      | Binary        | System R (1979)</span></span>
+<span class="giallo-l"><span>DPccp        | O(3^n)*     | Bushy          | Binary        | Research</span></span>
+<span class="giallo-l"><span>DPhyp        | O(3^n)*     | Bushy          | Hypergraph    | MySQL, DuckDB, Umbra</span></span>
+<span class="giallo-l"><span>GOO          | O(n^3)      | Greedy         | Any           | Fallback</span></span>
+<span class="giallo-l"><span>GEQO         | O(gen*pop)  | Left-deep      | Any           | PostgreSQL (&gt;=12 tbls)</span></span>
+<span class="giallo-l"><span>Linearized DP| O(n*2^n)    | Left-deep only | Binary        | Classic textbook</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>* Much faster in practice due to connectivity pruning</span></span></code></pre>
 <hr />
 <h2 id="performance-characteristics">Performance Characteristics</h2>
 <h3 id="cpu-cache-effects">CPU Cache Effects</h3>
 <p>Modern CPUs have multi-level caches with dramatically different access times:</p>
-<pre><code>Level   | Size          | Latency     | Bandwidth
---------|---------------|-------------|------------
-L1      | 32-48 KB      | 1-2 ns      | ~500 GB/s
-L2      | 256 KB-1 MB   | 3-5 ns      | ~200 GB/s
-L3      | 8-64 MB       | 10-20 ns    | ~100 GB/s
-DRAM    | GBs           | 50-100 ns   | ~50 GB/s
-NVMe    | TBs           | 10-100 us   | ~5 GB/s
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Level   | Size          | Latency     | Bandwidth</span></span>
+<span class="giallo-l"><span>--------|---------------|-------------|------------</span></span>
+<span class="giallo-l"><span>L1      | 32-48 KB      | 1-2 ns      | ~500 GB/s</span></span>
+<span class="giallo-l"><span>L2      | 256 KB-1 MB   | 3-5 ns      | ~200 GB/s</span></span>
+<span class="giallo-l"><span>L3      | 8-64 MB       | 10-20 ns    | ~100 GB/s</span></span>
+<span class="giallo-l"><span>DRAM    | GBs           | 50-100 ns   | ~50 GB/s</span></span>
+<span class="giallo-l"><span>NVMe    | TBs           | 10-100 us   | ~5 GB/s</span></span></code></pre>
 <p><strong>Impact on joins</strong>:</p>
 <ul>
 <li>Hash table larger than L3: every probe is a cache miss (~100ns). For 100M tuples, that is 10 seconds of pure cache miss latency.</li>
@@ -947,14 +916,13 @@ NVMe    | TBs           | 10-100 us   | ~5 GB/s
 </ul>
 <h3 id="numa-awareness">NUMA Awareness</h3>
 <p>Non-Uniform Memory Access architectures have different costs for local vs. remote memory:</p>
-<pre><code>NUMA Node 0              NUMA Node 1
-+-----------+            +-----------+
-| CPU 0-7   |            | CPU 8-15  |
-| L3 cache  | &lt;--QPI--&gt;  | L3 cache  |
-| Local RAM |   ~100ns   | Local RAM |
-| (~50ns)   |  penalty   | (~50ns)   |
-+-----------+            +-----------+
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>NUMA Node 0              NUMA Node 1</span></span>
+<span class="giallo-l"><span>+-----------+            +-----------+</span></span>
+<span class="giallo-l"><span>| CPU 0-7   |            | CPU 8-15  |</span></span>
+<span class="giallo-l"><span>| L3 cache  | &lt;--QPI--&gt;  | L3 cache  |</span></span>
+<span class="giallo-l"><span>| Local RAM |   ~100ns   | Local RAM |</span></span>
+<span class="giallo-l"><span>| (~50ns)   |  penalty   | (~50ns)   |</span></span>
+<span class="giallo-l"><span>+-----------+            +-----------+</span></span></code></pre>
 <p><strong>Join implications</strong>:</p>
 <ul>
 <li>Hash table built on Node 0, probed from Node 1: every probe pays QPI penalty</li>
@@ -963,36 +931,30 @@ NVMe    | TBs           | 10-100 us   | ~5 GB/s
 <li><strong>Replicated hash tables</strong>: Each NUMA node builds its own copy. Doubles memory, eliminates remote accesses during probe.</li>
 </ul>
 <h3 id="memory-vs-disk-trade-offs">Memory vs. Disk Trade-offs</h3>
-<pre><code>Scenario              | Best Algorithm              | Key Constraint
-----------------------|-----------------------------|-------------------
-R fits in memory      | Simple hash join             | HT(R) &lt;= M
-R fits in L3 cache    | Hash join (no partitioning)  | HT(R) &lt;= L3
-R exceeds memory      | Grace/Hybrid hash join       | B(R) &lt;= M^2
-R &gt;&gt; memory, sorted   | External sort-merge          | Always works
-Both huge, no index   | Grace hash join              | Recursive partition
-Both huge, indexed    | Index nested loop or merge   | Depends on selectivity
-</code></pre>
-<h3 id="skew-handling">Skew Handling</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Scenario              | Best Algorithm              | Key Constraint</span></span>
+<span class="giallo-l"><span>----------------------|-----------------------------|-------------------</span></span>
+<span class="giallo-l"><span>R fits in memory      | Simple hash join             | HT(R) &lt;= M</span></span>
+<span class="giallo-l"><span>R fits in L3 cache    | Hash join (no partitioning)  | HT(R) &lt;= L3</span></span>
+<span class="giallo-l"><span>R exceeds memory      | Grace/Hybrid hash join       | B(R) &lt;= M^2</span></span>
+<span class="giallo-l"><span>R &gt;&gt; memory, sorted   | External sort-merge          | Always works</span></span>
+<span class="giallo-l"><span>Both huge, no index   | Grace hash join              | Recursive partition</span></span>
+<span class="giallo-l"><span>Both huge, indexed    | Index nested loop or merge   | Depends on selectivity</span></span></code></pre><h3 id="skew-handling">Skew Handling</h3>
 <p>Data skew -- where a few join key values are extremely frequent -- breaks hash join partitioning assumptions.</p>
 <h4 id="the-problem">The Problem</h4>
-<pre><code>Key distribution:    key=42 appears 10M times, all other keys &lt; 100 times
-Hash partitioning:   partition containing key=42 has 10M tuples
-                     all other partitions have ~1000 tuples
-Result:              One partition dominates, one thread/node overloaded
-</code></pre>
-<h4 id="solutions">Solutions</h4>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Key distribution:    key=42 appears 10M times, all other keys &lt; 100 times</span></span>
+<span class="giallo-l"><span>Hash partitioning:   partition containing key=42 has 10M tuples</span></span>
+<span class="giallo-l"><span>                     all other partitions have ~1000 tuples</span></span>
+<span class="giallo-l"><span>Result:              One partition dominates, one thread/node overloaded</span></span></code></pre><h4 id="solutions">Solutions</h4>
 <p><strong>1. Heavy Hitter Detection + Special Treatment</strong></p>
-<pre><code>Phase 1: Sample R to find keys with frequency &gt; threshold
-Phase 2: Heavy hitter tuples -&gt; broadcast to all partitions
-          Non-heavy-hitter tuples -&gt; normal hash partition
-Phase 3: Each partition joins normally, heavy hitter tuples
-          matched against all partitions of the other side
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Phase 1: Sample R to find keys with frequency &gt; threshold</span></span>
+<span class="giallo-l"><span>Phase 2: Heavy hitter tuples -&gt; broadcast to all partitions</span></span>
+<span class="giallo-l"><span>          Non-heavy-hitter tuples -&gt; normal hash partition</span></span>
+<span class="giallo-l"><span>Phase 3: Each partition joins normally, heavy hitter tuples</span></span>
+<span class="giallo-l"><span>          matched against all partitions of the other side</span></span></code></pre>
 <p><strong>2. Frequency-Based Partitioning</strong></p>
 <p>Assign heavy hitters to their own partitions, potentially splitting them across multiple partitions:</p>
-<pre><code>Key 42: 10M tuples -&gt; split into 100 sub-partitions of 100K each
-         Matching S tuples replicated to all 100 sub-partitions
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Key 42: 10M tuples -&gt; split into 100 sub-partitions of 100K each</span></span>
+<span class="giallo-l"><span>         Matching S tuples replicated to all 100 sub-partitions</span></span></code></pre>
 <p><strong>3. Spark AQE Skew Join</strong></p>
 <p>Detects skew at runtime after the shuffle:</p>
 <ul>
@@ -1004,54 +966,50 @@ Phase 3: Each partition joins normally, heavy hitter tuples
 <p><strong>4. Asymmetric Partitioning</strong></p>
 <p>Use different partition counts for build and probe sides. Build side gets more partitions for the skewed key range.</p>
 <h3 id="parallelism-models">Parallelism Models</h3>
-<pre><code>Model               | Description                                | Granularity
---------------------|--------------------------------------------|------------------
-Intra-operator      | Single operator uses multiple threads       | Within one join
-Inter-operator      | Different operators run simultaneously      | Pipeline stages
-Pipeline            | Producer feeds consumer without materializing| Between operators
-Morsel-driven       | Work divided into cache-friendly morsels    | ~10K tuples/morsel
-Exchange operator   | Explicit data redistribution between threads | Volcano-style
-Bushy parallelism   | Independent sub-trees execute concurrently  | Plan-level
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Model               | Description                                | Granularity</span></span>
+<span class="giallo-l"><span>--------------------|--------------------------------------------|------------------</span></span>
+<span class="giallo-l"><span>Intra-operator      | Single operator uses multiple threads       | Within one join</span></span>
+<span class="giallo-l"><span>Inter-operator      | Different operators run simultaneously      | Pipeline stages</span></span>
+<span class="giallo-l"><span>Pipeline            | Producer feeds consumer without materializing| Between operators</span></span>
+<span class="giallo-l"><span>Morsel-driven       | Work divided into cache-friendly morsels    | ~10K tuples/morsel</span></span>
+<span class="giallo-l"><span>Exchange operator   | Explicit data redistribution between threads | Volcano-style</span></span>
+<span class="giallo-l"><span>Bushy parallelism   | Independent sub-trees execute concurrently  | Plan-level</span></span></code></pre>
 <p><strong>Morsel-driven parallelism</strong> (Leis, Boncz, Kemper, Neumann -- SIGMOD 2014):</p>
-<pre><code>    Global Hash Table (lock-free build)
-    +----------------------------------+
-    |  Shared hash table               |
-    +----------------------------------+
-        ^         ^         ^
-        |         |         |
-    Thread 1  Thread 2  Thread 3
-    Morsel_a  Morsel_b  Morsel_c   (build phase: each thread
-     of R      of R      of R      inserts its morsel)
-
-    ---- barrier ----
-
-    Thread 1  Thread 2  Thread 3
-    Morsel_x  Morsel_y  Morsel_z   (probe phase: each thread
-     of S      of S      of S      probes independently)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>    Global Hash Table (lock-free build)</span></span>
+<span class="giallo-l"><span>    +----------------------------------+</span></span>
+<span class="giallo-l"><span>    |  Shared hash table               |</span></span>
+<span class="giallo-l"><span>    +----------------------------------+</span></span>
+<span class="giallo-l"><span>        ^         ^         ^</span></span>
+<span class="giallo-l"><span>        |         |         |</span></span>
+<span class="giallo-l"><span>    Thread 1  Thread 2  Thread 3</span></span>
+<span class="giallo-l"><span>    Morsel_a  Morsel_b  Morsel_c   (build phase: each thread</span></span>
+<span class="giallo-l"><span>     of R      of R      of R      inserts its morsel)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    ---- barrier ----</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    Thread 1  Thread 2  Thread 3</span></span>
+<span class="giallo-l"><span>    Morsel_x  Morsel_y  Morsel_z   (probe phase: each thread</span></span>
+<span class="giallo-l"><span>     of S      of S      of S      probes independently)</span></span></code></pre>
 <p><strong>Key advantage</strong>: Perfect load balancing. If Thread 1 finishes its morsel early, it steals the next available morsel. No static partitioning needed.</p>
 <hr />
 <h2 id="correctness-concerns">Correctness Concerns</h2>
 <h3 id="null-handling-semantics">NULL Handling Semantics</h3>
 <p>NULL values require special treatment in every join type:</p>
-<pre><code>Join Type     | NULL = NULL match? | NULL in output?
---------------|--------------------|---------------------------
-INNER JOIN    | No                 | No (NULLs filtered)
-LEFT OUTER    | No                 | Yes (unmatched left rows)
-RIGHT OUTER   | No                 | Yes (unmatched right rows)
-FULL OUTER    | No                 | Yes (both sides)
-SEMI JOIN     | No                 | No (existence check only)
-ANTI JOIN     | No*                | Yes (non-matching rows)
-CROSS JOIN    | N/A                | Yes (all combinations)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Join Type     | NULL = NULL match? | NULL in output?</span></span>
+<span class="giallo-l"><span>--------------|--------------------|---------------------------</span></span>
+<span class="giallo-l"><span>INNER JOIN    | No                 | No (NULLs filtered)</span></span>
+<span class="giallo-l"><span>LEFT OUTER    | No                 | Yes (unmatched left rows)</span></span>
+<span class="giallo-l"><span>RIGHT OUTER   | No                 | Yes (unmatched right rows)</span></span>
+<span class="giallo-l"><span>FULL OUTER    | No                 | Yes (both sides)</span></span>
+<span class="giallo-l"><span>SEMI JOIN     | No                 | No (existence check only)</span></span>
+<span class="giallo-l"><span>ANTI JOIN     | No*                | Yes (non-matching rows)</span></span>
+<span class="giallo-l"><span>CROSS JOIN    | N/A                | Yes (all combinations)</span></span></code></pre>
 <p>*Anti-join NULL handling is particularly tricky. <code>R ANTI JOIN S ON R.a = S.b</code> should NOT return R rows where <code>R.a IS NULL</code> if S contains any NULLs, because <code>NULL = NULL</code> is UNKNOWN, not FALSE. The SQL standard says anti-join returns rows with no match, and NULL comparisons never match. But <code>NOT IN (subquery)</code> with NULLs in the subquery returns empty! This is a notorious correctness pitfall.</p>
-<pre><code>-- This returns EMPTY SET if S.b contains any NULL:
-SELECT * FROM R WHERE R.a NOT IN (SELECT S.b FROM S)
-
--- This returns rows correctly:
-SELECT * FROM R WHERE NOT EXISTS (SELECT 1 FROM S WHERE R.a = S.b)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>-- This returns EMPTY SET if S.b contains any NULL:</span></span>
+<span class="giallo-l"><span>SELECT * FROM R WHERE R.a NOT IN (SELECT S.b FROM S)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>-- This returns rows correctly:</span></span>
+<span class="giallo-l"><span>SELECT * FROM R WHERE NOT EXISTS (SELECT 1 FROM S WHERE R.a = S.b)</span></span></code></pre>
 <p><strong>Implementation</strong>: Hash joins must handle NULL keys specially. Typically, NULL keys are excluded from the hash table and processed separately based on join type.</p>
 <h3 id="correctness-under-concurrent-modifications">Correctness Under Concurrent Modifications</h3>
 <p>For joins in MVCC systems:</p>
@@ -1068,11 +1026,10 @@ SELECT * FROM R WHERE NOT EXISTS (SELECT 1 FROM S WHERE R.a = S.b)
 </ul>
 <h3 id="duplicate-handling">Duplicate Handling</h3>
 <p>Joins must correctly handle duplicates in both relations:</p>
-<pre><code>R: {(1, a), (1, b)}     S: {(1, x), (1, y)}
-
-R JOIN S on key = 1 produces:
-{(1, a, x), (1, a, y), (1, b, x), (1, b, y)}   -- 4 rows, not 2
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>R: {(1, a), (1, b)}     S: {(1, x), (1, y)}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>R JOIN S on key = 1 produces:</span></span>
+<span class="giallo-l"><span>{(1, a, x), (1, a, y), (1, b, x), (1, b, y)}   -- 4 rows, not 2</span></span></code></pre>
 <p>Hash join correctness: The hash table must store ALL tuples with the same key, not just one. Build phase must handle duplicate keys by chaining or using multi-match structures.</p>
 <p><strong>The diamond problem</strong> (Birler, Kemper, Neumann -- VLDB 2024): When intermediate join results are much larger than both input and output (because of duplicates that are later eliminated by a subsequent operation), performance suffers. Diamond-hardened joins split the operator into Lookup (find matches) and Expand (materialize matches), allowing the optimizer to defer expansion.</p>
 <h3 id="overflow-and-spill-to-disk-correctness">Overflow and Spill-to-Disk Correctness</h3>
@@ -1384,32 +1341,30 @@ R JOIN S on key = 1 produces:
 <hr />
 <h2 id="summary-of-recommendations">Summary of Recommendations</h2>
 <h3 id="choosing-a-join-algorithm">Choosing a Join Algorithm</h3>
-<pre><code>Decision Tree:
-=============
-
-Is it an equi-join?
-  |
-  +-- Yes
-  |    |
-  |    Is one side very small (&lt; 1% of other)?
-  |    +-- Yes --&gt; Index Nested Loop Join or Broadcast (distributed)
-  |    +-- No
-  |         |
-  |         Do both sides fit in memory?
-  |         +-- Yes --&gt; Hash Join (radix-partitioned for large data)
-  |         +-- No
-  |              |
-  |              Is one side sorted on join key?
-  |              +-- Yes --&gt; Sort-Merge Join
-  |              +-- No --&gt; Grace/Hybrid Hash Join
-  |
-  +-- No (theta join)
-       |
-       Is the predicate a range (inequality)?
-       +-- Yes --&gt; IEJoin, band join, or sort-based
-       +-- No --&gt; Block nested loop, or partitioned theta join
-</code></pre>
-<h3 id="for-multi-way-joins-3-tables">For Multi-Way Joins (3+ tables)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Decision Tree:</span></span>
+<span class="giallo-l"><span>=============</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Is it an equi-join?</span></span>
+<span class="giallo-l"><span>  |</span></span>
+<span class="giallo-l"><span>  +-- Yes</span></span>
+<span class="giallo-l"><span>  |    |</span></span>
+<span class="giallo-l"><span>  |    Is one side very small (&lt; 1% of other)?</span></span>
+<span class="giallo-l"><span>  |    +-- Yes --&gt; Index Nested Loop Join or Broadcast (distributed)</span></span>
+<span class="giallo-l"><span>  |    +-- No</span></span>
+<span class="giallo-l"><span>  |         |</span></span>
+<span class="giallo-l"><span>  |         Do both sides fit in memory?</span></span>
+<span class="giallo-l"><span>  |         +-- Yes --&gt; Hash Join (radix-partitioned for large data)</span></span>
+<span class="giallo-l"><span>  |         +-- No</span></span>
+<span class="giallo-l"><span>  |              |</span></span>
+<span class="giallo-l"><span>  |              Is one side sorted on join key?</span></span>
+<span class="giallo-l"><span>  |              +-- Yes --&gt; Sort-Merge Join</span></span>
+<span class="giallo-l"><span>  |              +-- No --&gt; Grace/Hybrid Hash Join</span></span>
+<span class="giallo-l"><span>  |</span></span>
+<span class="giallo-l"><span>  +-- No (theta join)</span></span>
+<span class="giallo-l"><span>       |</span></span>
+<span class="giallo-l"><span>       Is the predicate a range (inequality)?</span></span>
+<span class="giallo-l"><span>       +-- Yes --&gt; IEJoin, band join, or sort-based</span></span>
+<span class="giallo-l"><span>       +-- No --&gt; Block nested loop, or partitioned theta join</span></span></code></pre><h3 id="for-multi-way-joins-3-tables">For Multi-Way Joins (3+ tables)</h3>
 <ul>
 <li><strong>Star/snowflake schema</strong>: Semi-join reduction from fact table, then hash join dimension tables</li>
 <li><strong>Cyclic queries (triangles, cliques)</strong>: Worst-case optimal join (LeapfrogTrieJoin)</li>

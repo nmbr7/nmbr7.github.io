@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -94,8 +117,7 @@
 </ul>
 <p>Cardinality error compounds through joins. If each of 5 join inputs is off by 2×, final error can be 32×. Leis et al. (VLDB 2015) showed PostgreSQL frequently exceeds 1000× Q-error on 3+ table joins.</p>
 <p><strong>Q-error</strong> (Moerkotte et al. 2009):</p>
-<pre><code>Q-error(est, actual) = max(est/actual, actual/est)  ≥ 1
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Q-error(est, actual) = max(est/actual, actual/est)  ≥ 1</span></span></code></pre>
 <p>Q-error = 1 is perfect. Most papers target Q-error &lt; 2 for 90th percentile.</p>
 <hr />
 <h2 id="2-what-gets-collected">2. What Gets Collected</h2>
@@ -134,20 +156,18 @@
 <p>Selects full pages with probability p. All rows on selected pages included. Better I/O locality, worse statistical properties (row correlation within page). PostgreSQL ANALYZE uses this for heap tables.</p>
 <h3 id="reservoir-sampling-vitter-algorithm-r-1985">Reservoir Sampling — Vitter Algorithm R (1985)</h3>
 <p>For stream of unknown length N, maintain reservoir of size k:</p>
-<pre><code data-lang="c">// Algorithm R — O(N) time, O(k) space
-for (i = 0; i &lt; k; i++) reservoir[i] = stream[i];
-for (i = k; i &lt; N; i++) {
-    j = rand() % (i + 1);
-    if (j &lt; k) reservoir[j] = stream[i];
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Algorithm R — O(N) time, O(k) space</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">for</span><span class="z-punctuation"> (</span><span>i </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 0</span><span class="z-punctuation">;</span><span> i </span><span class="z-keyword z-operator">&lt;</span><span> k</span><span class="z-punctuation">;</span><span> i</span><span class="z-keyword z-operator">++</span><span class="z-punctuation">)</span><span class="z-variable"> reservoir</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> =</span><span class="z-variable"> stream</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">for</span><span class="z-punctuation"> (</span><span>i </span><span class="z-keyword z-operator">=</span><span> k</span><span class="z-punctuation">;</span><span> i </span><span class="z-keyword z-operator">&lt;</span><span> N</span><span class="z-punctuation">;</span><span> i</span><span class="z-keyword z-operator">++</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>    j </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> rand</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> %</span><span class="z-punctuation"> (</span><span>i </span><span class="z-keyword z-operator">+</span><span class="z-constant"> 1</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">    if</span><span class="z-punctuation"> (</span><span>j </span><span class="z-keyword z-operator">&lt;</span><span> k</span><span class="z-punctuation">)</span><span class="z-variable"> reservoir</span><span class="z-punctuation">[</span><span>j</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> =</span><span class="z-variable"> stream</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <p>Each element has exactly k/N probability of inclusion. Unbiased.</p>
 <p><strong>Algorithm Z</strong> (Vitter 1985): Skip-based optimization. Computes gap between accepted samples using the negative hypergeometric distribution. Reduces comparisons from O(N) to O(k(1 + log(N/k))). PostgreSQL ANALYZE uses Algorithm Z.</p>
 <h3 id="block-level-sampling">Block-Level Sampling</h3>
 <p>Sample at block/page granularity, then scan all rows on sampled blocks. Used by PostgreSQL for large tables where row-level sampling would require full heap scan anyway. Switches strategy based on table size relative to target sample.</p>
 <h3 id="postgresql-analyze-internals">PostgreSQL ANALYZE Internals</h3>
-<pre><code>sample_size = min(300 × default_statistics_target, 30000)  # default target = 100
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>sample_size = min(300 × default_statistics_target, 30000)  # default target = 100</span></span></code></pre>
 <ol>
 <li>Estimate table size from pg_class.relpages</li>
 <li>If table fits in sample, scan entire table</li>
@@ -165,25 +185,20 @@ for (i = k; i &lt; N; i++) {
 <p><code>default_statistics_target</code> (default 100) controls bucket count and MCV list length. Range: 1–10000. Higher = more accurate, slower ANALYZE, larger pg_statistic rows.</p>
 <h3 id="sample-size-selection">Sample Size Selection</h3>
 <p>For NDV estimation error ε with probability δ, required sample size:</p>
-<pre><code>n ≈ (NDV / ε²) × ln(1/δ)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>n ≈ (NDV / ε²) × ln(1/δ)</span></span></code></pre>
 <p>For selectivity estimation of predicate with selectivity s, error ε:</p>
-<pre><code>n ≈ 1 / (s × ε²)    (rare predicates need larger samples)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>n ≈ 1 / (s × ε²)    (rare predicates need larger samples)</span></span></code></pre>
 <p>Practical compromise: fixed sample sizes (PostgreSQL 300×target, SQL Server 20K–8M adaptive).</p>
 <hr />
 <h2 id="4-histogram-types">4. Histogram Types</h2>
 <h3 id="equi-width-histograms">Equi-Width Histograms</h3>
 <p>Domain [min, max] split into B equal-width buckets. Each bucket stores row count. Simple construction, poor for skewed data. Rarely used in production databases.</p>
-<pre><code>bucket_width = (max - min) / B
-bucket_idx(v) = floor((v - min) / bucket_width)
-</code></pre>
-<h3 id="equi-depth-equi-height-histograms">Equi-Depth (Equi-Height) Histograms</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>bucket_width = (max - min) / B</span></span>
+<span class="giallo-l"><span>bucket_idx(v) = floor((v - min) / bucket_width)</span></span></code></pre><h3 id="equi-depth-equi-height-histograms">Equi-Depth (Equi-Height) Histograms</h3>
 <p>Buckets contain equal number of rows. Better accuracy for skewed distributions.</p>
 <p>Construction from sorted sample of size S:</p>
-<pre><code>rows_per_bucket = S / B
-boundary[i] = sample[i × rows_per_bucket]
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>rows_per_bucket = S / B</span></span>
+<span class="giallo-l"><span>boundary[i] = sample[i × rows_per_bucket]</span></span></code></pre>
 <p>Each bucket stores: <code>(lower_bound, upper_bound, row_count, distinct_count, null_count)</code>.</p>
 <p>Selectivity for point predicate <code>col = v</code>:</p>
 <ul>
@@ -199,21 +214,18 @@ boundary[i] = sample[i × rows_per_bucket]
 <p><strong>CockroachDB histogram</strong>: equi-depth, up to 200 buckets, stores <code>(upper_bound, eq_rows, range_rows, distinct_range_rows)</code> per bucket.</p>
 <h3 id="v-optimal-histograms-ioannidis-kang-vldb-1988">V-Optimal Histograms — Ioannidis &amp; Kang (VLDB 1988)</h3>
 <p>Minimize total variance of approximation error. Each bucket minimizes:</p>
-<pre><code>V = Σ_buckets Σ_{v in bucket} (freq(v) - avg_freq_in_bucket)²
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>V = Σ_buckets Σ_{v in bucket} (freq(v) - avg_freq_in_bucket)²</span></span></code></pre>
 <p>Optimal via dynamic programming O(N²B) for N distinct values and B buckets. Better than equi-depth for heavy-tailed distributions. Impractical for large N without approximation.</p>
 <h3 id="maxdiff-histograms-poosala-et-al-vldb-1996">MaxDiff Histograms — Poosala et al. (VLDB 1996)</h3>
 <p>Place bucket boundaries where adjacent frequency differences are largest (max "diff"). Captures sudden frequency changes well. Used as baseline in many benchmark papers.</p>
 <p>For sorted distinct values v₁..vₙ with frequencies f₁..fₙ:</p>
-<pre><code>diff(i) = |f_i - f_{i-1}|  or  |f_i × v_i - f_{i-1} × v_{i-1}|  (area-based)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>diff(i) = |f_i - f_{i-1}|  or  |f_i × v_i - f_{i-1} × v_{i-1}|  (area-based)</span></span></code></pre>
 <p>Select top B-1 diff positions as bucket boundaries.</p>
 <h3 id="wavelet-histograms-vitter-et-al-vldb-1998">Wavelet Histograms — Vitter et al. (VLDB 1998)</h3>
 <p>Apply Haar wavelet transform to frequency distribution. Retain top-k coefficients by magnitude (largest impact on reconstruction). Coefficient thresholding = automatic error-minimizing histogram. Supports point queries and prefix-sum range queries efficiently.</p>
-<pre><code>Haar transform of [f₁, f₂, f₃, f₄]:
-L1: [(f₁+f₂)/2, (f₃+f₄)/2, (f₁-f₂)/2, (f₃-f₄)/2]
-L2: [(f₁+f₂+f₃+f₄)/4, (f₁+f₂-f₃-f₄)/4, ...]
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Haar transform of [f₁, f₂, f₃, f₄]:</span></span>
+<span class="giallo-l"><span>L1: [(f₁+f₂)/2, (f₃+f₄)/2, (f₁-f₂)/2, (f₃-f₄)/2]</span></span>
+<span class="giallo-l"><span>L2: [(f₁+f₂+f₃+f₄)/4, (f₁+f₂-f₃-f₄)/4, ...]</span></span></code></pre>
 <p>Theoretical optimality for L2 error with k coefficients. Rarely implemented in production due to complexity.</p>
 <h3 id="compressed-histogram">Compressed Histogram</h3>
 <p>MCVs stored separately; histogram covers remaining non-MCV values. PostgreSQL uses this. Ensures heavy hitters get exact frequency, long tail gets histogram approximation.</p>
@@ -223,8 +235,7 @@ L2: [(f₁+f₂+f₃+f₄)/4, (f₁+f₂-f₃-f₄)/4, ...]
 <p>Exact NDV from full scan. O(N) time, O(NDV) space. Impractical for large tables.</p>
 <h3 id="good-turing-estimator">Good-Turing Estimator</h3>
 <p>From sample of size n containing d distinct values, f₁ = singletons (values seen once):</p>
-<pre><code>estimated_new_distinct_in_unseen = f₁ / n
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>estimated_new_distinct_in_unseen = f₁ / n</span></span></code></pre>
 <p>Assumes unseen portion has similar singleton density.</p>
 <h3 id="haas-stokes-estimator-1995-postgresql">Haas-Stokes Estimator (1995) — PostgreSQL</h3>
 <p>Used by PostgreSQL. Given sample of size n from population of size N:</p>
@@ -233,33 +244,30 @@ L2: [(f₁+f₂+f₃+f₄)/4, (f₁+f₂-f₃-f₄)/4, ...]
 <li>f₁ = values appearing exactly once in sample</li>
 <li>f₂ = values appearing exactly twice in sample</li>
 </ul>
-<pre><code>D̂ = d / (1 - (f₁/n) × (1 - n/N))
-
-# Correction for large f₁:
-if f₁ &gt; 0:
-    D̂ = d - f₁ × (1 - n/N) × ln(1 - n/N) × ... [full formula in pg source: analyze.c:5200]
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>D̂ = d / (1 - (f₁/n) × (1 - n/N))</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span># Correction for large f₁:</span></span>
+<span class="giallo-l"><span>if f₁ &gt; 0:</span></span>
+<span class="giallo-l"><span>    D̂ = d - f₁ × (1 - n/N) × ln(1 - n/N) × ... [full formula in pg source: analyze.c:5200]</span></span></code></pre>
 <p>In PostgreSQL source: <code>estimate_ndistinct()</code> in <code>src/backend/statistics/analyze.c</code>.</p>
 <h3 id="probabilistic-counting-flajolet-martin-1985">Probabilistic Counting — Flajolet &amp; Martin (1985)</h3>
 <p>Hash each element to bit string. Record position of lowest set bit (= log₂(1/hash)). Max position seen ≈ log₂(NDV). Multiple hash functions, take median of estimates.</p>
 <p>Estimation:</p>
-<pre><code>NDV ≈ 2^(max_trailing_zeros) / φ   where φ ≈ 0.77351
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>NDV ≈ 2^(max_trailing_zeros) / φ   where φ ≈ 0.77351</span></span></code></pre>
 <p>Error ≈ 78% with single hash. Reduce with multiple parallel counters.</p>
 <h3 id="hyperloglog-flajolet-et-al-2007">HyperLogLog — Flajolet et al. (2007)</h3>
 <p>State of the art for streaming NDV. Uses 2^b registers (b = 4..16), each storing max leading zeros seen:</p>
-<pre><code data-lang="c">uint8_t M[1 &lt;&lt; b];  // b=14 → 16384 registers, ~12KB
-
-for each element x:
-    h = hash64(x)
-    j = h &gt;&gt; (64 - b)          // first b bits = register index
-    w = h &amp; ((1 &lt;&lt; (64-b))-1)  // remaining bits
-    M[j] = max(M[j], leading_zeros(w) + 1)
-
-// Harmonic mean estimate:
-Z = 1.0 / Σ_j (2^(-M[j]))
-E = α_m × m² × Z              // α_m ≈ 0.7213 for large m
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-storage z-type">uint8_t</span><span class="z-variable"> M</span><span class="z-punctuation">[</span><span class="z-constant">1</span><span class="z-keyword z-operator"> &lt;&lt;</span><span> b</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> b=14 → 16384 registers, ~12KB</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">for</span><span> each element x:</span></span>
+<span class="giallo-l"><span>    h </span><span class="z-keyword z-operator">=</span><span class="z-entity z-name z-function"> hash64</span><span class="z-punctuation">(</span><span>x</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span>    j </span><span class="z-keyword z-operator">=</span><span> h </span><span class="z-keyword z-operator">&gt;&gt;</span><span class="z-punctuation"> (</span><span class="z-constant">64</span><span class="z-keyword z-operator"> -</span><span> b</span><span class="z-punctuation">)</span><span class="z-punctuation z-definition z-comment">          //</span><span class="z-comment"> first b bits = register index</span></span>
+<span class="giallo-l"><span>    w </span><span class="z-keyword z-operator">=</span><span> h </span><span class="z-keyword z-operator">&amp;</span><span class="z-punctuation"> (</span><span class="z-punctuation">(</span><span class="z-constant">1</span><span class="z-keyword z-operator"> &lt;&lt;</span><span class="z-punctuation"> (</span><span class="z-constant">64</span><span class="z-keyword z-operator">-</span><span>b</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-keyword z-operator">-</span><span class="z-constant">1</span><span class="z-punctuation">)</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> remaining bits</span></span>
+<span class="giallo-l"><span class="z-variable">    M</span><span class="z-punctuation">[</span><span>j</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> =</span><span class="z-entity z-name z-function"> max</span><span class="z-punctuation">(</span><span class="z-variable">M</span><span class="z-punctuation">[</span><span>j</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span><span class="z-entity z-name z-function"> leading_zeros</span><span class="z-punctuation">(</span><span>w</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> +</span><span class="z-constant"> 1</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Harmonic mean estimate:</span></span>
+<span class="giallo-l"><span>Z </span><span class="z-keyword z-operator">=</span><span class="z-constant"> 1</span><span class="z-constant">.</span><span class="z-constant">0</span><span class="z-keyword z-operator"> /</span><span> Σ_j </span><span class="z-punctuation">(</span><span class="z-constant">2</span><span class="z-keyword z-operator">^</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">-</span><span class="z-variable">M</span><span class="z-punctuation">[</span><span>j</span><span class="z-punctuation">]</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span>E </span><span class="z-keyword z-operator">=</span><span> α_m × m² × Z</span><span class="z-punctuation z-definition z-comment">              //</span><span class="z-comment"> α_m ≈ 0.7213 for large m</span></span></code></pre>
 <p>Relative error: 1.04 / √(2^b). At b=14: ≈ 0.8% error with 12KB memory.</p>
 <p>Bias corrections for small range (linear counting) and large range (large-range correction). Merge property: <code>union(HLL1, HLL2)</code> = elementwise max of registers. CockroachDB uses HLL for NDV.</p>
 <h3 id="hyperloglog-heule-et-al-2013-google">HyperLogLog++ — Heule et al. (2013, Google)</h3>
@@ -272,26 +280,23 @@ E = α_m × m² × Z              // α_m ≈ 0.7213 for large m
 <p>Used in BigQuery, Redshift, Spark.</p>
 <h3 id="kmv-k-minimum-values-sketches">KMV (k-Minimum Values) Sketches</h3>
 <p>Maintain the k smallest hash values seen. NDV estimate:</p>
-<pre><code>NDV ≈ (k-1) / max(k_th_smallest_hash)   [normalized to [0,1]]
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>NDV ≈ (k-1) / max(k_th_smallest_hash)   [normalized to [0,1]]</span></span></code></pre>
 <p>Error: 1/√(k-2). Merges by union of hash sets + take k smallest. Used in some OLAP systems.</p>
 <hr />
 <h2 id="6-most-common-values-mcv">6. Most Common Values (MCV)</h2>
 <h3 id="misra-gries-heavy-hitters-1982">Misra-Gries Heavy Hitters (1982)</h3>
 <p>Find all items with frequency &gt; n/k using only k counters. Stream algorithm:</p>
-<pre><code>if item in counters: counters[item]++
-elif len(counters) &lt; k: counters[item] = 1
-else: decrement all counters by 1, remove zeros
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>if item in counters: counters[item]++</span></span>
+<span class="giallo-l"><span>elif len(counters) &lt; k: counters[item] = 1</span></span>
+<span class="giallo-l"><span>else: decrement all counters by 1, remove zeros</span></span></code></pre>
 <p>Guarantees: any item with frequency &gt; n/k is in output. Over-estimates by at most n/k.</p>
 <h3 id="count-min-sketch-cormode-muthukrishnan-2005">Count-Min Sketch — Cormode &amp; Muthukrishnan (2005)</h3>
 <p>d × w matrix of counters, d independent hash functions mapping to [0,w):</p>
-<pre><code data-lang="c">// Update:
-for i in range(d): CMS[i][h_i(x)] += 1
-
-// Query frequency of x:
-return min(CMS[i][h_i(x)] for i in range(d))
-</code></pre>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Update:</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">for</span><span> i in </span><span class="z-entity z-name z-function">range</span><span class="z-punctuation">(</span><span>d</span><span class="z-punctuation">)</span><span>: </span><span class="z-variable">CMS</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-punctuation">[</span><span class="z-entity z-name z-function">h_i</span><span class="z-punctuation">(</span><span>x</span><span class="z-punctuation">)</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> +=</span><span class="z-constant"> 1</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Query frequency of x:</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">return</span><span class="z-entity z-name z-function"> min</span><span class="z-punctuation">(</span><span class="z-variable">CMS</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-punctuation">[</span><span class="z-entity z-name z-function">h_i</span><span class="z-punctuation">(</span><span>x</span><span class="z-punctuation">)</span><span class="z-punctuation">]</span><span class="z-keyword z-control"> for</span><span> i in </span><span class="z-entity z-name z-function">range</span><span class="z-punctuation">(</span><span>d</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span></span></code></pre>
 <p>Error bound: point query ≤ true_freq + ε×N with probability 1-δ where d=ln(1/δ), w=e/ε.</p>
 <p>Space: O(ε⁻¹ log δ⁻¹). Merges by elementwise addition.</p>
 <h3 id="space-saving-metwally-et-al-2005">Space Saving — Metwally et al. (2005)</h3>
@@ -312,36 +317,30 @@ return min(CMS[i][h_i(x)] for i in range(d))
 </tbody></table>
 <p>staop = operator used for comparison (e.g., <code>&lt;</code> OID for ordering).</p>
 <p>Selectivity combining MCV + histogram:</p>
-<pre><code>if v in MCV_list:
-    return MCV_frequency[v]
-else:
-    histogram_fraction = (1 - Σ MCV_frequencies) / histogram_total_rows
-    return histogram_fraction × histogram_selectivity(v)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>if v in MCV_list:</span></span>
+<span class="giallo-l"><span>    return MCV_frequency[v]</span></span>
+<span class="giallo-l"><span>else:</span></span>
+<span class="giallo-l"><span>    histogram_fraction = (1 - Σ MCV_frequencies) / histogram_total_rows</span></span>
+<span class="giallo-l"><span>    return histogram_fraction × histogram_selectivity(v)</span></span></code></pre>
 <hr />
 <h2 id="7-multi-column-statistics">7. Multi-Column Statistics</h2>
 <h3 id="independence-assumption-failure">Independence Assumption Failure</h3>
 <p>Without multi-column stats, optimizer assumes independence:</p>
-<pre><code>sel(A=a AND B=b) = sel(A=a) × sel(B=b)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>sel(A=a AND B=b) = sel(A=a) × sel(B=b)</span></span></code></pre>
 <p>For correlated columns (city, country), this massively underestimates selectivity. For mutually exclusive values, overestimates.</p>
 <h3 id="grid-histograms">Grid Histograms</h3>
 <p>2D grid over (col_A, col_B) domain. Each cell stores row count. O(B²) cells for B buckets per dimension. Curse of dimensionality limits to 2-3 columns.</p>
 <h3 id="stholes-bruno-et-al-sigmod-2001">STHoles — Bruno et al. (SIGMOD 2001)</h3>
 <p>Adaptive query-feedback histogram. Holes (sub-rectangles) carved into existing buckets based on observed query results. Converges to accurate distribution after enough queries. Space-efficient for sparse distributions.</p>
-<pre><code>STHoles structure:
-Rectangle [a1,b1]×[a2,b2] with count C
-  └── Hole1 [a1&#39;,b1&#39;]×[a2&#39;,b2&#39;] with count C1
-  └── Hole2 [a1&#39;&#39;,b1&#39;&#39;]×[a2&#39;&#39;,b2&#39;&#39;] with count C2
-</code></pre>
-<h3 id="functional-dependencies-postgresql-10">Functional Dependencies — PostgreSQL 10+</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>STHoles structure:</span></span>
+<span class="giallo-l"><span>Rectangle [a1,b1]×[a2,b2] with count C</span></span>
+<span class="giallo-l"><span>  └── Hole1 [a1&#39;,b1&#39;]×[a2&#39;,b2&#39;] with count C1</span></span>
+<span class="giallo-l"><span>  └── Hole2 [a1&#39;&#39;,b1&#39;&#39;]×[a2&#39;&#39;,b2&#39;&#39;] with count C2</span></span></code></pre><h3 id="functional-dependencies-postgresql-10">Functional Dependencies — PostgreSQL 10+</h3>
 <p><code>CREATE STATISTICS s ON (city, country) FROM t;</code></p>
 <p>Stores degree of dependency: fraction of (city, country) pairs where knowing city determines country.</p>
-<pre><code>degree(A→B) = 1 - NDV(A,B) / NDV(A)   ∈ [0, 1]
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>degree(A→B) = 1 - NDV(A,B) / NDV(A)   ∈ [0, 1]</span></span></code></pre>
 <p>At query time: if predicate on A and B, and strong A→B dependency exists:</p>
-<pre><code>sel(A=a AND B=b) ≈ sel(A=a)   # instead of sel(A=a) × sel(B=b)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>sel(A=a AND B=b) ≈ sel(A=a)   # instead of sel(A=a) × sel(B=b)</span></span></code></pre>
 <p>PostgreSQL stores up to 32 FD coefficients per statistics object.</p>
 <h3 id="mcv-lists-postgresql-12">MCV Lists — PostgreSQL 12+</h3>
 <p><code>CREATE STATISTICS s (mcv) ON (city, country) FROM t;</code></p>
@@ -360,23 +359,20 @@ Rectangle [a1,b1]×[a2,b2] with count C
 <h2 id="8-auto-statistics-and-refresh">8. Auto-Statistics and Refresh</h2>
 <h3 id="postgresql-autovacuum-analyze">PostgreSQL autovacuum ANALYZE</h3>
 <p>Trigger condition:</p>
-<pre><code>n_mod_since_analyze &gt; autovacuum_analyze_threshold + autovacuum_analyze_scale_factor × reltuples
-# defaults: threshold=50, scale_factor=0.2 → trigger after 20% + 50 rows changed
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>n_mod_since_analyze &gt; autovacuum_analyze_threshold + autovacuum_analyze_scale_factor × reltuples</span></span>
+<span class="giallo-l"><span># defaults: threshold=50, scale_factor=0.2 → trigger after 20% + 50 rows changed</span></span></code></pre>
 <p>autovacuum worker runs ANALYZE asynchronously. Manual <code>ANALYZE</code> forces immediate collection.</p>
 <p>Stale detection: <code>pg_stat_user_tables.last_analyze</code> + <code>n_mod_since_analyze</code>. No automatic staleness detection per-column.</p>
 <h3 id="sql-server-auto-update-statistics">SQL Server Auto-Update Statistics</h3>
 <p>Pre-2014 (compatibility ≤ 70): trigger at 20% row changes.</p>
 <p>SQL Server 2014+ (trace flag 2371, default for compat ≥ 130):</p>
-<pre><code>threshold = sqrt(1000 × table_row_count)    # dynamic threshold
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>threshold = sqrt(1000 × table_row_count)    # dynamic threshold</span></span></code></pre>
 <p>For 1M row table: threshold ≈ 31,623 rows (3.2%) instead of 200,000 (20%). Better for large tables.</p>
 <p>Async auto-update (default): plan compiled with old stats, update queued. Next execution uses new stats. <code>AUTO_UPDATE_STATISTICS_ASYNC = ON</code>.</p>
 <p>Filtered statistics: <code>CREATE STATISTICS s ON t(col) WHERE status = 'active'</code> — only triggers update when filtered subset changes.</p>
 <h3 id="cockroachdb-auto-stats">CockroachDB Auto-Stats</h3>
 <p>Worker goroutine checks tables periodically. Refresh condition:</p>
-<pre><code>rows_changed / total_rows &gt; 0.2   OR   rows_changed &gt; 500
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>rows_changed / total_rows &gt; 0.2   OR   rows_changed &gt; 500</span></span></code></pre>
 <p>Probabilistic trigger: avoids thundering herd on large clusters. Adaptive throttling: backs off if cluster load high. Stats refresh runs as low-priority background job.</p>
 <p><strong>Statistics Forecasting</strong>: When ≥3 historical collections exist, fits linear regression on (timestamp, row_count) pairs. Extrapolates current row count for cardinality estimation when stats are slightly stale. Prevents plan regression during gradual table growth.</p>
 <h3 id="oracle-dbms-stats">Oracle DBMS_STATS</h3>
@@ -384,8 +380,7 @@ Rectangle [a1,b1]×[a2,b2] with count C
 <p><code>GATHER_STALE</code>: Re-collects when &gt;10% of rows changed (tracked via monitoring).</p>
 <p>Auto sample size: <code>DBMS_STATS.AUTO_SAMPLE_SIZE</code> — Oracle adaptively chooses sample size per column based on NDV. NDV-heavy columns get larger samples.</p>
 <p>Online stats during bulk load:</p>
-<pre><code data-lang="sql">INSERT /*+ GATHER_OPTIMIZER_STATISTICS */ INTO t SELECT ...
-</code></pre>
+<pre class="giallo z-code"><code data-lang="sql"><span class="giallo-l"><span class="z-keyword">INSERT</span><span class="z-punctuation z-definition z-comment"> /*</span><span class="z-comment">+ GATHER_OPTIMIZER_STATISTICS </span><span class="z-punctuation z-definition z-comment">*/</span><span class="z-keyword"> INTO</span><span> t </span><span class="z-keyword">SELECT</span><span> ...</span></span></code></pre>
 <p>Collects stats in single pass during INSERT, no separate ANALYZE needed.</p>
 <p>Histogram types in Oracle:</p>
 <ul>
@@ -415,8 +410,7 @@ Rectangle [a1,b1]×[a2,b2] with count C
 </ul>
 <h3 id="ams-sketch-alon-matias-szegedy-1996">AMS Sketch — Alon, Matias, Szegedy (1996)</h3>
 <p>Estimate second frequency moment F₂ = Σ fᵢ²:</p>
-<pre><code>F₂ ≈ (1/k) Σ_{i=1}^k (Σ_{j=1}^n h_i(a_j))²
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>F₂ ≈ (1/k) Σ_{i=1}^k (Σ_{j=1}^n h_i(a_j))²</span></span></code></pre>
 <p>where h_i : domain → {-1, +1} are 4-wise independent hash functions. F₂ captures data skew; F₂ / n = expected self-join size.</p>
 <h3 id="kll-sketch-karnin-lang-liberty-2016-vldb-2016">KLL Sketch — Karnin, Lang, Liberty (2016, VLDB 2016)</h3>
 <p>Near-optimal mergeable quantile sketch. O(ε⁻¹ log log 1/δ) space for ε-approximate quantiles.</p>
@@ -424,15 +418,13 @@ Rectangle [a1,b1]×[a2,b2] with count C
 <p>Better than Greenwald-Khanna (2001) for mergeability. Used in Apache DataSketches (Yahoo), Apache Spark 3.0+ for approximate quantiles.</p>
 <h3 id="t-digest-dunning-ertl-2019">T-Digest — Dunning &amp; Ertl (2019)</h3>
 <p>Cluster-based quantile approximation. Clusters (centroids) near median are dense; clusters near extremes are sparse. Better tail accuracy than KLL for extreme quantiles (p99.9+).</p>
-<pre><code>mean(cluster) = Σ xi / count(cluster)
-weight(cluster) = count(cluster)
-# New point x absorbed by nearest cluster if within weight limit
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>mean(cluster) = Σ xi / count(cluster)</span></span>
+<span class="giallo-l"><span>weight(cluster) = count(cluster)</span></span>
+<span class="giallo-l"><span># New point x absorbed by nearest cluster if within weight limit</span></span></code></pre>
 <p>Used in Elasticsearch percentile aggregations, Prometheus histograms.</p>
 <h3 id="ddsketch-masson-et-al-2019">DDSketch — Masson et al. (2019)</h3>
 <p>Relative-error quantile sketch. Each bucket covers values in relative range [γ^i, γ^{i+1}). Bucket index:</p>
-<pre><code>i = ceil(log(x) / log(γ))
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>i = ceil(log(x) / log(γ))</span></span></code></pre>
 <p>Guarantees relative error ≤ α for all quantiles. Mergeable. Deterministic (no randomness). Used in Datadog metrics.</p>
 <h3 id="mergeable-summaries-for-distributed-stats">Mergeable Summaries for Distributed Stats</h3>
 <p>HLL union: <code>HLL(A∪B)[j] = max(HLL(A)[j], HLL(B)[j])</code> — exact.<br />
@@ -454,18 +446,15 @@ KLL/T-Digest merge: approximately correct (see original papers).</p>
 <p>Trained on 10K–100K queries with true cardinalities as labels. Generalizes to unseen predicates within known schema. Fails on distribution shift (new value ranges).</p>
 <h3 id="neurocard-yang-et-al-neurips-2020">NeuroCard — Yang et al. (NeurIPS 2020)</h3>
 <p>Autoregressive density estimation over join results. Learn P(A=a, B=b, C=c, ...) as product of conditionals:</p>
-<pre><code>P(A,B,C) = P(A) × P(B|A) × P(C|A,B)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>P(A,B,C) = P(A) × P(B|A) × P(C|A,B)</span></span></code></pre>
 <p>Model: MADE (Masked Autoencoder for Distribution Estimation) or Transformer. Each variable factored by column + table membership indicator (handles NULLs from outer joins).</p>
 <p>Cardinality estimate:</p>
-<pre><code>|σ_{pred}(R⋈S)| = |R⋈S| × Σ_{(a,b) satisfying pred} P(A=a, B=b)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>|σ_{pred}(R⋈S)| = |R⋈S| × Σ_{(a,b) satisfying pred} P(A=a, B=b)</span></span></code></pre>
 <p>10–100× better than PostgreSQL on JOB. Inference: Monte Carlo sampling from model. Slow if not batched.</p>
 <h3 id="deepdb-hilprecht-et-al-vldb-2020">DeepDB — Hilprecht et al. (VLDB 2020)</h3>
 <p>Sum-Product Network (SPN) learned from data. Decomposes joint distribution into products of marginals when columns are statistically independent:</p>
-<pre><code>If X ⊥ Y:  P(X, Y) = P(X) × P(Y)   [product node]
-Else:       P(X, Y) = Σ_i w_i × P_i(X, Y)  [sum node = mixture]
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>If X ⊥ Y:  P(X, Y) = P(X) × P(Y)   [product node]</span></span>
+<span class="giallo-l"><span>Else:       P(X, Y) = Σ_i w_i × P_i(X, Y)  [sum node = mixture]</span></span></code></pre>
 <p>SPNs: exact inference in linear time in circuit size. Learns structure via recursive independence testing (RDC test). Better than NeuroCard for single-table; worse for complex multi-join.</p>
 <h3 id="bayescard-wu-cai-2021">BayesCard — Wu &amp; Cai (2021)</h3>
 <p>Bayesian network structure learning over table join columns. Learns P(C1, C2, ..., Ck) as DAG of conditional distributions. Inference via variable elimination.</p>
@@ -478,13 +467,12 @@ Else:       P(X, Y) = Σ_i w_i × P_i(X, Y)  [sum node = mixture]
 <p>Attention-based learned cardinality. Transformer-based model treating query predicates as attention tokens over column statistics. Handles distribution shift better via lightweight fine-tuning.</p>
 <h3 id="hybrid-approaches">Hybrid Approaches</h3>
 <p>Common production pattern:</p>
-<pre><code>if query is simple (single table, few predicates):
-    use traditional histogram + MCV
-else if learned model confidence high:
-    use learned estimate
-else:
-    fall back to histogram + cap at reasonable bound
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>if query is simple (single table, few predicates):</span></span>
+<span class="giallo-l"><span>    use traditional histogram + MCV</span></span>
+<span class="giallo-l"><span>else if learned model confidence high:</span></span>
+<span class="giallo-l"><span>    use learned estimate</span></span>
+<span class="giallo-l"><span>else:</span></span>
+<span class="giallo-l"><span>    fall back to histogram + cap at reasonable bound</span></span></code></pre>
 <p>No production database has fully replaced histograms with learned models as of 2026. PostgreSQL has research extensions (pg_plan_advsr for hint feedback, pg_learn for ML cardinality).</p>
 <h3 id="online-retraining">Online Retraining</h3>
 <p>Distribution shift detection: compare recent query true cardinalities vs model predictions. If rolling Q-error &gt; threshold, trigger retrain. Retrain on recent query log sample. Avoid catastrophic forgetting with replay buffer.</p>
@@ -492,23 +480,19 @@ else:
 <h2 id="11-join-cardinality-estimation">11. Join Cardinality Estimation</h2>
 <h3 id="attribute-value-independence-avi">Attribute Value Independence (AVI)</h3>
 <p>Assumes join columns independent across tables:</p>
-<pre><code>|R⋈S on R.a=S.b| = |R| × |S| / max(NDV(R.a), NDV(S.b))
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>|R⋈S on R.a=S.b| = |R| × |S| / max(NDV(R.a), NDV(S.b))</span></span></code></pre>
 <p>Underestimates when key-foreign-key joins have skewed keys. Overestimates when join columns correlated with filter predicates.</p>
 <h3 id="end-biased-sampling-estan-naughton-sigmod-2006">End-Biased Sampling — Estan &amp; Naughton (SIGMOD 2006)</h3>
 <p>Sample join results directly: for each tuple in R, probe S using the join key. Estimate:</p>
-<pre><code>|R⋈S| = (1/p) × |sampled matches|
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>|R⋈S| = (1/p) × |sampled matches|</span></span></code></pre>
 <p>Avoids AVI assumption. Expensive: requires index on S. Used for initial statistics, not per-query.</p>
 <h3 id="wander-join-li-et-al-sigmod-2016">Wander Join — Li et al. (SIGMOD 2016)</h3>
 <p>Random walk over join graph for cardinality estimation. Start at random tuple in any relation, randomly follow join edges to adjacent relations. Each completed path = one sample from join result. Estimate:</p>
-<pre><code>|J| ≈ N / (Σ paths × (1/|start_rel|))
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>|J| ≈ N / (Σ paths × (1/|start_rel|))</span></span></code></pre>
 <p>Handles acyclic and cyclic joins. Unbiased. O(k) per sample for k-way join. Practical for ≤ 5 tables.</p>
 <h3 id="bound-based-methods">Bound-Based Methods</h3>
 <p>Upper bound via containment assumption (each value in smaller table matches something in larger):</p>
-<pre><code>|R⋈S| ≤ min(|R| × max_freq(S.key), |S| × max_freq(R.key))
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>|R⋈S| ≤ min(|R| × max_freq(S.key), |S| × max_freq(R.key))</span></span></code></pre>
 <p>Used as sanity check to cap runaway estimates.</p>
 <hr />
 <h2 id="12-system-deep-dives">12. System Deep Dives</h2>
@@ -559,8 +543,7 @@ else:
 <h3 id="clickhouse-granule-level-statistics">ClickHouse — Granule-Level Statistics</h3>
 <p>Traditional ClickHouse (pre-2023): only table-level stats (row count, compressed size). No column histograms. Relies on primary key index for range filtering.</p>
 <p>ClickHouse 23.11+: column statistics as optional index feature:</p>
-<pre><code data-lang="sql">ALTER TABLE t ADD STATISTICS col TYPE tdigest, uniq;
-</code></pre>
+<pre class="giallo z-code"><code data-lang="sql"><span class="giallo-l"><span class="z-keyword">ALTER</span><span class="z-keyword"> TABLE</span><span> t </span><span class="z-keyword">ADD</span><span class="z-keyword"> STATISTICS</span><span> col </span><span class="z-keyword">TYPE</span><span> tdigest, uniq;</span></span></code></pre>
 <p>Types: <code>tdigest</code> (quantiles), <code>uniq</code> (HLL-based NDV), <code>count_min</code> (frequency), <code>minmax</code>.</p>
 <p>Collected via <code>ANALYZE TABLE t UPDATE STATISTICS (col)</code>.</p>
 <p>Mark-level statistics: each mark (8192 rows) has min/max in sparse index. <code>PREWHERE</code> clause evaluated cheaply to skip marks.</p>
@@ -608,9 +591,8 @@ else:
 </ol>
 <p>Greenplum: <code>ANALYZE</code> fans out to all segment nodes in parallel. Coordinator holds final stats.</p>
 <h3 id="hive-spark-cbo-statistics">Hive / Spark CBO Statistics</h3>
-<pre><code data-lang="sql">ANALYZE TABLE t COMPUTE STATISTICS;           -- table-level
-ANALYZE TABLE t COMPUTE STATISTICS FOR COLUMNS col1, col2;  -- column stats
-</code></pre>
+<pre class="giallo z-code"><code data-lang="sql"><span class="giallo-l"><span>ANALYZE </span><span class="z-keyword">TABLE</span><span> t COMPUTE </span><span class="z-keyword">STATISTICS</span><span>;           </span><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> table-level</span></span>
+<span class="giallo-l"><span>ANALYZE </span><span class="z-keyword">TABLE</span><span> t COMPUTE </span><span class="z-keyword">STATISTICS</span><span class="z-keyword"> FOR</span><span> COLUMNS col1, col2;  </span><span class="z-punctuation z-definition z-comment">--</span><span class="z-comment"> column stats</span></span></code></pre>
 <p>Spark 2.2+ Cost-Based Optimizer uses these for join reordering (Adaptive Query Execution in Spark 3.0+ uses runtime stats for adaptive join strategies regardless).</p>
 <p>Hive stores stats in Metastore (MySQL/PostgreSQL backing store). Column stats: NDV, null count, max/min, avg length. No histogram by default (histograms added in Hive 3.0 via HLL-based approx).</p>
 <h3 id="trino-presto">Trino / Presto</h3>
@@ -634,13 +616,11 @@ ANALYZE TABLE t COMPUTE STATISTICS FOR COLUMNS col1, col2;  -- column stats
 <li>Bad join orders cause 100–1000× slowdowns on complex queries</li>
 </ul>
 <p>Q-error distribution on JOB:</p>
-<pre><code>System          | p50  | p95   | max
-PostgreSQL 9.4  | 1.5× | 58×   | 7500×
-PostgreSQL 12   | 1.3× | 12×   | 960×
-Commercial DBs  | 1.2× | 30×   | 3000×
-NeuroCard       | 1.1× | 3.0×  | 50×
-</code></pre>
-<h3 id="stats-benchmark-han-et-al-sigmod-2021">STATS Benchmark — Han et al. (SIGMOD 2021)</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>System          | p50  | p95   | max</span></span>
+<span class="giallo-l"><span>PostgreSQL 9.4  | 1.5× | 58×   | 7500×</span></span>
+<span class="giallo-l"><span>PostgreSQL 12   | 1.3× | 12×   | 960×</span></span>
+<span class="giallo-l"><span>Commercial DBs  | 1.2× | 30×   | 3000×</span></span>
+<span class="giallo-l"><span>NeuroCard       | 1.1× | 3.0×  | 50×</span></span></code></pre><h3 id="stats-benchmark-han-et-al-sigmod-2021">STATS Benchmark — Han et al. (SIGMOD 2021)</h3>
 <p>8 tables from Stack Overflow, 146 queries, up to 8-way joins. Evaluates learned models in distribution shift settings.</p>
 <h3 id="ce-benchmark-components">CE Benchmark Components</h3>
 <ul>
@@ -651,8 +631,7 @@ NeuroCard       | 1.1× | 3.0×  | 50×
 </ul>
 <h3 id="error-amplification-through-join-trees">Error Amplification Through Join Trees</h3>
 <p>For left-deep chain R1⋈R2⋈R3⋈R4, if each single-join cardinality has Q-error = q:</p>
-<pre><code>max Q-error(final) ≤ q^(n-1)   # in worst case
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>max Q-error(final) ≤ q^(n-1)   # in worst case</span></span></code></pre>
 <p>For q=2, n=4: max error = 8×. In practice, errors partially cancel, but tail errors remain large.</p>
 <hr />
 <h2 id="16-key-papers-reference">16. Key Papers Reference</h2>
@@ -686,57 +665,53 @@ NeuroCard       | 1.1× | 3.0×  | 50×
 </tbody></table>
 <hr />
 <h2 id="ascii-statistics-pipeline">ASCII: Statistics Pipeline</h2>
-<pre><code>Table Data
-    │
-    ▼ (reservoir sampling, block sampling)
-Sample S ──── size: min(300×target, 30000) rows
-    │
-    ├──► Null count ──────────────────────────► null_frac
-    │
-    ├──► Sort by value
-    │       │
-    │       ├──► Top-k by frequency ──────────► MCV list (values + frequencies)
-    │       │
-    │       └──► Remaining values
-    │               │
-    │               └──► Equi-depth partition ► Histogram (B buckets)
-    │
-    ├──► Haas-Stokes estimator ───────────────► NDV (ndistinct)
-    │
-    └──► Spearman rank correlation ───────────► correlation
-
-Multi-column stats (CREATE STATISTICS):
-    ├──► RDC independence test ───────────────► FD coefficients
-    ├──► Joint MCV computation ───────────────► MCV list over (col1, col2)
-    └──► Joint HLL ────────────────────────────► NDV for column group
-
-                    ┌──────────────────────────┐
-Stored in:          │ pg_statistic             │
-                    │  stakind 1: MCV          │
-                    │  stakind 2: histogram    │
-                    │  stakind 3: correlation  │
-                    └──────────────────────────┘
-</code></pre>
-<h2 id="ascii-hyperloglog-register-update">ASCII: HyperLogLog Register Update</h2>
-<pre><code>Element x
-    │
-    ▼
- hash64(x) = 0b[b₆₃...b₀]
-    │
-    ├── first b bits ─────────► register index j  (j &lt; 2^b)
-    │
-    └── remaining 64-b bits ──► count leading zeros + 1 = ρ(w)
-
-M[j] = max(M[j], ρ(w))
-
-Estimate:
-    Z = 1.0 / Σ_j (2^(-M[j]))      (harmonic mean)
-    E = α_m × m² × Z
-    where α_m ≈ 0.7213/(1 + 1.079/m), m = 2^b
-
-Error ≈ 1.04/√m   (e.g., m=16384 → 0.81% error)
-</code></pre>
-
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Table Data</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ▼ (reservoir sampling, block sampling)</span></span>
+<span class="giallo-l"><span>Sample S ──── size: min(300×target, 30000) rows</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ├──► Null count ──────────────────────────► null_frac</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ├──► Sort by value</span></span>
+<span class="giallo-l"><span>    │       │</span></span>
+<span class="giallo-l"><span>    │       ├──► Top-k by frequency ──────────► MCV list (values + frequencies)</span></span>
+<span class="giallo-l"><span>    │       │</span></span>
+<span class="giallo-l"><span>    │       └──► Remaining values</span></span>
+<span class="giallo-l"><span>    │               │</span></span>
+<span class="giallo-l"><span>    │               └──► Equi-depth partition ► Histogram (B buckets)</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ├──► Haas-Stokes estimator ───────────────► NDV (ndistinct)</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    └──► Spearman rank correlation ───────────► correlation</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Multi-column stats (CREATE STATISTICS):</span></span>
+<span class="giallo-l"><span>    ├──► RDC independence test ───────────────► FD coefficients</span></span>
+<span class="giallo-l"><span>    ├──► Joint MCV computation ───────────────► MCV list over (col1, col2)</span></span>
+<span class="giallo-l"><span>    └──► Joint HLL ────────────────────────────► NDV for column group</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>                    ┌──────────────────────────┐</span></span>
+<span class="giallo-l"><span>Stored in:          │ pg_statistic             │</span></span>
+<span class="giallo-l"><span>                    │  stakind 1: MCV          │</span></span>
+<span class="giallo-l"><span>                    │  stakind 2: histogram    │</span></span>
+<span class="giallo-l"><span>                    │  stakind 3: correlation  │</span></span>
+<span class="giallo-l"><span>                    └──────────────────────────┘</span></span></code></pre><h2 id="ascii-hyperloglog-register-update">ASCII: HyperLogLog Register Update</h2>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Element x</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ▼</span></span>
+<span class="giallo-l"><span> hash64(x) = 0b[b₆₃...b₀]</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ├── first b bits ─────────► register index j  (j &lt; 2^b)</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    └── remaining 64-b bits ──► count leading zeros + 1 = ρ(w)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>M[j] = max(M[j], ρ(w))</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Estimate:</span></span>
+<span class="giallo-l"><span>    Z = 1.0 / Σ_j (2^(-M[j]))      (harmonic mean)</span></span>
+<span class="giallo-l"><span>    E = α_m × m² × Z</span></span>
+<span class="giallo-l"><span>    where α_m ≈ 0.7213/(1 + 1.079/m), m = 2^b</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Error ≈ 1.04/√m   (e.g., m=16384 → 0.81% error)</span></span></code></pre>
   </article>
   <aside id="note-toc" class="note-toc hidden">
     <div class="note-toc-inner">

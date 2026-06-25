@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -187,16 +210,15 @@
 <li><strong>Image signing</strong>: cosign with short-lived OIDC tokens, SBOM (SPDX), SLSA provenance attestations</li>
 </ul>
 <h3 id="3-2-repository-structure">3.2 Repository Structure</h3>
-<pre><code>cloudnative-pg/
-  api/v1/          -- CRD type definitions (Cluster, Backup, ScheduledBackup, Pooler, etc.)
-  cmd/             -- Entry points (operator binary, instance manager binary -- same binary, different modes)
-  internal/        -- Private packages: reconciliation logic, controllers, management
-  pkg/             -- Public packages: specs, utilities, PgBouncer helpers, metrics
-  config/          -- Kubernetes manifests, CRD YAMLs, RBAC, webhooks
-  docs/            -- Documentation source (Markdown, built into the documentation site)
-  tests/           -- Integration and E2E test suites
-  hack/            -- Build scripts, development utilities
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>cloudnative-pg/</span></span>
+<span class="giallo-l"><span>  api/v1/          -- CRD type definitions (Cluster, Backup, ScheduledBackup, Pooler, etc.)</span></span>
+<span class="giallo-l"><span>  cmd/             -- Entry points (operator binary, instance manager binary -- same binary, different modes)</span></span>
+<span class="giallo-l"><span>  internal/        -- Private packages: reconciliation logic, controllers, management</span></span>
+<span class="giallo-l"><span>  pkg/             -- Public packages: specs, utilities, PgBouncer helpers, metrics</span></span>
+<span class="giallo-l"><span>  config/          -- Kubernetes manifests, CRD YAMLs, RBAC, webhooks</span></span>
+<span class="giallo-l"><span>  docs/            -- Documentation source (Markdown, built into the documentation site)</span></span>
+<span class="giallo-l"><span>  tests/           -- Integration and E2E test suites</span></span>
+<span class="giallo-l"><span>  hack/            -- Build scripts, development utilities</span></span></code></pre>
 <p>The operator and instance manager are compiled into the <strong>same Go binary</strong>. The binary's behavior is determined by how it is invoked:</p>
 <ul>
 <li>As the operator controller manager (running in the operator Deployment)</li>
@@ -784,15 +806,14 @@
 </ul>
 <h3 id="13-3-podmonitor-integration">13.3 PodMonitor Integration</h3>
 <p>Manual PodMonitor creation is now recommended (the <code>.spec.monitoring.enablePodMonitor</code> field is deprecated):</p>
-<pre><code data-lang="yaml">apiVersion: monitoring.coreos.com/v1
-kind: PodMonitor
-spec:
-  selector:
-    matchLabels:
-      cnpg.io/cluster: &lt;cluster-name&gt;
-  podMetricsEndpoints:
-  - port: metrics
-</code></pre>
+<pre class="giallo z-code"><code data-lang="yaml"><span class="giallo-l"><span class="z-entity z-name z-tag">a</span><span class="z-entity z-name z-tag">piVersion</span><span class="z-punctuation">:</span><span class="z-string"> m</span><span class="z-string">onitoring.coreos.com/v1</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">k</span><span class="z-entity z-name z-tag">ind</span><span class="z-punctuation">:</span><span class="z-string"> P</span><span class="z-string">odMonitor</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">s</span><span class="z-entity z-name z-tag">pec</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  s</span><span class="z-entity z-name z-tag">elector</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">    m</span><span class="z-entity z-name z-tag">atchLabels</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">      c</span><span class="z-entity z-name z-tag">npg.io/cluster</span><span class="z-punctuation">:</span><span class="z-string"> &lt;</span><span class="z-string">cluster-name&gt;</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-tag">  p</span><span class="z-entity z-name z-tag">odMetricsEndpoints</span><span class="z-punctuation">:</span></span>
+<span class="giallo-l"><span class="z-punctuation">  -</span><span class="z-entity z-name z-tag"> p</span><span class="z-entity z-name z-tag">ort</span><span class="z-punctuation">:</span><span class="z-string"> m</span><span class="z-string">etrics</span></span></code></pre>
 <p>For TLS-enabled metrics, the PodMonitor must reference the cluster CA secret and use <code>serverName</code> matching <code>&lt;cluster-name&gt;-rw</code>.</p>
 <hr />
 <h2 id="14-cnpg-i-plugin-interface">14. CNPG-I Plugin Interface</h2>

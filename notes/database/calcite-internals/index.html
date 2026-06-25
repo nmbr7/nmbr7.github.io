@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -85,44 +108,42 @@
 <p>Apache Calcite is a Java query planning framework: SQL parser → AST → logical plan → physical plan, pluggable into any execution backend. Not an execution engine — it produces a <code>RelNode</code> tree that the backend executes. Used by Flink, Hive, Druid, Kylin, Storm, Samza, Calcite-Avatica (JDBC), Phoenix (HBase SQL), and many others.</p>
 <hr />
 <h2 id="architecture-pipeline">Architecture Pipeline</h2>
-<pre><code>SQL string
-    │
-    ▼ SqlParser (JavaCC/Fmpp grammar)
-SqlNode AST  (SqlCall, SqlIdentifier, SqlLiteral, ...)
-    │
-    ▼ SqlValidator (scope analysis, type inference, name resolution)
-Validated SqlNode
-    │
-    ▼ SqlToRelConverter
-RelNode tree (logical, Convention.NONE)
-    │
-    ├── HepPlanner (normalization rules: filter pushdown, project merge, decorrelation)
-    │
-    ▼ VolcanoPlanner (cost-based: join ordering, physical convention selection)
-Physical RelNode tree (Convention.ENUMERABLE or adapter-specific)
-    │
-    ▼ Backend executes (or EnumerableRel.implement() → Linq4j/Janino Java code)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>SQL string</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ▼ SqlParser (JavaCC/Fmpp grammar)</span></span>
+<span class="giallo-l"><span>SqlNode AST  (SqlCall, SqlIdentifier, SqlLiteral, ...)</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ▼ SqlValidator (scope analysis, type inference, name resolution)</span></span>
+<span class="giallo-l"><span>Validated SqlNode</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ▼ SqlToRelConverter</span></span>
+<span class="giallo-l"><span>RelNode tree (logical, Convention.NONE)</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ├── HepPlanner (normalization rules: filter pushdown, project merge, decorrelation)</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ▼ VolcanoPlanner (cost-based: join ordering, physical convention selection)</span></span>
+<span class="giallo-l"><span>Physical RelNode tree (Convention.ENUMERABLE or adapter-specific)</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ▼ Backend executes (or EnumerableRel.implement() → Linq4j/Janino Java code)</span></span></code></pre>
 <hr />
 <h2 id="sql-parser">SQL Parser</h2>
 <h3 id="javacc-grammar-core-src-main-codegen-templates-parser-jj-generated-via-fmpp">JavaCC Grammar (core/src/main/codegen/templates/Parser.jj, generated via Fmpp)</h3>
 <p>The grammar is a Freemarker template (<code>Parser.jj.ftl</code>) processed by Fmpp into a JavaCC grammar file. JavaCC generates a recursive-descent parser from the grammar; no separate lexer/parser split — JavaCC interleaves token and grammar rules.</p>
 <p><strong>Extension mechanism:</strong> <code>config.fmpp</code> lets adapters inject additional tokens, keywords, and grammar productions into designated extension points (<code>SqlCreateFoo</code>, <code>SqlShowFoo</code>). Calcite uses this for <code>CREATE TABLE</code>, <code>CREATE VIEW</code>, <code>EXPLAIN</code>, <code>ALTER</code>, etc. Third-party dialects (Flink, Phoenix) extend the grammar this way, adding their syntax without forking the base grammar.</p>
 <h3 id="sqlnode-ast-hierarchy-org-apache-calcite-sql">SqlNode AST Hierarchy (org.apache.calcite.sql)</h3>
-<pre><code>SqlNode
-├── SqlCall               — any SQL construct with operands (select, join, function call, ...)
-│   ├── SqlSelect         — SELECT: selectList, from, where, groupBy, having, orderBy, fetch, offset
-│   ├── SqlJoin           — JOIN: left, right, joinType, conditionType, condition
-│   ├── SqlBasicCall      — generic n-ary call: operator (SqlOperator) + operands[]
-│   ├── SqlOrderBy        — wraps a query with ORDER BY + LIMIT
-│   └── ... (SqlInsert, SqlUpdate, SqlDelete, SqlCreateTable, ...)
-├── SqlIdentifier         — qualified name (parts[]: String[]; dot-separated)
-├── SqlLiteral            — typed literal: value + SqlTypeName
-├── SqlNodeList           — list of SqlNodes (e.g. SELECT list, GROUP BY list)
-├── SqlDataTypeSpec       — inline type reference (for CAST etc.)
-├── SqlIntervalQualifier  — INTERVAL unit (YEAR, MONTH, DAY, ...)
-└── SqlDynamicParam       — ? placeholder (index: int)
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>SqlNode</span></span>
+<span class="giallo-l"><span>├── SqlCall               — any SQL construct with operands (select, join, function call, ...)</span></span>
+<span class="giallo-l"><span>│   ├── SqlSelect         — SELECT: selectList, from, where, groupBy, having, orderBy, fetch, offset</span></span>
+<span class="giallo-l"><span>│   ├── SqlJoin           — JOIN: left, right, joinType, conditionType, condition</span></span>
+<span class="giallo-l"><span>│   ├── SqlBasicCall      — generic n-ary call: operator (SqlOperator) + operands[]</span></span>
+<span class="giallo-l"><span>│   ├── SqlOrderBy        — wraps a query with ORDER BY + LIMIT</span></span>
+<span class="giallo-l"><span>│   └── ... (SqlInsert, SqlUpdate, SqlDelete, SqlCreateTable, ...)</span></span>
+<span class="giallo-l"><span>├── SqlIdentifier         — qualified name (parts[]: String[]; dot-separated)</span></span>
+<span class="giallo-l"><span>├── SqlLiteral            — typed literal: value + SqlTypeName</span></span>
+<span class="giallo-l"><span>├── SqlNodeList           — list of SqlNodes (e.g. SELECT list, GROUP BY list)</span></span>
+<span class="giallo-l"><span>├── SqlDataTypeSpec       — inline type reference (for CAST etc.)</span></span>
+<span class="giallo-l"><span>├── SqlIntervalQualifier  — INTERVAL unit (YEAR, MONTH, DAY, ...)</span></span>
+<span class="giallo-l"><span>└── SqlDynamicParam       — ? placeholder (index: int)</span></span></code></pre>
 <p><strong>SqlOperator</strong> is the operator attached to <code>SqlBasicCall</code>: <code>SqlBinaryOperator</code> (<code>+</code>, <code>-</code>, <code>AND</code>, <code>OR</code>, <code>=</code>), <code>SqlPrefixOperator</code> (<code>NOT</code>, unary <code>-</code>), <code>SqlFunction</code> (scalar functions), <code>SqlAggFunction</code> (<code>SUM</code>, <code>COUNT</code>, <code>MAX</code>), <code>SqlSpecialOperator</code> (<code>CASE</code>, <code>CAST</code>, <code>IN</code>). Each has <code>SqlSyntax</code> (BINARY, PREFIX, POSTFIX, FUNCTION, SPECIAL, FUNCTION_STAR) and <code>SqlKind</code> (AND, OR, EQUALS, LIKE, CASE, etc.).</p>
 <h3 id="sqlvalidator-org-apache-calcite-sql-validate-sqlvalidatorimpl">SqlValidator (org.apache.calcite.sql.validate.SqlValidatorImpl)</h3>
 <p>Pass over the AST that resolves names, infers types, validates semantics:</p>
@@ -137,17 +158,16 @@ Physical RelNode tree (Convention.ENUMERABLE or adapter-specific)
 <hr />
 <h2 id="relnode-tree">RelNode Tree</h2>
 <h3 id="relnode-base-org-apache-calcite-rel-relnode">RelNode Base (org.apache.calcite.rel.RelNode)</h3>
-<pre><code data-lang="java">interface RelNode extends RelOptNode, Cloneable {
-  RelDataType    getRowType();          // output row type
-  RelTraitSet    getTraitSet();         // set of traits (convention, collation, distribution)
-  List&lt;RelNode&gt;  getInputs();           // child relations
-  RelNode        copy(RelTraitSet, List&lt;RelNode&gt;); // deep copy with new traits+inputs
-  RelOptCost     computeSelfCost(RelOptPlanner, RelMetadataQuery);
-  String         getDigest();           // canonical string for deduplication
-  RelNode        accept(RelShuttle);    // visitor
-  &lt;T&gt; T          accept(RexShuttle);   // expression visitor (rewrites RexNodes)
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="java"><span class="giallo-l"><span class="z-storage z-modifier">interface</span><span class="z-entity z-name z-type"> RelNode</span><span class="z-storage z-modifier"> extends</span><span> RelOptNode</span><span class="z-punctuation">,</span><span> Cloneable</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  RelDataType</span><span class="z-entity z-name z-function">    getRowType</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">          //</span><span class="z-comment"> output row type</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  RelTraitSet</span><span class="z-entity z-name z-function">    getTraitSet</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">         //</span><span class="z-comment"> set of traits (convention, collation, distribution)</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  List</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">RelNode</span><span class="z-punctuation">&gt;</span><span class="z-entity z-name z-function">  getInputs</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">           //</span><span class="z-comment"> child relations</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  RelNode</span><span class="z-entity z-name z-function">        copy</span><span class="z-punctuation">(</span><span class="z-variable z-parameter">RelTraitSet</span><span class="z-punctuation">,</span><span class="z-storage z-type z-java"> List</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">RelNode</span><span class="z-punctuation">&gt;</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment"> //</span><span class="z-comment"> deep copy with new traits+inputs</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  RelOptCost</span><span class="z-entity z-name z-function">     computeSelfCost</span><span class="z-punctuation">(</span><span class="z-variable z-parameter">RelOptPlanner</span><span class="z-punctuation">,</span><span class="z-variable z-parameter"> RelMetadataQuery</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  String</span><span class="z-entity z-name z-function">         getDigest</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">           //</span><span class="z-comment"> canonical string for deduplication</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  RelNode</span><span class="z-entity z-name z-function">        accept</span><span class="z-punctuation">(</span><span class="z-variable z-parameter">RelShuttle</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> visitor</span></span>
+<span class="giallo-l"><span class="z-punctuation">  &lt;</span><span class="z-storage z-type">T</span><span class="z-punctuation">&gt;</span><span class="z-storage z-type z-java"> T</span><span class="z-entity z-name z-function">          accept</span><span class="z-punctuation">(</span><span class="z-variable z-parameter">RexShuttle</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> expression visitor (rewrites RexNodes)</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <p><code>getDigest()</code> is the hash key for <code>RelSet</code> deduplication in VolcanoPlanner's memo. Built from class name + row type + inputs' digests + operator-specific fields. Two <code>RelNode</code>s with the same digest are considered equivalent and merged.</p>
 <p><code>copy()</code> is called by the planner whenever it applies a transformation: produces a new <code>RelNode</code> with new trait set and/or new child nodes.</p>
 <h3 id="logical-relnodes-org-apache-calcite-rel-logical">Logical RelNodes (org.apache.calcite.rel.logical)</h3>
@@ -172,17 +192,15 @@ Physical RelNode tree (Convention.ENUMERABLE or adapter-specific)
 <h3 id="abstract-core-relnodes-org-apache-calcite-rel-core">Abstract Core RelNodes (org.apache.calcite.rel.core)</h3>
 <p>Abstract superclasses used by both logical and physical nodes: <code>Aggregate</code>, <code>Filter</code>, <code>Join</code>, <code>Project</code>, <code>Sort</code>, <code>SetOp</code>, <code>TableScan</code>, <code>Calc</code> (combined filter+project). <code>Calc</code> contains a <code>RexProgram</code> — compact representation of project + filter as a list of <code>RexNode</code>s plus a condition; avoids separate <code>Filter</code> + <code>Project</code> nodes in the Enumerable backend.</p>
 <h3 id="aggcall">AggCall</h3>
-<pre><code data-lang="java">class AggCall {
-  SqlAggFunction     aggregation;   // SUM, COUNT, MIN, MAX, etc.
-  List&lt;Integer&gt;      argList;       // input column indices
-  boolean            distinct;      // COUNT(DISTINCT ...)
-  boolean            approximate;   // APPROX_COUNT_DISTINCT
-  RelFieldCollation[] orderKeys;    // ORDER BY inside aggregate (array_agg, first_value)
-  RexNode            filterArg;     // FILTER (WHERE ...) index
-  String             name;          // output field name
-}
-</code></pre>
-<h3 id="relinput-relwriter-serialization">RelInput / RelWriter (Serialization)</h3>
+<pre class="giallo z-code"><code data-lang="java"><span class="giallo-l"><span class="z-storage z-modifier">class</span><span class="z-entity z-name z-type"> AggCall</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  SqlAggFunction</span><span class="z-variable z-other z-definition z-java">     aggregation</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> SUM, COUNT, MIN, MAX, etc.</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  List</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">Integer</span><span class="z-punctuation">&gt;</span><span class="z-variable z-other z-definition z-java">      argList</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">       //</span><span class="z-comment"> input column indices</span></span>
+<span class="giallo-l"><span class="z-storage z-type">  boolean</span><span class="z-variable z-other z-definition z-java">            distinct</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">      //</span><span class="z-comment"> COUNT(DISTINCT ...)</span></span>
+<span class="giallo-l"><span class="z-storage z-type">  boolean</span><span class="z-variable z-other z-definition z-java">            approximate</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> APPROX_COUNT_DISTINCT</span></span>
+<span class="giallo-l"><span class="z-storage z-type">  RelFieldCollation</span><span class="z-punctuation">[</span><span class="z-punctuation">]</span><span class="z-variable z-other z-definition z-java"> orderKeys</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> ORDER BY inside aggregate (array_agg, first_value)</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  RexNode</span><span class="z-variable z-other z-definition z-java">            filterArg</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">     //</span><span class="z-comment"> FILTER (WHERE ...) index</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  String</span><span class="z-variable z-other z-definition z-java">             name</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">          //</span><span class="z-comment"> output field name</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre><h3 id="relinput-relwriter-serialization">RelInput / RelWriter (Serialization)</h3>
 <p><code>RelInput</code> and <code>RelWriter</code> provide JSON serialization for <code>RelNode</code> trees. Each <code>RelNode</code> calls <code>RelWriter.input(...)</code>, <code>.item(...)</code>, <code>.itemIf(...)</code> in its <code>explain()</code> method. <code>RelJsonWriter</code> implements <code>RelWriter</code> and writes a JSON array of nodes with <code>id</code>, <code>relOp</code>, and field map. <code>RelJsonReader</code> reconstructs from JSON. Used for plan caching and debugging.</p>
 <hr />
 <h2 id="rexnode-expression-tree">RexNode Expression Tree</h2>
@@ -203,16 +221,14 @@ Physical RelNode tree (Convention.ENUMERABLE or adapter-specific)
 </tbody></table>
 <h3 id="rexbuilder-org-apache-calcite-rex-rexbuilder">RexBuilder (org.apache.calcite.rex.RexBuilder)</h3>
 <p>Factory for constructing <code>RexNode</code>s. Always use <code>RexBuilder</code> — it enforces type consistency and interning:</p>
-<pre><code data-lang="java">rexBuilder.makeCall(SqlStdOperatorTable.PLUS, a, b);
-rexBuilder.makeInputRef(rowType, index);
-rexBuilder.makeLiteral(42, intType, SqlTypeName.INTEGER);
-rexBuilder.makeCast(targetType, expr);
-rexBuilder.makeFieldAccess(expr, fieldName, caseSensitive);
-rexBuilder.makeOver(type, aggOp, operands, partitionKeys, orderKeys,
-                    lowerBound, upperBound, physical, allowPartial, distinct, ignoreNulls);
-rexBuilder.makeCorrel(type, correlId);
-</code></pre>
-<h3 id="rexshuttle-rexvisitor">RexShuttle / RexVisitor</h3>
+<pre class="giallo z-code"><code data-lang="java"><span class="giallo-l"><span class="z-variable z-other z-object">rexBuilder</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">makeCall</span><span class="z-punctuation">(</span><span class="z-variable z-other z-object">SqlStdOperatorTable</span><span class="z-punctuation">.</span><span class="z-variable z-other z-object">PLUS</span><span class="z-punctuation">,</span><span> a</span><span class="z-punctuation">,</span><span> b</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other z-object">rexBuilder</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">makeInputRef</span><span class="z-punctuation">(</span><span>rowType</span><span class="z-punctuation">,</span><span> index</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other z-object">rexBuilder</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">makeLiteral</span><span class="z-punctuation">(</span><span class="z-constant">42</span><span class="z-punctuation">,</span><span> intType</span><span class="z-punctuation">,</span><span class="z-variable z-other z-object"> SqlTypeName</span><span class="z-punctuation">.</span><span class="z-variable z-other z-object">INTEGER</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other z-object">rexBuilder</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">makeCast</span><span class="z-punctuation">(</span><span>targetType</span><span class="z-punctuation">,</span><span> expr</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other z-object">rexBuilder</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">makeFieldAccess</span><span class="z-punctuation">(</span><span>expr</span><span class="z-punctuation">,</span><span> fieldName</span><span class="z-punctuation">,</span><span> caseSensitive</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other z-object">rexBuilder</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">makeOver</span><span class="z-punctuation">(</span><span>type</span><span class="z-punctuation">,</span><span> aggOp</span><span class="z-punctuation">,</span><span> operands</span><span class="z-punctuation">,</span><span> partitionKeys</span><span class="z-punctuation">,</span><span> orderKeys</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>                    lowerBound</span><span class="z-punctuation">,</span><span> upperBound</span><span class="z-punctuation">,</span><span> physical</span><span class="z-punctuation">,</span><span> allowPartial</span><span class="z-punctuation">,</span><span> distinct</span><span class="z-punctuation">,</span><span> ignoreNulls</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable z-other z-object">rexBuilder</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">makeCorrel</span><span class="z-punctuation">(</span><span>type</span><span class="z-punctuation">,</span><span> correlId</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre><h3 id="rexshuttle-rexvisitor">RexShuttle / RexVisitor</h3>
 <p><code>RexShuttle</code> is a rewriting visitor (returns new <code>RexNode</code>). <code>visitCall()</code> by default recurses and reconstructs. Used for: <code>RexInputRef</code> remapping (after project pushdown), <code>RexCorrelVariable</code> substitution (decorrelation), literal folding.</p>
 <p><code>RexVisitor&lt;R&gt;</code> is a pure visitor (no rewriting). <code>RexVisitorImpl</code> provides default no-op implementations.</p>
 <h3 id="rexutil">RexUtil</h3>
@@ -234,40 +250,37 @@ rexBuilder.makeCorrel(type, correlId);
 <li><code>SARG</code> (Search ARGument): IN-lists and OR-of-ranges are collapsed into a single <code>SARG</code> literal for efficient range evaluation.</li>
 </ul>
 <h3 id="rexover-window-functions">RexOver (Window Functions)</h3>
-<pre><code data-lang="java">class RexOver extends RexCall {
-  SqlAggFunction  aggOp;     // SUM, ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, ...
-  RexWindow       window;
-}
-
-class RexWindow {
-  ImmutableList&lt;RexNode&gt;           partitionKeys;
-  ImmutableList&lt;RexFieldCollation&gt; orderKeys;
-  RexWindowBound                   lowerBound;  // UNBOUNDED PRECEDING / CURRENT ROW / N PRECEDING
-  RexWindowBound                   upperBound;
-  boolean                          isRows;      // ROWS vs RANGE mode
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="java"><span class="giallo-l"><span class="z-storage z-modifier">class</span><span class="z-entity z-name z-type"> RexOver</span><span class="z-storage z-modifier"> extends</span><span> RexCall</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  SqlAggFunction</span><span class="z-variable z-other z-definition z-java">  aggOp</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">     //</span><span class="z-comment"> SUM, ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, ...</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  RexWindow</span><span class="z-variable z-other z-definition z-java">       window</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-modifier">class</span><span class="z-entity z-name z-type"> RexWindow</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  ImmutableList</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">RexNode</span><span class="z-punctuation">&gt;</span><span class="z-variable z-other z-definition z-java">           partitionKeys</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  ImmutableList</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">RexFieldCollation</span><span class="z-punctuation">&gt;</span><span class="z-variable z-other z-definition z-java"> orderKeys</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  RexWindowBound</span><span class="z-variable z-other z-definition z-java">                   lowerBound</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> UNBOUNDED PRECEDING / CURRENT ROW / N PRECEDING</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  RexWindowBound</span><span class="z-variable z-other z-definition z-java">                   upperBound</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">  boolean</span><span class="z-variable z-other z-definition z-java">                          isRows</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">      //</span><span class="z-comment"> ROWS vs RANGE mode</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <hr />
 <h2 id="type-system">Type System</h2>
 <h3 id="reldatatype-and-reldatatypefactory-org-apache-calcite-rel-type">RelDataType and RelDataTypeFactory (org.apache.calcite.rel.type)</h3>
-<pre><code>RelDataType
-├── BasicSqlType       — scalar SQL types (int, varchar, decimal, ...)
-├── ArraySqlType       — ARRAY&lt;elementType&gt;
-├── MapSqlType         — MAP&lt;keyType, valueType&gt;
-├── MultisetSqlType    — MULTISET&lt;elementType&gt;
-└── RelRecordType      — ROW(fields)  — field = (name, type) pair
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>RelDataType</span></span>
+<span class="giallo-l"><span>├── BasicSqlType       — scalar SQL types (int, varchar, decimal, ...)</span></span>
+<span class="giallo-l"><span>├── ArraySqlType       — ARRAY&lt;elementType&gt;</span></span>
+<span class="giallo-l"><span>├── MapSqlType         — MAP&lt;keyType, valueType&gt;</span></span>
+<span class="giallo-l"><span>├── MultisetSqlType    — MULTISET&lt;elementType&gt;</span></span>
+<span class="giallo-l"><span>└── RelRecordType      — ROW(fields)  — field = (name, type) pair</span></span></code></pre>
 <p><code>RelDataTypeFactory</code> creates all types. <code>SqlTypeFactoryImpl</code> is the standard implementation; <code>JavaTypeFactoryImpl</code> extends it to also map Java classes to SQL types (for JDBC and Enumerable convention). <code>TypeSystem</code> (pluggable) sets coercion rules, max precision/scale for DECIMAL.</p>
 <p><strong>Nullability:</strong> every <code>RelDataType</code> carries <code>isNullable()</code>. Two types with same SqlTypeName but different nullability are distinct (<code>INT NOT NULL</code> ≠ <code>INT</code>). <code>RelDataTypeFactory.createTypeWithNullability(type, nullable)</code> wraps/unwraps. Validators infer nullability from: outer-join output columns (nullable), aggregate COUNT (NOT NULL), literal NULL (nullable).</p>
 <h3 id="sqltypename-enum">SqlTypeName Enum</h3>
-<pre><code>BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, DECIMAL, FLOAT, REAL, DOUBLE,
-DATE, TIME, TIME_WITH_LOCAL_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_LOCAL_TIME_ZONE,
-INTERVAL_YEAR, INTERVAL_YEAR_MONTH, INTERVAL_MONTH,
-INTERVAL_DAY, ..., INTERVAL_SECOND,
-CHAR, VARCHAR, BINARY, VARBINARY,
-NULL, ANY, SYMBOL, MULTISET, ARRAY, MAP, DISTINCT, STRUCTURED, ROW, OTHER,
-CURSOR, COLUMN_LIST, DYNAMIC_STAR, GEOMETRY, SARG
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, DECIMAL, FLOAT, REAL, DOUBLE,</span></span>
+<span class="giallo-l"><span>DATE, TIME, TIME_WITH_LOCAL_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_LOCAL_TIME_ZONE,</span></span>
+<span class="giallo-l"><span>INTERVAL_YEAR, INTERVAL_YEAR_MONTH, INTERVAL_MONTH,</span></span>
+<span class="giallo-l"><span>INTERVAL_DAY, ..., INTERVAL_SECOND,</span></span>
+<span class="giallo-l"><span>CHAR, VARCHAR, BINARY, VARBINARY,</span></span>
+<span class="giallo-l"><span>NULL, ANY, SYMBOL, MULTISET, ARRAY, MAP, DISTINCT, STRUCTURED, ROW, OTHER,</span></span>
+<span class="giallo-l"><span>CURSOR, COLUMN_LIST, DYNAMIC_STAR, GEOMETRY, SARG</span></span></code></pre>
 <p><code>SARG</code> — "Search ARGument" compact form of OR-of-ranges created by <code>RexSimplify</code> for IN-list optimization.</p>
 <hr />
 <h2 id="trait-system">Trait System</h2>
@@ -283,12 +296,11 @@ CURSOR, COLUMN_LIST, DYNAMIC_STAR, GEOMETRY, SARG
 <p>Convention is the primary trait. The planner satisfies convention by applying converter rules that insert physical operators.</p>
 <h3 id="relcollationtraitdef-org-apache-calcite-rel-relcollations">RelCollationTraitDef (org.apache.calcite.rel.RelCollations)</h3>
 <p>Sort order. A <code>RelCollation</code> is an ordered list of <code>RelFieldCollation</code>:</p>
-<pre><code data-lang="java">class RelFieldCollation {
-  int            fieldIndex;    // column index
-  Direction      direction;     // ASCENDING, DESCENDING, STRICTLY_ASCENDING, STRICTLY_DESCENDING, CLUSTERED
-  NullDirection  nullDirection; // FIRST, LAST, UNSPECIFIED
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="java"><span class="giallo-l"><span class="z-storage z-modifier">class</span><span class="z-entity z-name z-type"> RelFieldCollation</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">  int</span><span class="z-variable z-other z-definition z-java">            fieldIndex</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> column index</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  Direction</span><span class="z-variable z-other z-definition z-java">      direction</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">     //</span><span class="z-comment"> ASCENDING, DESCENDING, STRICTLY_ASCENDING, STRICTLY_DESCENDING, CLUSTERED</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  NullDirection</span><span class="z-variable z-other z-definition z-java">  nullDirection</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment"> //</span><span class="z-comment"> FIRST, LAST, UNSPECIFIED</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <p><code>RelCollations.EMPTY</code> = unsorted. Collation is produced by <code>Sort</code> operators and consumed by <code>MergeJoin</code>, streaming aggregation, <code>TopN</code>.</p>
 <h3 id="reldistributiontraitdef-org-apache-calcite-rel-reldistributions">RelDistributionTraitDef (org.apache.calcite.rel.RelDistributions)</h3>
 <p>Data distribution across partitions:</p>
@@ -303,28 +315,26 @@ CURSOR, COLUMN_LIST, DYNAMIC_STAR, GEOMETRY, SARG
 <p>Used by Flink and distributed engines to plan exchanges (repartitioning operators).</p>
 <h3 id="abstractconverter-and-enforcers">AbstractConverter and Enforcers</h3>
 <p>When a <code>RelSubset</code> must satisfy a trait it doesn't have, VolcanoPlanner inserts an <code>AbstractConverter</code>. Converter rules (<code>ConverterRule</code>) match <code>AbstractConverter</code> and replace it with a concrete operator (e.g., <code>Sort</code> to satisfy collation, <code>Exchange</code> to satisfy distribution, <code>ToEnumerableConverter</code> to satisfy <code>EnumerableConvention</code>).</p>
-<pre><code data-lang="java">class SortToEnumerableSortRule extends ConverterRule {
-  // matches: Sort with Convention.NONE
-  // produces: EnumerableSort with EnumerableConvention
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="java"><span class="giallo-l"><span class="z-storage z-modifier">class</span><span class="z-entity z-name z-type"> SortToEnumerableSortRule</span><span class="z-storage z-modifier"> extends</span><span> ConverterRule</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> matches: Sort with Convention.NONE</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> produces: EnumerableSort with EnumerableConvention</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <hr />
 <h2 id="volcanoplanner-cost-based-volcano-cascades-model">VolcanoPlanner (Cost-Based, Volcano/Cascades Model)</h2>
 <p><code>org.apache.calcite.plan.volcano.VolcanoPlanner</code></p>
 <p>Based on Graefe's Volcano optimizer (ICDE 1993) and Cascades (IEEE DE Bulletin 1995). Uses a <strong>memo</strong> of equivalence classes.</p>
 <h3 id="memo-relset-and-relsubset">Memo: RelSet and RelSubset</h3>
-<pre><code>RelSet          — equivalence class of logically equivalent RelNodes
-├── List&lt;RelNode&gt; rels              — all physical/logical alternatives found
-├── List&lt;RelSubset&gt; subsets         — one per (RelSet, RelTraitSet) combination
-└── RelNode best                    — cheapest physical plan found so far
-
-RelSubset       — (RelSet, RelTraitSet) pair
-├── RelSet set
-├── RelTraitSet traitSet            — required traits for this subset
-├── RelNode best                    — best plan satisfying these traits
-├── RelOptCost bestCost
-└── List&lt;AbstractConverter&gt; abstractConverters  — pending conversions
-</code></pre>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>RelSet          — equivalence class of logically equivalent RelNodes</span></span>
+<span class="giallo-l"><span>├── List&lt;RelNode&gt; rels              — all physical/logical alternatives found</span></span>
+<span class="giallo-l"><span>├── List&lt;RelSubset&gt; subsets         — one per (RelSet, RelTraitSet) combination</span></span>
+<span class="giallo-l"><span>└── RelNode best                    — cheapest physical plan found so far</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>RelSubset       — (RelSet, RelTraitSet) pair</span></span>
+<span class="giallo-l"><span>├── RelSet set</span></span>
+<span class="giallo-l"><span>├── RelTraitSet traitSet            — required traits for this subset</span></span>
+<span class="giallo-l"><span>├── RelNode best                    — best plan satisfying these traits</span></span>
+<span class="giallo-l"><span>├── RelOptCost bestCost</span></span>
+<span class="giallo-l"><span>└── List&lt;AbstractConverter&gt; abstractConverters  — pending conversions</span></span></code></pre>
 <p>Each <code>RelNode</code> belongs to exactly one <code>RelSet</code>. When a new <code>RelNode</code> is registered (<code>VolcanoPlanner.register()</code>), Calcite computes its digest and merges into an existing <code>RelSet</code> if an equivalent already exists.</p>
 <h3 id="rule-application-and-rulequeue">Rule Application and RuleQueue</h3>
 <p><code>VolcanoPlanner</code> maintains a <code>RuleQueue</code> (priority queue of <code>VolcanoRuleMatch</code> records). A <code>VolcanoRuleMatch</code> is a (rule, binding of RelNodes to operands) pair. Planner loop:</p>
@@ -337,46 +347,43 @@ RelSubset       — (RelSet, RelTraitSet) pair
 </ol>
 <p><strong>Importance</strong> drives priority: subsets closer to the root (more important to query result) get rules fired first. Importance of a subset = max importance of its <code>AbstractConverter</code>s and parent subsets. This guides rule firing toward improving the critical path.</p>
 <h3 id="reloptrule-and-operand-patterns">RelOptRule and Operand Patterns</h3>
-<pre><code data-lang="java">class RelOptRule {
-  RelOptRuleOperand operand;        // pattern tree
-  abstract void onMatch(RelOptRuleCall call);
-}
-
-class RelOptRuleOperand {
-  Class&lt;? extends RelNode&gt; clazz;
-  RelTrait                 trait;       // optional trait filter
-  Predicate&lt;RelNode&gt;       predicate;
-  List&lt;RelOptRuleOperand&gt;  children;
-  // matching modes: UNORDERED, EXACT, PLUS, ANY
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="java"><span class="giallo-l"><span class="z-storage z-modifier">class</span><span class="z-entity z-name z-type"> RelOptRule</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  RelOptRuleOperand</span><span class="z-variable z-other z-definition z-java"> operand</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">        //</span><span class="z-comment"> pattern tree</span></span>
+<span class="giallo-l"><span class="z-storage z-modifier">  abstract</span><span class="z-storage z-type"> void</span><span class="z-entity z-name z-function"> onMatch</span><span class="z-punctuation">(</span><span class="z-storage z-type z-java">RelOptRuleCall</span><span class="z-variable z-parameter"> call</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-modifier">class</span><span class="z-entity z-name z-type"> RelOptRuleOperand</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  Class</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">?</span><span class="z-storage z-modifier"> extends</span><span class="z-storage z-type"> RelNode</span><span class="z-punctuation">&gt;</span><span class="z-variable z-other z-definition z-java"> clazz</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  RelTrait</span><span class="z-variable z-other z-definition z-java">                 trait</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">       //</span><span class="z-comment"> optional trait filter</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  Predicate</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">RelNode</span><span class="z-punctuation">&gt;</span><span class="z-variable z-other z-definition z-java">       predicate</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  List</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">RelOptRuleOperand</span><span class="z-punctuation">&gt;</span><span class="z-variable z-other z-definition z-java">  children</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> matching modes: UNORDERED, EXACT, PLUS, ANY</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <p>Pattern construction examples:</p>
-<pre><code data-lang="java">// Filter on top of TableScan:
-operand(LogicalFilter.class, Convention.NONE,
-  operand(LogicalTableScan.class, none()))
-
-// Project on top of anything:
-operand(LogicalProject.class, Convention.NONE, any())
-
-// Join with two inputs:
-operand(LogicalJoin.class, Convention.NONE,
-  operand(RelNode.class, any()),
-  operand(RelNode.class, any()))
-</code></pre>
+<pre class="giallo z-code"><code data-lang="java"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Filter on top of TableScan:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">operand</span><span class="z-punctuation">(</span><span class="z-variable z-other z-object">LogicalFilter</span><span class="z-punctuation">.</span><span class="z-variable z-other z-object">class</span><span class="z-punctuation">,</span><span class="z-variable z-other z-object"> Convention</span><span class="z-punctuation">.</span><span class="z-variable z-other z-object">NONE</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">  operand</span><span class="z-punctuation">(</span><span class="z-variable z-other z-object">LogicalTableScan</span><span class="z-punctuation">.</span><span class="z-variable z-other z-object">class</span><span class="z-punctuation">,</span><span class="z-entity z-name z-function"> none</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Project on top of anything:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">operand</span><span class="z-punctuation">(</span><span class="z-variable z-other z-object">LogicalProject</span><span class="z-punctuation">.</span><span class="z-variable z-other z-object">class</span><span class="z-punctuation">,</span><span class="z-variable z-other z-object"> Convention</span><span class="z-punctuation">.</span><span class="z-variable z-other z-object">NONE</span><span class="z-punctuation">,</span><span class="z-entity z-name z-function"> any</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Join with two inputs:</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">operand</span><span class="z-punctuation">(</span><span class="z-variable z-other z-object">LogicalJoin</span><span class="z-punctuation">.</span><span class="z-variable z-other z-object">class</span><span class="z-punctuation">,</span><span class="z-variable z-other z-object"> Convention</span><span class="z-punctuation">.</span><span class="z-variable z-other z-object">NONE</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">  operand</span><span class="z-punctuation">(</span><span class="z-variable z-other z-object">RelNode</span><span class="z-punctuation">.</span><span class="z-variable z-other z-object">class</span><span class="z-punctuation">,</span><span class="z-entity z-name z-function"> any</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-entity z-name z-function">  operand</span><span class="z-punctuation">(</span><span class="z-variable z-other z-object">RelNode</span><span class="z-punctuation">.</span><span class="z-variable z-other z-object">class</span><span class="z-punctuation">,</span><span class="z-entity z-name z-function"> any</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span></span></code></pre>
 <p><code>VolcanoRuleCall.rel(0)</code> gets root matched node; <code>rel(1)</code> gets first child; indices follow pre-order of operand tree.</p>
 <h3 id="cost-model">Cost Model</h3>
-<pre><code data-lang="java">interface RelOptCost {
-  double getRows();
-  double getCpu();
-  double getIo();
-  boolean isInfinite();
-  boolean isLe(RelOptCost other);   // ≤
-  boolean isLt(RelOptCost other);   // &lt;
-  RelOptCost plus(RelOptCost other);
-  RelOptCost multiplyBy(double factor);
-  double divideBy(RelOptCost other);
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="java"><span class="giallo-l"><span class="z-storage z-modifier">interface</span><span class="z-entity z-name z-type"> RelOptCost</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type">  double</span><span class="z-entity z-name z-function"> getRows</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">  double</span><span class="z-entity z-name z-function"> getCpu</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">  double</span><span class="z-entity z-name z-function"> getIo</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">  boolean</span><span class="z-entity z-name z-function"> isInfinite</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">  boolean</span><span class="z-entity z-name z-function"> isLe</span><span class="z-punctuation">(</span><span class="z-storage z-type z-java">RelOptCost</span><span class="z-variable z-parameter"> other</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> ≤</span></span>
+<span class="giallo-l"><span class="z-storage z-type">  boolean</span><span class="z-entity z-name z-function"> isLt</span><span class="z-punctuation">(</span><span class="z-storage z-type z-java">RelOptCost</span><span class="z-variable z-parameter"> other</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> &lt;</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  RelOptCost</span><span class="z-entity z-name z-function"> plus</span><span class="z-punctuation">(</span><span class="z-storage z-type z-java">RelOptCost</span><span class="z-variable z-parameter"> other</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  RelOptCost</span><span class="z-entity z-name z-function"> multiplyBy</span><span class="z-punctuation">(</span><span class="z-storage z-type">double</span><span class="z-variable z-parameter"> factor</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type">  double</span><span class="z-entity z-name z-function"> divideBy</span><span class="z-punctuation">(</span><span class="z-storage z-type z-java">RelOptCost</span><span class="z-variable z-parameter"> other</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <p>Default <code>VolcanoCost</code> (triple of rows, cpu, io). <code>computeSelfCost()</code> returns operator's own cost excluding children. Total cost = selfCost + sum(childCosts). Best plan per subset = minimum total cost.</p>
 <h3 id="phase-control-and-composition">Phase Control and Composition</h3>
 <p><code>VolcanoPlanner.addRelTraitDef()</code> registers trait definitions. <code>addRule()</code> registers rules. Rule sets can be enabled/disabled per phase. Standard composition via <code>Programs.standard()</code>:</p>
@@ -394,15 +401,14 @@ operand(LogicalJoin.class, Convention.NONE,
 <p><code>org.apache.calcite.plan.hep.HepPlanner</code></p>
 <p>Applies rules in a fixed sequence without cost model. Used for normalization passes where rule order matters. Simpler and faster than VolcanoPlanner for normalization.</p>
 <h3 id="hepprogram">HepProgram</h3>
-<pre><code data-lang="java">HepProgram program = HepProgram.builder()
-  .addRuleInstance(FilterJoinRule.FILTER_ON_JOIN)
-  .addRuleCollection(ImmutableList.of(
-    ProjectMergeRule.INSTANCE,
-    FilterMergeRule.INSTANCE))
-  .addMatchLimit(20)
-  .addMatchOrder(HepMatchOrder.BOTTOM_UP)
-  .build();
-</code></pre>
+<pre class="giallo z-code"><code data-lang="java"><span class="giallo-l"><span class="z-storage z-type z-java">HepProgram</span><span class="z-variable z-other z-definition z-java"> program</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other z-object"> HepProgram</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">builder</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">  .</span><span class="z-entity z-name z-function">addRuleInstance</span><span class="z-punctuation">(</span><span class="z-variable z-other z-object">FilterJoinRule</span><span class="z-punctuation">.</span><span class="z-variable z-other z-object">FILTER_ON_JOIN</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">  .</span><span class="z-entity z-name z-function">addRuleCollection</span><span class="z-punctuation">(</span><span class="z-variable z-other z-object">ImmutableList</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">of</span><span class="z-punctuation">(</span></span>
+<span class="giallo-l"><span class="z-variable z-other z-object">    ProjectMergeRule</span><span class="z-punctuation">.</span><span class="z-variable z-other z-object">INSTANCE</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-variable z-other z-object">    FilterMergeRule</span><span class="z-punctuation">.</span><span class="z-variable z-other z-object">INSTANCE</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">  .</span><span class="z-entity z-name z-function">addMatchLimit</span><span class="z-punctuation">(</span><span class="z-constant">20</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">  .</span><span class="z-entity z-name z-function">addMatchOrder</span><span class="z-punctuation">(</span><span class="z-variable z-other z-object">HepMatchOrder</span><span class="z-punctuation">.</span><span class="z-variable z-other z-object">BOTTOM_UP</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">  .</span><span class="z-entity z-name z-function">build</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre>
 <p><code>HepInstruction</code> types:</p>
 <ul>
 <li><code>RuleInstance</code> — apply one specific rule</li>
@@ -517,15 +523,14 @@ operand(LogicalJoin.class, Convention.NONE,
 <hr />
 <h2 id="enumerable-convention-and-code-generation">Enumerable Convention and Code Generation</h2>
 <h3 id="enumerablerel-interface-org-apache-calcite-adapter-enumerable">EnumerableRel Interface (org.apache.calcite.adapter.enumerable)</h3>
-<pre><code data-lang="java">interface EnumerableRel extends RelNode {
-  Result implement(EnumerableRelImplementor implementor, Prefer pref);
-}
-
-class Result {
-  Expression block;      // Java block expression (Linq4j Expression tree)
-  PhysType   physType;   // tuple format: ARRAY, CUSTOM, LIST, SCALAR
-}
-</code></pre>
+<pre class="giallo z-code"><code data-lang="java"><span class="giallo-l"><span class="z-storage z-modifier">interface</span><span class="z-entity z-name z-type"> EnumerableRel</span><span class="z-storage z-modifier"> extends</span><span> RelNode</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  Result</span><span class="z-entity z-name z-function"> implement</span><span class="z-punctuation">(</span><span class="z-storage z-type z-java">EnumerableRelImplementor</span><span class="z-variable z-parameter"> implementor</span><span class="z-punctuation">,</span><span class="z-storage z-type z-java"> Prefer</span><span class="z-variable z-parameter"> pref</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-storage z-modifier">class</span><span class="z-entity z-name z-type"> Result</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  Expression</span><span class="z-variable z-other z-definition z-java"> block</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">      //</span><span class="z-comment"> Java block expression (Linq4j Expression tree)</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">  PhysType</span><span class="z-variable z-other z-definition z-java">   physType</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> tuple format: ARRAY, CUSTOM, LIST, SCALAR</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
 <p>Each <code>Enumerable*</code> node generates a Linq4j <code>Expression</code> tree representing its execution logic. The root node's <code>implement()</code> is called; it recursively calls children's <code>implement()</code>, composing the full Java code tree.</p>
 <h3 id="linq4j-org-apache-calcite-linq4j">Linq4j (org.apache.calcite.linq4j)</h3>
 <p>Java port of LINQ from C# (.NET). Provides:</p>
@@ -541,31 +546,27 @@ class Result {
 <p><code>ClassBodyDeclaration</code> → Janino <code>SimpleCompiler</code> → <code>Class&lt;?&gt;</code> loaded into JVM. Calcite compiles the entire query plan into a single Java class per query. Queries cached in <code>CalciteMetaImpl.prepareStatementCache</code> by SQL text + param types.</p>
 <h3 id="enumerablehashjoin-code-generation">EnumerableHashJoin Code Generation</h3>
 <p><code>EnumerableHashJoin.implement()</code> generates (pseudocode of generated Java):</p>
-<pre><code data-lang="java">Enumerable&lt;TLeft&gt; left = leftInput;
-Enumerable&lt;TRight&gt; right = rightInput;
-Lookup&lt;K, TRight&gt; lookup = right.toLookup(rightKeySelector);
-
-return left.join(
-  lookup,
-  leftKeySelector,
-  resultSelector);   // emits (leftRow, rightRow) pairs
-</code></pre>
+<pre class="giallo z-code"><code data-lang="java"><span class="giallo-l"><span class="z-storage z-type z-java">Enumerable</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">TLeft</span><span class="z-punctuation">&gt;</span><span class="z-variable z-other z-definition z-java"> left</span><span class="z-keyword z-operator"> =</span><span> leftInput</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">Enumerable</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">TRight</span><span class="z-punctuation">&gt;</span><span class="z-variable z-other z-definition z-java"> right</span><span class="z-keyword z-operator"> =</span><span> rightInput</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">Lookup</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">K</span><span class="z-punctuation">,</span><span class="z-storage z-type"> TRight</span><span class="z-punctuation">&gt;</span><span class="z-variable z-other z-definition z-java"> lookup</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other z-object"> right</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">toLookup</span><span class="z-punctuation">(</span><span>rightKeySelector</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-keyword z-control">return</span><span class="z-variable z-other z-object"> left</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">join</span><span class="z-punctuation">(</span></span>
+<span class="giallo-l"><span>  lookup</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>  leftKeySelector</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>  resultSelector</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> emits (leftRow, rightRow) pairs</span></span></code></pre>
 <p>Selectors are lambda expressions generated from the join key expressions.</p>
 <h3 id="enumerableaggregate">EnumerableAggregate</h3>
 <p>Groups via <code>Grouping.ofGroupSets(...)</code> (uses <code>HashMap&lt;K, Accumulator&gt;</code>). Generated code: iterate input, extract group key, find or create accumulator, call <code>accumulator.add(row)</code>, at end iterate map calling <code>accumulator.result()</code>.</p>
 <h3 id="enumerableproject-enumerablecalc">EnumerableProject / EnumerableCalc</h3>
 <p><code>EnumerableProject.implement()</code> generates a <code>select</code> (map) lambda over the input:</p>
-<pre><code data-lang="java">return input.select(row -&gt; new Object[] {
-  row[fieldIndex0],
-  row[fieldIndex0] + row[fieldIndex1],   // computed expression
-});
-</code></pre>
+<pre class="giallo z-code"><code data-lang="java"><span class="giallo-l"><span class="z-keyword z-control">return</span><span class="z-variable z-other z-object"> input</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">select</span><span class="z-punctuation">(</span><span>row </span><span class="z-storage z-type">-&gt;</span><span class="z-keyword z-control"> new</span><span class="z-storage z-type"> Object</span><span class="z-punctuation">[</span><span class="z-punctuation">]</span><span class="z-punctuation"> {</span></span>
+<span class="giallo-l"><span>  row</span><span class="z-punctuation">[</span><span>fieldIndex0</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span>  row</span><span class="z-punctuation">[</span><span>fieldIndex0</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> +</span><span> row</span><span class="z-punctuation">[</span><span>fieldIndex1</span><span class="z-punctuation">]</span><span class="z-punctuation">,</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> computed expression</span></span>
+<span class="giallo-l"><span class="z-punctuation">}</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre>
 <p><code>EnumerableCalc</code> (combined project+filter via <code>RexProgram</code>):</p>
-<pre><code data-lang="java">return input
-  .where(row -&gt; condition(row))   // filter
-  .select(row -&gt; project(row));   // project
-</code></pre>
-<h3 id="enumerableinterpreter">EnumerableInterpreter</h3>
+<pre class="giallo z-code"><code data-lang="java"><span class="giallo-l"><span class="z-keyword z-control">return</span><span> input</span></span>
+<span class="giallo-l"><span class="z-punctuation">  .</span><span class="z-entity z-name z-function">where</span><span class="z-punctuation">(</span><span>row </span><span class="z-storage z-type">-&gt;</span><span class="z-entity z-name z-function"> condition</span><span class="z-punctuation">(</span><span>row</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> filter</span></span>
+<span class="giallo-l"><span class="z-punctuation">  .</span><span class="z-entity z-name z-function">select</span><span class="z-punctuation">(</span><span>row </span><span class="z-storage z-type">-&gt;</span><span class="z-entity z-name z-function"> project</span><span class="z-punctuation">(</span><span>row</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> project</span></span></code></pre><h3 id="enumerableinterpreter">EnumerableInterpreter</h3>
 <p>For operators without <code>EnumerableRel</code> implementations, <code>EnumerableInterpreter</code> wraps a <code>BindableRel</code> subtree with a <code>Compiler</code>/<code>Interpreter</code> (row-at-a-time execution of a simple bytecode-like interpreter). Used as fallback and for testing.</p>
 <h3 id="enumerablemergejoin-enumerablenestedloopjoin">EnumerableMergeJoin / EnumerableNestedLoopJoin</h3>
 <p><code>EnumerableMergeJoin</code>: both inputs sorted on join keys; generates merge scan. <code>EnumerableNestedLoopJoin</code>: nested loops (for non-equi joins or small inputs).</p>
@@ -607,15 +608,14 @@ return left.join(
 <p><strong>Correlated variables:</strong> when a subquery references an outer query column, <code>SqlToRelConverter</code> creates a <code>CorrelationId</code> and wraps the subquery in <code>LogicalCorrelate</code>.</p>
 <h3 id="relbuilder-org-apache-calcite-tools-relbuilder">RelBuilder (org.apache.calcite.tools.RelBuilder)</h3>
 <p>Higher-level fluent API for building <code>RelNode</code> trees programmatically:</p>
-<pre><code data-lang="java">RelBuilder builder = RelBuilder.create(config);
-RelNode plan = builder
-  .scan(&quot;ORDERS&quot;)
-  .filter(builder.call(SqlStdOperatorTable.EQUALS,
-                       builder.field(&quot;STATUS&quot;), builder.literal(&quot;OPEN&quot;)))
-  .aggregate(builder.groupKey(&quot;CUSTOMER_ID&quot;),
-             builder.sum(false, &quot;TOTAL&quot;, builder.field(&quot;AMOUNT&quot;)))
-  .build();
-</code></pre>
+<pre class="giallo z-code"><code data-lang="java"><span class="giallo-l"><span class="z-storage z-type z-java">RelBuilder</span><span class="z-variable z-other z-definition z-java"> builder</span><span class="z-keyword z-operator"> =</span><span class="z-variable z-other z-object"> RelBuilder</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">create</span><span class="z-punctuation">(</span><span>config</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-storage z-type z-java">RelNode</span><span class="z-variable z-other z-definition z-java"> plan</span><span class="z-keyword z-operator"> =</span><span> builder</span></span>
+<span class="giallo-l"><span class="z-punctuation">  .</span><span class="z-entity z-name z-function">scan</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">ORDERS</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">  .</span><span class="z-entity z-name z-function">filter</span><span class="z-punctuation">(</span><span class="z-variable z-other z-object">builder</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">call</span><span class="z-punctuation">(</span><span class="z-variable z-other z-object">SqlStdOperatorTable</span><span class="z-punctuation">.</span><span class="z-variable z-other z-object">EQUALS</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-variable z-other z-object">                       builder</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">field</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">STATUS</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span><span class="z-variable z-other z-object"> builder</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">literal</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">OPEN</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">  .</span><span class="z-entity z-name z-function">aggregate</span><span class="z-punctuation">(</span><span class="z-variable z-other z-object">builder</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">groupKey</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">CUSTOMER_ID</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">)</span><span class="z-punctuation">,</span></span>
+<span class="giallo-l"><span class="z-variable z-other z-object">             builder</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">sum</span><span class="z-punctuation">(</span><span class="z-constant">false</span><span class="z-punctuation">,</span><span class="z-punctuation"> &quot;</span><span class="z-string">TOTAL</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">,</span><span class="z-variable z-other z-object"> builder</span><span class="z-punctuation">.</span><span class="z-entity z-name z-function">field</span><span class="z-punctuation">(</span><span class="z-punctuation">&quot;</span><span class="z-string">AMOUNT</span><span class="z-punctuation">&quot;</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span></span>
+<span class="giallo-l"><span class="z-punctuation">  .</span><span class="z-entity z-name z-function">build</span><span class="z-punctuation">(</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span></span></code></pre>
 <hr />
 <h2 id="materialized-view-rewriting">Materialized View Rewriting</h2>
 <h3 id="abstractmaterializedviewrule-org-apache-calcite-rel-rules-materialize">AbstractMaterializedViewRule (org.apache.calcite.rel.rules.materialize)</h3>
@@ -646,25 +646,23 @@ d. Check MV provides all aggregate functions needed (or they can be computed fro
 <h2 id="streaming-and-flink-integration">Streaming and Flink Integration</h2>
 <h3 id="flink-sql-architecture">Flink SQL Architecture</h3>
 <p>Flink uses Calcite for all SQL. Maintains a fork of some Calcite internals but contributes heavily upstream.</p>
-<pre><code>Flink SQL string
-    │
-    ▼ FlinkSqlParserImpl (extends Calcite parser with Flink extensions)
-FlinkSqlNode AST
-    │
-    ▼ FlinkSqlValidator → PlannerContext → FlinkRelBuilder
-Logical RelNode (Convention.NONE)
-    │
-    ▼ HepPlanner (FlinkBatchPrograms.LOGICAL / FlinkStreamPrograms.LOGICAL)
-    │  Rules: subquery decorrelation, filter pushdown, join reordering
-    ▼ VolcanoPlanner (FlinkBatchPrograms.PHYSICAL / FlinkStreamPrograms.PHYSICAL)
-    │  Rules: FlinkLogicalXxx → FlinkPhysicalXxx
-    │         select ExecEdge shuffle types (HASH, BROADCAST, FORWARD, etc.)
-    ▼ ExecNode graph → ExecNodePlan
-    │
-    ▼ ExecNode.translateToPlan() → DataStream transformations
-Flink Job Graph
-</code></pre>
-<h3 id="streaming-specific-relnodes">Streaming-Specific RelNodes</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Flink SQL string</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ▼ FlinkSqlParserImpl (extends Calcite parser with Flink extensions)</span></span>
+<span class="giallo-l"><span>FlinkSqlNode AST</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ▼ FlinkSqlValidator → PlannerContext → FlinkRelBuilder</span></span>
+<span class="giallo-l"><span>Logical RelNode (Convention.NONE)</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ▼ HepPlanner (FlinkBatchPrograms.LOGICAL / FlinkStreamPrograms.LOGICAL)</span></span>
+<span class="giallo-l"><span>    │  Rules: subquery decorrelation, filter pushdown, join reordering</span></span>
+<span class="giallo-l"><span>    ▼ VolcanoPlanner (FlinkBatchPrograms.PHYSICAL / FlinkStreamPrograms.PHYSICAL)</span></span>
+<span class="giallo-l"><span>    │  Rules: FlinkLogicalXxx → FlinkPhysicalXxx</span></span>
+<span class="giallo-l"><span>    │         select ExecEdge shuffle types (HASH, BROADCAST, FORWARD, etc.)</span></span>
+<span class="giallo-l"><span>    ▼ ExecNode graph → ExecNodePlan</span></span>
+<span class="giallo-l"><span>    │</span></span>
+<span class="giallo-l"><span>    ▼ ExecNode.translateToPlan() → DataStream transformations</span></span>
+<span class="giallo-l"><span>Flink Job Graph</span></span></code></pre><h3 id="streaming-specific-relnodes">Streaming-Specific RelNodes</h3>
 <p>Flink adds:</p>
 <ul>
 <li><code>StreamPhysicalCalc</code>, <code>StreamPhysicalJoin</code>, <code>StreamPhysicalGroupAggregate</code>, <code>StreamPhysicalWindowAggregate</code></li>
@@ -674,10 +672,9 @@ Flink Job Graph
 <li><code>StreamPhysicalExchange</code> — inserts shuffle with <code>InputProperty.DistributionType</code></li>
 </ul>
 <h3 id="temporal-table-joins-for-system-time-as-of">Temporal Table Joins (FOR SYSTEM_TIME AS OF)</h3>
-<pre><code data-lang="sql">SELECT * FROM orders o
-JOIN rates FOR SYSTEM_TIME AS OF o.event_time AS r
-  ON o.currency = r.currency
-</code></pre>
+<pre class="giallo z-code"><code data-lang="sql"><span class="giallo-l"><span class="z-keyword">SELECT</span><span class="z-keyword z-operator"> *</span><span class="z-keyword"> FROM</span><span> orders o</span></span>
+<span class="giallo-l"><span class="z-keyword">JOIN</span><span> rates </span><span class="z-keyword">FOR</span><span class="z-keyword"> SYSTEM_TIME</span><span class="z-keyword"> AS</span><span> OF </span><span class="z-constant">o</span><span>.</span><span class="z-constant">event_time</span><span class="z-keyword"> AS</span><span> r</span></span>
+<span class="giallo-l"><span class="z-keyword">  ON</span><span class="z-constant"> o</span><span>.</span><span class="z-constant">currency</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> r</span><span>.</span><span class="z-constant">currency</span></span></code></pre>
 <p>Calcite models this as <code>LogicalCorrelate</code> with a temporal <code>Snapshot</code> over the right side. Flink converts to <code>StreamPhysicalTemporalJoin</code> using a state backend lookup at the event time.</p>
 <h3 id="changelog-mode-retraction">Changelog Mode / Retraction</h3>
 <p>Streaming aggregation must handle retractions (row deletions from upstream changes). Flink's physical planner decides:</p>

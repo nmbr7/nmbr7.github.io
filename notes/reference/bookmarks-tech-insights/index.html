@@ -16,7 +16,24 @@
       gtag("config", "G-GPK84X1J34");
     </script>
     
-    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />  
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
     <link rel="dns-prefetch" href="//www.google-analytics.com/" />
     <link
       rel="apple-touch-icon"
@@ -59,15 +76,21 @@
 <script>
   (function() {
     var stored = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var isDark = stored === 'dark' || (!stored && prefersDark);
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.addEventListener('DOMContentLoaded', function() {
       var btn = document.getElementById('theme-toggle');
       btn.addEventListener('click', function() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-        localStorage.setItem('theme', dark ? 'light' : 'dark');
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
       });
 
     });
@@ -97,7 +120,8 @@ Run another batch anytime with: <em>"get details for 10 more articles"</em></p>
 <blockquote>
 <p><strong>Key insights:</strong></p>
 <ul>
-<li>Stateless quota-based rate-limiting failed at scale (Redis dependency, can't track thousands of partitions); shifted shedding to storage layer where context is complete</li>
+<li>Scale context: Docstore/Schemaless handle tens of millions of req/s across 170M+ MAU; minor overloads cascade across microservices</li>
+<li>Stateless quota-based rate-limiting failed at scale (Redis dependency, can't track thousands of partitions, broken cost model — full table scan costs same as single-row read); shifted shedding to storage layer where context is complete</li>
 <li>Concurrency (in-flight ops) chosen over QPS as primary overload signal — Little's Law <code>Concurrency = Throughput × Latency</code> maps directly to resource usage</li>
 <li>CoDel adapts queue policy: FIFO under normal load, LIFO under pressure ("newer requests still have a chance to succeed"); prevents wasted work on stale requests</li>
 <li>Cinnamon adds priority tiers (t0-t5): user-facing work protected at t1 while background jobs shed first — priority-aware on top of CoDel's priority-agnostic base</li>
@@ -106,19 +130,7 @@ Run another batch anytime with: <em>"get details for 10 more articles"</em></p>
 <li>BYOS framework: pluggable signals (follower lag, write bytes, mem) feed unified decision loop without core rewrite</li>
 <li>Scorecard layer: per-tenant deterministic concurrency limits isolate noisy neighbors independently of system-wide shedding</li>
 <li>Regulators detect "low-fidelity" overload (large write payloads, partition hotspots, mem pressure) missed by concurrency metric alone</li>
-</ul>
-</blockquote>
-<blockquote>
-<p><strong>Key insights:</strong></p>
-<ul>
-<li>Uber's Docstore/Schemaless handle tens of millions of req/s across 170M+ MAU; minor overloads cascade across microservices</li>
-<li>Phase 1 (failed): quota-based rate limiting with Redis; fundamentally flawed cost model (full table scan = same cost as single row read)</li>
-<li>Phase 2: CoDel (Controlled Delay) queuing with LIFO under pressure + Scorecard engine for per-tenant concurrency limits</li>
-<li>Phase 3 (Cinnamon): priority-aware load shedder with 6 tiers (t0-t5), PID-based controller for dynamic queue timeout/inflight adjustment</li>
-<li>Phase 4: unified "Bring Your Own Signal" (BYOS) engine with pluggable signals (e.g., follower commit lag)</li>
-<li>Key technique: Little's Law — use concurrency (inflight ops) as overload signal, not QPS</li>
-<li>Results vs token bucket: 80% throughput increase (5400 vs 3000 QPS), 70% P99 latency reduction (1.0s vs 3.1s), 93% fewer goroutines (10K vs 150K peak), 60% lower heap (1GB vs 5-6GB)</li>
-<li>Design principle: place control logic in storage layer where system state is authoritative; fail-fast over queuing</li>
+<li>Evolution: Phase 1 quota/Redis (failed) → Phase 2 CoDel + Scorecard → Phase 3 Cinnamon (6 priority tiers + PID controller) → Phase 4 BYOS unified engine</li>
 </ul>
 </blockquote>
 </li>
@@ -130,25 +142,14 @@ Run another batch anytime with: <em>"get details for 10 more articles"</em></p>
 <li>Single column-encryption mechanism solves three orthogonal needs: access control, retention/deletion, encryption-at-rest — avoids three separate systems</li>
 <li>Schema-driven: encryption metadata flows through Hive Metastore (HMS) not per-file RPC to tag store — eliminates excessive remote calls</li>
 <li>Per-column independent keys: each column encrypted with own key; access is "do you hold key K?" — permission enforcement at crypto layer, not app code</li>
-<li>Crypto-shredding for retention: deleting the key turns ciphertext into garbage; no need to rewrite petabyte tables to expire one column</li>
-<li>AES-CTR chosen over AES-GCM: 3-4.5× faster in single-thread Java 9; integrity provided by Parquet checksums at row-group level</li>
-<li>Production overhead with 60% columns encrypted: +5.7% write, +3.7% read — small enough to enable by default</li>
-<li>Parquet-1817 plugin factory enables Spark/Hive/Presto/Flink compatibility without per-engine modification</li>
-<li>Auto-onboarding: tag changes propagate to ingestion pipelines; no manual table-by-table onboarding across PB-scale lake</li>
-<li>Mask-on-deny: users without key get null values instead of hard failure — legacy pipelines keep working</li>
-</ul>
-</blockquote>
-<blockquote>
-<p><strong>Key insights:</strong></p>
-<ul>
-<li>One encryption mechanism solves three problems: column-level ACL (key permissions = access control), data retention (crypto-shredding — delete master key to render data irrecoverable without rewriting files), and encryption-at-rest</li>
 <li>Double-envelope key hierarchy: Data Encryption Keys (DEKs, per file/column) → Key Encryption Keys (KEKs, cached in Spark executors) → Master Encryption Keys (MEKs, in KMS); KMS contacted only once per MEK per executor, not per file</li>
-<li>Schema-driven auto-onboarding: tagging metadata propagated into Parquet schema itself; crypto retriever plugin reads tags at write time — no per-file RPC to tagging service</li>
-<li>Two algorithm modes: AES-GCM (authenticated encryption, 5.7% write / 3.7% read overhead) vs AES-GCM-CTR (metadata-only auth, 3–4.5× faster than full AES-GCM)</li>
-<li>Key rotation modifies only file footer (re-wrap DEKs/KEKs with new MEKs), not data pages — avoids re-encrypting column data</li>
-<li>Encryption transparent to Parquet optimizations: columnar projection, predicate pushdown, encoding, compression all continue to work on encrypted files</li>
-<li>Backfilling petabytes of historical data was hardest operational challenge; built 20× faster encryption tooling for re-encryption</li>
-<li>Access denial enforced at format level across all query engines (Spark, Hive, Presto); optionally null-mask sensitive values instead of hard failure</li>
+<li>Crypto-shredding for retention: deleting the master key turns ciphertext into garbage; no need to rewrite petabyte tables to expire one column</li>
+<li>Two algorithm modes: AES-GCM (authenticated, +5.7% write / +3.7% read with 60% columns encrypted) vs AES-GCM-CTR (metadata-only auth, 3–4.5× faster than full GCM in single-thread Java 9; integrity from Parquet row-group checksums)</li>
+<li>Key rotation modifies only the file footer (re-wrap DEKs/KEKs with new MEKs), not data pages — avoids re-encrypting column data</li>
+<li>Parquet-1817 plugin factory enables Spark/Hive/Presto/Flink compatibility without per-engine modification; encryption transparent to columnar projection, predicate pushdown, encoding, compression</li>
+<li>Auto-onboarding: tag changes propagate to ingestion pipelines; no manual table-by-table onboarding across PB-scale lake</li>
+<li>Backfilling petabytes of historical data was the hardest operational challenge; built 20× faster encryption tooling for re-encryption</li>
+<li>Mask-on-deny: users without key get null values instead of hard failure — legacy pipelines keep working</li>
 </ul>
 </blockquote>
 </li>
@@ -264,22 +265,10 @@ Run another batch anytime with: <em>"get details for 10 more articles"</em></p>
 <li>Project state lived in markdown files (checklists, phase docs, session summaries) — Claude's own memory was insufficient for multi-week project</li>
 <li>Speedup from 1 year → 8 weeks came from expert code review catching systematic AI errors (wrong type signatures, symptom-fixing, missing edge cases) — not autonomous generation</li>
 <li>71.2% coverage via porting PG's own regression suite (thousands of decade-spanning queries) — validates "Postgres-compatible grammar" claim</li>
-<li>Benchmarks: 2-3× faster per query (1.6µs vs 3.1µs simple SELECT), 2.5× faster full suite (145ms vs 366ms)</li>
+<li>Benchmarks: simple SELECT 1.6µs vs 3.1µs (2×), complex SELECT 3.2µs vs 11.0µs (3.5×), CREATE TABLE 7.7µs vs 26.4µs (3.5×); full suite 145ms vs 366ms (2.5×)</li>
+<li>Scope: 287,786 lines across 304 files ported in 8 weeks (1 engineer + Claude); previous Vitess MySQL parser took over a year with a team</li>
 <li>Mechanical work (translation, test code, AST node generation) delegated to AI; architectural work (grammar debug, design) kept with humans</li>
 <li>Lesson: "fast output means nothing if output is wrong" — every grammar rule manually compared to PG source, every test failure investigated</li>
-</ul>
-</blockquote>
-<blockquote>
-<p><strong>Key insights:</strong></p>
-<ul>
-<li>Pure Go PostgreSQL parser (no cgo) — rejected pg_query_go because cgo creates cross-compilation complexity, platform-specific builds, and per-call overhead on hot-path parsing</li>
-<li>Performance: simple SELECT 1.6μs vs 3.1μs (2×), complex SELECT 3.2μs vs 11.0μs (3.5×), CREATE TABLE 7.7μs vs 26.4μs (3.5×); full regression suite 145ms vs 366ms = 2.5× faster</li>
-<li>287,786 lines across 304 files ported from PostgreSQL grammar to Go in 8 weeks (1 engineer + Claude); previous MySQL parser (Vitess) took over a year with a team</li>
-<li>Key AI insight: "Claude is much better at translating existing logic than inventing new logic correctly" — grammar translation (has reference) had low error rate; deparsing (no reference) required much more debugging</li>
-<li>Coordination system critical: markdown checklists tracking AST struct ports, grammar rules, test coverage (71.2%); session documents for cross-conversation continuity</li>
-<li>Expertise verification caught recurring Claude mistakes: wrong types "fixed" via unnecessary conversion functions, grammar rules subtly accepting invalid SQL</li>
-<li>Bottleneck shifted from implementation speed to decision quality and verification rigor</li>
-<li>Ported PostgreSQL's own regression tests (thousands of queries) for edge case validation</li>
 </ul>
 </blockquote>
 </li>
@@ -387,19 +376,6 @@ Run another batch anytime with: <em>"get details for 10 more articles"</em></p>
 <li>Exponential backoff for retriable failures; timeouts at enqueue/claim/heartbeat each trigger automatic retry independently</li>
 <li>Isolation via dedicated clusters, queues, and quotas per lambda — prevents resource contention between independent task types</li>
 <li>Edgestore (Dropbox's metadata DB) backs task state; SQS handles work distribution — clean split of state-of-truth vs work queue</li>
-</ul>
-</blockquote>
-<blockquote>
-<p><strong>Key insights:</strong></p>
-<ul>
-<li>Six components: Frontend (RPC), Task Store (Edgestore metadata), Store Consumer (polling), Queue (AWS SQS), Controller (per-worker polling), Executor, Heartbeat/Status Controller</li>
-<li>Pull-based model: controllers and executors long-poll for work rather than being pushed, reducing coupling</li>
-<li>Scale: 9,000 async tasks/sec, 100+ use cases across 28 engineering teams; 95% of tasks begin within 5 seconds of scheduled time</li>
-<li>At-least-once execution: tasks retry until Success/FatalFailure; requires idempotent lambdas since tasks may execute multiple times</li>
-<li>No concurrent execution: tasks claim exclusive state; HSC kills executors after 3 failed heartbeats to prevent overlap</li>
-<li>Each lambda-priority pair gets dedicated SQS queue (95 total); lambda owners control their worker clusters, deployments, capacity</li>
-<li>Exponential backoff for retriable failures; timeouts at enqueue, claim, and heartbeat stages trigger automatic retries</li>
-<li>Isolation: dedicated clusters, queues, and scheduling quotas per lambda prevent resource contention</li>
 </ul>
 </blockquote>
 </li>
@@ -570,19 +546,6 @@ Run another batch anytime with: <em>"get details for 10 more articles"</em></p>
 <li>Arrow IPC over gRPC for worker→coordinator results; zero-copy on both ends inside the worker</li>
 <li>Serverless: runs on Workers + R2, no provisioned cluster; coordinator selected per query via internal API; Argo Smart Routing handles connectivity</li>
 <li>"Bite-sized pieces" model = power-of-two parallelism that adapts to query selectivity without explicit reshaping</li>
-</ul>
-</blockquote>
-<blockquote>
-<p><strong>Key insights:</strong></p>
-<ul>
-<li>Two-phase architecture: Query Planner (metadata-driven pruning) + distributed Query Execution across Cloudflare's global network</li>
-<li>Serverless: runs on Workers + R2, no provisioned clusters; coordinator-worker model</li>
-<li>Multi-layer filtering: partition-level (manifest list), file-level (column stats), row-group-level (Parquet footers)</li>
-<li>Streaming pipeline: manifests processed in ORDER BY sequence, enabling early termination when results are guaranteed complete</li>
-<li>Built on Apache DataFusion (Rust): vectorized execution, filter pushdown, row-group parallelization</li>
-<li>Each Parquet row group treated as independent partition for parallel processing with CPU cache efficiency</li>
-<li>Arrow IPC format for inter-process communication between workers and coordinator via gRPC</li>
-<li>Columnar Parquet reading: only needed columns read, massively reducing data transfer from R2</li>
 </ul>
 </blockquote>
 </li>
