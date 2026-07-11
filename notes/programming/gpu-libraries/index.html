@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
+      });
+
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<div class="note-layout">
+  <article class="note-page">
+    <h1 class="r-header">GPU Libraries</h1>
+    <h1 id="gpu-programming-libraries-cuda-rocm-metal-and-the-portable-stack">GPU Programming Libraries: CUDA, ROCm, Metal, and the Portable Stack</h1>
+<p>The programmer-facing companion to <a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU/Accelerator Chip Design</a>.
+That doc covers the <strong>silicon</strong> — SIMT execution, Tensor-Core hardware, HBM hierarchy, the roofline
+(§18). This doc covers how you actually <strong>write, compile, tune, and ship</strong> GPU code across NVIDIA,
+AMD, and Apple, from C/C++ down to PTX/SASS up through Rust and Python, plus the cross-vendor
+portability layers. Where the two overlap (roofline, arithmetic intensity, interconnect bandwidth),
+this doc links rather than duplicates: see also <a href="https://nmbr7.github.io/notes/hardware/pcie-internals/">PCIe Internals</a> and
+<a href="https://nmbr7.github.io/notes/hardware/interconnects/">Compute Interconnects</a> for the host↔device link layer.</p>
+<p>Accuracy note: several performance multipliers below (wgmma vs mma peak, DSMEM speedup, Apple
+tensor-op tile sizes, precision throughput ratios) are <strong>vendor-stated or reverse-engineered</strong>, not
+independently reproduced. They are flagged inline. Version-pinned facts (library versions, M-series
+bandwidth, Rust-CUDA nightly) are current as of <strong>mid-2026</strong> — re-verify before relying on exact
+numbers.</p>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol start="0">
+<li><a href="https://nmbr7.github.io/notes/programming/gpu-libraries/#0-primer-the-gpu-programming-model-and-the-library-landscape">Primer: the GPU programming model and the library landscape</a></li>
+<li><a href="https://nmbr7.github.io/notes/programming/gpu-libraries/#1-nvidia-the-compilation-pipeline-nvcc-ptx-sass">NVIDIA — the compilation pipeline (nvcc → PTX → SASS)</a></li>
+<li><a href="https://nmbr7.github.io/notes/programming/gpu-libraries/#2-nvidia-execution-and-memory-model">NVIDIA — execution and memory model</a></li>
+<li><a href="https://nmbr7.github.io/notes/programming/gpu-libraries/#3-nvidia-tensor-cores-and-gemm-wmma-wgmma-tcgen05">NVIDIA — Tensor Cores and GEMM (WMMA → wgmma → tcgen05)</a></li>
+<li><a href="https://nmbr7.github.io/notes/programming/gpu-libraries/#4-nvidia-libraries-and-runtime-services">NVIDIA — libraries and runtime services</a></li>
+<li><a href="https://nmbr7.github.io/notes/programming/gpu-libraries/#5-nvidia-optimization-techniques-and-profiling">NVIDIA — optimization techniques and profiling</a></li>
+<li><a href="https://nmbr7.github.io/notes/programming/gpu-libraries/#6-amd-rocm-and-hip">AMD — ROCm and HIP</a></li>
+<li><a href="https://nmbr7.github.io/notes/programming/gpu-libraries/#7-amd-libraries-matrix-cores-mi300">AMD — libraries, matrix cores, MI300</a></li>
+<li><a href="https://nmbr7.github.io/notes/programming/gpu-libraries/#8-apple-metal-compute">Apple — Metal compute</a></li>
+<li><a href="https://nmbr7.github.io/notes/programming/gpu-libraries/#9-apple-ml-stack-and-mlx">Apple — ML stack and MLX</a></li>
+<li><a href="https://nmbr7.github.io/notes/programming/gpu-libraries/#10-cross-vendor-portability-sycl-vulkan-wgpu">Cross-vendor portability: SYCL, Vulkan, wgpu</a></li>
+<li><a href="https://nmbr7.github.io/notes/programming/gpu-libraries/#11-rust-on-the-gpu">Rust on the GPU</a></li>
+<li><a href="https://nmbr7.github.io/notes/programming/gpu-libraries/#12-python-on-the-gpu">Python on the GPU</a></li>
+<li><a href="https://nmbr7.github.io/notes/programming/gpu-libraries/#13-c-c-across-vendors">C / C++ across vendors</a></li>
+<li><a href="https://nmbr7.github.io/notes/programming/gpu-libraries/#14-cross-cutting-optimization-theory-vendor-neutral">Cross-cutting optimization theory</a></li>
+<li><a href="https://nmbr7.github.io/notes/programming/gpu-libraries/#15-limitations-and-advantages-matrix">Limitations and advantages matrix</a></li>
+<li><a href="https://nmbr7.github.io/notes/programming/gpu-libraries/#16-key-references">Key references</a></li>
+</ol>
+<hr />
+<p><a name="0-primer"></a></p>
+<h2 id="0-primer-the-gpu-programming-model-and-the-library-landscape">0. Primer: the GPU programming model and the library landscape</h2>
+<p>A GPU is a throughput machine that hides latency with <strong>massive parallelism rather than caches</strong>. The
+programming model everywhere is the same shape regardless of vendor:</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>HOST (CPU)                          DEVICE (GPU)</span></span>
+<span class="giallo-l"><span>──────────                          ────────────</span></span>
+<span class="giallo-l"><span>allocate device buffers    ──────►  global memory (HBM / unified pool)</span></span>
+<span class="giallo-l"><span>copy inputs H2D            ──────►</span></span>
+<span class="giallo-l"><span>launch kernel(grid, block) ──────►  thousands of threads, grouped into</span></span>
+<span class="giallo-l"><span>                                    warps/wavefronts/SIMD-groups (lockstep lanes),</span></span>
+<span class="giallo-l"><span>                                    grouped into blocks/workgroups/threadgroups</span></span>
+<span class="giallo-l"><span>                                    (share on-chip scratchpad + a barrier),</span></span>
+<span class="giallo-l"><span>                                    grouped into a grid</span></span>
+<span class="giallo-l"><span>synchronize / wait         ◄──────  kernel completion (async by default)</span></span>
+<span class="giallo-l"><span>copy outputs D2H           ◄──────</span></span></code></pre>
+<p>A <strong>kernel</strong> is a function that runs per-thread; you launch a <em>grid</em> of <em>blocks</em> of <em>threads</em>. Threads
+in the same block share a fast on-chip scratchpad and can barrier-synchronize; threads across blocks
+generally cannot (before Hopper clusters). The lockstep unit — the <em>warp</em> — is the granularity at
+which the hardware actually issues instructions, and almost every optimization reduces to "keep the
+lanes of a warp doing coherent work over coalesced memory."</p>
+<p><strong>Why libraries exist.</strong> Writing raw kernels that hit peak throughput is hard (coalescing, bank
+conflicts, register pressure, tensor-core fragment layouts). So the ecosystem is layered:</p>
+<ul>
+<li><strong>Low-level kernel languages</strong> — CUDA C++, HIP C++, Metal Shading Language, SYCL, compute shaders.</li>
+<li><strong>Primitive libraries</strong> — BLAS/DNN/FFT/collectives (cuBLAS/cuDNN/NCCL; rocBLAS/MIOpen/RCCL; MPS).</li>
+<li><strong>Template kernel libraries</strong> — CUTLASS, Composable Kernel — for those who need the last 10%.</li>
+<li><strong>Array/DSL frontends</strong> — CuPy, Triton, JAX, MLX — "write Python (or a tile DSL), get a fast kernel."</li>
+<li><strong>Portability layers</strong> — SYCL, Vulkan, wgpu, Kokkos — one source, many backends.</li>
+</ul>
+<h3 id="cross-stack-concept-map">Cross-stack concept map</h3>
+<p>The same idea has three names. This table is the Rosetta stone for the rest of the doc:</p>
+<table><thead><tr><th>Concept</th><th>NVIDIA CUDA</th><th>AMD ROCm/HIP</th><th>Apple Metal</th></tr></thead><tbody>
+<tr><td>Lockstep lane group</td><td><strong>warp = 32</strong></td><td><strong>wavefront = 64</strong> (GCN/CDNA) / <strong>32</strong> (RDNA)</td><td><strong>SIMD-group = 32</strong></td></tr>
+<tr><td>Cooperating thread group</td><td>thread block</td><td>workgroup</td><td>threadgroup</td></tr>
+<tr><td>On-chip scratchpad</td><td>shared memory (up to 228 KB/SM)</td><td><strong>LDS</strong> (~64 KB/CU, 32 banks)</td><td>threadgroup memory</td></tr>
+<tr><td>Per-thread fast storage</td><td>registers (64K×32b/SM)</td><td>VGPRs (+ scalar <strong>SGPRs</strong>)</td><td>registers</td></tr>
+<tr><td>Matrix/tensor unit</td><td>Tensor Cores</td><td><strong>MFMA</strong> (CDNA) / <strong>WMMA</strong> (RDNA3+)</td><td><strong>simdgroup_matrix</strong> / Metal 4 TensorOps</td></tr>
+<tr><td>Dense GEMM library</td><td>cuBLAS / cuBLASLt</td><td>rocBLAS / hipBLASLt (+Tensile)</td><td>MPS / MLX</td></tr>
+<tr><td>DNN primitives</td><td>cuDNN</td><td>MIOpen</td><td>MPSGraph</td></tr>
+<tr><td>Collectives</td><td>NCCL</td><td>RCCL</td><td>—</td></tr>
+<tr><td>Template kernel lib</td><td>CUTLASS (+ CuTe)</td><td>Composable Kernel</td><td>(MLX kernels)</td></tr>
+<tr><td>Graph capture (kill launch cost)</td><td>CUDA Graphs</td><td>hipGraph</td><td>MLX lazy graph</td></tr>
+<tr><td>Memory model</td><td>discrete VRAM (+ optional UM)</td><td>discrete / <strong>MI300A UMA-HBM</strong></td><td><strong>UMA (LPDDR5X), zero-copy</strong></td></tr>
+<tr><td>Manual memory-op sync</td><td>implicit (compiler)</td><td>explicit <strong><code>s_waitcnt</code></strong></td><td>implicit</td></tr>
+<tr><td>Native FP64</td><td>yes</td><td>yes (CDNA) / weak (RDNA)</td><td><strong>no</strong></td></tr>
+<tr><td>Profilers</td><td>Nsight Systems / Compute</td><td>rocprof / Omniperf / RGP</td><td>Xcode GPU capture / Instruments</td></tr>
+</tbody></table>
+<p>Read this table once; it explains why a technique that helps on one vendor (e.g. 64-wide-wavefront
+reductions on AMD) needs adjusting on another (32-wide warps on NVIDIA/Apple).</p>
+<hr />
+<p><a name="1-nvidia-compilation"></a></p>
+<h2 id="1-nvidia-the-compilation-pipeline-nvcc-ptx-sass">1. NVIDIA — the compilation pipeline (nvcc → PTX → SASS)</h2>
+<p>CUDA has the deepest, most mature stack (≈15 years). Understanding it starts with <strong>how source becomes
+machine code</strong>, because that pipeline is the root of both its portability story and its lock-in.</p>
+<h3 id="1-1-two-host-apis">1.1 Two host APIs</h3>
+<ul>
+<li><strong>Runtime API</strong> (<code>cudart</code>, <code>cuda_runtime.h</code>): high-level, implicit context/module management, the
+<code>&lt;&lt;&lt;grid, block&gt;&gt;&gt;</code> launch syntax, lazy context init. ~95% of application code uses this.</li>
+<li><strong>Driver API</strong> (<code>libcuda.so</code>: <code>cuMalloc</code>, <code>cuModuleLoad</code>, <code>cuLaunchKernel</code>): explicit <code>CUcontext</code> /
+<code>CUmodule</code> / <code>CUfunction</code> handles. Needed for JIT-loading PTX/cubin at runtime, multi-context
+control, and toolkit-independent deployment. Frameworks (PyTorch, TensorFlow) bind the driver API.</li>
+</ul>
+<p>The runtime API is built <em>on top of</em> the driver API; you can mix them, with gotchas around primary
+context sharing (<code>cuDevicePrimaryCtxRetain</code>).</p>
+<h3 id="1-2-the-nvcc-pipeline">1.2 The nvcc pipeline</h3>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>.cu ──nvcc──► host C++  ─────────────────────────► host compiler (gcc/clang/msvc)</span></span>
+<span class="giallo-l"><span>          └► device code ──cicc (NVVM/LLVM)──► PTX ──ptxas──► SASS (cubin)</span></span>
+<span class="giallo-l"><span>                                                         └──► fatbin (multi-arch bundle)</span></span></code></pre>
+<ul>
+<li><strong>NVVM IR</strong> — NVIDIA's LLVM-based device IR; <code>cicc</code> is the LLVM-backed device front end.</li>
+<li><strong>PTX (Parallel Thread eXecution)</strong> — a <em>virtual ISA</em>. Forward-compatible, stable across GPU
+generations, semi-readable. <strong>Not executed directly.</strong></li>
+<li><strong>ptxas</strong> — the PTX→SASS optimizing assembler. <strong>This is where the perf-relevant decisions happen:</strong>
+register allocation, instruction scheduling, <code>-O3</code>, <code>--maxrregcount</code>, and <code>-v</code> (prints per-kernel
+register / shared-mem / spill usage — always read this).</li>
+<li><strong>SASS (Streaming ASSembler)</strong> — the actual per-architecture machine ISA. Undocumented, changes
+every generation. Disassemble with <code>cuobjdump -sass</code> / <code>nvdisasm</code>.</li>
+</ul>
+<p><strong>The JIT path is the forward-compat mechanism:</strong> if a binary ships only PTX (or the driver finds no
+matching cubin), the driver JIT-compiles PTX→SASS <em>at load</em>, caching in <code>~/.nv/ComputeCache</code>. So PTX
+built for <code>compute_70</code> runs on Blackwell — at the cost of a first-run JIT.</p>
+<h3 id="1-3-arch-targeting-and-compute-capability">1.3 Arch targeting and compute capability</h3>
+<p><code>-gencode arch=compute_XX,code=sm_XX</code>: <code>compute_XX</code> = virtual (emit PTX), <code>sm_XX</code> = real (emit SASS).
+Common idiom: embed SASS for known arches <strong>plus</strong> PTX of the highest virtual arch as a JIT fallback.</p>
+<table><thead><tr><th>Arch</th><th>CC</th><th>Example parts</th></tr></thead><tbody>
+<tr><td>Volta</td><td>sm_70</td><td>V100</td></tr>
+<tr><td>Turing</td><td>sm_75</td><td>T4, RTX 20xx</td></tr>
+<tr><td>Ampere</td><td>sm_80 / sm_86</td><td>A100 / GA10x</td></tr>
+<tr><td>Ada</td><td>sm_89</td><td>RTX 40xx, L40</td></tr>
+<tr><td>Hopper</td><td>sm_90 / <strong>sm_90a</strong></td><td>H100/H200</td></tr>
+<tr><td>Blackwell</td><td>sm_100 / <strong>sm_100a</strong> / sm_120</td><td>B100/B200 (datacenter) / consumer</td></tr>
+</tbody></table>
+<p>The <strong><code>a</code> suffix</strong> (<code>sm_90a</code>, <code>sm_100a</code>) marks <strong>architecture-specific</strong> features — wgmma, tcgen05, TMA
+— that have <strong>no forward-compatible PTX</strong>. Code using them must be recompiled per arch; there is no JIT
+portability. This is the single biggest "gotcha" of programming peak-perf Hopper/Blackwell.</p>
+<p><code>__CUDA_ARCH__</code> gates device-side codepaths per arch. <code>cubin</code> = single-arch ELF; <code>fatbin</code> = a container
+of multiple cubins + PTX.</p>
+<h3 id="1-4-occupancy-and-launch-bounds">1.4 Occupancy and launch bounds</h3>
+<ul>
+<li><code>__launch_bounds__(maxThreadsPerBlock, minBlocksPerSM)</code> caps ptxas register allocation so the kernel
+<em>fits</em> at the target occupancy. Without it, ptxas may allocate too many registers and silently cut
+occupancy.</li>
+<li><strong>Occupancy</strong> = active warps / max warps per SM, limited by the min of (registers/thread,
+shared-mem/block, blocks/SM, threads/SM).</li>
+<li><code>cudaOccupancyMaxPotentialBlockSize</code> (and the Nsight Compute occupancy section) find the
+occupancy-maximizing block size — <strong>but max occupancy ≠ max performance</strong> (see §5, Volkov).</li>
+</ul>
+<hr />
+<p><a name="2-nvidia-exec-memory"></a></p>
+<h2 id="2-nvidia-execution-and-memory-model">2. NVIDIA — execution and memory model</h2>
+<h3 id="2-1-the-thread-hierarchy-and-simt">2.1 The thread hierarchy and SIMT</h3>
+<p>thread → <strong>warp (32 threads, fixed)</strong> → block (≤1024 threads) → [cluster, Hopper+] → grid. A warp
+executes one instruction across 32 lanes (SIMT). Divergent branches within a warp <strong>serialize</strong> —
+predication or reconvergence — at a cost proportional to the number of distinct paths taken. Sort or
+bucket data to keep warps coherent.</p>
+<h3 id="2-2-independent-thread-scheduling-volta-a-correctness-trap">2.2 Independent thread scheduling (Volta+) — a correctness trap</h3>
+<p>Pre-Volta, a warp had <strong>one shared PC</strong>; lanes were implicitly warp-synchronous. Volta gives <strong>per-thread
+PC and call stack</strong>, so lanes make independent forward progress (fixing certain producer/consumer
+deadlocks). The consequence for you: <strong>you can no longer assume implicit warp-synchronous behavior.</strong>
+Old code that did warp reductions without synchronization is now <strong>undefined behavior</strong>. You must use the
+explicit <code>_sync</code> intrinsics with masks:</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>// Warp-level sum reduction (correct on Volta+). Butterfly over log2(32)=5 steps.</span></span>
+<span class="giallo-l"><span>__inline__ __device__ int warpReduceSum(int v) {</span></span>
+<span class="giallo-l"><span>    for (int offset = 16; offset &gt; 0; offset &gt;&gt;= 1)</span></span>
+<span class="giallo-l"><span>        v += __shfl_down_sync(0xffffffff, v, offset);  // mask MUST cover active lanes</span></span>
+<span class="giallo-l"><span>    return v;</span></span>
+<span class="giallo-l"><span>}</span></span></code></pre><h3 id="2-3-synchronization-primitives">2.3 Synchronization primitives</h3>
+<ul>
+<li><code>__syncthreads()</code> — block-wide barrier (all threads in the block).</li>
+<li><code>__syncwarp(mask)</code> — warp-level reconvergence barrier.</li>
+<li><strong>Cooperative Groups</strong> (CUDA 9+) — typed group abstraction: <code>thread_block</code>,
+<code>thread_block_tile&lt;32&gt;</code>, <code>coalesced_group</code>, <code>grid_group</code> (grid-wide sync via
+<code>cudaLaunchCooperativeKernel</code>), <code>cluster_group</code> (Hopper). The portable replacement for raw intrinsics.</li>
+<li><strong>Warp shuffle</strong> — <code>__shfl_sync</code>, <code>__shfl_down_sync</code>, <code>__shfl_xor_sync</code>: register-to-register exchange
+within a warp, no shared memory. XOR shuffle = butterfly reduction/scan in 5 steps.</li>
+</ul>
+<h3 id="2-4-memory-spaces">2.4 Memory spaces</h3>
+<table><thead><tr><th>Space</th><th>Scope</th><th>Approx latency</th><th>Notes</th></tr></thead><tbody>
+<tr><td>Register</td><td>thread</td><td>~0</td><td>64K × 32-bit/SM; spills → local</td></tr>
+<tr><td>Shared (SMEM)</td><td>block</td><td>~20–30 cyc</td><td>on-chip, 32 banks × 4 B; up to <strong>228 KB/SM</strong> (H100/Blackwell), 164 KB (A100), opt-in via <code>cudaFuncAttributeMaxDynamicSharedMemorySize</code></td></tr>
+<tr><td>L1 / Tex</td><td>SM</td><td>~30 cyc</td><td>unified with shared on Volta+ (configurable split)</td></tr>
+<tr><td>Constant</td><td>grid (RO)</td><td>cache</td><td>64 KB, broadcast-optimized for uniform access</td></tr>
+<tr><td>L2</td><td>GPU</td><td>~200 cyc</td><td>50 MB on H100; residency control below</td></tr>
+<tr><td>Global / DRAM</td><td>GPU</td><td>~400–800 cyc</td><td>HBM3/HBM3e</td></tr>
+<tr><td>Local</td><td>thread</td><td>= global</td><td><strong>register-spill target — slow, avoid</strong></td></tr>
+</tbody></table>
+<p><strong>Coalescing</strong> is the single biggest global-memory lever: a warp's 32 accesses falling in the same
+128 B line (or 32 B sectors) → 1 transaction; strided/scattered → many.</p>
+<p><strong>Bank conflicts</strong>: SMEM has 32 banks of 4 B. A warp hitting 32 distinct banks = 1 cycle; N lanes on the
+same bank = N-way conflict, serialized N×; same-address = free broadcast. Classic fixes: <strong>pad</strong> a
+<code>[32][32]</code> tile to <code>[32][33]</code> (wastes a column), or <strong>XOR-swizzle</strong> the index (no waste, non-linear —
+used in CUTLASS/cuBLAS and TMA layouts).</p>
+<p><strong>L2 residency control</strong> (Ampere+): <code>cudaAccessPolicyWindow</code> / stream attributes mark a global range as
+<em>persisting</em> in an L2 carve-out (up to ~40 MB on H100) — wins for repeatedly-read weights/embeddings.</p>
+<h3 id="2-5-async-data-movement-cp-async-tma-clusters">2.5 Async data movement: cp.async, TMA, clusters</h3>
+<ul>
+<li><strong><code>cp.async</code></strong> (Ampere sm_80+, <code>__pipeline_memcpy_async</code> / <code>cuda::memcpy_async</code>) copies global→shared
+<strong>bypassing the register file</strong> (optionally L1), freeing registers and overlapping the copy with
+compute. With <code>cuda::pipeline</code> you build multi-stage (double/triple-buffered) prefetch — the
+pre-Hopper software-pipelining primitive for GEMM/stencil.</li>
+<li><strong>TMA — Tensor Memory Accelerator</strong> (Hopper sm_90+): a dedicated <strong>hardware DMA engine</strong> for bulk
+multidimensional (up to 5D) tiled copies global↔shared, driven by a <code>CUtensorMap</code> descriptor built
+once on host. A <strong>single thread</strong> issues the copy; hardware computes addresses, handles
+boundary/swizzle, and signals an <strong>mbarrier</strong> on completion. Vs <code>cp.async</code>, TMA removes <em>all</em>
+per-thread address arithmetic and register pressure and does swizzling in hardware to feed wgmma —
+essential for peak Hopper/Blackwell GEMM.</li>
+<li><strong>Thread-block clusters + Distributed Shared Memory (DSMEM)</strong> (Hopper): a <strong>cluster</strong> co-schedules up
+to 16 blocks on the same GPC; their shared memories form one addressable space over a dedicated
+SM-to-SM network (bypassing L2). One block can load/store/atomic directly into a peer's SMEM —
+<strong>~7× faster block-to-block exchange than round-tripping global memory</strong> <em>(NVIDIA-stated figure)</em> —
+enabling effective tiles larger than a single 228 KB SMEM. Programmed via <code>cluster_group</code>.</li>
+</ul>
+<hr />
+<p><a name="3-nvidia-tensor-cores"></a></p>
+<h2 id="3-nvidia-tensor-cores-and-gemm-wmma-wgmma-tcgen05">3. NVIDIA — Tensor Cores and GEMM (WMMA → wgmma → tcgen05)</h2>
+<p>Tensor Cores are the reason NVIDIA dominates ML. Evolution:
+Volta (FP16) → Turing (INT8/4) → Ampere (TF32, BF16, 2:4 sparsity) → Hopper (FP8 E4M3/E5M2, wgmma) →
+Blackwell (FP4 E2M1, FP6, 2nd-gen Transformer Engine, tcgen05).</p>
+<h3 id="3-1-the-programming-levels-low-high">3.1 The programming levels (low → high)</h3>
+<ul>
+<li><strong>WMMA API</strong> (<code>nvcuda::wmma</code>, <code>mma.h</code>): warp-level <code>load_matrix_sync</code> / <code>mma_sync</code> /
+<code>store_matrix_sync</code> over opaque <code>fragment</code> types. Portable, but leaves ~30–40% on the table vs
+hand-tuned. Fixed tile shapes (16×16×16 etc.).</li>
+<li><strong><code>mma.sync</code> PTX</strong> (sm_70+): explicit warp-level MMA with defined fragment register layouts. Full
+control; what CUTLASS emitted pre-Hopper.</li>
+<li><strong><code>wgmma.mma_async</code></strong> (Hopper sm_90a): a <strong>warpgroup = 4 warps = 128 threads</strong> acts as one <em>async</em> MMA
+unit. Operand B must be in SMEM; A in SMEM or registers; accumulator C in registers. Async +
+descriptor/fence semantics. <strong>wgmma reportedly hits &gt;96% of H100's 989 TF/s BF16 peak for N≥64, vs
+~63% for legacy <code>mma.sync</code></strong> <em>(NVIDIA/Colfax figures — corroborate with the arXiv Hopper microbench
+paper before quoting)</em>.</li>
+<li><strong><code>tcgen05.mma</code> / UMMA</strong> (Blackwell sm_100a): 5th-gen. <code>D = A*B + C</code> at a <strong>stated 2–4× wgmma
+throughput</strong> (data-type-dependent), using a dedicated <strong>Tensor Memory (TMEM)</strong> for accumulators (off
+the register file). Native FP4 (e2m1) and FP6, mixed low-precision with FP16/FP32 accumulation, and
+<strong>built-in block scaling</strong> (microscaling / MXFP). Can span 2 SMs. <em>(Multipliers are vendor-stated;
+the low-level TMEM/descriptor layouts are <code>sm_100a</code>-specific and move fast — track CUTLASS source.)</em></li>
+</ul>
+<h3 id="3-2-libraries-over-tensor-cores">3.2 Libraries over Tensor Cores</h3>
+<ul>
+<li><strong>cuBLAS / cuBLASLt</strong> — cuBLASLt is the extended, tunable GEMM API with <strong>epilogue fusion</strong>
+(bias+GELU+scale), FP8 scaling, and algorithm/heuristic selection. Production default for dense GEMM.</li>
+<li><strong>CUTLASS</strong> — the open-source C++ template GEMM/conv library and the <em>reference</em> for how to program
+Tensor Cores. <strong>CuTe</strong> (CUTLASS 3.x) is its core abstraction: a <strong><code>Layout = Shape ⊗ Stride</code></strong> algebra
+over hierarchical Tensors, unifying thread/data mapping, swizzles, TMA descriptors, and MMA atoms in
+one composable type system. If you write custom tensor-core kernels, CuTe layouts are the mental model
+to learn (Colfax Research tutorials are the best on-ramp).</li>
+<li><strong>cuDNN</strong> — DNN primitives (conv via implicit-GEMM/Winograd/FFT, attention, norm, pooling); v8+ graph
+API for fusion.</li>
+</ul>
+<hr />
+<p><a name="4-nvidia-libraries"></a></p>
+<h2 id="4-nvidia-libraries-and-runtime-services">4. NVIDIA — libraries and runtime services</h2>
+<table><thead><tr><th>Library</th><th>Role</th><th>Notes</th></tr></thead><tbody>
+<tr><td><strong>Thrust</strong></td><td>STL-like parallel algorithms over <code>device_vector</code></td><td>convenience layer over CUB; backend-portable</td></tr>
+<tr><td><strong>CUB</strong></td><td>device/block/warp primitives (<code>BlockScan</code>, <code>DeviceRadixSort</code>, <code>WarpReduce</code>)</td><td>fastest sort/scan/reduce building blocks, tuned per-arch — use when Thrust is too coarse</td></tr>
+<tr><td><strong>cuSPARSE</strong></td><td>sparse BLAS (SpMV/SpMM/SpGEMM)</td><td><code>cusparseLt</code> for 2:4 structured-sparsity tensor-core GEMM</td></tr>
+<tr><td><strong>cuFFT</strong></td><td>batched 1/2/3D FFT</td><td><code>cuFFTDx</code> = device-callable FFT you can fuse into a kernel</td></tr>
+<tr><td><strong>cuRAND</strong></td><td>RNG (XORWOW, Philox, Sobol)</td><td>host + device APIs</td></tr>
+<tr><td><strong>NCCL</strong></td><td>multi-GPU/node collectives</td><td>see below</td></tr>
+</tbody></table>
+<p><strong>NCCL</strong> — the backbone of data/tensor-parallel training. The two algorithms to know:</p>
+<ul>
+<li><strong>Ring</strong> — bandwidth-optimal (each rank forwards a chunk to the next, pipelined; comm volume
+<code>2(N-1)/N × data</code>), but latency scales <strong>O(N)</strong> → best for large messages.</li>
+<li><strong>Double-binary-tree</strong> — <strong>O(log N)</strong> latency at full bandwidth → best for small/medium messages at
+large scale (NCCL 2.4+). <strong>CollNet/NVLS</strong> adds in-network (SHARP) reduction.</li>
+</ul>
+<p>NCCL auto-selects by size/topology; <code>NCCL_ALGO</code> forces it.</p>
+<p><strong>CUDA Graphs</strong> — capture a DAG of kernels/copies/memsets once (<code>cudaStreamBeginCapture</code>), instantiate,
+then <strong>replay as one submission</strong>. Per-kernel launch overhead is <strong>~5–10 µs CPU-side</strong> <em>(order-of-
+magnitude, version-dependent)</em>; for many small kernels this is a large fraction of iteration time.
+Graphs cut it to near-constant. Essential for LLM decode / many-small-kernel inference. PyTorch:
+<code>torch.cuda.graph</code> / <code>make_graphed_callables</code>.</p>
+<p><strong>Multi-tenancy and partitioning:</strong></p>
+<ul>
+<li><strong>MPS (Multi-Process Service)</strong> — a daemon that funnels multiple processes' kernels into one context
+so they run <em>concurrently</em> (no context-switch serialization). Soft sharing; improves utilization for
+many small jobs.</li>
+<li><strong>MIG (Multi-Instance GPU, A100+)</strong> — hardware partition into up to <strong>7 isolated instances</strong> with
+dedicated SMs/L2/DRAM/copy-engines. True QoS isolation for multi-tenant cloud.</li>
+<li><strong>Green contexts (CUDA 12.4+)</strong> — carve a set of SMs into a lightweight context (<code>cuGreenCtxCreate</code>)
+for fine-grained SM allocation without full MIG isolation.</li>
+</ul>
+<p><strong>Unified memory</strong> — <code>__managed__</code> / <code>cudaMallocManaged</code>: one pointer valid on host and device, with
+page-faulting migration on demand (Pascal+). Tune with <code>cudaMemPrefetchAsync</code> (move ahead of use) and
+<code>cudaMemAdvise</code> (<code>ReadMostly</code>, <code>PreferredLocation</code>, <code>AccessedBy</code>). Grace-Hopper's cache-coherent
+NVLink-C2C makes CPU/GPU sharing far cheaper (less migration).</p>
+<p><strong>GPUDirect</strong> — <strong>RDMA</strong>: a NIC DMAs straight to/from GPU memory (low-latency multi-node, bypassing a
+host bounce buffer). <strong>Storage (GDS, <code>cuFile</code>)</strong>: NVMe/filesystem DMA direct to GPU memory, bypassing
+the CPU for data loading. See <a href="https://nmbr7.github.io/notes/hardware/interconnects/">Compute Interconnects</a> for the RDMA verbs.</p>
+<hr />
+<p><a name="5-nvidia-optimization"></a></p>
+<h2 id="5-nvidia-optimization-techniques-and-profiling">5. NVIDIA — optimization techniques and profiling</h2>
+<h3 id="5-1-techniques-ranked-by-typical-impact">5.1 Techniques ranked by typical impact</h3>
+<table><thead><tr><th>Rank</th><th>Technique</th><th>Mechanism</th><th>Typical win</th></tr></thead><tbody>
+<tr><td>1</td><td><strong>Global coalescing</strong></td><td>align warp accesses to 128 B lines</td><td>up to N× on memory-bound</td></tr>
+<tr><td>2</td><td><strong>Shared-memory tiling</strong></td><td>stage reused data in SMEM, cut DRAM traffic</td><td>2–10× on GEMM/stencil</td></tr>
+<tr><td>3</td><td><strong>Async pipelining</strong> (cp.async / TMA + multi-stage)</td><td>overlap load with compute</td><td>hides most DRAM latency</td></tr>
+<tr><td>4</td><td><strong>Occupancy ↔ ILP balance</strong> (Volkov)</td><td>fewer threads, more independent work/registers per thread</td><td>~peak ALU at low occupancy</td></tr>
+<tr><td>5</td><td><strong>Bank-conflict removal</strong> (pad / swizzle)</td><td>32 distinct banks/warp</td><td>up to 32× on SMEM-bound</td></tr>
+<tr><td>6</td><td><strong>Vectorized loads</strong> (<code>float4</code>, <code>ld.global.v4</code>)</td><td>128-bit transactions, fewer instrs, better MLP</td><td>1.2–2× mem throughput</td></tr>
+<tr><td>7</td><td><strong>Register-pressure mgmt</strong> (<code>__launch_bounds__</code>, <code>--maxrregcount</code>)</td><td>avoid spills to local memory</td><td>prevents a perf cliff</td></tr>
+<tr><td>8</td><td><strong>Persistent kernels + grid-stride loops</strong></td><td>launch = #SMs blocks, loop over data; avoids relaunch</td><td>cuts launch overhead</td></tr>
+<tr><td>9</td><td><strong>Warp specialization</strong></td><td>dedicate warps to roles (TMA producer vs wgmma consumer), coordinate via mbarrier</td><td>key to Hopper warp-specialized / ping-pong GEMM</td></tr>
+<tr><td>10</td><td><strong><code>__restrict__</code> + <code>const</code></strong></td><td>enable non-aliasing reordering + <code>__ldg</code> read-only cache</td><td>modest, free</td></tr>
+</tbody></table>
+<h3 id="5-2-the-volkov-result-the-most-important-non-obvious-idea">5.2 The Volkov result (the most important non-obvious idea)</h3>
+<p>Vasily Volkov, <em>"Better Performance at Lower Occupancy,"</em> GTC 2010 (and thesis, UC Berkeley
+EECS-2016-143, 2016): latency is hidden by <strong>either</strong> thread-level parallelism (occupancy) <strong>or</strong>
+instruction-level parallelism (independent work per thread). Computing multiple outputs per thread
+(more registers, <em>lower</em> occupancy) can beat max-occupancy code. On G80: ~100% peak at 25% occupancy
+with no ILP, or <strong>8% occupancy with 3-way ILP</strong>. Occupancy-only models mispredict throughput by up to
+<strong>1.7×</strong>. This directly motivates register-blocked GEMM. <strong>Do not fixate on occupancy — profile.</strong></p>
+<p>Little's Law makes it concrete: <code>in-flight work needed = latency × throughput</code>. You supply that in-flight
+work with threads × ILP; max threads is just one way to get there.</p>
+<h3 id="5-3-profiling-nsys-first-then-ncu">5.3 Profiling: nsys first, then ncu</h3>
+<ul>
+<li><strong>Nsight Systems (<code>nsys</code>)</strong> — the <strong>macro</strong> timeline across CPU/GPU/streams/NCCL. Finds launch gaps,
+serialization, missing compute/copy overlap. Start here.</li>
+<li><strong>Nsight Compute (<code>ncu</code>)</strong> — the <strong>micro</strong>, per-kernel tool: <strong>roofline</strong> (compute vs memory bound),
+<strong>warp-stall reasons</strong> (Long Scoreboard = waiting on a global load; MIO Throttle; Barrier; Not
+Selected), occupancy, memory chart. This tells you <em>why</em> a kernel is slow.</li>
+</ul>
+<hr />
+<p><a name="6-amd-rocm-hip"></a></p>
+<h2 id="6-amd-rocm-and-hip">6. AMD — ROCm and HIP</h2>
+<p>AMD's strategy is <strong>source portability</strong>: make CUDA code recompile with minimal changes.</p>
+<h3 id="6-1-hip-the-cuda-clone">6.1 HIP: the CUDA clone</h3>
+<p>HIP (Heterogeneous-compute Interface for Portability) is a C++ runtime + kernel language that is a
+near-1:1 clone of the CUDA API: <code>cudaMalloc</code> → <code>hipMalloc</code>; <code>__global__</code>, <code>__shared__</code>, <code>blockIdx</code> all
+carry over. <strong><code>hipcc</code></strong> dispatches on <code>HIP_PLATFORM</code>:</p>
+<ul>
+<li><code>amd</code> → <strong>HIP-Clang</strong> (ROCm LLVM) + the <strong>ROCclr</strong> runtime → AMD GPUs. Stack:
+<code>HIP → ROCclr → HSA runtime → KFD (/dev/kfd) → amdgpu kernel driver</code>.</li>
+<li><code>nvidia</code> → calls <strong>nvcc</strong>; HIP becomes a <strong>thin header-only shim over CUDA</strong> (macros/inline funcs), so
+there is essentially zero overhead on NVIDIA — it compiles to native CUDA.</li>
+</ul>
+<p><strong>HIPIFY</strong> translates CUDA→HIP:</p>
+<ul>
+<li><strong>hipify-perl</strong> — regex substitution; no CUDA install needed, tolerates broken code, but shallow.</li>
+<li><strong>hipify-clang</strong> — Clang-AST based; needs a working CUDA install (must compile the input), far more
+accurate on macros/templates/type resolution.</li>
+</ul>
+<p>vs CUDA: HIP deliberately lags CUDA feature-for-feature; newest CUDA features arrive late or never, and
+the NVIDIA path is only as good as the underlying CUDA.</p>
+<h3 id="6-2-compilation-and-isa">6.2 Compilation and ISA</h3>
+<p>ROCm ships a fork of LLVM/Clang with the <strong>AMDGPU backend</strong>:</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>HIP/C++ → Clang → LLVM IR → AMDGPU backend → GCN/RDNA/CDNA ISA → code object (ELF) / .hsaco</span></span></code></pre>
+<p>Inspect with <code>llvm-objdump --triple=amdgcn</code>. <strong>gfx targets</strong> are AMD's <code>sm_XX</code>:</p>
+<table><thead><tr><th>gfx</th><th>Arch</th><th>Product</th></tr></thead><tbody>
+<tr><td>gfx906</td><td>GCN5 (Vega)</td><td>MI50/60</td></tr>
+<tr><td><strong>gfx90a</strong></td><td><strong>CDNA2</strong></td><td><strong>MI200 / MI250</strong></td></tr>
+<tr><td><strong>gfx942</strong></td><td><strong>CDNA3</strong></td><td><strong>MI300X / MI300A</strong></td></tr>
+<tr><td>gfx950</td><td>CDNA4</td><td>MI355X</td></tr>
+<tr><td>gfx1100/01/02</td><td>RDNA3</td><td>RX 7900 XTX/XT, W7900</td></tr>
+<tr><td>gfx1200/01</td><td>RDNA4</td><td>RX 9000</td></tr>
+</tbody></table>
+<p>Binaries are <strong>gfx-specific</strong> — you build/ship per-target code objects (fat binaries mitigate, but it's
+real friction vs CUDA's PTX-JIT forward-compat).</p>
+<h3 id="6-3-the-wavefront-gotcha-and-the-scalar-unit">6.3 The wavefront gotcha and the scalar unit</h3>
+<ul>
+<li><strong>Wavefront = 64 threads (GCN/CDNA)</strong> vs <strong>32 (RDNA, "wave32", can also do wave64)</strong>. NVIDIA warps are
+always 32. <strong>Code that assumes a fixed lane count breaks across AMD arches</strong> — query
+<code>__AMDGCN_WAVEFRONT_SIZE</code>, never assume.</li>
+<li><strong>LDS (Local Data Share)</strong> = AMD's shared memory: ~64 KB/CU, 32 banks (confirm exact size per gfx).</li>
+<li><strong>VGPRs vs SGPRs</strong> — a GCN/CDNA distinctive: a separate <strong>scalar unit</strong>. Values uniform across a
+wavefront (loop bounds, base pointers) belong in <strong>SGPRs</strong>, freeing VGPRs for lane-varying data. This
+scalar/vector split is a real perf lever with <strong>no direct CUDA analogue</strong>. On MI300: up to 256
+VGPRs/thread, up to 104 SGPRs/workgroup.</li>
+</ul>
+<p><strong>GCN vs CDNA vs RDNA:</strong> GCN = original 64-wide compute; <strong>CDNA</strong> = datacenter Instinct fork (keeps
+wave64, drops raster hardware, adds MFMA matrix cores + FP64); <strong>RDNA</strong> = consumer/gaming fork (wave32,
+WGP work-group processors, ray tracing, RDNA3+ WMMA, weak/no FP64).</p>
+<hr />
+<p><a name="7-amd-libraries"></a></p>
+<h2 id="7-amd-libraries-matrix-cores-mi300">7. AMD — libraries, matrix cores, MI300</h2>
+<h3 id="7-1-the-library-stack-cublas-cudnn-nccl-analogues">7.1 The library stack (cuBLAS/cuDNN/NCCL analogues)</h3>
+<table><thead><tr><th>ROCm</th><th>CUDA equivalent</th><th>Notes</th></tr></thead><tbody>
+<tr><td><strong>rocBLAS</strong></td><td>cuBLAS</td><td>uses <strong>Tensile</strong> (kernel-gen/autotuner) + hipBLASLt internally</td></tr>
+<tr><td><strong>hipBLAS</strong></td><td>—</td><td>thin portability wrapper → rocBLAS (AMD) or cuBLAS (NVIDIA)</td></tr>
+<tr><td><strong>hipBLASLt</strong></td><td>cuBLASLt</td><td>fusion-capable GEMM (epilogues, scaling); preferred high-perf path</td></tr>
+<tr><td><strong>MIOpen</strong></td><td><strong>cuDNN</strong></td><td>DNN primitives; HIP backend uses rocBLAS/hipBLASLt</td></tr>
+<tr><td><strong>rocFFT / rocSPARSE</strong></td><td>cuFFT / cuSPARSE</td><td>FFT / sparse</td></tr>
+<tr><td><strong>RCCL</strong></td><td><strong>NCCL</strong></td><td>API-compatible collectives</td></tr>
+<tr><td><strong>Composable Kernel (CK)</strong></td><td><strong>CUTLASS</strong></td><td>templated fused GEMM + <strong>fused attention (flash-attn)</strong></td></tr>
+<tr><td>rocPRIM/hipCUB, rocThrust</td><td>CUB/Thrust</td><td>primitives</td></tr>
+<tr><td><strong>AITER</strong></td><td>—</td><td>AI Tensor Engine: optimized attention (MHA/MLA), a PyTorch attention backend</td></tr>
+</tbody></table>
+<p><em>(Library versions as of ROCm ~7.x, mid-2026; many are consolidating into a <code>rocm-libraries</code>
+super-repo — pin to a specific release when citing.)</em></p>
+<h3 id="7-2-matrix-cores">7.2 Matrix cores</h3>
+<ul>
+<li><strong>MFMA</strong> (Matrix Fused Multiply-Add) — <strong>CDNA</strong> (gfx90a/942/950). 4 matrix engines/CU. FP8/FP16/BF16/
+FP32 <strong>and FP64 matrix</strong> (a datacenter differentiator RDNA lacks). Instructions like
+<code>v_mfma_f32_16x16x16_f16</code>. Operates at wavefront (64-lane) granularity with AMD-specific fragment
+layouts — use the <code>amd_matrix_instruction_calculator</code> tool for exact K/M/N/cycles/register layout.</li>
+<li><strong>WMMA</strong> (Wave Matrix Multiply-Accumulate) — <strong>RDNA3+</strong>. Consumer matrix op, 16×16×16 FP16/BF16
+(RDNA4 adds FP8/sparsity), no FP64.</li>
+</ul>
+<p>vs NVIDIA Tensor Cores: same hardware-block-MMA idea, but AMD-specific fragment layouts, programmed via
+compiler intrinsics / CK / hipBLASLt rather than a <code>wmma::</code> fragment API or <code>mma.sync</code> PTX, and CUTLASS
+is more mature than CK (though CK has closed the gap for attention).</p>
+<h3 id="7-3-mi300-chiplets-unified-memory">7.3 MI300, chiplets, unified memory</h3>
+<ul>
+<li><strong>MI300A (APU)</strong> — per socket: 6 XCDs (Accelerator Complex Dies) → <strong>228 CDNA3 CUs</strong>, 3 CCDs → <strong>24
+Zen4 cores</strong>, <strong>128 GB HBM3 unified</strong> shared CPU+GPU → true zero-copy (no PCIe transfers), same win as
+Apple UMA but at HBM bandwidth. Caveat <em>(Chips and Cheese)</em>: HBM3 + Infinity Cache is high-bandwidth
+but high-latency — great for latency-tolerant GPU, worse for latency-sensitive CPU code.</li>
+<li><strong>MI300X</strong> — pure GPU: 8 XCDs, <strong>192 GB HBM3, ~5.3 TB/s</strong>.</li>
+<li>XCD chiplets over <strong>Infinity Fabric</strong>; multi-socket over <strong>xGMI</strong> (see
+<a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a>).</li>
+<li><strong>hipGraph</strong> — CUDA-Graphs equivalent (capture/replay DAG, low launch overhead).</li>
+</ul>
+<h3 id="7-4-expert-tricks-and-profiling">7.4 Expert tricks and profiling</h3>
+<ul>
+<li><strong>Occupancy</strong> = min over (VGPRs, SGPRs, LDS, workgroup slots).</li>
+<li><strong>LDS bank conflicts</strong> — 32 banks; fix with <strong>XOR pre-swizzling</strong> (conflict-free, zero extra LDS) or
+padding. RGP exposes an LDS-bank-conflict counter.</li>
+<li><strong><code>s_waitcnt</code> manual sync</strong> — AMD has <strong>no automatic dependency tracking</strong> for memory ops; the
+compiler inserts <code>s_waitcnt vmcnt/lgkmcnt/expcnt</code> to stall until outstanding vector-memory / LDS+
+scalar / export counts drain. Structuring code so the compiler emits fewer (or hand-tuning them in
+ISA) is a real lever.</li>
+<li><strong>GCN memory clause</strong> — group memory instructions so hardware issues them back-to-back and overlaps
+latency, rather than interleaving with ALU that forces early waits.</li>
+<li><strong>Profiling</strong> — <code>rocprof</code>/<code>rocprofv3</code> (counters/traces), <strong>Omniperf</strong> (now "ROCm Compute Profiler":
+roofline, per-kernel bottleneck), Omnitrace (system trace), RGP (Radeon GPU Profiler).</li>
+</ul>
+<h3 id="7-5-limitations">7.5 Limitations</h3>
+<p>Consumer-GPU support is second-class (datacenter MI-series is the tested path; RDNA support is secondary
+and shifts release-to-release); <strong>ROCm ML on Windows is largely unsupported</strong> (use WSL2/Linux); driver
+<code>amdgpu</code>+ROCm version coupling and DKMS pain on Linux; gfx binary fragmentation; ecosystem breadth still
+trails CUDA (closing fast on datacenter via upstream PyTorch/vLLM/flash-attention).</p>
+<hr />
+<p><a name="8-apple-metal"></a></p>
+<h2 id="8-apple-metal-compute">8. Apple — Metal compute</h2>
+<p>Apple has no CUDA, no cross-vendor path — <strong>Metal is the only low-level GPU API on macOS/iOS</strong>, and its
+defining trait is the unified memory architecture.</p>
+<h3 id="8-1-object-model-and-msl">8.1 Object model and MSL</h3>
+<p><code>MTLDevice</code> (the GPU) → <code>MTLCommandQueue</code> (≈ a CUDA stream) → <code>MTLCommandBuffer</code> (a batch) →
+<code>MTLComputeCommandEncoder</code> (encodes dispatches); <code>MTLComputePipelineState</code> = a compiled kernel + config
+(≈ a CUDA module+function). Dispatch via <code>dispatchThreadgroups</code> or <code>dispatchThreads</code>.</p>
+<p><strong>MSL (Metal Shading Language)</strong> is <strong>C++14-based</strong> (closer to modern CUDA C++ than to C). Kernels are
+<code>kernel void</code>; indexing via attributes:</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>kernel void saxpy(device const float* x   [[buffer(0)]],</span></span>
+<span class="giallo-l"><span>                  device       float* y   [[buffer(1)]],</span></span>
+<span class="giallo-l"><span>                  constant     float&amp; a   [[buffer(2)]],</span></span>
+<span class="giallo-l"><span>                  uint gid [[thread_position_in_grid]]) {  // ≈ blockIdx*blockDim + threadIdx</span></span>
+<span class="giallo-l"><span>    y[gid] = a * x[gid] + y[gid];</span></span>
+<span class="giallo-l"><span>}</span></span></code></pre>
+<p>Execution hierarchy: <strong>threadgroup</strong> ≈ block; <strong>SIMD-group = 32 threads</strong> (lockstep, confirmed 32-wide
+across current Apple Silicon); <strong>threadgroup memory</strong> ≈ shared/LDS with
+<code>threadgroup_barrier(mem_flags::mem_threadgroup)</code>.</p>
+<h3 id="8-2-unified-memory-architecture-uma-the-headline">8.2 Unified Memory Architecture (UMA) — the headline</h3>
+<p>CPU, GPU, and Neural Engine share <strong>one physical LPDDR5X pool</strong> over a wide on-die bus. <strong>No discrete
+VRAM, no PCIe copies</strong> — weights aren't duplicated or transferred, so a 512 GB M3 Ultra can hold models
+an 80 GB H100 cannot. <code>MTLStorageMode</code>:</p>
+<ul>
+<li><strong><code>.shared</code></strong> — CPU+GPU coherent, <strong>zero-copy</strong> on Apple Silicon (the common case).</li>
+<li><strong><code>.private</code></strong> — GPU-only, faster (no CPU coherence bookkeeping), needs a blit to populate.</li>
+<li><strong><code>.managed</code></strong> — legacy Intel-Mac / discrete-GPU mode (explicit <code>didModifyRange</code>); irrelevant on
+Apple Silicon.</li>
+<li><strong><code>.memoryless</code></strong> — tile-only transient (TBDR).</li>
+</ul>
+<p>Unified bandwidth (shared CPU+GPU): <strong>M3 Max 400 GB/s, M4 Max 546 GB/s, M3 Ultra 819 GB/s</strong> (M2 Ultra
+800). <em>(No M4 Ultra existed as of this research; M5 generation emerging — re-verify.)</em> LLM inference here
+is bandwidth-bound (weight loading), so these numbers cap tok/s.</p>
+<h3 id="8-3-tbdr-implications-for-compute">8.3 TBDR implications for compute</h3>
+<p>Apple GPUs are <strong>Tile-Based Deferred Renderers</strong>: the screen is split into tiles held in fast on-chip
+tile memory, slashing DRAM bandwidth. Compute-relevant features:</p>
+<ul>
+<li><strong>Imageblocks</strong> — structured 2D data in tile memory, accessible from kernel functions, single-op
+load/store.</li>
+<li><strong>Tile shaders</strong> — fuse render + compute in one pass sharing imageblock/threadgroup memory (e.g.
+per-tile depth min/max → light culling → shading, all on-chip).</li>
+<li>Takeaway: the architecture rewards keeping working sets in tile/threadgroup memory and avoiding
+round-trips to unified DRAM.</li>
+</ul>
+<h3 id="8-4-simd-group-functions-warp-intrinsic-analogues">8.4 SIMD-group functions (warp-intrinsic analogues)</h3>
+<p><code>simd_shuffle</code>, <code>simd_shuffle_xor</code>, <code>simd_sum</code>, <code>simd_prefix_exclusive_sum</code>, <code>simd_broadcast</code>,
+<code>simd_ballot</code> — reductions/scans/exchanges across the 32 lanes <strong>without threadgroup memory or
+barriers</strong>, exactly like CUDA <code>__shfl_sync</code>.</p>
+<hr />
+<p><a name="9-apple-mlx"></a></p>
+<h2 id="9-apple-ml-stack-and-mlx">9. Apple — ML stack and MLX</h2>
+<h3 id="9-1-the-acceleration-blocks-and-which-you-can-actually-reach">9.1 The acceleration blocks (and which you can actually reach)</h3>
+<ul>
+<li><strong>MPS / MPSGraph</strong> — Metal Performance Shaders: hand-tuned kernels (GEMM, conv, RNN) ≈ a cuDNN+cuBLAS
+bundle. <strong>MPSGraph</strong> builds/optimizes/executes op DAGs and can run Core ML models. This is what
+PyTorch-MPS and many frameworks call under the hood.</li>
+<li><strong>simdgroup_matrix</strong> — MSL's on-GPU "tensor core": cooperative 8×8 (and tiled larger) matrix multiply
+across a 32-lane SIMD-group, cutting register pressure in FP16/FP32 GEMM. <strong>Metal 4 / M5 "neural
+accelerators"</strong> expose new TensorOps / Metal Performance Primitives. <em>(Exact tile sizes/throughput per
+generation are partly reverse-engineered — Rigel arXiv 2606.12765, philipturner/metal-benchmarks —
+not fully Apple-documented.)</em></li>
+<li><strong>AMX</strong> — an <strong>undocumented CPU-side matrix coprocessor</strong> (one block per CPU cluster), reachable <strong>only
+via Apple's Accelerate</strong> (BLAS/vDSP), <strong>not from Metal</strong>. Specs are third-party reverse-engineered.</li>
+<li><strong>ANE (Apple Neural Engine)</strong> — the dedicated, extremely power-efficient NPU, reachable <strong>only through
+Core ML</strong> — <strong>not from Metal or MLX</strong>. A hard ecosystem wall (Orion arXiv 2603.06728 reverse-engineers
+it for LLMs).</li>
+</ul>
+<h3 id="9-2-mlx">9.2 MLX</h3>
+<p>Apple's open-source NumPy/JAX-like array framework:</p>
+<ul>
+<li><strong>Unified-memory native</strong> — arrays live in the shared pool; ops dispatch to CPU or GPU with <strong>no data
+movement</strong>. Unlike PyTorch's <code>.to(device)</code> model, an <code>mx.array</code> isn't tied to a device.</li>
+<li><strong>Lazy evaluation</strong> — ops build a graph, materialized only at <code>mx.eval()</code>, enabling <strong>kernel fusion</strong>
+and reduced launch overhead (important given Metal's dispatch cost). Over-calling <code>mx.eval()</code> breaks
+fusion and adds sync points.</li>
+<li><strong>JAX-style transforms</strong> — <code>grad</code>, <code>vmap</code>, compile. Maps to Metal kernels (Metal 4 → TensorOps).</li>
+<li><strong>mlx-lm</strong> — LLM library on top: optimized inference, speculative decoding, KV-cache management,
+LoRA fine-tuning. The practical local-LLM entry point on Mac, alongside llama.cpp's Metal backend.</li>
+</ul>
+<h3 id="9-3-ecosystem-and-limits">9.3 Ecosystem and limits</h3>
+<ul>
+<li><strong>llama.cpp Metal backend</strong> — mature custom-MSL quantized GEMV/attention; often the fastest GGUF path.</li>
+<li><strong>PyTorch MPS</strong> — functional but gappy: <code>PYTORCH_ENABLE_MPS_FALLBACK=1</code> silently runs unsupported ops
+on <strong>CPU</strong> (a perf cliff that hides bugs); missing/partial ops (some complex ops); <strong>FP8 tensors exist
+but can't compute</strong>; <strong>no FP64</strong>; no CUDA-graph parity.</li>
+<li><strong>Limitations</strong>: macOS/iOS only; <strong>no hardware FP64</strong> (MPS rejects float64; emulation is very slow —
+disqualifies much HPC); younger ecosystem; ANE closed; single-vendor.</li>
+</ul>
+<hr />
+<p><a name="10-portability"></a></p>
+<h2 id="10-cross-vendor-portability-sycl-vulkan-wgpu">10. Cross-vendor portability: SYCL, Vulkan, wgpu</h2>
+<h3 id="10-1-sycl-oneapi-single-source-c">10.1 SYCL / oneAPI — single-source C++</h3>
+<p>SYCL 2020 (Khronos) is <strong>single-source C++17</strong>: host + device in one <code>.cpp</code>, a kernel is a lambda in
+<code>queue.submit(...).parallel_for(...)</code>. Two memory models:</p>
+<ul>
+<li><strong>Buffer/accessor</strong> — wrap data in <code>buffer</code>, request <code>accessor</code>s; the runtime builds a task DAG from
+accessor dependencies and schedules automatically (safer, implicit sync).</li>
+<li><strong>USM (Unified Shared Memory)</strong> — raw pointers (<code>malloc_device</code> / <code>malloc_shared</code> / <code>malloc_host</code>),
+CUDA-like explicit <code>memcpy</code> + <code>depends_on</code> (easier CUDA porting; <code>malloc_shared</code> = page-migrated).</li>
+</ul>
+<p>Execution: <code>nd_range</code> = global + local range → <strong>work-groups</strong> (≈ blocks) → <strong>sub-groups</strong> (≈ warps,
+32/64 lanes, with shuffles/reductions).</p>
+<p>Two implementations matter:</p>
+<ul>
+<li><strong>DPC++</strong> (Intel's LLVM compiler, the oneAPI reference) — backends via a plugin layer: <strong>Level Zero</strong>
+(Intel GPU), <strong>CUDA</strong> (emits PTX), <strong>HIP</strong> (amdgcn), OpenCL, CPU. Ships <strong>oneMKL</strong> (BLAS/FFT/RNG),
+<strong>oneDNN</strong>, oneDPL; <strong>SYCLomatic/<code>dpct</code></strong> migrates CUDA→SYCL (~80–90% automatic).</li>
+<li><strong>AdaptiveCpp</strong> (formerly hipSYCL/OpenSYCL) — community/independent. Headline: a <strong>single-pass SSCP
+compiler</strong> (IWOCL 2023) that parses SYCL <em>once</em> into device-independent LLVM IR, then JIT-lowers to
+PTX/amdgcn/SPIR-V at runtime (vs DPC++'s multi-pass per-target). Because its CUDA/HIP path augments
+clang's CUDA/HIP frontend, you can <strong>mix SYCL and CUDA/HIP in one source file</strong>.</li>
+</ul>
+<p>SYCL doesn't fuse across <code>parallel_for</code> by default; fusion comes from DPC++'s experimental kernel-fusion
+extension or writing fused kernels by hand (oneDNN does graph-level fusion).</p>
+<p><strong>Perf vs native CUDA</strong>: recent studies put DPC++ within <strong>~3%</strong> of native on Polybench-class GPU
+workloads <em>(edge study, J. Supercomputing 2024; workload-specific — not universal)</em>. <strong>Limitations</strong>:
+trails on bleeding-edge features (newest tensor-core shapes, TMA/cluster launch, warp specialization),
+smaller tuned-library surface than cuBLAS/CUTLASS/cuDNN, extra abstraction. Used by DOE Aurora,
+ROOT/RDataFrame. Best for portable C++ HPC.</p>
+<h3 id="10-2-vulkan-compute-maximum-reach-maximum-boilerplate">10.2 Vulkan compute — maximum reach, maximum boilerplate</h3>
+<p>Low-level explicit API. Compute shaders in GLSL/HLSL/Slang → <strong>SPIR-V</strong> (offline). Pieces:</p>
+<ul>
+<li><strong>VkPipeline</strong> (compute) wraps one entry point + layout.</li>
+<li><strong>Descriptor sets</strong> bind resources (verbose; <code>VK_EXT_descriptor_indexing</code> / descriptor buffers ease
+it); <strong>push constants</strong> = tiny (~128–256 B) inline uniforms, the fastest param path.</li>
+<li><strong>Buffer device address</strong> (<code>VK_KHR_buffer_device_address</code>) — raw 64-bit GPU pointers → bindless.</li>
+<li><strong>Subgroups</strong> (<code>VK_KHR_shader_subgroup*</code>) — warp-level ballot/shuffle/arithmetic.</li>
+<li><strong>Cooperative matrix</strong> (<code>VK_KHR_cooperative_matrix</code>, 2023) — the <strong>portable path to tensor cores
+outside CUDA</strong>. Subgroup-scoped tiles are small, so naive GEMM underperforms; you must hand-tile
+through shared memory. <code>VK_NV_cooperative_matrix2</code> (Oct 2024, NVIDIA-only) adds workgroup-scope
+matrices to fix this.</li>
+<li><strong>Explicit sync</strong> — pipeline barriers, events, semaphores (incl. timeline), fences. You own all hazard
+tracking.</li>
+<li>Cross-vendor: NVIDIA/AMD/Intel native; <strong>Apple via MoltenVK</strong> (Vulkan→Metal translation, subset).</li>
+</ul>
+<p>Pros: runs on essentially every modern GPU + Apple; explicit → predictable; tensor cores via coopmat.
+Cons: extreme boilerplate; manual sync/memory/descriptors; no single-source. Used by llama.cpp's Vulkan
+backend, ncnn.</p>
+<h3 id="10-3-wgpu-webgpu-write-once-including-the-browser">10.3 wgpu / WebGPU — write once, including the browser</h3>
+<p>The Rust <code>wgpu</code> crate implements the <strong>WebGPU</strong> standard; shaders in <strong>WGSL</strong> (also SPIR-V/GLSL). One
+API over <strong>Vulkan, Metal, DX12, GL, and browser WebGPU + WASM</strong>. Compute via pipelines + <strong>bind groups</strong>
+(WebGPU's descriptor-set analog). Safer/higher-level than raw Vulkan, auto sync.</p>
+<p><strong>Portability tax</strong>: WebGPU is a lowest-common-denominator API — <strong>no tensor-core / cooperative-matrix
+access yet</strong> (subgroup/coopmat extensions in progress — verify current status), browser resource limits,
+no arbitrary pointers, WGSL less expressive than CUDA/HLSL. Expect a real gap vs native for tensor-core
+GEMM. ML use: Burn's <code>burn-wgpu</code>, wonnx (ONNX on wgpu), WebLLM (in-browser LLMs).</p>
+<h3 id="10-4-spir-v-and-the-rest-briefly">10.4 SPIR-V and the rest, briefly</h3>
+<ul>
+<li><strong>SPIR-V</strong> — Khronos binary IR; consumed by Vulkan (all shaders), OpenCL 2.1+, SYCL (Level Zero/
+OpenCL backends), rust-gpu, AdaptiveCpp. <strong>SPIRV-Cross</strong> transpiles SPIR-V → GLSL/HLSL/MSL (how
+MoltenVK/wgpu retarget Metal/DX). Two dialects (Vulkan "Logical" vs OpenCL "Physical" pointer models)
+aren't fully interchangeable.</li>
+<li><strong>OpenCL</strong> — the original portable GPGPU (2009); faded due to verbose host API, separate-source string
+kernels, weak vendor optimizers, and NVIDIA deprioritizing it for CUDA. Alive as a <em>backend</em> (POCL,
+rusticl) and SPIR-V consumer.</li>
+<li><strong>Kokkos / RAJA / Alpaka</strong> — C++ template perf-portability layers (parallel_for + memory/execution
+spaces) backing onto CUDA/HIP/SYCL/OpenMP. Kokkos &amp; RAJA are DOE Exascale Computing Project; best for
+scientific HPC needing one source across Frontier (AMD) / Aurora (Intel) / Perlmutter (NVIDIA).</li>
+<li><strong>OpenMP target offload</strong> — <code>#pragma omp target teams distribute parallel for</code>; lowest porting effort,
+least control. <strong>NVHPC stdpar</strong> — <code>std::for_each(std::execution::par_unseq, …)</code> auto-offloaded by
+nvc++ (uses managed memory); zero GPU-specific code, limited to STL-algorithm shapes.</li>
+</ul>
+<hr />
+<p><a name="11-rust-gpu"></a></p>
+<h2 id="11-rust-on-the-gpu">11. Rust on the GPU</h2>
+<p>Three real paths, plus binding crates.</p>
+<ul>
+<li><strong>Rust-CUDA</strong> — <code>rustc_codegen_nvvm</code> is a rustc backend emitting NVVM IR → <strong>PTX</strong> (compile Rust
+<em>kernels</em> for NVIDIA); host side uses <strong><code>cust</code></strong> to load PTX and launch via the driver API. Dormant
+for ~3 years, <strong>revived 2024–25</strong> with CUDA 12.x support and context hardening; requires a <strong>pinned
+nightly</strong> (<code>rust-toolchain.toml</code>, uses rustc internals). <em>(Exact nightly drifts — check the repo.)</em></li>
+<li><strong>rust-gpu</strong> — compiles Rust → <strong>SPIR-V</strong> for Vulkan (graphics + compute); uses <strong>SPIR-T</strong> for
+optimization. Moved to the community Rust-GPU org (2024); ~90% of a real shader repo has been ported,
+each compiling to valid SPIR-V droppable into the original pipeline. Best for Vulkan compute in Rust.</li>
+<li><strong>CubeCL</strong> (Burn team) — a multi-backend Rust <strong>kernel language</strong> targeting <strong>CUDA, ROCm/HIP, wgpu
+(Vulkan/Metal/DX/WebGPU), Metal</strong>. Two standout features: <strong>comptime</strong> (modify compiler IR at first
+compile — instruction specialization, loop unrolling, shape specialization) and <strong>runtime
+autotuning</strong> (micro-benchmark to pick the best config per hardware). Powers Burn's backends; its
+matmul engine <strong>reportedly rivals cuBLAS/CUTLASS</strong> across backends <em>(project's own claim — no
+independent third-party parity benchmark seen; verify)</em>.</li>
+</ul>
+<p><strong>Binding/runtime crates</strong>: <code>cudarc</code> (safe CUDA + cuBLAS/cuDNN/NCCL, used by candle), <code>candle</code>
+(HuggingFace tensor lib, CUDA+Metal+CPU), <code>burn</code> (full DL framework, CubeCL-powered), <code>ash</code> (Vulkan),
+<code>metal-rs</code> (Metal), <code>wgpu</code>, <code>ocl</code>.</p>
+<p><strong>Why Rust-on-GPU is hard</strong>: kernels are <strong>no_std / no-alloc</strong> (no heap, restricted panic); <strong>ownership
+and lifetimes don't map to GPU memory</strong> (address spaces, manual barriers, SIMT divergence sit outside
+Rust's aliasing model — the borrow checker doesn't cover cross-thread GPU races); SPIR-V logical
+addressing forbids arbitrary pointer casts Rust code assumes; and tooling/maturity (pinned nightlies,
+thin debuggers) trails CUDA C++. Verdict: <strong>CubeCL</strong> most production-ready and portable, <strong>rust-gpu</strong> for
+Vulkan, <strong>Rust-CUDA</strong> for NVIDIA-native PTX.</p>
+<hr />
+<p><a name="12-python-gpu"></a></p>
+<h2 id="12-python-on-the-gpu">12. Python on the GPU</h2>
+<p>The dominant on-ramp, and increasingly where custom kernels are written too ("write Python, get PTX").</p>
+<table><thead><tr><th>Tool</th><th>What it is</th><th>Model</th><th>When</th></tr></thead><tbody>
+<tr><td><strong>CuPy</strong></td><td>NumPy/SciPy-compatible GPU arrays; wraps cuBLAS/cuDNN/cuFFT; custom <code>RawKernel</code>/<code>ElementwiseKernel</code></td><td>drop-in ndarray</td><td>fastest path to move NumPy code to GPU</td></tr>
+<tr><td><strong>Numba CUDA</strong></td><td><code>@cuda.jit</code> JITs a Python subset → PTX (LLVM)</td><td>explicit threads/blocks in Python</td><td>prototyping kernels without C++</td></tr>
+<tr><td><strong>PyCUDA</strong></td><td>thin driver-API bindings; compile CUDA-C strings at runtime</td><td>manual</td><td>legacy/fine control; superseded by cuda.core</td></tr>
+<tr><td><strong>cuda-python / <code>cuda.core</code></strong></td><td>official driver+runtime+NVRTC bindings; <code>cuda.core</code> = ergonomic layer</td><td>low-level, canonical</td><td>the sanctioned base others build on</td></tr>
+<tr><td><strong>Triton (OpenAI)</strong></td><td>Python <strong>tile</strong> DSL, JIT via MLIR → PTX; <code>tl.dot</code> → tensor cores; auto coalescing/SMEM/pipelining; <code>@triton.autotune</code></td><td>block-level, not thread-level</td><td>dominant for custom fused kernels; near-CUTLASS, far more productive</td></tr>
+<tr><td><strong>torch.compile / TorchInductor</strong></td><td>PyTorch 2 graph compiler; <strong>generates Triton</strong> for GPU (default since PT 2.0)</td><td>automatic from eager code</td><td>zero-effort fusion for model code</td></tr>
+<tr><td><strong>JAX + XLA</strong></td><td>functional array API; XLA fuses to GPU (+ <strong>Pallas</strong> for custom tile kernels)</td><td>whole-program <code>jit</code>/<code>vmap</code>/<code>pmap</code></td><td>research; XLA fusion is the perf engine</td></tr>
+<tr><td><strong>NVIDIA Warp</strong></td><td>Python kernel JIT for simulation/graphics (differentiable physics)</td><td><code>@wp.kernel</code>, thread-per-element</td><td>robotics/sim, not general DL</td></tr>
+<tr><td><strong>MLX</strong></td><td>Apple's array framework</td><td>unified-memory, lazy</td><td>local ML on Apple Silicon (§9)</td></tr>
+</tbody></table>
+<p>Rule of thumb: array-level → CuPy/JAX; productive custom fused kernel → <strong>Triton</strong>; last-10% peak →
+CUTLASS/CuTe in C++; full driver control → cuda.core.</p>
+<hr />
+<p><a name="13-c-cpp"></a></p>
+<h2 id="13-c-c-across-vendors">13. C / C++ across vendors</h2>
+<p>C++ is the canonical low-level GPU target on every vendor — everything above (Python, Rust, portability
+layers) ultimately emits or wraps a C++-shaped kernel. The fundamental split is <strong>how host and device
+code relate</strong>:</p>
+<ul>
+<li><strong>Single-source</strong> (CUDA C++, HIP C++, SYCL): host and device in one translation unit, one compiler
+driver handling both. Ergonomic — you write a kernel next to its launch, share types and templates.
+This is why CUDA/HIP/SYCL feel productive.</li>
+<li><strong>Separate-shader</strong> (Vulkan, Metal): device code is a <em>separate</em> shader language (GLSL/HLSL/WGSL/MSL)
+compiled to an IR (SPIR-V / AIR) that the host C/C++ program loads at runtime. More boilerplate
+(descriptor sets, pipeline objects, explicit sync), but decoupled — the same host code drives any
+shader, and shaders ship as portable IR.</li>
+</ul>
+<p>Practical guidance for C/C++: for NVIDIA-only, CUDA C++ with CUTLASS/CuTe is the peak-perf path; for
+AMD+NVIDIA source portability, HIP; for vendor-neutral single-source, SYCL (DPC++/AdaptiveCpp); for
+ship-to-literally-everything including Apple and the browser, Vulkan (via MoltenVK) or wgpu, accepting
+the boilerplate and portability tax.</p>
+<hr />
+<p><a name="14-optimization-theory"></a></p>
+<h2 id="14-cross-cutting-optimization-theory-vendor-neutral">14. Cross-cutting optimization theory (vendor-neutral)</h2>
+<p>These principles hold regardless of vendor; the per-vendor sections above are applications of them.</p>
+<p><strong>1. Roofline</strong> (Williams, Waterman, Patterson, <em>CACM</em> 2009). <code>attainable FLOP/s = min(peak compute, arithmetic_intensity × peak bandwidth)</code>, where <strong>AI = FLOPs / bytes moved</strong>. Left of the ridge point =
+<strong>memory-bound</strong>; right = <strong>compute-bound</strong>. E.g. an A100 (~19.5 TF32 TFLOP/s, ~1.5–2 TB/s HBM) has a
+ridge at ~10 FLOP/byte: GEMV/elementwise (AI&lt;1) are memory-bound; large GEMM (AI in the hundreds) is
+compute-bound. The math is detailed in
+<a href="https://nmbr7.github.io/notes/hardware/gpu-tpu-accelerator-design/">GPU/TPU chip-design §18</a> — this doc uses it as the lens for
+deciding whether to attack bandwidth or compute.</p>
+<p><strong>2. Occupancy + latency hiding via Little's Law.</strong> GPUs hide latency with parallelism, not caches.
+<code>in-flight work = latency × throughput</code>. Supply it with threads × ILP — <strong>not necessarily max threads</strong>
+(§5.2, Volkov: ILP hides latency at low occupancy; occupancy-only models err up to 1.7×).</p>
+<p><strong>3. Kernel / operator fusion.</strong> Merge ops to avoid round-tripping intermediates through global memory.
+Elementwise chains and softmax/layernorm/attention are memory-bound → fusion cuts DRAM traffic, often
+the dominant win. <strong>FlashAttention</strong> is the canonical example (fuses attention, tiles in SRAM). Enabled
+by Triton, torch.compile, XLA, TVM, oneDNN, CK, MLX.</p>
+<p><strong>4. Tiling / register blocking.</strong> Stage tiles of operands into on-chip scratchpad (SMEM/LDS/threadgroup,
+~100× faster than global), reuse across a block; hold sub-tiles in <strong>registers</strong> for the innermost
+accumulate. This is how GEMM reaches peak — raise arithmetic intensity by maximizing on-chip reuse.
+Tensor-core / cooperative-matrix GEMM <em>still</em> needs an outer shared-memory tiling loop.</p>
+<p><strong>5. Autotuning + JIT specialization.</strong> <strong>Triton</strong> (<code>@triton.autotune</code> sweeps block sizes / num_warps /
+num_stages), <strong>TVM + Ansor</strong> (auto-schedule search), Kernl. JIT specializes on shapes/dtypes at first
+call. The trend is away from one hand-written kernel toward a <em>search</em> over a parameterized space.</p>
+<p><strong>6. Precision / quantization → throughput.</strong> Lower precision gives roughly linear tensor-core throughput
+gains and halved/quartered bandwidth+footprint. Rough tensor-core scaling: <strong>FP16/BF16 ≈ 2× FP32(TF32);
+INT8/FP8 ≈ 2× FP16; FP4 (Blackwell) higher still</strong> <em>(approximate, arch-family-dependent — pull the
+specific datasheet)</em>. BF16 keeps FP32's exponent range (training-friendly); FP8 (E4M3/E5M2) and INT8 for
+inference with calibration/QAT. You trade accuracy for throughput + memory.</p>
+<p><strong>7. Host↔device transfer.</strong> <strong>PCIe Gen4 x16 ≈ 32 GB/s, Gen5 ≈ 64 GB/s</strong> — vs HBM ~1.5–3+ TB/s and
+NVLink 4/5 ~450–900+ GB/s. Mitigate with <strong>pinned (page-locked) host memory</strong> (enables true DMA, ~2×
+faster, async-capable), <strong>overlap copy with compute via multiple streams / copy engines</strong> (double-buffer
+H2D/compute/D2H), and keeping data resident on-device. See
+<a href="https://nmbr7.github.io/notes/hardware/pcie-internals/">PCIe Internals</a> and <a href="https://nmbr7.github.io/notes/hardware/interconnects/">Interconnects</a>.</p>
+<hr />
+<p><a name="15-matrix"></a></p>
+<h2 id="15-limitations-and-advantages-matrix">15. Limitations and advantages matrix</h2>
+<h3 id="15-1-vendor-comparison">15.1 Vendor comparison</h3>
+<table><thead><tr><th>Axis</th><th>NVIDIA CUDA</th><th>AMD ROCm/HIP</th><th>Apple Metal</th></tr></thead><tbody>
+<tr><td>Ecosystem maturity</td><td>★★★★★ (~15 yr)</td><td>★★★☆ (datacenter fast-improving)</td><td>★★★ (young, growing)</td></tr>
+<tr><td>Portability</td><td>NVIDIA-only</td><td>source-portable (HIP→NVIDIA too)</td><td>Apple-only</td></tr>
+<tr><td>Peak perf ceiling</td><td>highest (wgmma/tcgen05)</td><td>high (MFMA, MI300)</td><td>mid (simdgroup_matrix)</td></tr>
+<tr><td>OS</td><td>Linux-first, Windows</td><td>Linux-first (Windows ML weak)</td><td>macOS/iOS only</td></tr>
+<tr><td>Language on-ramps</td><td>richest (C++/Rust/Python)</td><td>HIP C++, Python (rising)</td><td>MSL/Swift, MLX/Python</td></tr>
+<tr><td>Openness</td><td>closed SASS/ptxas/libs (CUTLASS/CUB/NCCL open)</td><td><strong>open source</strong></td><td>closed (ANE fully closed)</td></tr>
+<tr><td>FP64</td><td>yes</td><td>yes (CDNA) / weak (RDNA)</td><td><strong>no</strong></td></tr>
+<tr><td>Memory model</td><td>discrete + optional UM</td><td>discrete / <strong>MI300A UMA-HBM</strong></td><td><strong>UMA zero-copy</strong></td></tr>
+<tr><td>Killer feature</td><td>Tensor Cores + tooling (Nsight)</td><td>open + MI300 UMA-HBM + FP64 matrix</td><td>huge cheap unified memory for local LLMs</td></tr>
+</tbody></table>
+<h3 id="15-2-portability-layer-decision-matrix">15.2 Portability-layer decision matrix</h3>
+<table><thead><tr><th>Layer</th><th>Cross-vendor</th><th>Tensor cores</th><th>Single-source</th><th>Perf vs native</th><th>Boilerplate</th><th>Best for</th></tr></thead><tbody>
+<tr><td>SYCL/DPC++</td><td>NV/AMD/Intel/CPU</td><td>yes (backend)</td><td>yes (C++)</td><td>~97%</td><td>low</td><td>portable C++ HPC / oneAPI</td></tr>
+<tr><td>AdaptiveCpp</td><td>NV/AMD/Intel/CPU</td><td>yes</td><td>yes (single-pass)</td><td>~90–97%</td><td>low</td><td>vendor-independent SYCL</td></tr>
+<tr><td>Vulkan compute</td><td>all GPUs + Apple (MoltenVK)</td><td>yes (coopmat)</td><td>no</td><td>high (manual)</td><td>very high</td><td>ship-everywhere / max control</td></tr>
+<tr><td>wgpu/WebGPU</td><td>all + browser/WASM</td><td>not yet</td><td>yes (WGSL)</td><td>portability tax</td><td>low</td><td>browser / cross-platform + safety</td></tr>
+<tr><td>Kokkos/RAJA</td><td>via CUDA/HIP/SYCL</td><td>via backend</td><td>yes (C++)</td><td>~native</td><td>medium</td><td>DOE/exascale scientific C++</td></tr>
+<tr><td>OpenCL</td><td>all (fading)</td><td>limited</td><td>no</td><td>varies</td><td>high</td><td>legacy/embedded, SPIR-V backend</td></tr>
+</tbody></table>
+<h3 id="15-3-rust-on-gpu-decision-matrix">15.3 Rust-on-GPU decision matrix</h3>
+<table><thead><tr><th>Project</th><th>Targets</th><th>Authoring</th><th>Maturity</th><th>Best for</th></tr></thead><tbody>
+<tr><td>CubeCL</td><td>CUDA/ROCm/wgpu/Metal</td><td>Rust + comptime + autotune</td><td>rising fast</td><td>portable high-perf Rust kernels</td></tr>
+<tr><td>rust-gpu</td><td>SPIR-V → Vulkan</td><td>Rust → SPIR-V</td><td>community, active</td><td>Vulkan compute in Rust</td></tr>
+<tr><td>Rust-CUDA</td><td>NVIDIA PTX</td><td>Rust → NVVM</td><td>revived, nightly-pinned</td><td>NVIDIA-native Rust</td></tr>
+<tr><td>candle / burn</td><td>CUDA/Metal/wgpu/CPU</td><td>framework tensors</td><td>production</td><td>ML inference/training in Rust</td></tr>
+</tbody></table>
+<h3 id="15-4-if-you-need-x-use-y-cheat-sheet">15.4 "If you need X, use Y" cheat-sheet</h3>
+<ul>
+<li><strong>Absolute peak on NVIDIA</strong> → CUDA C++ + CUTLASS/CuTe (or cuBLASLt/cuDNN if a library covers it).</li>
+<li><strong>Productive custom fused kernels</strong> → Triton (Python) — near-peak, far less effort.</li>
+<li><strong>Run the same source on NVIDIA and AMD</strong> → HIP (source-portable) or SYCL (single-source, +Intel).</li>
+<li><strong>Vendor-neutral C++ with near-native perf</strong> → SYCL (DPC++/AdaptiveCpp).</li>
+<li><strong>Ship to literally every GPU incl. Apple + browser</strong> → Vulkan (via MoltenVK) or wgpu/WebGPU.</li>
+<li><strong>Local LLM inference on a Mac</strong> → MLX / mlx-lm or llama.cpp Metal.</li>
+<li><strong>Rust, multi-backend</strong> → CubeCL; Rust for Vulkan compute → rust-gpu; Rust NVIDIA-native → Rust-CUDA.</li>
+<li><strong>FP64-heavy HPC</strong> → NVIDIA or AMD CDNA (never Apple).</li>
+<li><strong>Kill many-small-kernel launch overhead</strong> → CUDA Graphs / hipGraph / MLX lazy graph.</li>
+</ul>
+<hr />
+<p><a name="16-references"></a></p>
+<h2 id="16-key-references">16. Key references</h2>
+<p><strong>Foundational theory</strong></p>
+<ul>
+<li>Williams, Waterman, Patterson. <em>Roofline: An Insightful Visual Performance Model for Multicore
+Architectures.</em> CACM 2009.</li>
+<li>Volkov. <em>Better Performance at Lower Occupancy.</em> GTC 2010. And thesis, UC Berkeley EECS-2016-143, 2016.</li>
+<li>Nickolls, Buck, Garland, Skadron. <em>Scalable Parallel Programming with CUDA.</em> ACM Queue 2008. <em>[Classic]</em></li>
+<li>Tillet, Kung, Cox. <em>Triton: An IR and Compiler for Tiled Neural-Network Computations.</em> MAPL 2019.</li>
+<li>Kirk &amp; Hwu. <em>Programming Massively Parallel Processors</em>, 4th ed. <em>[Textbook]</em></li>
+</ul>
+<p><strong>NVIDIA architecture / programming</strong></p>
+<ul>
+<li>NVIDIA. <em>Hopper Architecture In-Depth</em> (clusters, DSMEM, TMA) — developer blog.</li>
+<li>Colfax Research tutorials: WGMMA on Hopper; TMA; Blackwell tensor-memory GEMM (tcgen05).</li>
+<li>CUTLASS docs + CuTe layout algebra.</li>
+<li>Luo et al. <em>Dissecting the NVIDIA Hopper Architecture through Microbenchmarking.</em> arXiv 2501.12084 (2025).</li>
+<li><em>Microbenchmarking NVIDIA's Blackwell Architecture.</em> arXiv 2512.02189 (2025).</li>
+<li>NVIDIA. <em>Massively Scale Deep Learning Training with NCCL 2.4</em> (double-binary-tree).</li>
+<li>NVIDIA / PyTorch. <em>Accelerating PyTorch with CUDA Graphs</em>; <em>CUTLASS Ping-Pong GEMM</em> (warp specialization).</li>
+</ul>
+<p><strong>AMD ROCm</strong></p>
+<ul>
+<li>AMD ROCm docs: HIP compilers; AMDGPU backend (LLVM); HIPIFY; MI300 microarchitecture; MI300A APU.</li>
+<li>AMD. <em>amd_matrix_instruction_calculator</em> (MFMA layouts).</li>
+<li>Chips and Cheese. <em>Inside the AMD Radeon Instinct MI300A.</em></li>
+<li><em>Inter-APU Infinity Fabric analysis.</em> arXiv 2508.11298 (2025).</li>
+</ul>
+<p><strong>Apple Metal</strong></p>
+<ul>
+<li>Apple developer: Metal overview; Tile shading (Metal 2); MLX; PyTorch on Metal; WWDC25 MLX session.</li>
+<li><em>Rigel: Reverse-Engineering the Metal 4.1 Tensor Compute Path on the M4 Max.</em> arXiv 2606.12765 (2026).</li>
+<li><em>Orion: reverse-engineering the Apple Neural Engine for LLMs.</em> arXiv 2603.06728 (2026).</li>
+<li>philipturner/metal-benchmarks.</li>
+</ul>
+<p><strong>Portability / Rust</strong></p>
+<ul>
+<li>Khronos SYCL 2020 spec. AdaptiveCpp single-pass SSCP (IWOCL 2023).</li>
+<li><code>VK_KHR_cooperative_matrix</code> proposal; Bolz, <em>Cooperative Matrix</em> (Vulkanised 2025).</li>
+<li>Rust-GPU project blogs (Rust-CUDA update 2025; "Rust on every GPU" 2025); CubeCL / Burn cross-platform
+backend.</li>
+<li>Kokkos/RAJA/Alpaka evaluation. arXiv 2402.08950 (2024).</li>
+</ul>
+<p><em>See <a href="https://nmbr7.github.io/notes/reference/papers/">Papers Index</a> for venue/year cross-references and
+<a href="https://nmbr7.github.io/notes/reference/glossary/">Glossary</a> for term definitions.</em></p>
+
+  </article>
+  <aside id="note-toc" class="note-toc hidden">
+    <div class="note-toc-inner">
+      <div class="note-toc-header">
+        <span>Contents</span>
+      </div>
+      <nav></nav>
+    </div>
+  </aside>
+</div>
+<button id="toc-toggle" aria-label="Toggle contents">‹</button>
+
+<script>
+  (function() {
+    var article = document.querySelector('.note-page');
+    var nav = document.querySelector('#note-toc nav');
+    if (!article || !nav) return;
+    var headings = article.querySelectorAll('h2, h3');
+    if (!headings.length) return;
+
+    var ul = document.createElement('ul');
+    headings.forEach(function(h) {
+      var li = document.createElement('li');
+      li.className = 'toc-' + h.tagName.toLowerCase();
+      var a = document.createElement('a');
+      a.href = '#' + h.id;
+      a.textContent = h.textContent.replace(/\s*#\s*$/, '');
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    nav.appendChild(ul);
+
+    // active heading highlight + scroll TOC to follow
+    var links = nav.querySelectorAll('a');
+    var tocEl = document.getElementById('note-toc');
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          links.forEach(function(l) { l.classList.remove('toc-active'); });
+          var active = nav.querySelector('a[href="#' + entry.target.id + '"]');
+          if (active) {
+            active.classList.add('toc-active');
+            var linkTop = active.offsetTop;
+            var tocMid = tocEl.clientHeight / 2;
+            tocEl.scrollTo({ top: linkTop - tocMid, behavior: 'smooth' });
+          }
+        }
+      });
+    }, { rootMargin: '-10% 0px -80% 0px' });
+    headings.forEach(function(h) { observer.observe(h); });
+
+    var toc = document.getElementById('note-toc');
+    var toggle = document.getElementById('toc-toggle');
+    function setToc(open) {
+      toc.classList.toggle('hidden', !open);
+      toggle.classList.toggle('toc-closed', !open);
+      toggle.textContent = open ? '›' : '‹';
+      localStorage.setItem('toc-open', String(open));
+    }
+
+    setToc(localStorage.getItem('toc-open') === 'true');
+
+    toggle.addEventListener('click', function() {
+      setToc(toc.classList.contains('hidden'));
+    });
+  })();
+</script>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>

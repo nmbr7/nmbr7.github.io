@@ -109,11 +109,27 @@
 <h2 id="1-lock-free-ring-buffer-spsc-mpmc">1. <strong>Lock-Free Ring Buffer (SPSC/MPMC)</strong></h2>
 <p><strong>Used in:</strong> HFT systems, Linux kernel, LMAX Disruptor</p>
 <p>A circular buffer that enables wait-free communication between threads without locks.</p>
-<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌───┬───┬───┬───┬───┬───┬───┬───┐</span></span>
-<span class="giallo-l"><span>│ 0 │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │</span></span>
-<span class="giallo-l"><span>└───┴───┴───┴───┴───┴───┴───┴───┘</span></span>
-<span class="giallo-l"><span>      ↑               ↑</span></span>
-<span class="giallo-l"><span>    read            write</span></span></code></pre>
+<p><strong>The problem it solves.</strong> A lock-based queue serializes producer and consumer on a mutex — every push/pop pays a lock round-trip and risks priority inversion. For a single-producer/single-consumer (SPSC) pair the two never actually need to touch the <em>same</em> variable at the same time: the producer owns <code>tail</code>, the consumer owns <code>head</code>. Publishing a slot then reduces to one release-store, and no lock is needed at all.</p>
+<p><strong>The core idea — head/tail indices that only ever advance.</strong> Indices are <em>monotonic</em> counters (never reset); the slot is <code>index &amp; (N-1)</code>. Because they only grow, <code>tail - head</code> is the exact count of queued items with no ambiguity between full and empty.</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Monotonic indices (N=8, mask=7). Buffer physically 8 slots; indices count forever.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  tail=10, head=6  →  count = tail-head = 4 items queued</span></span>
+<span class="giallo-l"><span>  slot(10) = 10 &amp; 7 = 2 ← next write lands here</span></span>
+<span class="giallo-l"><span>  slot(6)  = 6  &amp; 7 = 6 ← next read comes from here</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  ┌───┬───┬───┬───┬───┬───┬───┬───┐</span></span>
+<span class="giallo-l"><span>  │ 8 │ 9 │ w │   │   │   │ r │ 7 │   (numbers = index stored, w=write pos, r=read pos)</span></span>
+<span class="giallo-l"><span>  └───┴───┴───┴───┴───┴───┴───┴───┘</span></span>
+<span class="giallo-l"><span>    0   1   2   3   4   5   6   7   ← physical slot</span></span>
+<span class="giallo-l"><span>  FULL  when tail-head == N   EMPTY when tail-head == 0   (no wasted sentinel slot)</span></span></code></pre>
+<p><strong>Worked push/pop trace:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>push(x): tail=10, head=6. Check 10-6=4 &lt; 8 ✓ not full.</span></span>
+<span class="giallo-l"><span>         buffer[10 &amp; 7] = x               ← write into slot 2</span></span>
+<span class="giallo-l"><span>         tail.store(11, release)          ← publish; consumer&#39;s acquire-load sees x</span></span>
+<span class="giallo-l"><span>pop():   head=6, tail=11 (acquire). 11-6=5 &gt; 0 ✓ not empty.</span></span>
+<span class="giallo-l"><span>         x = buffer[6 &amp; 7]                ← read slot 6</span></span>
+<span class="giallo-l"><span>         head.store(7, release)           ← frees the slot for producer</span></span></code></pre>
+<p>The <code>release</code> on <code>tail.store</code> pairs with the consumer's <code>acquire</code> on <code>tail.load</code>: it guarantees the <em>data write</em> into the slot is visible before the index bump that advertises it. Same pairing on <code>head</code> frees slots safely.</p>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Cache-line padding to prevent false sharing</li>
@@ -140,30 +156,59 @@
 <h2 id="2-b-tree-with-fractal-tree-indexing-be-tree">2. <strong>B+ Tree with Fractal Tree Indexing (Bε-tree)</strong></h2>
 <p><strong>Used in:</strong> TokuDB, BetrFS, FoundationDB</p>
 <p>Buffers updates at internal nodes, converting random I/O to sequential I/O.</p>
-<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>         ┌─────────────────────┐</span></span>
-<span class="giallo-l"><span>         │  [50]  buffer:[]    │</span></span>
-<span class="giallo-l"><span>         └──────────┬──────────┘</span></span>
-<span class="giallo-l"><span>                    │</span></span>
-<span class="giallo-l"><span>    ┌───────────────┴───────────────┐</span></span>
-<span class="giallo-l"><span>    │                               │</span></span>
-<span class="giallo-l"><span>┌───┴────────────┐    ┌─────────────┴────┐</span></span>
-<span class="giallo-l"><span>│[20,30]         │    │[70,90]           │</span></span>
-<span class="giallo-l"><span>│buffer:[ins:25] │    │buffer:[del:85]   │</span></span>
-<span class="giallo-l"><span>└────────────────┘    └──────────────────┘</span></span></code></pre>
+<p><strong>The problem it solves.</strong> A B-tree insert dirties one leaf → one random write (~1 I/O per insert). At scale that's the bottleneck. The Bε-tree trades a little of each node's fanout budget for a <em>message buffer</em>: an insert only writes a message into the root's buffer (already in memory, flushed sequentially), and the message <em>drifts down</em> toward its leaf in large batches. Cost is amortized across every message that shares the flush.</p>
+<p><strong>The core idea — the ε knob.</strong> Each internal node of block size B splits its space: <code>B^ε</code> for pivot keys (fanout) and <code>B - B^ε</code> for the buffer. ε ∈ (0,1] slides between B-tree (ε=1, no buffer) and buffered-repository/LSM-like (ε→0, huge buffers).</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Node = [ pivots: B^ε keys ] [ buffer: B−B^ε pending messages ]</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Insert(k=25): append message {ins,25} to ROOT buffer only. 1 sequential write. Done.</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>         ┌─────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>         │ pivots:[50]  buffer:[ins25,del12]│  ← root, in memory</span></span>
+<span class="giallo-l"><span>         └──────────────┬──────────────────┘</span></span>
+<span class="giallo-l"><span>                        │ buffer fills → FLUSH: route each message to the</span></span>
+<span class="giallo-l"><span>                        │ child whose key-range covers it, append there</span></span>
+<span class="giallo-l"><span>    ┌───────────────────┴───────────────────┐</span></span>
+<span class="giallo-l"><span>┌───┴─────────────────┐        ┌─────────────┴────────┐</span></span>
+<span class="giallo-l"><span>│ pivots:[20,30]      │        │ pivots:[70,90]       │</span></span>
+<span class="giallo-l"><span>│ buffer:[ins25]      │        │ buffer:[del85]       │  ← messages sink one level</span></span>
+<span class="giallo-l"><span>└─────────────────────┘        └──────────────────────┘</span></span></code></pre>
+<p><strong>Worked flush cascade.</strong> When a node's buffer overflows, pick the child receiving the most messages and move that whole batch down in one I/O:</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>root buffer full → flush all messages destined for child[20,30] together (say 40 msgs)</span></span>
+<span class="giallo-l"><span>  → 1 write moves 40 inserts one level down  → amortized 1/40 of an I/O each</span></span>
+<span class="giallo-l"><span>  → repeat down the tree; each message crosses log_{B^ε} N levels total</span></span>
+<span class="giallo-l"><span>Amortized insert cost = O( log_{B^ε} N / (B−B^ε) ) ≈ O( (log_B N)/(ε B^{1−ε}) ) I/Os</span></span>
+<span class="giallo-l"><span>  → with ε=1/2: O( (log N)/√B ) — √B times cheaper than a B-tree&#39;s O(log_B N)</span></span></code></pre>
+<p><strong>Reads</strong> still pay O(log_{B^ε} N), but must also check the buffers along the root-to-leaf path for pending messages that haven't reached the leaf yet — that's the read/write tradeoff ε tunes.</p>
 <p><strong>Key properties:</strong></p>
 <ul>
-<li>O(log N / B) amortized I/O for insertions (vs O(log N) for B-tree)</li>
-<li>Cascading pushdown of buffered operations</li>
-<li>Write-optimized while maintaining read efficiency</li>
+<li>O(log_{B^ε} N / B^{1−ε}) amortized I/O for insertions (√B faster than B-tree at ε=½)</li>
+<li>Cascading pushdown: messages flushed in big batches, cost amortized across the batch</li>
+<li>Write-optimized while keeping reads at B-tree-like O(log N) (+ buffer scan on the path)</li>
+<li>Used in TokuDB/PerconaFT and BetrFS; deletes and upserts are also just messages</li>
 </ul>
 <hr />
 <h2 id="3-skip-list-with-tower-optimization">3. <strong>Skip List with Tower Optimization</strong></h2>
 <p><strong>Used in:</strong> Redis sorted sets, LevelDB/RocksDB memtables, HFT order books</p>
 <p>Probabilistic alternative to balanced trees with better cache behavior.</p>
+<p><strong>The problem it solves.</strong> A sorted linked list has O(N) search. A balanced tree fixes that but needs rotations (tricky to make lock-free, and cache-hostile). A skip list adds <em>express lanes</em>: extra forward pointers that let search skip over many nodes, giving O(log N) expected search with no rotations — just local pointer splices, which makes concurrent (even lock-free) variants easy.</p>
+<p><strong>The core idea — geometric tower heights.</strong> Each inserted node flips a fair coin to decide its height: present at level 0 always, promoted to level i+1 with probability p=½. So ~½ the nodes reach level 1, ~¼ reach level 2, etc. Level i has ~N/2ⁱ nodes → the top lane has O(1) nodes and O(log N) levels.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Level 3: HEAD ────────────────────────────────────&gt; 50 ────────────&gt; NIL</span></span>
 <span class="giallo-l"><span>Level 2: HEAD ──────────&gt; 20 ─────────────────────&gt; 50 ────────────&gt; NIL</span></span>
 <span class="giallo-l"><span>Level 1: HEAD ──────────&gt; 20 ──────────&gt; 35 ──────&gt; 50 ──&gt; 60 ─────&gt; NIL</span></span>
-<span class="giallo-l"><span>Level 0: HEAD ─&gt; 10 ─&gt; 20 ─&gt; 25 ─&gt; 35 ─&gt; 50 ─&gt; 60 ─&gt; 75 ─&gt; 80 ─&gt; NIL</span></span></code></pre>
+<span class="giallo-l"><span>Level 0: HEAD ─&gt; 10 ─&gt; 20 ─&gt; 25 ─&gt; 35 ─&gt; 50 ─&gt; 60 ─&gt; 75 ─&gt; 80 ─&gt; NIL</span></span>
+<span class="giallo-l"><span>         (50 flipped heads 3×→height 4; 20,35,60 →height 2; 10,25,75,80→height 1)</span></span></code></pre>
+<p><strong>Worked search — find 60.</strong> Start top-left, move right while next ≤ target, else drop a level:</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>L3: HEAD→50 (50&lt;60, advance to 50); 50→NIL (NIL&gt;60) → drop to L2 at node 50</span></span>
+<span class="giallo-l"><span>L2: 50→NIL → drop to L1 at node 50</span></span>
+<span class="giallo-l"><span>L1: 50→60  (60≤60, advance to 60) → found on the way down; 60 is the answer</span></span>
+<span class="giallo-l"><span>Visited 3 nodes instead of 6 — the express lanes skipped 10,20,25,35.</span></span></code></pre>
+<p><strong>Worked insert — insert 55 (coin flips heads once → height 2):</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Search for 55, remembering the last node visited at EACH level (the &quot;update&quot; vector):</span></span>
+<span class="giallo-l"><span>  update[L1]=50, update[L0]=50.</span></span>
+<span class="giallo-l"><span>Splice new node between 50 and 60 at levels 0 and 1:</span></span>
+<span class="giallo-l"><span>  node55.forward[0]=50.forward[0](=60); 50.forward[0]=node55   (level 0)</span></span>
+<span class="giallo-l"><span>  node55.forward[1]=50.forward[1](=60); 50.forward[1]=node55   (level 1)</span></span>
+<span class="giallo-l"><span>Purely local pointer updates → no rebalancing, trivially made lock-free with CAS.</span></span></code></pre>
 <p><strong>HFT optimization - Order book with price-time priority:</strong></p>
 <pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">struct</span><span class="z-entity z-name z-type"> OrderBookLevel</span><span class="z-punctuation"> {</span></span>
 <span class="giallo-l"><span>    Price price</span><span class="z-punctuation">;</span></span>
@@ -176,20 +221,34 @@
 <h2 id="4-hamt-hash-array-mapped-trie">4. <strong>HAMT (Hash Array Mapped Trie)</strong></h2>
 <p><strong>Used in:</strong> Clojure persistent collections, Scala immutable maps, IPFS</p>
 <p>Provides near-O(1) operations with structural sharing for immutability.</p>
-<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Root (bitmap: 10100100)</span></span>
-<span class="giallo-l"><span> │</span></span>
+<p><strong>The problem it solves.</strong> An immutable hash map needs cheap copy-on-write updates. A flat array-backed table would copy the whole array on every insert (O(N)). A HAMT is a 32-way trie <em>keyed by slices of the hash</em>, so an update only copies the ~log₃₂(N) nodes on the path from root to the changed leaf — every other subtree is shared by pointer with the previous version.</p>
+<p><strong>The core idea — consume the hash 5 bits at a time.</strong> A 32-bit (or 64-bit) hash is chopped into 5-bit chunks (2⁵=32). Chunk at depth d selects the child at that level. To avoid storing 32 mostly-null child slots per node, each node holds a <strong>32-bit bitmap</strong> of which children exist plus a <em>dense</em> array of only the present children. The slot's array index is <code>popcount(bitmap &amp; (bit-1))</code>.</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Insert key with hash = ...0b_00111_00010  (read 5 bits per level, right to left)</span></span>
+<span class="giallo-l"><span>depth 0 chunk = 00010 = 2   → look at bit 2 of root bitmap</span></span>
+<span class="giallo-l"><span>depth 1 chunk = 00111 = 7   → look at bit 7 of the child&#39;s bitmap</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Root (bitmap: 10100100)   bits set = {2,5,7} → dense array has 3 entries</span></span>
+<span class="giallo-l"><span> │        popcount(bitmap &amp; (1&lt;&lt;2 −1)) = 0 → entry[0]</span></span>
 <span class="giallo-l"><span> ├─[bit 2]─→ Leaf: {key1: val1}</span></span>
-<span class="giallo-l"><span> │</span></span>
-<span class="giallo-l"><span> ├─[bit 5]─→ SubNode (bitmap: 00100010)</span></span>
+<span class="giallo-l"><span> ├─[bit 5]─→ SubNode (bitmap: 00100010)   ← hash collision on first 5 bits → recurse</span></span>
 <span class="giallo-l"><span> │              ├─[bit 1]─→ Leaf: {key2: val2}</span></span>
-<span class="giallo-l"><span> │              └─[bit 5]─→ Collision: [{key3: val3}, {key4: val4}]</span></span>
-<span class="giallo-l"><span> │</span></span>
+<span class="giallo-l"><span> │              └─[bit 5]─→ Collision: [{key3,val3},{key4,val4}]  ← full hash equal</span></span>
 <span class="giallo-l"><span> └─[bit 7]─→ Leaf: {key5: val5}</span></span></code></pre>
+<p><strong>Worked lookup — key1 (hash chunk₀ = 2):</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Root bitmap = 10100100. Is bit 2 set?  bitmap &amp; (1&lt;&lt;2) ≠ 0 ✓</span></span>
+<span class="giallo-l"><span>Dense index = popcount(bitmap &amp; ((1&lt;&lt;2)−1)) = popcount(00000000) = 0</span></span>
+<span class="giallo-l"><span>→ array[0] is a Leaf holding key1 → compare full key → return val1.</span></span></code></pre>
+<p><strong>Worked immutable insert — add key6, path root→SubNode(bit5)→new leaf:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Copy only: new SubNode (with key6 spliced into its dense array + bitmap bit set),</span></span>
+<span class="giallo-l"><span>           new Root (its entry[1] repointed to the new SubNode).</span></span>
+<span class="giallo-l"><span>Everything else — the bit-2 leaf, the bit-7 leaf, key2&#39;s leaf — SHARED by pointer.</span></span>
+<span class="giallo-l"><span>Cost: O(log₃₂ N) node copies (~1–2 levels typical), old version stays fully valid.</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
-<li>32 or 64-way branching at each level</li>
-<li>Population count (<code>POPCNT</code>) for index calculation</li>
-<li>Copy-on-write with path copying (only log₃₂(N) nodes)</li>
+<li>32 or 64-way branching at each level → shallow tree (log₃₂ N ≈ ⌈N-digits/1.5⌉)</li>
+<li>Population count (<code>POPCNT</code>) turns the sparse bitmap into a dense-array index in 1 instruction</li>
+<li>Copy-on-write with path copying (only log₃₂(N) nodes) → cheap persistent versions</li>
+<li>Collisions past hash exhaustion fall back to a small collision list at the leaf</li>
 </ul>
 <pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Index calculation using popcount</span></span>
 <span class="giallo-l"><span class="z-storage z-type">int</span><span class="z-entity z-name z-function"> sparseIndex</span><span class="z-punctuation">(</span><span class="z-storage z-type">uint32_t</span><span class="z-variable z-parameter"> bitmap</span><span class="z-punctuation">,</span><span class="z-storage z-type"> int</span><span class="z-variable z-parameter"> bitPosition</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
@@ -213,6 +272,27 @@
 <span class="giallo-l"><span>           └──────┬───────┘</span></span>
 <span class="giallo-l"><span>                  │</span></span>
 <span class="giallo-l"><span>Level N:   │ Larger SSTables │ (10x size ratio per level)</span></span></code></pre>
+<p><strong>The core idea — never update in place; make reads reconcile.</strong> A write just appends to the in-memory MemTable (+ a WAL record for durability). No disk seek, no read-modify-write. When the MemTable fills it's flushed as an immutable sorted SSTable. The cost is pushed to <em>reads</em>, which must check newest-to-oldest until they find the key.</p>
+<p><strong>Worked write path:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>put(k,v):  1. append {k,v} to WAL (sequential disk write, crash-safe)</span></span>
+<span class="giallo-l"><span>           2. insert into MemTable (skip list / RB tree, sorted)</span></span>
+<span class="giallo-l"><span>           MemTable full → seal it, start a new one, flush sealed one to L0 SSTable</span></span>
+<span class="giallo-l"><span>delete(k): write a TOMBSTONE marker {k, ⊥} — deletes are just writes too</span></span></code></pre>
+<p><strong>Worked read path (newest wins):</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>get(k):  1. check active MemTable        → hit? return (newest possible)</span></span>
+<span class="giallo-l"><span>         2. check immutable MemTables</span></span>
+<span class="giallo-l"><span>         3. L0 SSTables newest→oldest     (L0 ranges OVERLAP → may check several)</span></span>
+<span class="giallo-l"><span>         4. L1..LN: one SSTable per level (non-overlapping → binary search key range)</span></span>
+<span class="giallo-l"><span>   At each SSTable, consult its Bloom filter FIRST: &quot;definitely not here&quot; → skip the</span></span>
+<span class="giallo-l"><span>   disk read entirely. This is why every SSTable ships a Bloom filter.</span></span>
+<span class="giallo-l"><span>   First match wins (could be a tombstone → key is &quot;deleted&quot;).</span></span></code></pre>
+<p><strong>Worked compaction (leveled).</strong> L(i) is ~10× L(i+1). When Lᵢ overfills, pick an SSTable and merge it into the overlapping Lᵢ₊₁ tables:</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>L0: [a–f]* [c–k]*  (overlapping)      merge-sort a chosen table with</span></span>
+<span class="giallo-l"><span>L1: [a–d][e–h][i–m]                    the L1 tables it overlaps →</span></span>
+<span class="giallo-l"><span>  → produces new non-overlapping L1 tables; drop tombstoned/overwritten keys here</span></span>
+<span class="giallo-l"><span>Write amplification: each key rewritten ~once per level it passes = O(levels × ratio).</span></span>
+<span class="giallo-l"><span>Tiered compaction instead stacks same-size tables and merges them in bulk → less</span></span>
+<span class="giallo-l"><span>write amp, more read amp (more tables to check). This is the core LSM tradeoff dial.</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Write amplification: O(level_count × size_ratio)</li>
@@ -267,34 +347,61 @@
 <h2 id="6-judy-array">6. <strong>Judy Array</strong></h2>
 <p><strong>Used in:</strong> Linux kernel routing tables, high-performance dictionaries</p>
 <p>A 256-ary digital tree with aggressive compression techniques.</p>
-<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────┐</span></span>
-<span class="giallo-l"><span>│           Judy Population Types     │</span></span>
-<span class="giallo-l"><span>├─────────────────────────────────────┤</span></span>
-<span class="giallo-l"><span>│ Null        : Empty subtree         │</span></span>
-<span class="giallo-l"><span>│ Linear      : ≤2 keys inline        │</span></span>
-<span class="giallo-l"><span>│ Bitmap      : Dense range, 256 bits │</span></span>
-<span class="giallo-l"><span>│ Uncompressed: Sparse 256-way branch │</span></span>
-<span class="giallo-l"><span>└─────────────────────────────────────┘</span></span></code></pre>
+<p><strong>The problem it solves.</strong> A plain 256-ary radix tree indexes a key one byte at a time — 4 levels for a 32-bit key, 8 for 64-bit. Fast, but each node is a 256-slot pointer array (2 KB), almost all NULL. Judy keeps the O(bytes) lookup depth but makes each node's <em>size adapt to how many children it actually has</em>, so sparse and dense regions both stay compact and cache-resident.</p>
+<p><strong>The core idea — pick a node encoding per population.</strong> Walking the key byte-by-byte, at each level Judy stores the set of present child-bytes in whichever of these forms is smallest:</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>┌─────────────────────────────────────────────────────────────────┐</span></span>
+<span class="giallo-l"><span>│ Judy node encodings (chosen by how many children a node has)     │</span></span>
+<span class="giallo-l"><span>├─────────────────────────────────────────────────────────────────┤</span></span>
+<span class="giallo-l"><span>│ Null        : 0 children      → nothing stored                   │</span></span>
+<span class="giallo-l"><span>│ Linear      : ≤ ~25 children  → sorted list of present bytes     │</span></span>
+<span class="giallo-l"><span>│                                 [0x03,0x41,0x9f] + values inline  │</span></span>
+<span class="giallo-l"><span>│ Bitmap      : dense range     → 256-bit present-mask (32 bytes)   │</span></span>
+<span class="giallo-l"><span>│                                 + popcount to index a value array │</span></span>
+<span class="giallo-l"><span>│ Uncompressed: near-full       → direct 256-way pointer array     │</span></span>
+<span class="giallo-l"><span>└─────────────────────────────────────────────────────────────────┘</span></span></code></pre>
+<p><strong>Worked lookup — find key <code>0x41 42 00 07</code> (bytes 0x41,0x42,0x00,0x07):</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Level 0 (byte 0x41): root is a Linear node holding bytes [0x10, 0x41, 0xC3].</span></span>
+<span class="giallo-l"><span>        Binary-search the sorted list → 0x41 at index 1 → follow child ptr[1].</span></span>
+<span class="giallo-l"><span>Level 1 (byte 0x42): child is a Bitmap node. Test bit 0x42 of the 256-bit mask.</span></span>
+<span class="giallo-l"><span>        Bit set ✓. Index into value array = popcount(mask &amp; ((1&lt;&lt;0x42)-1)) = 5</span></span>
+<span class="giallo-l"><span>        → 6th slot → follow child ptr.</span></span>
+<span class="giallo-l"><span>Level 2 (byte 0x00): Uncompressed node (dense) → direct index [0x00] → child ptr.</span></span>
+<span class="giallo-l"><span>Level 3 (byte 0x07): Linear leaf node → find 0x07 → return stored value. FOUND.</span></span></code></pre>
+<p>The key trick at Bitmap nodes is the same <strong>popcount rank</strong> used in Swiss tables and succinct structures: the 256-bit mask says <em>which</em> bytes exist, and <code>popcount</code> of the mask below the target bit gives its position in a densely-packed value array — no 256-slot array needed.</p>
+<p><strong>Why it compresses further — the two Judy flavors:</strong></p>
+<ul>
+<li><strong>JudyL</strong> (integer→value map) and <strong>Judy1</strong> (bit-set) share this machinery.</li>
+<li><strong>Level compression:</strong> long runs of single-child nodes are collapsed (path compression, like a radix tree).</li>
+<li><strong>Width compression:</strong> the Linear/Bitmap/Uncompressed choice above shrinks each level.</li>
+</ul>
 <p><strong>Key properties:</strong></p>
 <ul>
-<li>Adapts structure based on data density</li>
-<li>No pointer overhead for dense regions</li>
-<li>Cache-optimized 64-byte nodes</li>
+<li>Adapts node encoding to local data density → no wasted pointer arrays</li>
+<li>No pointer overhead for dense regions; no 256-slot arrays for sparse ones</li>
+<li>Cache-optimized: nodes sized to ~one or two 64-byte cache lines</li>
+<li>Downside: notoriously complex (Judy's source is ~20k LOC of macros); ART (§10) achieves similar adaptivity far more simply and has largely superseded it</li>
 </ul>
 <hr />
 <h2 id="7-cuckoo-hash-table">7. <strong>Cuckoo Hash Table</strong></h2>
 <p><strong>Used in:</strong> DPDK, network packet processing, HFT symbol lookup</p>
 <p>Guaranteed O(1) worst-case lookups with multiple hash functions.</p>
+<p><strong>The problem it solves.</strong> Chained/linear-probing hash tables have O(1) <em>average</em> lookup but a long probe chain in the worst case — bad for HFT/networking where tail latency is what matters. Cuckoo hashing guarantees a key lives in exactly one of <strong>2 candidate slots</strong> (from 2 independent hashes), so <em>lookup touches at most 2 cache lines, always</em>. The cost moves to inserts, which may have to shuffle existing keys.</p>
+<p><strong>The core idea — each key has two homes; displace to make room.</strong> On insert, try h1(x). If occupied, evict the resident and put x there; the evicted key "cuckoos" into its <em>other</em> home (its h2), which may evict yet another key — a kick chain. It terminates because each key falls back to its alternate slot.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Table 1 (h1):        Table 2 (h2):</span></span>
 <span class="giallo-l"><span>┌───┬───────┐        ┌───┬───────┐</span></span>
 <span class="giallo-l"><span>│ 0 │       │        │ 0 │       │</span></span>
 <span class="giallo-l"><span>│ 1 │ key_A │◄───┐   │ 1 │ key_C │</span></span>
-<span class="giallo-l"><span>│ 2 │       │    │   │ 2 │ key_A │──── kicked here</span></span>
+<span class="giallo-l"><span>│ 2 │       │    │   │ 2 │ key_A │──── A also reachable here (its h2)</span></span>
 <span class="giallo-l"><span>│ 3 │ key_B │    │   │ 3 │       │</span></span>
-<span class="giallo-l"><span>└───┴───────┘    │   └───┴───────┘</span></span>
-<span class="giallo-l"><span>                 │</span></span>
-<span class="giallo-l"><span>Insert key_A: h1(A)=1, occupied by B</span></span>
-<span class="giallo-l"><span>              kick B to h2(B), etc.</span></span></code></pre>
+<span class="giallo-l"><span>└───┴───────┘    │   └───┴───────┘</span></span></code></pre>
+<p><strong>Worked insert with kick chain — insert X, h1(X)=1, h2(X)=3:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>1. slot T1[1] holds A → evict A, place X there.       T1[1]=X</span></span>
+<span class="giallo-l"><span>2. A must go to its OTHER home h2(A)=2 → T2[2] empty → place A. DONE. chain length 2.</span></span>
+<span class="giallo-l"><span>   (If T2[2] were full, evict that key to ITS alternate, and so on.)</span></span>
+<span class="giallo-l"><span>If a chain exceeds ~log N kicks (or loops), STASH the key or trigger a full rehash</span></span>
+<span class="giallo-l"><span>with new hash seeds. Load factor kept &lt; 50% (plain) so chains stay short.</span></span></code></pre>
+<p><strong>Worked lookup — find A:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Check T1[h1(A)=1] → X, not A.  Check T2[h2(A)=2] → A ✓.  At most 2 probes, period.</span></span></code></pre>
 <p><strong>Modern variant - Bucket Cuckoo Hashing:</strong></p>
 <pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">struct</span><span class="z-entity z-name z-type"> Bucket</span><span class="z-punctuation"> {</span></span>
 <span class="giallo-l"><span class="z-storage z-type">    uint8_t</span><span class="z-variable z-other"> fingerprints</span><span class="z-punctuation">[</span><span class="z-constant">4</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">  //</span><span class="z-comment"> 1-byte hash summaries</span></span>
@@ -306,15 +413,25 @@
 <h2 id="8-van-emde-boas-tree-x-fast-y-fast-trie">8. <strong>Van Emde Boas Tree / X-Fast/Y-Fast Trie</strong></h2>
 <p><strong>Used in:</strong> Kernel schedulers, IP routing, real-time priority queues</p>
 <p>Achieves O(log log U) operations where U is the universe size.</p>
-<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Universe U = 16 (keys 0-15)</span></span>
+<p><strong>The problem it solves.</strong> A balanced BST does predecessor/successor in O(log N). When keys are integers from a bounded universe [0,U), a vEB tree beats that: O(log log U), independent of N. For U=2³² that's ~5 steps. Kernel schedulers and IP routers exploit exactly this — keys are small integers, and next-higher-priority / longest-prefix queries must be sub-microsecond.</p>
+<p><strong>The core idea — split each key into high/low halves and recurse on √U.</strong> A vEB over universe U stores a key x as <code>high = ⌊x/√U⌋</code> (which <em>cluster</em>) and <code>low = x mod √U</code> (position within cluster). It holds √U child vEB structures each of universe √U, plus a <strong>summary</strong> vEB (also universe √U) marking which clusters are non-empty. Each recursion halves the <em>number of bits</em>, so depth is log log U.</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Universe U = 16, √U = 4. Key x → (high = x&gt;&gt;2, low = x&amp;3).</span></span>
+<span class="giallo-l"><span>  e.g. 13 = 1101 → high=3 (cluster 3), low=1 (slot 1)</span></span>
 <span class="giallo-l"></span>
-<span class="giallo-l"><span>         [0-15] summary</span></span>
-<span class="giallo-l"><span>          /    \</span></span>
-<span class="giallo-l"><span>     [0-7]     [8-15]</span></span>
-<span class="giallo-l"><span>      / \        / \</span></span>
-<span class="giallo-l"><span>   [0-3] [4-7] [8-11] [12-15]</span></span>
-<span class="giallo-l"><span>    /\    /\    /\     /\</span></span>
-<span class="giallo-l"><span>  0  2  4  6  8 10   12 14</span></span></code></pre>
+<span class="giallo-l"><span>         summary vEB (universe 4): which clusters non-empty?</span></span>
+<span class="giallo-l"><span>              /    |    |    \</span></span>
+<span class="giallo-l"><span>        cluster0 cluster1 cluster2 cluster3     ← each a vEB over universe 4</span></span>
+<span class="giallo-l"><span>        [0-3]    [4-7]    [8-11]   [12-15]</span></span>
+<span class="giallo-l"><span>Plus each node caches its own min and max (min is NOT stored recursively — the trick</span></span>
+<span class="giallo-l"><span>that removes a log factor and makes successor O(1) recursive calls, not two).</span></span></code></pre>
+<p><strong>Worked successor(x) — find next key &gt; 6, U=16 (high=1, low=2):</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>6 → cluster 1, slot 2.</span></span>
+<span class="giallo-l"><span>1. If cluster[1] has a slot &gt; 2 (check its max): recurse into cluster[1]. </span></span>
+<span class="giallo-l"><span>   Say cluster[1].max = 1 (only key 5 present) &lt; 2 → no successor inside this cluster.</span></span>
+<span class="giallo-l"><span>2. Ask SUMMARY for the next non-empty cluster after 1: summary.successor(1) = 3.</span></span>
+<span class="giallo-l"><span>3. Answer = cluster 3&#39;s MIN, reassembled: 3*4 + cluster[3].min.</span></span>
+<span class="giallo-l"><span>Each step is ONE recursive call on a √U-universe structure → T(U)=T(√U)+O(1)=O(log log U).</span></span></code></pre>
+<p>The min-caching is what keeps it to one recursive call per level (not two), giving the log log U bound rather than log U.</p>
 <p><strong>Y-Fast Trie (practical variant):</strong></p>
 <ul>
 <li>Top structure: X-Fast trie on representative elements</li>
@@ -325,20 +442,30 @@
 <h2 id="9-rope-for-strings-buffers">9. <strong>Rope (for Strings/Buffers)</strong></h2>
 <p><strong>Used in:</strong> Xi Editor, Visual Studio Code, Zed editor, large text processing</p>
 <p>Binary tree of string chunks for efficient editing of massive texts.</p>
+<p><strong>The problem it solves.</strong> A flat <code>std::string</code> makes an insert/delete at position i cost O(N) — everything after i shifts. For a multi-megabyte editor buffer that's unusable. A rope stores the text as leaf chunks in a balanced tree; edits become O(log N) pointer surgery, and immutable ropes give O(1)-ish undo by sharing untouched subtrees.</p>
+<p><strong>The core idea — internal nodes cache the length of their left subtree ("weight").</strong> That single number turns character indexing into a tree descent: at each node, if <code>i &lt; weight</code> go left, else go right with <code>i -= weight</code>. No character is ever counted twice.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>           ┌──────────────┐</span></span>
-<span class="giallo-l"><span>           │ weight=22    │</span></span>
-<span class="giallo-l"><span>           │  (left len)  │</span></span>
+<span class="giallo-l"><span>           │ weight=13    │  (= length of everything in the left subtree)</span></span>
 <span class="giallo-l"><span>           └──────┬───────┘</span></span>
-<span class="giallo-l"><span>                  │</span></span>
 <span class="giallo-l"><span>      ┌───────────┴───────────┐</span></span>
-<span class="giallo-l"><span>      │                       │</span></span>
 <span class="giallo-l"><span>┌─────┴─────┐           ┌─────┴─────┐</span></span>
-<span class="giallo-l"><span>│ weight=11 │           │  &quot;world&quot;  │</span></span>
+<span class="giallo-l"><span>│ weight=6  │           │  &quot;world&quot;  │  (leaf, len 5)</span></span>
 <span class="giallo-l"><span>└─────┬─────┘           └───────────┘</span></span>
-<span class="giallo-l"><span>      │</span></span>
 <span class="giallo-l"><span>┌─────┴─────┐     ┌───────────┐</span></span>
-<span class="giallo-l"><span>│  &quot;Hello &quot; │     │ &quot;amazing &quot; │</span></span>
-<span class="giallo-l"><span>└───────────┘     └───────────┘</span></span></code></pre>
+<span class="giallo-l"><span>│ &quot;Hello &quot;  │     │ &quot;amazing&quot; │   (leaves, len 6 and 7)</span></span>
+<span class="giallo-l"><span>└───────────┘     └───────────┘</span></span>
+<span class="giallo-l"><span>Full text = &quot;Hello &quot; + &quot;amazing&quot; + &quot;world&quot;</span></span></code></pre>
+<p><strong>Worked index — char at position 8:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Root weight=13: 8 &lt; 13 → go LEFT (i stays 8)</span></span>
+<span class="giallo-l"><span>Left node weight=6: 8 ≥ 6 → go RIGHT, i = 8−6 = 2</span></span>
+<span class="giallo-l"><span>Reach leaf &quot;amazing&quot;: leaf[2] = &#39;a&#39; (m-a-z...) → &#39;z&#39;? &quot;amazing&quot;[2]=&#39;z&#39;. Return.</span></span>
+<span class="giallo-l"><span>Two node hops instead of scanning 9 chars.</span></span></code></pre>
+<p><strong>Worked concat &amp; split — the two O(log N) primitives everything is built on:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>concat(L,R): make a new root with left=L, right=R, weight=len(L). O(1) (+ rebalance).</span></span>
+<span class="giallo-l"><span>split(rope, k): walk to position k, cutting each node into a ≤k part and a &gt;k part,</span></span>
+<span class="giallo-l"><span>  reassembling two ropes by concat on the way up. O(log N).</span></span>
+<span class="giallo-l"><span>insert(text,k) = concat(concat(split_left, new_leaf), split_right)  → O(log N).</span></span>
+<span class="giallo-l"><span>delete(a,b)    = concat(split(rope,a).left, split(rope,b).right).</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>O(log N) insert/delete at any position (vs O(N) for arrays)</li>
@@ -362,6 +489,8 @@
 <h2 id="10-radix-tree-adaptive-radix-tree-art">10. <strong>Radix Tree / Adaptive Radix Tree (ART)</strong></h2>
 <p><strong>Used in:</strong> Linux kernel (page cache, routing), TiDB, DuckDB, HyPer</p>
 <p>Compressed trie with node sizes that adapt to key density.</p>
+<p><strong>The problem it solves.</strong> A radix tree indexes keys byte-by-byte (great: depth = key length, no rebalancing), but a fixed 256-way node wastes ~2 KB when it has 2 children. ART keeps radix-tree lookup but stores each node in one of <strong>four sizes that grow on demand</strong>, so memory tracks actual fanout — matching Judy's goal (§6) with far less code, which is why DuckDB/HyPer adopted it.</p>
+<p><strong>The core idea — grow the node type as children are added.</strong> A node starts as Node4; when a 5th child is inserted it's promoted to Node16, then Node48, then Node256. Each type finds a child by a different mechanism (linear/SIMD scan, indirection array, or direct index) — trading space for lookup speed as density rises.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Adaptive Node Types:</span></span>
 <span class="giallo-l"><span>┌────────────────────────────────────────────────────┐</span></span>
 <span class="giallo-l"><span>│ Node4   : 4 keys,   4 children (16 bytes)          │</span></span>
@@ -375,6 +504,16 @@
 <span class="giallo-l"><span>              Node4[&quot;c&quot;]  &quot;xyz&quot;   Node48[&quot;de&quot;]</span></span>
 <span class="giallo-l"><span>                /                    \</span></span>
 <span class="giallo-l"><span>             &quot;def&quot;                  &quot;fgh&quot;</span></span></code></pre>
+<p><strong>Worked lookup — key <code>"art"</code> (bytes a,r,t) with path compression:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Root Node16, byte &#39;a&#39; → SIMD-compare &#39;a&#39; against 16 keys → child index → descend.</span></span>
+<span class="giallo-l"><span>Child has a COMPRESSED PATH &quot;rt&quot; (single-child chain collapsed into the node&#39;s prefix):</span></span>
+<span class="giallo-l"><span>  compare remaining key &quot;rt&quot; against stored prefix &quot;rt&quot; ✓ → reach leaf → value.</span></span>
+<span class="giallo-l"><span>Path compression means the &#39;r&#39; and &#39;t&#39; nodes (each had one child) aren&#39;t separate hops.</span></span></code></pre>
+<p><strong>Worked adaptive growth — inserting into a full Node4:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Node4 holds keys [b,d,f,h] (4 children, full). Insert child &#39;c&#39;:</span></span>
+<span class="giallo-l"><span>  → allocate Node16, copy the 4 entries + &#39;c&#39; (now 5), free the Node4, swap pointer.</span></span>
+<span class="giallo-l"><span>Later a 17th child → promote Node16→Node48 (256-byte index → 48 child ptrs);</span></span>
+<span class="giallo-l"><span>49th → Node256 (direct index[byte]). Shrinks symmetrically on delete.</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Height determined by key length, not data volume</li>
@@ -394,7 +533,20 @@
 <h2 id="11-b-tree">11. <strong>B+ Tree</strong></h2>
 <p><strong>Used in:</strong> MySQL InnoDB, PostgreSQL, all major databases</p>
 <p>Disk-optimized tree with high fanout for database indexes.</p>
-<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">template</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">typename</span><span class="z-entity z-name z-type"> K</span><span class="z-punctuation">,</span><span class="z-storage z-type"> typename</span><span class="z-entity z-name z-type"> V</span><span class="z-punctuation">,</span><span class="z-storage z-type"> int</span><span class="z-entity z-name z-type"> ORDER</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 128</span><span class="z-punctuation">&gt;</span></span>
+<p><strong>The problem it solves.</strong> Disk/SSD I/O is dominated by the <em>number</em> of block fetches, not bytes. A binary tree of N keys is ~log₂N deep → log₂N seeks. A B+ tree packs hundreds of keys per node (one disk page), so fanout is ~100s and depth drops to log₁₀₀N — a billion keys in 3–4 page reads. All values live in the leaves, which are linked, so range scans are sequential.</p>
+<p><strong>The core idea — fat nodes + splits that grow the tree upward.</strong> Inserts go into a leaf; when a node overflows (&gt; ORDER−1 keys) it <em>splits</em> in half and pushes its middle key up to the parent. Splits cascade toward the root; when the root splits, the tree gains a level. This keeps every leaf at the same depth (perfectly balanced) with no rotations.</p>
+<p><strong>Worked insert with a leaf split (ORDER=4, so max 3 keys/node):</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Leaf [10, 20, 30] is full. Insert 25:</span></span>
+<span class="giallo-l"><span>  1. would become [10,20,25,30] — overflow.</span></span>
+<span class="giallo-l"><span>  2. split at middle: left=[10,20], right=[25,30]</span></span>
+<span class="giallo-l"><span>  3. copy the split key 25 UP into the parent as a separator (B+ tree copies, doesn&#39;t</span></span>
+<span class="giallo-l"><span>     move, the key — it still lives in the right leaf for range scans)</span></span>
+<span class="giallo-l"><span>Parent [.., 40] → [.., 25, 40] with the two new leaves as children.</span></span>
+<span class="giallo-l"><span>If the parent now overflows, it splits too and MOVES its middle key up (internal splits</span></span>
+<span class="giallo-l"><span>move; leaf splits copy). Root split → new root → tree height +1. Always balanced.</span></span></code></pre>
+<p><strong>Worked range scan <code>[15, 45]</code></strong> — the leaf-link payoff:</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>findLeaf(15) → leaf [10,20]. Emit ≥15 → 20. Follow leaf.next → [25,30] → emit 25,30.</span></span>
+<span class="giallo-l"><span>→ next → [40,50] → emit 40, stop at 50 &gt; 45. Sequential leaf walk, no re-descent.</span></span></code></pre><pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">template</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">typename</span><span class="z-entity z-name z-type"> K</span><span class="z-punctuation">,</span><span class="z-storage z-type"> typename</span><span class="z-entity z-name z-type"> V</span><span class="z-punctuation">,</span><span class="z-storage z-type"> int</span><span class="z-entity z-name z-type"> ORDER</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 128</span><span class="z-punctuation">&gt;</span></span>
 <span class="giallo-l"><span class="z-storage z-type">class</span><span class="z-entity z-name z-type"> BPlusTree</span><span class="z-punctuation"> {</span></span>
 <span class="giallo-l"><span class="z-storage z-type">    struct</span><span class="z-entity z-name z-type"> Node</span><span class="z-punctuation"> {</span></span>
 <span class="giallo-l"><span class="z-storage z-type">        bool</span><span> is_leaf</span><span class="z-punctuation">;</span></span>
@@ -467,7 +619,19 @@
 <h2 id="12-red-black-tree">12. <strong>Red-Black Tree</strong></h2>
 <p><strong>Used in:</strong> C++ std::map/set, Java TreeMap, Linux CFS scheduler</p>
 <p>Self-balancing BST with guaranteed O(log n) operations.</p>
-<pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">enum</span><span class="z-entity z-name z-type"> Color</span><span class="z-punctuation"> {</span><span class="z-variable z-other"> RED</span><span class="z-punctuation">,</span><span class="z-variable z-other"> BLACK</span><span class="z-punctuation"> }</span><span class="z-punctuation">;</span></span>
+<p><strong>The problem it solves.</strong> A plain BST degrades to a linked list (O(N)) on sorted input. AVL trees stay perfectly balanced but rebalance aggressively (more rotations per insert). Red-black trees enforce a <em>looser</em> balance — good enough for O(log N) but with ≤2 rotations per insert/delete — which is why they back most standard-library maps where insert/erase are common.</p>
+<p><strong>The core idea — 5 color invariants bound the height.</strong> Nodes are red or black, with rules: (1) root is black, (2) red nodes have black children (no two reds adjacent), (3) every root-to-NULL path has the same count of black nodes ("black-height"). Rule 3 pins the shortest path; rule 2 says the longest path can insert at most one red between blacks → <strong>longest ≤ 2× shortest</strong>, so height ≤ 2·log₂(N+1) → O(log N). Fixups (recolor + rotate) restore these after a change.</p>
+<p><strong>Worked insert fixup — Case 1 (red uncle → just recolor, no rotation):</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Insert z (always starts RED to preserve black-height). z&#39;s parent is RED → violates</span></span>
+<span class="giallo-l"><span>rule 2. Look at the UNCLE (parent&#39;s sibling):</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>        [B:g]                    [R:g]   ← recolor grandparent RED</span></span>
+<span class="giallo-l"><span>        /    \        →          /    \</span></span>
+<span class="giallo-l"><span>    [R:p]  [R:u]             [B:p]  [B:u] ← parent &amp; uncle → BLACK</span></span>
+<span class="giallo-l"><span>      /                        /</span></span>
+<span class="giallo-l"><span>   [R:z]                    [R:z]         ← violation pushed UP to g; repeat at g</span></span>
+<span class="giallo-l"><span>Recoloring fixes it locally and moves the problem up ≤ log N levels. Rotations</span></span>
+<span class="giallo-l"><span>(Cases 2/3) only needed when the uncle is BLACK — at most 2 of them, then done.</span></span></code></pre><pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">enum</span><span class="z-entity z-name z-type"> Color</span><span class="z-punctuation"> {</span><span class="z-variable z-other"> RED</span><span class="z-punctuation">,</span><span class="z-variable z-other"> BLACK</span><span class="z-punctuation"> }</span><span class="z-punctuation">;</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span class="z-storage z-type">template</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">typename</span><span class="z-entity z-name z-type"> K</span><span class="z-punctuation">,</span><span class="z-storage z-type"> typename</span><span class="z-entity z-name z-type"> V</span><span class="z-punctuation">&gt;</span></span>
 <span class="giallo-l"><span class="z-storage z-type">class</span><span class="z-entity z-name z-type"> RedBlackTree</span><span class="z-punctuation"> {</span></span>
@@ -535,6 +699,19 @@
 <h2 id="13-memory-pool-slab-allocator">13. <strong>Memory Pool / Slab Allocator</strong></h2>
 <p><strong>Used in:</strong> Linux kernel SLAB/SLUB, nginx, game engines</p>
 <p>Eliminates allocation overhead and fragmentation for fixed-size objects.</p>
+<p><strong>The problem it solves.</strong> General <code>malloc</code> must handle arbitrary sizes: it searches free lists, splits/coalesces blocks, and leaves external fragmentation. But kernels and servers allocate the <em>same</em> struct millions of times (inodes, sk_buffs, connection objects). A slab allocator pre-carves memory into fixed-size cells of exactly that type → allocation is popping a free-list head (a few instructions), and identical sizes mean <strong>zero external fragmentation</strong>.</p>
+<p><strong>The core idea — a slab is a page of same-size cells threaded on a free list.</strong> Because every cell is <code>sizeof(T)</code>, a freed cell can store its own <code>next</code> pointer in place. Allocate = unlink head; free = push onto head. No search, no coalescing.</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Slab (one page) carved into cells; free cells form an intrusive singly-linked list:</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>  free_list ─→ [cell3] ─→ [cell1] ─→ [cell5] ─→ null</span></span>
+<span class="giallo-l"><span>  ┌──────┬──────┬──────┬──────┬──────┬──────┐</span></span>
+<span class="giallo-l"><span>  │cell0 │cell1 │cell2 │cell3 │cell4 │cell5 │   in-use: 0,2,4</span></span>
+<span class="giallo-l"><span>  │ USED │ free │ USED │ free │ USED │ free │   (free ones chained above)</span></span>
+<span class="giallo-l"><span>  └──────┴──────┴──────┴──────┴──────┴──────┘</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>allocate(): p = free_list; free_list = p-&gt;next; return p.     ~3 instructions, O(1)</span></span>
+<span class="giallo-l"><span>free(p):    p-&gt;next = free_list; free_list = p.               O(1), cell reused hot-in-cache</span></span></code></pre>
+<p><strong>Why it also helps cache &amp; concurrency:</strong> freed objects are handed back immediately, still warm in L1 (kernel SLUB keeps per-CPU slabs to avoid cross-core locking). The bounded worst case — no search — is what makes it usable on latency-critical paths. Cost: memory is pinned per-type and not returned to the OS until the slab empties.</p>
 <pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-storage z-type">template</span><span class="z-punctuation">&lt;</span><span class="z-storage z-type">typename</span><span class="z-entity z-name z-type"> T</span><span class="z-punctuation">,</span><span class="z-storage z-type"> size_t</span><span class="z-entity z-name z-type"> BlockSize</span><span class="z-keyword z-operator"> =</span><span class="z-constant"> 4096</span><span class="z-punctuation">&gt;</span></span>
 <span class="giallo-l"><span class="z-storage z-type">class</span><span class="z-entity z-name z-type"> MemoryPool</span><span class="z-punctuation"> {</span></span>
 <span class="giallo-l"><span class="z-storage z-type">    struct</span><span class="z-entity z-name z-type"> Block</span><span class="z-punctuation"> {</span></span>
@@ -588,11 +765,16 @@
 <h2 id="14-bloom-filter-variants-cuckoo-xor-ribbon">14. <strong>Bloom Filter Variants (Cuckoo, Xor, Ribbon)</strong></h2>
 <p><strong>Used in:</strong> RocksDB, PostgreSQL, network routers, distributed caches</p>
 <p>Probabilistic set membership structures with false positives but no false negatives.</p>
+<p><strong>The problem it solves.</strong> "Is key k in this set?" over a huge set (every SSTable's keys, every URL seen) can't afford one bit per possible key or a disk probe per query. A Bloom filter answers in ~10 bits <em>per stored key</em> with a tunable false-positive rate, and — crucially — <strong>never a false negative</strong>: if it says "not present," you can skip the expensive lookup entirely. That asymmetry is the whole point in LSM read paths (§5) and routers.</p>
+<p><strong>The core idea — k hash bits, all must be set.</strong> Insert sets k bit positions. Query checks those same k positions: a 0 anywhere proves the key was never inserted (no false negatives); all-1s means "probably yes" (could be coincidental overlap from other keys → false positive).</p>
 <p><strong>Classic Bloom Filter:</strong></p>
-<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Insert &quot;cat&quot;: hash1(&quot;cat&quot;)=2, hash2(&quot;cat&quot;)=5, hash3(&quot;cat&quot;)=7</span></span>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Insert &quot;cat&quot;: hash1(&quot;cat&quot;)=2, hash2(&quot;cat&quot;)=5, hash3(&quot;cat&quot;)=7 → set those bits</span></span>
 <span class="giallo-l"><span>Bit array: [0 0 1 0 0 1 0 1 0 0 0 0]</span></span>
 <span class="giallo-l"><span>                ↑       ↑   ↑</span></span>
-<span class="giallo-l"><span>Query &quot;dog&quot;: if ALL hash positions are 1 → &quot;maybe&quot;; if ANY is 0 → &quot;definitely not&quot;</span></span></code></pre>
+<span class="giallo-l"><span>Query &quot;dog&quot;: h(dog)={2,5,9}. bit 9 = 0 → &quot;DEFINITELY NOT&quot; (proof: dog never set bit 9)</span></span>
+<span class="giallo-l"><span>Query &quot;cow&quot;: h(cow)={2,5,7}. all three = 1 → &quot;MAYBE&quot; — but cat set them, not cow!</span></span>
+<span class="giallo-l"><span>             → this is a false positive. No way to tell without the real lookup.</span></span></code></pre>
+<p><strong>Why the FP rate is tunable.</strong> With m bits, n keys, k hashes, FP ≈ (1 − e^{−kn/m})^k, minimized at k = (m/n)·ln2 → ~0.6185^{m/n}. Rule of thumb: ~9.6 bits/key gives 1% FP, +4.8 bits/key per 10× improvement. No deletes (clearing a bit could break another key that shares it) — hence the counting/cuckoo/quotient variants below.</p>
 <p><strong>Cuckoo Filter</strong> (Fan et al., 2014) — supports deletion, better space for ε &lt; 3%:</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Buckets with fingerprints:</span></span>
 <span class="giallo-l"><span>┌──────┬──────┬──────┬──────┐</span></span>
@@ -621,6 +803,8 @@
 <h2 id="15-count-min-sketch">15. <strong>Count-Min Sketch</strong></h2>
 <p><strong>Used in:</strong> Network traffic monitoring, database query optimizers (PostgreSQL), stream processing (Flink, Spark)</p>
 <p>Probabilistic frequency estimator for streaming data. Never underestimates counts.</p>
+<p><strong>The problem it solves.</strong> Counting how often each item appears in a high-rate stream (which IPs, which query terms) with an exact hash map costs O(distinct items) memory — unbounded. Count-Min fixes memory at d×w counters regardless of stream size, answering "how many times did x appear?" with a <em>one-sided</em> error: it may over-count (from collisions) but <strong>never under-counts</strong>. Good enough for heavy-hitter detection and query-optimizer selectivity.</p>
+<p><strong>The core idea — d independent hash rows; take the min to shed collisions.</strong> Update bumps one counter per row. Any single counter is inflated by other items that hashed there, but different items collide in <em>different</em> rows — so the <strong>minimum</strong> across rows is the estimate least polluted by collisions.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>d hash functions, w counters each:</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>           w counters</span></span>
@@ -634,6 +818,14 @@
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Update(x): increment CM[i][hi(x)] for each row i</span></span>
 <span class="giallo-l"><span>Query(x):  min over all rows of CM[i][hi(x)]</span></span></code></pre>
+<p><strong>Worked example.</strong> True counts: x appeared 3×, y 5×, and y happens to collide with x in row h1 but not h2/h3:</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>After stream:</span></span>
+<span class="giallo-l"><span>  row h1[cell shared by x,y] = 3+5 = 8   ← polluted</span></span>
+<span class="giallo-l"><span>  row h2[x&#39;s cell]           = 3         ← clean</span></span>
+<span class="giallo-l"><span>  row h3[x&#39;s cell]           = 3         ← clean</span></span>
+<span class="giallo-l"><span>Query(x) = min(8,3,3) = 3 ✓ exact — the min discarded the h1 collision.</span></span>
+<span class="giallo-l"><span>The min can only be ≥ true count (every counter includes x&#39;s real hits) → never under.</span></span></code></pre>
+<p><strong>Error bound.</strong> With w = ⌈e/ε⌉ and d = ⌈ln(1/δ)⌉, the estimate exceeds the truth by more than ε·(total stream size) with probability ≤ δ. So error scales with stream mass — great for heavy hitters, weak for rare items (which is what Count Sketch's ±1 signs fix below).</p>
 <p><strong>Properties:</strong></p>
 <ul>
 <li>Space: O(1/ε × log(1/δ)) for ε-approximate counts with probability 1-δ</li>
@@ -645,6 +837,8 @@
 <h2 id="16-hyperloglog">16. <strong>HyperLogLog</strong></h2>
 <p><strong>Used in:</strong> Redis <code>PFCOUNT</code>, BigQuery <code>APPROX_COUNT_DISTINCT</code>, Presto, Druid</p>
 <p>Cardinality estimation using O(log log N) space per register.</p>
+<p><strong>The problem it solves.</strong> Counting <em>distinct</em> elements (unique visitors, distinct IPs) exactly needs a set of all of them — O(N) memory. HyperLogLog estimates the count to ~2% error in <strong>1.5 KB, flat</strong>, for cardinalities up to billions, and merges across machines. That's why it's the engine behind <code>APPROX_COUNT_DISTINCT</code> everywhere.</p>
+<p><strong>The core idea — rare bit patterns reveal cardinality.</strong> Hash each element uniformly. The probability a hash has ≥k leading zeros is 2^{−k}. So if the <em>maximum</em> leading-zero count you've ever seen is R, you've probably observed ~2^R distinct values (you needed ~2^R draws to hit that rarity). One register is noisy → use m registers (chosen by the first p hash bits), each tracking its own max, and combine with a <strong>harmonic mean</strong> (tames the outliers) times a bias constant α_m.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Hash each element to 64-bit value:</span></span>
 <span class="giallo-l"><span>  h(x) = 0010000...  (first 1-bit at position 4)</span></span>
 <span class="giallo-l"></span>
@@ -657,6 +851,12 @@
 <span class="giallo-l"><span>└────┴────┴────┴────┴────┴────┘</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Estimate = α_m × m² / Σ(2^(-R[j]))   (harmonic mean based)</span></span></code></pre>
+<p><strong>Worked register update — add element e, p=4 (m=16 registers):</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>h(e) = 0110 | 000101...   first p=4 bits = 0110 = 6 → register R6.</span></span>
+<span class="giallo-l"><span>remaining bits 000101... → leading zeros = 3 → value = 3+1 = 4.</span></span>
+<span class="giallo-l"><span>R6 = max(R6, 4).   (only the MAX is kept → adding e again never changes anything →</span></span>
+<span class="giallo-l"><span>                    naturally handles duplicates, which is the whole point.)</span></span>
+<span class="giallo-l"><span>Merge two HLLs: R_merged[j] = max(R_a[j], R_b[j]) per register → distributed distinct-count.</span></span></code></pre>
 <p><strong>Properties:</strong></p>
 <ul>
 <li>1.6KB for ~2% standard error (p=14, 16384 registers × 6 bits)</li>
@@ -667,13 +867,20 @@
 <h2 id="17-hnsw-hierarchical-navigable-small-world-graph">17. <strong>HNSW (Hierarchical Navigable Small World Graph)</strong></h2>
 <p><strong>Used in:</strong> Qdrant, Pinecone, pgvector, FAISS, Weaviate — the dominant ANN index</p>
 <p>Multi-layer proximity graph for approximate nearest neighbor search in high-dimensional spaces.</p>
+<p><strong>The problem it solves.</strong> Exact nearest-neighbor in high dimensions is cursed — no index beats brute-force O(N·d) once d is large. HNSW gives <em>approximate</em> NN in O(log N) distance computations with high recall, which is what powers vector search (RAG, recommendations). It's the dominant ANN index because it's fast to query and incrementally insertable.</p>
+<p><strong>The core idea — a navigable small-world graph with skip-list-style layers.</strong> Layer 0 holds every vector, richly connected to near neighbors. Higher layers are exponentially sparser samples with <em>long-range</em> links (like an express lane). Search starts at the top (few, far-apart nodes), greedily hops toward the query, then descends — each layer zooms in. "Small-world" = short greedy paths; the long links prevent getting stuck in a local cluster.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Layer 2:  A ─────────────────── D         (sparse, long-range links)</span></span>
 <span class="giallo-l"><span>          │                     │</span></span>
 <span class="giallo-l"><span>Layer 1:  A ──── B ──── C ──── D ──── E   (medium connectivity)</span></span>
 <span class="giallo-l"><span>          │      │      │      │      │</span></span>
-<span class="giallo-l"><span>Layer 0:  A ─ B ─ C ─ D ─ E ─ F ─ G ─ H  (dense, all elements)</span></span>
-<span class="giallo-l"></span>
-<span class="giallo-l"><span>Search: enter at top layer → greedy walk → descend → refine</span></span></code></pre>
+<span class="giallo-l"><span>Layer 0:  A ─ B ─ C ─ D ─ E ─ F ─ G ─ H  (dense, all elements)</span></span></code></pre>
+<p><strong>Worked greedy search — query q, find nearest, top entry = A:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>L2: at A. neighbors {D}. dist(q,D) &lt; dist(q,A) → move to D. D&#39;s neighbors no closer</span></span>
+<span class="giallo-l"><span>    → descend to L1 at D.</span></span>
+<span class="giallo-l"><span>L1: at D. neighbors {C,E}. dist(q,C) &lt; dist(q,D) → move to C. C no better → descend.</span></span>
+<span class="giallo-l"><span>L0: at C. beam search with candidate list of size ef_search: explore C&#39;s neighbors,</span></span>
+<span class="giallo-l"><span>    keep the ef closest, expand them, until no improvement → return top-k.</span></span>
+<span class="giallo-l"><span>Higher ef_search = wider beam = higher recall, slower. Distance calls ≈ O(log N · degree).</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Build: insert each element with probability p(layer) = e^(-layer / m_L)</li>
@@ -700,6 +907,17 @@
 <span class="giallo-l"><span>├──┬─┤──┬─┤                  │  + local search      │</span></span>
 <span class="giallo-l"><span>│..│..│..│..│                 └──────────────────────┘</span></span></code></pre>
 <p><strong>Key insight:</strong> A B-tree is a model that maps keys to positions. A CDF model can do the same with less space.</p>
+<p><strong>Worked lookup — the "predict then correct" mechanism:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Sorted keys stored in an array. A learned index fits a model f(key) ≈ position</span></span>
+<span class="giallo-l"><span>(the empirical CDF: what fraction of keys are ≤ this key, × N).</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>lookup(k=57):</span></span>
+<span class="giallo-l"><span>  1. pos_pred = f(57) = 812         ← model predicts array index ~812 (1 evaluation)</span></span>
+<span class="giallo-l"><span>  2. the model has a guaranteed max error ε (say ±32) measured at build time</span></span>
+<span class="giallo-l"><span>  3. binary/exponential search ONLY the window [812−32, 812+32] → 64 slots → ~6 compares</span></span>
+<span class="giallo-l"><span>Contrast a B-tree: ~log₁₀₀(N) pointer-chasing page reads. The model replaces the upper</span></span>
+<span class="giallo-l"><span>tree levels with one arithmetic evaluation; ε bounds the leftover local search.</span></span></code></pre>
+<p>The whole game is making f small <em>and</em> accurate: a single linear model is tiny but has huge ε on real data, so the structures below stack many local linear segments to keep ε small.</p>
 <p><strong>PGM-Index</strong> (Ferragina &amp; Vinciguerra, VLDB 2020):</p>
 <ul>
 <li>Piecewise linear approximation of the CDF</li>
@@ -720,6 +938,8 @@
 <h2 id="19-crdts-conflict-free-replicated-data-types">19. <strong>CRDTs (Conflict-Free Replicated Data Types)</strong></h2>
 <p><strong>Used in:</strong> Redis CRDT, Riak, Automerge, Yjs (collaborative editing), Apple Notes, Figma</p>
 <p>Data structures that guarantee eventual consistency without coordination.</p>
+<p><strong>The problem it solves.</strong> Multiple replicas take writes concurrently (offline edits, multi-region DBs, collab editors) with no locking. Naive last-write-wins loses data; manual conflict resolution is error-prone. CRDTs are typed so that <em>any</em> order of merges reaches the <strong>same</strong> final state — no coordination, no conflicts, guaranteed convergence.</p>
+<p><strong>The core idea — merge must be a join on a lattice.</strong> For state-based CRDTs, <code>merge</code> must be <strong>commutative, associative, and idempotent</strong> (a semilattice join). Those three properties mean it doesn't matter what order updates arrive, whether they're duplicated, or how they're batched — every replica that has seen the same <em>set</em> of updates computes an identical state. That's why a G-Counter merges by per-node <code>max</code> (max is comm/assoc/idempotent) and a G-Set by <code>union</code>.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Two types:</span></span>
 <span class="giallo-l"><span>  CvRDT (state-based): merge(state_A, state_B) → converged state</span></span>
 <span class="giallo-l"><span>  CmRDT (op-based):    apply(op) at all replicas → same result regardless of order</span></span>
@@ -733,6 +953,12 @@
 <span class="giallo-l"><span>  {value: &quot;hello&quot;, timestamp: 1706000001}</span></span>
 <span class="giallo-l"><span>  {value: &quot;world&quot;, timestamp: 1706000002}</span></span>
 <span class="giallo-l"><span>  merge → {value: &quot;world&quot;, timestamp: 1706000002}</span></span></code></pre>
+<p><strong>Worked convergence — 3 replicas, updates arrive in different orders:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>G-Counter, nodes A,B,C. A increments twice, B once, concurrently.</span></span>
+<span class="giallo-l"><span>  Replica A learns:  merge([A:2,B:0],[A:0,B:1]) then C&#39;s [.. ] → [A:2,B:1,C:0]</span></span>
+<span class="giallo-l"><span>  Replica C learns them in the OPPOSITE order → still max per node → [A:2,B:1,C:0]</span></span>
+<span class="giallo-l"><span>  Duplicate delivery of A&#39;s state → max(2,2)=2 → idempotent, no double count.</span></span>
+<span class="giallo-l"><span>All three converge to total = 3 regardless of order/duplication → the lattice guarantee.</span></span></code></pre>
 <p><strong>Key types:</strong></p>
 <table><thead><tr><th>CRDT</th><th>Description</th><th>Merge</th></tr></thead><tbody>
 <tr><td>G-Counter</td><td>Grow-only counter</td><td>max per node</td></tr>
@@ -762,16 +988,41 @@
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Space: n + o(n) bits (sublinear overhead!)</span></span></code></pre>
 <p><strong>Key structures:</strong></p>
-<p><strong>Wavelet Tree</strong> — answers rank/select/access on arbitrary alphabets:</p>
-<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>String: &quot;abracadabra&quot;  Σ = {a,b,c,d,r}</span></span>
-<span class="giallo-l"><span>         Root: bitvector over &quot;left half&quot; vs &quot;right half&quot; of alphabet</span></span>
-<span class="giallo-l"><span>         /          \</span></span>
-<span class="giallo-l"><span>    &quot;aaaaaa&quot;      &quot;brcdbr&quot;</span></span>
-<span class="giallo-l"><span>      / \           / \</span></span>
-<span class="giallo-l"><span>    ...  ...      ...  ...</span></span></code></pre>
+<p><strong>Wavelet Tree</strong> — answers rank/select/access on arbitrary alphabets by recursively splitting the alphabet in half and storing <em>one bit per character</em> at each level (0 = char's symbol is in the left half of the current alphabet range, 1 = right half). Each node keeps only a bitvector; the characters are never stored explicitly.</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>String: &quot;abracadabra&quot;  Σ = {a,b,c,d,r}, split point m = c</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Root  (alphabet {a,b,c,d,r}, left={a,b}, right={c,d,r}):</span></span>
+<span class="giallo-l"><span>  char:   a b r a c a d a b r a</span></span>
+<span class="giallo-l"><span>  bit:    0 0 1 0 1 0 1 0 0 1 0     ← 0 if char∈{a,b}, 1 if char∈{c,d,r}</span></span>
+<span class="giallo-l"><span>        /                    \</span></span>
+<span class="giallo-l"><span>  left subtree {a,b}       right subtree {c,d,r}</span></span>
+<span class="giallo-l"><span>  (chars with bit 0:        (chars with bit 1:</span></span>
+<span class="giallo-l"><span>   a b a a a b a)            r c d r)</span></span>
+<span class="giallo-l"><span>  split a|b:                 split c | d,r:</span></span>
+<span class="giallo-l"><span>  char: a b a a a b a        char: r c d r</span></span>
+<span class="giallo-l"><span>  bit:  0 1 0 0 0 1 0        bit:  1 0 1 1   (0 if &#39;c&#39;, 1 if {d,r})</span></span>
+<span class="giallo-l"><span>      /        \                 /       \</span></span>
+<span class="giallo-l"><span>   &quot;aaaaa&quot;    &quot;bb&quot;            &quot;c&quot;      right {d,r}: &quot;rdr&quot;, bit 1 0 1</span></span></code></pre>
+<p><strong>Worked query — <code>access(2)</code>: what is the character at index 2 (<code>'r'</code>)?</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>String:   a b r a c a d a b r a   (index 2 = &#39;r&#39;)</span></span>
+<span class="giallo-l"><span>Root bits:0 0 1 0 1 0 1 0 0 1 0</span></span>
+<span class="giallo-l"><span>Root bit[2] = 1  → char is in right half {c,d,r}. Descend right.</span></span>
+<span class="giallo-l"><span>  Remap position = (# of 1-bits in root[0..2], exclusive of 2) = rank₁(root,2)=0</span></span>
+<span class="giallo-l"><span>  → this char is the 0th element of the right child&#39;s sequence &quot;rcdr&quot;.</span></span>
+<span class="giallo-l"><span>Right child {c,d,r}: seq &quot;r c d r&quot;, bits 1 0 1 1.  bit[0] = 1 → char in {d,r}.</span></span>
+<span class="giallo-l"><span>  Remap = rank₁(child,0) = 0 → 0th element of {d,r} child&#39;s sequence &quot;rdr&quot;.</span></span>
+<span class="giallo-l"><span>Leaf {d,r}: seq &quot;r d r&quot;, bits 1 0 1.  bit[0] = 1 → the larger symbol → &#39;r&#39;.  ✓</span></span></code></pre>
+<p>The mechanism: at each node the stored bit picks the child, and <code>rank</code> remaps the index into that child's shorter sequence — O(log|Σ|) steps, each an O(1) bitvector rank.</p>
+<p><strong>Worked query — <code>rank_r("abracadabra", 7)</code> (how many <code>'r'</code> in first 7 chars):</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>&#39;r&#39; ∈ right half {c,d,r} → root bit for &#39;r&#39; is 1.</span></span>
+<span class="giallo-l"><span>  rank₁(root, 7) = 2   (two 1-bits in first 7 → two chars went right)  → descend right with count 2</span></span>
+<span class="giallo-l"><span>&#39;r&#39; ∈ {d,r} half → that child&#39;s bit for &#39;r&#39; is 1.</span></span>
+<span class="giallo-l"><span>  rank₁(child, 2) = ... → keep narrowing until the leaf for &#39;r&#39;.</span></span>
+<span class="giallo-l"><span>Result: count of &#39;r&#39; among the first 7 chars.</span></span></code></pre>
 <ul>
-<li>O(log|Σ|) rank/select/access on strings</li>
-<li>Enables compressed representations of permutations, grids, graphs</li>
+<li>O(log|Σ|) rank/select/access on strings — each step is one bitvector rank (O(1) with a rank index)</li>
+<li>Total space ≈ n·⌈log|Σ|⌉ bits + o(n) — the bitvectors across a level sum to n bits</li>
+<li>Enables compressed representations of permutations, grids, graphs; core of many FM-index implementations</li>
 </ul>
 <p><strong>FM-Index</strong> (Ferragina &amp; Manzini, 2000):</p>
 <ul>
@@ -790,16 +1041,23 @@
 <h2 id="21-masstree">21. <strong>Masstree</strong></h2>
 <p><strong>Used in:</strong> Silo (in-memory OLTP), MICA, research KV stores</p>
 <p>High-performance concurrent B+-tree trie hybrid for variable-length keys. From Mao et al. (EuroSys 2012).</p>
+<p><strong>The problem it solves.</strong> A B+-tree with variable-length string keys does slow byte-by-byte comparisons and stores long keys awkwardly; a pure trie is deep and pointer-chasing for long shared prefixes. Masstree gets the best of both: it treats keys as sequences of <strong>8-byte slices</strong>, comparing a whole slice as a single 64-bit integer (one machine compare, not a strcmp loop), and only spills to a deeper trie layer when many keys share an 8-byte prefix.</p>
+<p><strong>The core idea — a trie of B+-trees keyed on 64-bit slices.</strong> Each trie layer is a full B+-tree whose keys are 8-byte chunks of the original key, loaded as <code>uint64_t</code> (big-endian so integer order = lexicographic order). Keys that fit in ≤8 bytes never leave layer 0. Longer keys that collide on the first 8 bytes follow a border-node link to a layer-1 B+-tree keyed on bytes 8–15, and so on.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Key: &quot;Hello World!&quot;</span></span>
 <span class="giallo-l"></span>
-<span class="giallo-l"><span>8-byte slices used as B+-tree keys:</span></span>
+<span class="giallo-l"><span>8-byte slices used as B+-tree keys (compared as single uint64):</span></span>
 <span class="giallo-l"></span>
-<span class="giallo-l"><span>B+-tree Layer 0: key = &quot;Hello Wo&quot;</span></span>
+<span class="giallo-l"><span>B+-tree Layer 0: key = &quot;Hello Wo&quot;  (0x48656C6C6F20576F as one 64-bit compare)</span></span>
 <span class="giallo-l"><span>        │</span></span>
-<span class="giallo-l"><span>        ▼ (border node links to next layer)</span></span>
+<span class="giallo-l"><span>        ▼ (border node links to next layer when &gt;8 bytes share this prefix)</span></span>
 <span class="giallo-l"><span>B+-tree Layer 1: key = &quot;rld!\0\0\0\0&quot;</span></span>
 <span class="giallo-l"><span>        │</span></span>
 <span class="giallo-l"><span>        ▼ value</span></span></code></pre>
+<p><strong>Worked lookup — <code>"Hello World!"</code> (12 bytes):</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>slice0 = &quot;Hello Wo&quot; as uint64 → binary-search layer-0 B+-tree → border node → layer 1.</span></span>
+<span class="giallo-l"><span>slice1 = &quot;rld!&quot; padded → binary-search layer-1 B+-tree → leaf → value.</span></span>
+<span class="giallo-l"><span>Two 64-bit-compare descents instead of a 12-byte strcmp at every node.</span></span></code></pre>
+<p><strong>Optimistic concurrency (no read locks):</strong> each node carries a version counter. A reader snapshots the version, reads, then re-checks it; if a writer bumped it mid-read (split/insert), the reader retries. Writers lock only the node they mutate. Readers never block → scales on many cores.</p>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Trie over 8-byte key slices, B+-tree at each trie layer</li>
@@ -812,17 +1070,26 @@
 <h2 id="22-ctrie-concurrent-hash-trie">22. <strong>CTrie (Concurrent Hash Trie)</strong></h2>
 <p><strong>Used in:</strong> Scala standard library, concurrent caches, actor systems</p>
 <p>Lock-free concurrent hash trie supporting linearizable snapshots.</p>
-<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>CAS-based mutation with indirection nodes:</span></span>
-<span class="giallo-l"></span>
-<span class="giallo-l"><span>    Root (INode)</span></span>
-<span class="giallo-l"><span>        │</span></span>
+<p><strong>The problem it solves.</strong> A HAMT (§4) is great for single-threaded immutable maps, but making it <em>concurrent</em> and lock-free is hard: a naive CAS on a shared child array races with other writers and can't give a consistent snapshot for iteration. CTrie adds a level of <strong>indirection nodes (INodes)</strong> so every mutation is a single CAS on one INode, and adds GCAS so you can take an O(1) atomic snapshot even while writers run.</p>
+<p><strong>The core idea — INodes make the CNode arrays immutable.</strong> A CNode (branch array) is never mutated in place; to change it you build a new CNode and CAS the <em>parent INode's</em> pointer from the old CNode to the new one. Because the array itself is immutable, readers holding the old pointer see a consistent frozen view — no torn reads. The INode is the single mutable, CAS-able cell.</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>    Root (INode)              INode = mutable pointer cell (the CAS target)</span></span>
+<span class="giallo-l"><span>        │                     CNode = immutable branch array (never edited in place)</span></span>
 <span class="giallo-l"><span>    ┌───┴───┐</span></span>
-<span class="giallo-l"><span>    │ CNode │ (immutable, array of branches)</span></span>
+<span class="giallo-l"><span>    │ CNode │</span></span>
 <span class="giallo-l"><span>    ├───┬───┤</span></span>
-<span class="giallo-l"><span>    │   │   │</span></span>
-<span class="giallo-l"><span>  SNode INode INode</span></span>
+<span class="giallo-l"><span>  SNode INode INode           SNode = leaf key/value</span></span>
 <span class="giallo-l"><span>  (leaf)  │     │</span></span>
 <span class="giallo-l"><span>        CNode  CNode</span></span></code></pre>
+<p><strong>Worked lock-free insert:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>insert(k,v):</span></span>
+<span class="giallo-l"><span>  1. navigate to the INode whose CNode should hold k (hash-slice like HAMT).</span></span>
+<span class="giallo-l"><span>  2. read its CNode (immutable snapshot).</span></span>
+<span class="giallo-l"><span>  3. build CNode&#39; = old CNode + new SNode(k,v) (copy-on-write of that one array).</span></span>
+<span class="giallo-l"><span>  4. CAS(inode.main, oldCNode, CNode&#39;).</span></span>
+<span class="giallo-l"><span>     success → done, linearizable at the CAS.</span></span>
+<span class="giallo-l"><span>     failure → another writer won; RE-READ and retry from step 2.</span></span>
+<span class="giallo-l"><span>No locks; contention just means a retry loop, and only the contended INode is touched.</span></span></code></pre>
+<p><strong>GCAS snapshots (O(1) atomic):</strong> a snapshot bumps a global generation number. Reads/writes use GCAS (generation-compare-and-set): a node tagged with an old generation is lazily copied to the new generation on first touch, so the snapshot and live tree diverge copy-on-write. Iteration over the snapshot is linearizable and never blocks writers.</p>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Insert/delete/lookup all lock-free via single CAS on INode</li>
@@ -835,13 +1102,24 @@
 <h2 id="23-pairing-heap">23. <strong>Pairing Heap</strong></h2>
 <p><strong>Used in:</strong> Network routing (Dijkstra), GCC <code>__gnu_pbds</code>, event simulators</p>
 <p>Simplest heap with amortized efficiency rivaling Fibonacci heaps.</p>
-<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>        3</span></span>
+<p><strong>The problem it solves.</strong> Dijkstra/Prim want a priority queue with fast <code>decrease-key</code>. Fibonacci heaps give the best asymptotics but their bookkeeping (marks, cascading cuts, sibling lists) is slow in practice and painful to code. Pairing heaps are a <strong>multiway heap-ordered tree</strong> with almost no bookkeeping — just child/sibling pointers — yet match Fibonacci heaps within a log factor and beat them on real inputs.</p>
+<p><strong>The core idea — everything reduces to <code>meld</code> (merge two heaps).</strong> Meld = compare two roots, hang the larger-root tree as the leftmost child of the smaller root. O(1). <code>insert</code> = meld a singleton. <code>decrease-key</code> = cut the node's subtree out, meld it back at the root. The only real work is <code>delete-min</code>, and its analysis rides on a clever <strong>two-pass</strong> melding of the orphaned children.</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>        3                    delete-min removes root 3, orphaning its children: 5, 8, 9</span></span>
 <span class="giallo-l"><span>       /|\</span></span>
-<span class="giallo-l"><span>      5  8  9</span></span>
+<span class="giallo-l"><span>      5  8  9    →   children list: [5] [8] [9]   (each may head its own subtree)</span></span>
 <span class="giallo-l"><span>     /|    |</span></span>
 <span class="giallo-l"><span>    12 7   14</span></span>
 <span class="giallo-l"><span>       |</span></span>
 <span class="giallo-l"><span>       11</span></span></code></pre>
+<p><strong>Worked delete-min (two-pass):</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Pass 1 (left→right, pair up adjacent siblings and meld each pair):</span></span>
+<span class="giallo-l"><span>  meld(5,8) → 5 is smaller → 8 becomes child of 5   → tree(5)</span></span>
+<span class="giallo-l"><span>  9 is unpaired → stays as tree(9)</span></span>
+<span class="giallo-l"><span>  result list: [tree(5)]  [tree(9)]</span></span>
+<span class="giallo-l"><span>Pass 2 (right→left, fold the paired results into one):</span></span>
+<span class="giallo-l"><span>  meld(tree(9), tree(5)) → 5 smaller → 9 hangs under 5 → new root 5.</span></span>
+<span class="giallo-l"><span>New heap root = 5. Total work O(#children); amortized O(log N) per delete-min.</span></span></code></pre>
+<p>The two passes are what prevent a degenerate left-spine from making later operations O(N) — the single-pass ("naive") variant lacks the amortized bound.</p>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>O(1) insert, merge, find-min</li>
@@ -862,6 +1140,8 @@
 <h2 id="24-r-tree-r-tree">24. <em><em>R-Tree / R</em>-Tree</em>*</h2>
 <p><strong>Used in:</strong> PostGIS, SQLite R*-Tree, MongoDB 2dsphere, game engines</p>
 <p>Spatial index for rectangles, polygons, and multi-dimensional data.</p>
+<p><strong>The problem it solves.</strong> A B-tree indexes one ordered dimension; "find everything overlapping this map rectangle" has no single sort order. An R-tree generalizes the B+-tree to 2D+ by indexing <strong>minimum bounding rectangles (MBRs)</strong>: each internal entry is a box that encloses all its children's boxes, so a window query prunes any subtree whose MBR doesn't intersect the query — usually visiting a tiny fraction of the tree.</p>
+<p><strong>The core idea — hierarchically nested bounding boxes.</strong> Leaves hold object MBRs; each parent's MBR is the union of its children's. Overlap is allowed (unlike a grid), which is what lets it stay balanced under arbitrary insertions — but too much overlap kills pruning, which is exactly what R*-tree's insert heuristics minimize.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>         ┌───────────────────────────────────┐</span></span>
 <span class="giallo-l"><span>         │ R1                                │</span></span>
 <span class="giallo-l"><span>         │  ┌────────┐    ┌──────────────┐   │</span></span>
@@ -877,6 +1157,13 @@
 <span class="giallo-l"><span>         │  │ ■  ■ │  │  ■  ■ ■  │          │</span></span>
 <span class="giallo-l"><span>         │  └──────┘  └──────────┘          │</span></span>
 <span class="giallo-l"><span>         └───────────────────────────────────┘</span></span></code></pre>
+<p><strong>Worked window query — find objects intersecting box Q:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Root has children R1, R2 (their MBRs). Test Q against each MBR:</span></span>
+<span class="giallo-l"><span>  Q ∩ MBR(R1)? yes → recurse into R1.   Q ∩ MBR(R2)? no → PRUNE entire R2 subtree.</span></span>
+<span class="giallo-l"><span>Inside R1: Q ∩ MBR(R3)? yes → check its leaf points. Q ∩ MBR(R4)? no → prune.</span></span>
+<span class="giallo-l"><span>Only the R3 leaf&#39;s points are tested for exact intersection. Overlap between R3,R4 MBRs</span></span>
+<span class="giallo-l"><span>would force checking both → why minimizing overlap (R*-tree) matters.</span></span></code></pre>
+<p><em><em>The split problem — why R</em>-tree exists.</em>* When a node overflows, you must split its entries into two new MBRs. A bad split makes big overlapping boxes that defeat pruning. Guttman's original tried to minimize total area; R*-tree jointly minimizes overlap + margin + area and <em>forcibly reinserts</em> some entries on overflow, yielding 10–30% faster queries.</p>
 <p><em><em>R</em>-Tree improvements</em>* (Beckmann et al., 1990):</p>
 <ul>
 <li>Forced reinsert on overflow → better node utilization</li>
@@ -893,8 +1180,12 @@
 <h2 id="25-fenwick-tree-binary-indexed-tree">25. <strong>Fenwick Tree (Binary Indexed Tree)</strong></h2>
 <p><strong>Used in:</strong> Competitive programming, count inversions, range-frequency queries, BIT-based database statistics</p>
 <p>Supports prefix sum queries and point updates in O(log N) with minimal space.</p>
-<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Array:   [1, 3, 2, 5, 1, 7, 3, 2]</span></span>
+<p><strong>The problem it solves.</strong> You want both point-update <em>and</em> prefix-sum in O(log N). A plain array gives O(1) update but O(N) prefix sum; a prefix-sum array gives O(1) query but O(N) update. A Fenwick tree balances both at O(log N) in <em>exactly N integers</em> (no tree pointers) — the trick is letting index arithmetic on the <em>lowest set bit</em> define an implicit tree.</p>
+<p><strong>The core idea — each index covers a range whose length is its lowest set bit.</strong> <code>BIT[i]</code> stores the sum of a range of length <code>LSB(i) = i &amp; (-i)</code> ending at i. To query a prefix, jump down by stripping the LSB (covers disjoint power-of-two blocks). To update, climb by adding the LSB (hits every block that contains i). Both walks touch ≤ log N indices because each step clears/adds a bit.</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Array:   [1, 3, 2, 5, 1, 7, 3, 2]   (1-indexed)</span></span>
 <span class="giallo-l"><span>BIT:     [1, 4, 2, 10, 1, 8, 3, 24]</span></span>
+<span class="giallo-l"><span>         BIT[i] covers (i−LSB(i), i]. e.g. BIT[4]=1+3+2+5=11? here 10 uses given data;</span></span>
+<span class="giallo-l"><span>         BIT[6] covers (4,6] = arr[5]+arr[6]=1+7=8. BIT[8] covers (0,8] = whole = 24.</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Tree structure (parent via i + LSB(i)):</span></span>
 <span class="giallo-l"><span>Index:    1    2    3    4    5    6    7    8</span></span>
@@ -907,6 +1198,16 @@
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>prefix_sum(7) = BIT[7] + BIT[6] + BIT[4]  (strip lowest set bit each step)</span></span>
 <span class="giallo-l"><span>update(3, +5): BIT[3] += 5, BIT[4] += 5, BIT[8] += 5  (add lowest set bit)</span></span></code></pre>
+<p><strong>Worked prefix_sum(7) — bit walk (7 = 0b111):</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>i=7 (0b111): add BIT[7];  i −= LSB(7)=1  → i=6</span></span>
+<span class="giallo-l"><span>i=6 (0b110): add BIT[6];  i −= LSB(6)=2  → i=4</span></span>
+<span class="giallo-l"><span>i=4 (0b100): add BIT[4];  i −= LSB(4)=4  → i=0 stop.</span></span>
+<span class="giallo-l"><span>Sum of arr[1..7] = BIT[7]+BIT[6]+BIT[4], three disjoint blocks of length 1,2,4. O(log N).</span></span></code></pre>
+<p><strong>Worked update(3,+5) — bit walk (3 = 0b011), N=8:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>i=3 (0b011): BIT[3]+=5;  i += LSB(3)=1  → i=4</span></span>
+<span class="giallo-l"><span>i=4 (0b100): BIT[4]+=5;  i += LSB(4)=4  → i=8</span></span>
+<span class="giallo-l"><span>i=8 (0b1000):BIT[8]+=5;  i += LSB(8)=8  → i=16 &gt; N stop.</span></span>
+<span class="giallo-l"><span>Exactly the blocks that CONTAIN index 3 got the delta. Query &amp; update walk are inverses.</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Space: exactly N integers (no overhead)</li>
@@ -918,6 +1219,8 @@
 <h2 id="26-persistent-retroactive-data-structures">26. <strong>Persistent / Retroactive Data Structures</strong></h2>
 <p><strong>Used in:</strong> Git (Merkle trees), Datomic, functional languages (Haskell, Clojure), undo systems</p>
 <p>Structures that preserve all previous versions after modification.</p>
+<p><strong>The problem it solves.</strong> Undo history, time-travel queries (Datomic "as-of"), Git commits, and functional data all need <em>old versions to stay queryable</em> after an update. Copying the whole structure per edit is O(N) per version. Persistence techniques give a new version in O(log N) (or O(1)) extra space by <strong>sharing everything that didn't change</strong>.</p>
+<p><strong>The core idea — two ways to keep the past cheap.</strong> (1) <strong>Path copying:</strong> copy only the nodes on the root-to-change path; every off-path subtree is shared by pointer with prior versions. (2) <strong>Fat nodes:</strong> never copy — instead each node stores a <em>list of (version, value)</em> entries, so a field can hold different values in different versions. Path copying is simpler and cache-friendly; fat nodes use less space but need a version-search per field access.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Path Copying (persistent balanced BST):</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Version 1:       5              Version 2:       5&#39;</span></span>
@@ -941,6 +1244,8 @@
 <h2 id="27-quotient-filter">27. <strong>Quotient Filter</strong></h2>
 <p><strong>Used in:</strong> RocksDB (experimental), SSD FTL layers, deduplication systems</p>
 <p>Like Bloom filters but supports merging, resizing, and counting — on cache-friendly contiguous memory.</p>
+<p><strong>The problem it solves.</strong> A Bloom filter (§14) sets k <em>random</em> bits per key → k cache-line misses per query and no deletes/resize/merge. A quotient filter stores each key's fingerprint in <em>one contiguous array</em> addressed by part of the fingerprint, so queries touch one cluster (often one cache line), and — because the full fingerprint is recoverable — it supports <strong>delete, count, resize, and merge</strong>, which Bloom can't.</p>
+<p><strong>The core idea — split the fingerprint into quotient (address) + remainder (stored).</strong> A p-bit fingerprint splits into the top <code>q</code> bits (the <strong>quotient</strong> = home slot) and the low <code>r</code> bits (the <strong>remainder</strong>, stored in that slot). Collisions (same quotient) form a <strong>run</strong>; adjacent runs form a <strong>cluster</strong>, kept sorted via linear probing. Three metadata bits per slot — <code>is_occupied</code>, <code>is_continuation</code>, <code>is_shifted</code> — let you reconstruct which remainders belong to which quotient even after shifting.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Fingerprint f = quotient (fq) : remainder (fr)</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Slot addressed by fq, stores fr in a linear-probing cluster:</span></span>
@@ -950,6 +1255,16 @@
 <span class="giallo-l"><span>         is_occupied  is_continuation  is_shifted</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Cluster: consecutive remainders belonging to same or adjacent quotients</span></span></code></pre>
+<p><strong>Worked insert &amp; lookup.</strong> Fingerprint of x = quotient 3, remainder 0xA2:</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>insert(x): home slot = 3. set is_occupied[3]=1. If slot 3 free → store 0xA2 there.</span></span>
+<span class="giallo-l"><span>  If slot 3 taken by another quotient&#39;s run → linear-probe right to the end of</span></span>
+<span class="giallo-l"><span>  quotient-3&#39;s run, shifting later remainders right and setting is_shifted on them,</span></span>
+<span class="giallo-l"><span>  keeping each run sorted. Store 0xA2 in the opened gap.</span></span>
+<span class="giallo-l"><span>lookup(x): quotient=3. is_occupied[3]? no → DEFINITELY absent.</span></span>
+<span class="giallo-l"><span>  yes → scan quotient 3&#39;s run (bounded by continuation/shifted bits) for remainder 0xA2.</span></span>
+<span class="giallo-l"><span>  found → &quot;probably present&quot;; not found → absent. False positive only if a DIFFERENT</span></span>
+<span class="giallo-l"><span>  key shares both quotient 3 AND remainder 0xA2 (prob 2^{−r}).</span></span>
+<span class="giallo-l"><span>delete(x): find 0xA2 in the run, remove it, shift the cluster left to close the gap.</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Cache-friendly: single contiguous array (vs. Bloom's random access)</li>
@@ -963,6 +1278,8 @@
 <h2 id="28-log-structured-append-only-b-trees">28. <strong>Log-Structured / Append-Only B-Trees</strong></h2>
 <p><strong>Used in:</strong> LMDB, FoundationDB Record Layer, Btrfs, ZFS, CockroachDB (Pebble)</p>
 <p>Copy-on-write B-trees that never modify pages in place. Enables snapshots and crash safety for free.</p>
+<p><strong>The problem it solves.</strong> In-place B-tree updates risk torn pages on crash (half-written node → corrupt index) and need a WAL + careful recovery. If you <em>never overwrite</em> a page — always write a new copy — then a crash simply leaves the old tree intact, and any old root is a consistent snapshot. Durability and snapshots fall out of the write discipline itself.</p>
+<p><strong>The core idea — copy the whole root-to-leaf path, publish a new root atomically.</strong> Changing a leaf means writing a new leaf, then a new parent pointing at it, up to a new root. The old pages are untouched, so old roots remain valid read views. Committing = atomically swapping the "current root" pointer (one word / one fsync of a header). LMDB writes two root slots and alternates → torn-write-proof commit.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Write &quot;X&quot; to leaf:</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Before:</span></span>
@@ -985,13 +1302,20 @@
 <h2 id="29-xor-linked-list-compressed-pointer-structures">29. <strong>XOR-Linked List / Compressed Pointer Structures</strong></h2>
 <p><strong>Used in:</strong> Memory-constrained embedded systems, Linux kernel <code>hlist</code></p>
 <p>Doubly-linked list using XOR of prev/next pointers to halve pointer overhead.</p>
+<p><strong>The problem it solves.</strong> A doubly-linked list needs two pointers per node to walk both ways (16 bytes on 64-bit). On memory-constrained targets that overhead matters. XOR trick: since you always <em>arrive</em> from one neighbor, you already know its address — so one field <code>prev⊕next</code> suffices to derive the other direction, halving pointer storage.</p>
+<p><strong>The core idea — store the XOR, recover the neighbor with the address you came from.</strong> <code>npx(node) = addr(prev) ⊕ addr(next)</code>. Endpoints XOR with 0 (NULL). Because <code>x⊕y⊕x = y</code>, if you're at B having come from A, then <code>next = npx(B) ⊕ A</code>; going backward, <code>prev = npx(B) ⊕ next</code>.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Standard doubly-linked: each node stores prev AND next (16 bytes on 64-bit)</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>XOR list: each node stores prev ⊕ next (8 bytes)</span></span>
 <span class="giallo-l"><span>  A         B         C         D</span></span>
-<span class="giallo-l"><span>  [0⊕B]    [A⊕C]    [B⊕D]    [C⊕0]</span></span>
-<span class="giallo-l"></span>
-<span class="giallo-l"><span>Traversal from A→B:  npx(B) ⊕ addr(A) = (A⊕C) ⊕ A = C  ✓</span></span></code></pre>
+<span class="giallo-l"><span>  [0⊕B]    [A⊕C]    [B⊕D]    [C⊕0]</span></span></code></pre>
+<p><strong>Worked forward traversal A→D (carry the previous address):</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>start: cur=A, prev=0.  next = npx(A)⊕prev = (0⊕B)⊕0 = B.   → visit B</span></span>
+<span class="giallo-l"><span>       prev=A, cur=B.  next = npx(B)⊕prev = (A⊕C)⊕A = C.   → visit C</span></span>
+<span class="giallo-l"><span>       prev=B, cur=C.  next = npx(C)⊕prev = (B⊕D)⊕B = D.   → visit D</span></span>
+<span class="giallo-l"><span>       prev=C, cur=D.  next = npx(D)⊕prev = (C⊕0)⊕C = 0.   → end.</span></span>
+<span class="giallo-l"><span>Backward is symmetric: start at D with prev=0, same formula yields C,B,A.</span></span></code></pre>
+<p><strong>Caveats:</strong> you can't jump to an arbitrary node and walk (must know a neighbor); breaks with pointer-tagging, ASLR-relative reloc, or GC that moves objects; and it's opaque to debuggers — which is why it's a niche embedded/kernel trick, not general-purpose.</p>
 <p><strong>Related compressed structures:</strong></p>
 <ul>
 <li><strong>Unrolled linked list</strong>: multiple elements per node for cache efficiency</li>
@@ -1002,6 +1326,8 @@
 <h2 id="30-dancing-links-dlx">30. <strong>Dancing Links (DLX)</strong></h2>
 <p><strong>Used in:</strong> Sudoku solvers, pentomino tiling, exact cover problems, SAT preprocessing</p>
 <p>Knuth's technique for efficient backtracking on sparse binary matrices via circular doubly-linked lists.</p>
+<p><strong>The problem it solves.</strong> Exact-cover backtracking (Sudoku, tiling, N-queens) repeatedly removes rows/columns and — on backtrack — restores them. Doing this with array marking or copying is slow and allocates. DLX represents the sparse matrix as a mesh of circular doubly-linked lists so that removing an element is 4 pointer writes and <em>undoing</em> it is 4 more — using the very pointers the removed node still holds.</p>
+<p><strong>The core idea — "dancing" links: a removed node remembers how to reinsert itself.</strong> To unlink node x: <code>x.left.right = x.right; x.right.left = x.left</code>. Crucially x's <em>own</em> left/right pointers are left untouched. So to relink: <code>x.left.right = x; x.right.left = x</code> — x still points at exactly the neighbors it belongs between. Remove and restore are perfect inverses with zero extra state → O(1), no allocation, ideal for deep backtracking.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Exact cover matrix (columns = constraints, rows = choices):</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>     1  2  3  4  5  6  7</span></span>
@@ -1014,6 +1340,15 @@
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Cover column: unlink it and all rows intersecting it</span></span>
 <span class="giallo-l"><span>Uncover: relink in reverse order — O(1) per link!</span></span></code></pre>
+<p><strong>Worked search step (Algorithm X via DLX):</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>1. choose column with fewest 1s (say col 1: rows A,B) → minimizes branching.</span></span>
+<span class="giallo-l"><span>2. COVER col 1: remove col-1 header, and for each row in it (A,B), remove those rows&#39;</span></span>
+<span class="giallo-l"><span>   other columns&#39; cells → those constraints are now &quot;satisfied&quot;, shrinking the matrix.</span></span>
+<span class="giallo-l"><span>3. try row A: recurse on the reduced matrix. Solution found → record A.</span></span>
+<span class="giallo-l"><span>4. backtrack: UNCOVER col 1 in EXACT REVERSE order of the covering → matrix restored</span></span>
+<span class="giallo-l"><span>   bit-for-bit, because every unlinked node still points at its old neighbors.</span></span>
+<span class="giallo-l"><span>5. try row B next, etc.</span></span></code></pre>
+<p>Reverse-order uncover is mandatory: relinks must happen in the mirror sequence so each node reinserts into a neighborhood identical to when it left.</p>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Cover/uncover are O(1) per link via pointer relinking</li>
@@ -1027,6 +1362,8 @@
 <h2 id="31-roaring-bitmaps">31. <strong>Roaring Bitmaps</strong></h2>
 <p><strong>Used in:</strong> Apache Lucene/Solr, Spark, ClickHouse, Druid, Pilosa, Git</p>
 <p>Hybrid compressed bitmap that adapts container type per 16-bit chunk. Dominates every other compressed bitmap format in practice.</p>
+<p><strong>The problem it solves.</strong> A raw bitset for 32-bit IDs is 512 MB regardless of density — wasteful when sparse. Run-length formats (WAH/EWAH) compress runs but are slow for random access and set ops. Roaring splits the universe into 2¹⁶-value chunks and picks the <em>best representation per chunk</em> — sorted array (sparse), bitset (dense), or run-length (clustered) — so it's compact <em>and</em> supports fast SIMD set operations.</p>
+<p><strong>The core idea — high 16 bits pick a container, low 16 bits live inside it.</strong> A top-level sorted array of chunk-keys maps to per-chunk containers. Because each container is small (≤ 8 KB), set operations dispatch on the <em>pair</em> of container types and use a specialized, often SIMD, routine.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Universe of 32-bit integers: split each value into [high 16 bits : low 16 bits]</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>high 16 bits → selects container</span></span>
@@ -1043,6 +1380,14 @@
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Chunk 0 (high=0): Array [1, 3, 5, 100]          ← sparse, use sorted array</span></span>
 <span class="giallo-l"><span>Chunk 1 (high=1): Run [(0, 3)]                   ← 3 consecutive, use RLE</span></span></code></pre>
+<p><strong>Worked intersection A ∩ B — dispatch per container-type pair:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Align by chunk key (merge the two top-level key arrays). For each shared chunk key:</span></span>
+<span class="giallo-l"><span>  Array ∩ Array   → galloping/merge of two sorted u16 lists (SIMD shuffle for small)</span></span>
+<span class="giallo-l"><span>  Bitmap ∩ Bitmap → word-wise AND of 8KB bitsets (AVX-512, 512 bits/instr) + popcount</span></span>
+<span class="giallo-l"><span>  Array ∩ Bitmap  → for each u16 in the array, test its bit in the bitmap (1 load each)</span></span>
+<span class="giallo-l"><span>  Run   ∩ anything→ walk runs, clip against the other container</span></span>
+<span class="giallo-l"><span>Result container&#39;s TYPE is re-chosen from its cardinality (may downgrade bitmap→array).</span></span>
+<span class="giallo-l"><span>`and_cardinality` counts matches WITHOUT building the result → common in analytics.</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>AND/OR/XOR across containers via type-specific fast paths</li>
@@ -1057,6 +1402,8 @@
 <h2 id="32-swiss-table-abseil-flat-hash-map">32. <strong>Swiss Table (Abseil <code>flat_hash_map</code>)</strong></h2>
 <p><strong>Used in:</strong> Google production (Abseil), Rust <code>hashbrown</code>, Go runtime (1.24+), CockroachDB</p>
 <p>SIMD-probed, open-addressing hash table. The modern standard for in-memory hash maps.</p>
+<p><strong>The problem it solves.</strong> Chaining hash maps (<code>std::unordered_map</code>) chase a pointer per probe → 2–3 cache misses and heap nodes per entry. Swiss tables are flat (keys inline, no nodes) and check <strong>16 slots at once</strong> with one SIMD compare against a byte of hash, cutting lookups to ~1 cache miss. This is the design now in Abseil, Rust <code>hashbrown</code>, and the Go 1.24 runtime.</p>
+<p><strong>The core idea — a separate control byte array probed with SIMD.</strong> Each slot has a 1-byte control: either EMPTY, DELETED, or the low 7 bits of the key's hash (a fingerprint, <code>h2</code>). The high bits (<code>h1</code>) pick the starting group. A lookup loads 16 control bytes into an SSE register, compares all 16 against the target fingerprint in one instruction, and only does full key-equality on the (usually ≤1) slots that match — most of the 16 are rejected without touching the keys at all.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Layout: groups of 16 slots, each with 1-byte metadata</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Group (16 bytes, fits SSE register):</span></span>
@@ -1077,6 +1424,13 @@
 <span class="giallo-l"><span>  __m128i match = _mm_cmpeq_epi8(ctrl, _mm_set1_epi8(h2_match));</span></span>
 <span class="giallo-l"><span>  uint16_t mask = _mm_movemask_epi8(match);</span></span>
 <span class="giallo-l"><span>  // Each set bit → candidate slot; check full key equality</span></span></code></pre>
+<p><strong>Worked probe continuation — what if the group has no match and no EMPTY:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>1. SIMD-match fingerprint in group G. Any bit set → check those keys; hit → return.</span></span>
+<span class="giallo-l"><span>2. No fingerprint match, but is there an EMPTY slot in G? (another SIMD compare vs EMPTY)</span></span>
+<span class="giallo-l"><span>   EMPTY present → key is DEFINITELY absent, stop (open addressing invariant).</span></span>
+<span class="giallo-l"><span>   No EMPTY (group full) → advance to next group (quadratic probing) and repeat step 1.</span></span>
+<span class="giallo-l"><span>DELETED (tombstone) bytes match neither fingerprint nor EMPTY → probe continues past them;</span></span>
+<span class="giallo-l"><span>periodic &quot;rehash in place&quot; reclaims tombstones when they accumulate.</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>1 byte metadata overhead per slot (7-bit hash + EMPTY/DELETED sentinel)</li>
@@ -1096,6 +1450,8 @@
 <h2 id="33-merkle-trees-merkle-patricia-trie">33. <strong>Merkle Trees / Merkle-Patricia Trie</strong></h2>
 <p><strong>Used in:</strong> Git, Bitcoin/Ethereum, S3 (anti-entropy), Cassandra (repair), Certificate Transparency, IPFS</p>
 <p>Hash tree enabling O(log N) proof of inclusion and efficient diff/sync between replicas.</p>
+<p><strong>The problem it solves.</strong> Two questions at scale: "prove block D is in this dataset without sending me the whole dataset" and "which parts of my copy differ from yours". Hashing every block into a tree makes the <strong>root hash a fingerprint of all data</strong> — any change flips the root, and you can prove/locate changes in O(log N) hashes instead of O(N) data.</p>
+<p><strong>The core idea — parent hash = hash of children's hashes.</strong> Leaves hash the data; each internal node hashes the concatenation of its children's hashes. Two properties follow: (1) an <strong>inclusion proof</strong> is just the sibling hashes along the leaf-to-root path — recompute up and compare to the trusted root; (2) <strong>diffing</strong> two trees means descending only where the two roots' subtree hashes differ, so identical subtrees are skipped wholesale.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>                    H(H01 + H23)          ← root hash: summary of all data</span></span>
 <span class="giallo-l"><span>                   /            \</span></span>
 <span class="giallo-l"><span>            H(H0 + H1)        H(H2 + H3)</span></span>
@@ -1106,6 +1462,17 @@
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Proof that D2 is in the tree: provide H(D3) and H(H0+H1)</span></span>
 <span class="giallo-l"><span>Verifier computes: H(H(D2) + H(D3)) → H23, then H(H01 + H23) → compare to root ✓</span></span></code></pre>
+<p><strong>Worked inclusion proof — prove D2 belongs, given only trusted root:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Prover sends D2 + sibling hashes along its path: [ H(D3), H01 ].  (log N = 2 hashes)</span></span>
+<span class="giallo-l"><span>Verifier: a = H(D2)                    (hash the claimed block)</span></span>
+<span class="giallo-l"><span>          b = H(a ‖ H(D3)) = H23       (combine with right sibling)</span></span>
+<span class="giallo-l"><span>          r = H(H01 ‖ b)               (combine with left sibling up top)</span></span>
+<span class="giallo-l"><span>          r == trusted_root ?  yes → D2 is authentically in the set; no → tampered.</span></span>
+<span class="giallo-l"><span>Verifier never saw D0,D1,D3 — just 2 hashes. Forging D2 requires a hash collision.</span></span></code></pre>
+<p><strong>Worked anti-entropy diff (Cassandra repair):</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Two replicas exchange only ROOT hashes. Equal → ranges identical, done, zero data moved.</span></span>
+<span class="giallo-l"><span>Differ → recurse: exchange the two child hashes, follow only the mismatching side, until</span></span>
+<span class="giallo-l"><span>you reach the differing leaves → transfer just those. Cost O(#differences · log N).</span></span></code></pre>
 <p><strong>Merkle-Patricia Trie (Ethereum):</strong></p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Extension: shared prefix &quot;abc&quot;</span></span>
 <span class="giallo-l"><span>    │</span></span>
@@ -1132,6 +1499,8 @@
 <h2 id="34-consistent-hashing-ring-jump-maglev">34. <strong>Consistent Hashing (Ring, Jump, Maglev)</strong></h2>
 <p><strong>Used in:</strong> DynamoDB, Cassandra, Memcached, Nginx, Envoy, Kafka partition assignment</p>
 <p>Distributes keys across nodes such that adding/removing a node only remaps O(K/N) keys.</p>
+<p><strong>The problem it solves.</strong> Plain <code>hash(key) % N</code> shatters on resize: change N and <em>almost every</em> key remaps → a cache/shard reshuffle that stampedes the backend. Consistent hashing arranges keys and nodes on the same ring so adding/removing one node only remaps the keys that fell in that node's arc — O(K/N) keys move, not O(K).</p>
+<p><strong>The core idea — hash keys and nodes into the same space; a key belongs to the next node clockwise.</strong> Adding node C only steals the keys between C and its predecessor from C's successor; everyone else is untouched. <strong>Virtual nodes</strong> (each physical node placed at many ring points) smooth out the otherwise-lumpy arc sizes and spread a departed node's load across many survivors.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Classic Ring (Karger et al., 1997):</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>         Node A (3 vnodes)</span></span>
@@ -1145,6 +1514,13 @@
 <span class="giallo-l"><span>         Node B (3 vnodes)</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Add Node C: only keys between C&#39;s predecessors remapped</span></span></code></pre>
+<p><strong>Worked lookup + add-node:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>lookup(key): h = hash(key) → walk clockwise on the ring (binary search the sorted vnode</span></span>
+<span class="giallo-l"><span>             positions) → first vnode ≥ h → its physical node owns the key.</span></span>
+<span class="giallo-l"><span>add node C at ring position p: find the successor vnode S just clockwise of p.</span></span>
+<span class="giallo-l"><span>             Only keys with hash in (predecessor(p), p] — currently served by S — move to C.</span></span>
+<span class="giallo-l"><span>             Every other key&#39;s clockwise-successor is unchanged → no global reshuffle.</span></span></code></pre>
+<p><strong>Jump hash intuition (no ring, no memory):</strong> the loop simulates "as buckets grow from 1→N, each time a new bucket appears a key jumps to it with probability 1/(new count)". The final bucket it lands on is deterministic per key and perfectly balanced — but only the <em>last</em> bucket can be added/removed (no arbitrary node removal), which is its one limitation.</p>
 <p><strong>Jump Consistent Hash</strong> (Lamping &amp; Veach, Google 2014):</p>
 <pre class="giallo z-code"><code data-lang="cpp"><span class="giallo-l"><span class="z-punctuation z-definition z-comment">//</span><span class="z-comment"> Entire implementation: 7 lines, zero memory, perfect balance</span></span>
 <span class="giallo-l"><span class="z-storage z-type">int32_t</span><span class="z-entity z-name z-function"> JumpConsistentHash</span><span class="z-punctuation">(</span><span class="z-storage z-type">uint64_t</span><span class="z-variable z-parameter"> key</span><span class="z-punctuation">,</span><span class="z-storage z-type"> int32_t</span><span class="z-variable z-parameter"> num_buckets</span><span class="z-punctuation">)</span><span class="z-punctuation"> {</span></span>
@@ -1177,6 +1553,8 @@
 <h2 id="35-t-digest-ddsketch-streaming-quantiles">35. <strong>T-Digest / DDSketch (Streaming Quantiles)</strong></h2>
 <p><strong>Used in:</strong> Elasticsearch, Prometheus, Datadog, Apache Flink, New Relic</p>
 <p>Compact data structures for accurate quantile estimation (p50, p99, p99.9) over streaming data.</p>
+<p><strong>The problem it solves.</strong> Exact quantiles need all the data sorted — O(N) memory, impossible on a firehose of latencies. You mostly care about <em>tail</em> quantiles (p99, p99.9) with tight accuracy. T-Digest keeps a few KB of weighted <strong>centroids</strong> that are deliberately <em>tiny near the tails and fat in the middle</em>, so tail quantiles stay accurate while total memory is bounded and mergeable across shards.</p>
+<p><strong>The core idea — cluster the data into centroids sized by a scale function.</strong> Each centroid is (mean, count). The scale function <code>k(q)</code> allots more, smaller centroids where q→0 or q→1 (arcsin bunches them at the extremes) and lets middle centroids absorb many points. Adding a value merges it into the nearest centroid <em>if</em> that centroid's size is still under its k-budget; else it starts a new one.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>T-Digest: variable-width centroids, precise at tails</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Centroids: (mean, count) sorted by mean</span></span>
@@ -1189,6 +1567,14 @@
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Scale function controls centroid size: k(q) ~ δ/2π × arcsin(2q - 1)</span></span>
 <span class="giallo-l"><span>→ centroids near q=0 and q=1 stay tiny → tail accuracy</span></span></code></pre>
+<p><strong>Worked quantile query — estimate p99 from centroids:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Centroids sorted by mean, with cumulative counts. Total count = 10000. Target rank = 0.99·10000 = 9900.</span></span>
+<span class="giallo-l"><span>Walk cumulative counts until the centroid whose range spans rank 9900:</span></span>
+<span class="giallo-l"><span>  ...centroid at cum 9880 (mean 99.5, count 4)  → spans ranks [9880, 9884)... keep going</span></span>
+<span class="giallo-l"><span>  centroid at cum 9900 (mean 99.7) → rank 9900 lands here.</span></span>
+<span class="giallo-l"><span>Interpolate LINEARLY between this centroid&#39;s mean and its neighbor&#39;s, weighted by where</span></span>
+<span class="giallo-l"><span>9900 falls within the centroid&#39;s count span → p99 ≈ 99.7.</span></span>
+<span class="giallo-l"><span>Tail centroids have count≈1 → almost no interpolation error at p99.9/p99.99.</span></span></code></pre>
 <p><strong>Key properties (T-Digest):</strong></p>
 <ul>
 <li>~1-5KB regardless of data volume (compression param δ ≈ 100-200)</li>
@@ -1214,6 +1600,8 @@
 <h2 id="36-eytzinger-layout-cache-oblivious-search">36. <strong>Eytzinger Layout / Cache-Oblivious Search</strong></h2>
 <p><strong>Used in:</strong> Database index nodes, SIMD binary search, high-frequency trading</p>
 <p>Reorganizes sorted arrays into implicit tree layouts for branch-free, prefetch-friendly search.</p>
+<p><strong>The problem it solves.</strong> Textbook binary search on a sorted array is a branch-misprediction and cache-miss machine: each step jumps to an unpredictable index (the CPU can't prefetch it) and the <code>&lt;</code> branch mispredicts ~50% of the time. Eytzinger lays the same keys out in <strong>breadth-first (heap) order</strong> so the children of the current node are at trivially computable indices <code>2i</code>, <code>2i+1</code> — which the hardware <em>can</em> prefetch — and the comparison becomes branchless.</p>
+<p><strong>The core idea — store the implicit binary search tree in BFS order.</strong> Index 1 = the middle element (tree root), index 2/3 = the two quartile elements, etc. Searching walks <code>i = 2i + (a[i] &lt; key)</code> — always visiting one of two adjacent cache-predictable children, prefetching both before the compare even resolves.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Sorted array:     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Eytzinger layout: [_, 8, 4, 12, 2, 6, 10, 14, 1, 3, 5, 7, 9, 11, 13, 15]</span></span>
@@ -1233,6 +1621,13 @@
 <span class="giallo-l"><span class="z-punctuation z-definition z-comment">    //</span><span class="z-comment"> i now encodes the result via bit manipulation</span></span>
 <span class="giallo-l"><span class="z-keyword z-control">    return</span><span class="z-punctuation"> (</span><span>i </span><span class="z-keyword z-operator">&gt;&gt;</span><span class="z-entity z-name z-function"> __builtin_ffs</span><span class="z-punctuation">(</span><span class="z-keyword z-operator">~</span><span>i</span><span class="z-punctuation">)</span><span class="z-punctuation">)</span><span class="z-keyword z-operator"> -</span><span class="z-constant"> 1</span><span class="z-punctuation">;</span></span>
 <span class="giallo-l"><span class="z-punctuation">}</span></span></code></pre>
+<p><strong>Worked search — find key=6 in the layout above <code>[_,8,4,12,2,6,10,14,...]</code>:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>i=1: a[1]=8.  8&lt;6? no  → i = 2·1 + 0 = 2</span></span>
+<span class="giallo-l"><span>i=2: a[2]=4.  4&lt;6? yes → i = 2·2 + 1 = 5</span></span>
+<span class="giallo-l"><span>i=5: a[5]=6.  6&lt;6? no  → i = 2·5 + 0 = 10   (past n → loop ends)</span></span>
+<span class="giallo-l"><span>Decode: i=10=0b1010. The trailing path of &quot;went-left&quot; (0) bits encodes the answer index;</span></span>
+<span class="giallo-l"><span>the bit-manipulation `i &gt;&gt; ffs(~i)` strips them to recover the sorted-array position of 6.</span></span>
+<span class="giallo-l"><span>No branch ever mispredicted; both children of each node were prefetched a step early.</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>~2× faster than <code>std::lower_bound</code> for N &gt; 1K (Khuong &amp; Morin, 2017)</li>
@@ -1251,6 +1646,8 @@
 <h2 id="37-flat-combining">37. <strong>Flat Combining</strong></h2>
 <p><strong>Used in:</strong> Concurrent stacks, queues, priority queues, counters, skip lists</p>
 <p>Technique that batches concurrent operations through a single combiner thread, eliminating contention.</p>
+<p><strong>The problem it solves.</strong> Under high contention, lock-free structures thrash: every thread CASes the same cache line, most retry, and the line ping-pongs between cores (each miss ~100 cycles). Flat combining flips it — instead of N threads all fighting to touch the structure, one "combiner" thread grabs the lock and applies <em>everyone's</em> pending operations while they wait. The hot cache lines stay on one core, and the batch amortizes synchronization.</p>
+<p><strong>The core idea — a publication list + one rotating combiner.</strong> Each thread posts its request into a per-thread slot (a cheap store, no contention). Threads then try to acquire a single lock: the winner becomes combiner and <em>scans the publication list</em>, executing every posted op against the (plain, sequential) data structure and writing results back into each slot. Losers spin briefly on their own slot until the combiner fills in their result.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Thread 1 ──→ ┌─────────────────────┐</span></span>
 <span class="giallo-l"><span>Thread 2 ──→ │  Publication List    │──→ Combiner thread</span></span>
 <span class="giallo-l"><span>Thread 3 ──→ │  (per-thread slots)  │    (winner of lock)</span></span>
@@ -1281,14 +1678,19 @@
 <h2 id="38-minimal-perfect-hash-functions-mphf">38. <strong>Minimal Perfect Hash Functions (MPHF)</strong></h2>
 <p><strong>Used in:</strong> Compiler symbol tables, static databases, search engine indexes, bioinformatics (k-mer lookup)</p>
 <p>Maps N keys to [0, N) with zero collisions and zero wasted slots. Build once, query O(1).</p>
+<p><strong>The problem it solves.</strong> For a <em>static, known</em> key set (compiler keywords, a genomics k-mer dictionary, a search index's terms) a general hash table wastes space on empty slots and pays for collision handling. An MPHF is a precomputed function that maps exactly those N keys onto 0..N−1 with <strong>no collisions and no gaps</strong> — so you can back it with a dense array (<code>value[mphf(key)]</code>) at ~2–4 bits/key of index overhead and one cache miss per lookup.</p>
+<p><strong>The core idea — assign each key one of k hash slots so the assignment is solvable.</strong> The classic (BDZ/hypergraph) construction hashes each key to 3 positions in an array (a 3-uniform hypergraph edge), then "peels" the hypergraph: repeatedly remove any slot touched by exactly one key, assigning that key there. If the array is ≥1.23·N, peeling succeeds w.h.p. The stored result is a small table of 2-bit values that, combined at query time, pick which of a key's 3 slots is <em>its</em> slot.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Keys: {&quot;cat&quot;, &quot;dog&quot;, &quot;fish&quot;, &quot;bird&quot;}  →  MPHF  →  {0, 1, 2, 3}</span></span>
 <span class="giallo-l"></span>
-<span class="giallo-l"><span>No collisions, no empty slots, no probing — just one function evaluation.</span></span>
-<span class="giallo-l"></span>
-<span class="giallo-l"><span>Construction (CHD / RecSplit):</span></span>
-<span class="giallo-l"><span>  1. Find hash functions that map keys to graph/hypergraph</span></span>
-<span class="giallo-l"><span>  2. Solve assignment via peeling/splitting</span></span>
-<span class="giallo-l"><span>  3. Store compact representation (~2-3 bits/key)</span></span></code></pre>
+<span class="giallo-l"><span>No collisions, no empty slots, no probing — just one function evaluation.</span></span></code></pre>
+<p><strong>Worked construction (peeling) &amp; query:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>BUILD: each key → 3 slots via h0,h1,h2 into array G (size 1.23N).</span></span>
+<span class="giallo-l"><span>  Peel: find a slot with degree 1 (only one key maps there) → that key is &quot;assigned&quot; there,</span></span>
+<span class="giallo-l"><span>        remove it, decrementing its other two slots&#39; degrees → exposes new degree-1 slots.</span></span>
+<span class="giallo-l"><span>  Repeat until all keys peeled (reverse of that order gives a valid assignment).</span></span>
+<span class="giallo-l"><span>  Store a 2-bit value per slot so that (g[h0(k)]+g[h1(k)]+g[h2(k)]) mod 3 selects k&#39;s slot.</span></span>
+<span class="giallo-l"><span>QUERY(k): compute h0,h1,h2; i = (g[h0]+g[h1]+g[h2]) mod 3; return h_i(k). O(1), 3 array reads.</span></span>
+<span class="giallo-l"><span>Adding/removing keys → must rebuild (why it&#39;s for STATIC sets).</span></span></code></pre>
 <p><strong>RecSplit</strong> (Esposito et al., 2020): near-optimal at 1.56 bits/key:</p>
 <ul>
 <li>Recursively split keys into buckets until solvable</li>
@@ -1317,6 +1719,8 @@
 <h2 id="39-compressed-sparse-row-csr-graph-compression">39. <strong>Compressed Sparse Row (CSR) / Graph Compression</strong></h2>
 <p><strong>Used in:</strong> GraphBLAS, Neo4j, Scipy sparse matrices, PageRank, ML adjacency tensors</p>
 <p>The standard in-memory format for large sparse graphs. Eliminates per-edge pointer overhead.</p>
+<p><strong>The problem it solves.</strong> <code>Vec&lt;Vec&lt;u32&gt;&gt;</code> adjacency lists scatter each vertex's edges across separate heap allocations → pointer overhead, poor locality, cache misses walking neighbors. Sparse matrices have the same issue. CSR packs all edges into <strong>one contiguous array</strong> with a per-vertex offset index, so a vertex's neighbors are a sequential slice — perfect for streaming scans (BFS, PageRank, SpMV) and SIMD.</p>
+<p><strong>The core idea — two flat arrays: offsets + packed edges.</strong> <code>offsets[v]..offsets[v+1]</code> delimits vertex v's slice inside the <code>edges</code> array. No per-vertex object, no pointers; <code>offsets</code> has |V|+1 entries, <code>edges</code> has |E| entries.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Adjacency list (naive): each vertex has a Vec&lt;Edge&gt; → pointer per vertex, overhead per vec</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>CSR: two flat arrays</span></span>
@@ -1327,6 +1731,15 @@
 <span class="giallo-l"><span>edges:    [1, 3, 0, 2, 4, _, 1, 3, 2]       ← destination vertices (packed)</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Neighbors of vertex 1: edges[offsets[1]..offsets[2]] = edges[2..5] = [0, 2, 4]</span></span></code></pre>
+<p><strong>Worked SpMV (y = A·x, the core of PageRank) — one sequential pass:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>for v in 0..|V|:</span></span>
+<span class="giallo-l"><span>    sum = 0</span></span>
+<span class="giallo-l"><span>    for e in offsets[v] .. offsets[v+1]:   ← contiguous slice, prefetcher-friendly</span></span>
+<span class="giallo-l"><span>        sum += weight[e] * x[ edges[e] ]    ← gather x by neighbor id</span></span>
+<span class="giallo-l"><span>    y[v] = sum</span></span>
+<span class="giallo-l"><span>Every access to `edges`/`weight` is sequential; only x[] is gathered. |E| multiply-adds</span></span>
+<span class="giallo-l"><span>total, zero pointer chasing → why every graph engine and sparse BLAS uses CSR.</span></span>
+<span class="giallo-l"><span>CSC (column-major twin) is the same idea transposed, for column/in-edge traversal.</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Space: exactly |V|+1 + |E| integers (no pointers, no overhead)</li>
@@ -1350,6 +1763,8 @@
 <h2 id="40-simd-vectorized-structures">40. <strong>SIMD-Vectorized Structures</strong></h2>
 <p><strong>Used in:</strong> DuckDB, ClickHouse, Velox, Polars, simdjson, hyperscan</p>
 <p>Structures and algorithms redesigned from scratch to exploit 128/256/512-bit SIMD.</p>
+<p><strong>The problem it solves.</strong> Scalar code touches one value per instruction; a modern core has 256/512-bit vector units idle unless code is <em>shaped</em> for them. Analytical engines (DuckDB, ClickHouse, Velox) reorganize hot loops — hashing, filtering, joins, JSON parsing — so a single instruction processes 8/16/32/64 values, turning branch-heavy per-row logic into branchless data-parallel sweeps. The gains (4–16×) come only when the data layout and control flow are redesigned, not from auto-vectorizing scalar code.</p>
+<p><strong>The core idea — replace per-element branches with mask-and-compress.</strong> Load a lane of values, do the operation on all lanes at once (<code>cmpeq</code>, add, etc.), turn the result into a bitmask (<code>movemask</code>), then use <code>pext</code>/<code>pdep</code> or a shuffle table to compact the surviving lanes. No per-row branch → no mispredictions.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Traditional: process 1 element per cycle</span></span>
 <span class="giallo-l"><span>SIMD:        process 4/8/16/32/64 elements per cycle</span></span>
 <span class="giallo-l"></span>
@@ -1398,6 +1813,8 @@
 <h2 id="41-distributed-hash-tables-chord-kademlia">41. <strong>Distributed Hash Tables (Chord / Kademlia)</strong></h2>
 <p><strong>Used in:</strong> BitTorrent (Kademlia), IPFS, Ethereum devp2p, Cassandra (modified), Amazon Dynamo (inspired)</p>
 <p>Decentralized key-value lookup across N nodes with O(log N) hops and no central directory.</p>
+<p><strong>The problem it solves.</strong> In a peer-to-peer network with millions of churning nodes there's no central directory to ask "who has key K?". A DHT gives every node a <em>partial</em> routing table (O(log N) entries) such that any node can locate the key's owner in O(log N) hops — no coordinator, self-healing under joins/leaves.</p>
+<p><strong>The core idea — put node IDs and keys in one identifier space; route greedily toward the target ID.</strong> Chord uses a ring with a <strong>finger table</strong> of exponentially-spaced shortcuts (2⁰, 2¹, 2²… ahead), so each hop at least halves the remaining distance → log N hops. Kademlia uses <strong>XOR distance</strong> and k-buckets; both share the "halve the distance each hop" structure.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Chord Ring (Stoica et al., 2001):</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Node IDs and keys mapped to same m-bit identifier space (e.g., SHA-1)</span></span>
@@ -1442,6 +1859,12 @@
 <h2 id="42-epoch-based-reclamation-hazard-pointers">42. <strong>Epoch-Based Reclamation / Hazard Pointers</strong></h2>
 <p><strong>Used in:</strong> Crossbeam (Rust), ConcurrentHashMap (Java), Folly (C++), Linux kernel RCU</p>
 <p>Safe memory reclamation for lock-free structures — the "garbage collection" problem for concurrent systems.</p>
+<p><strong>The problem it solves.</strong> In a lock-free structure, thread A can be mid-read of node X exactly when thread B unlinks and <code>free</code>s X → use-after-free. You can't just free unlinked nodes. Without a GC you need a protocol that answers "is any thread still looking at this node?" cheaply. EBR and hazard pointers are the two dominant answers, trading reclamation latency against per-access cost.</p>
+<p><strong>The core idea — defer frees until provably no reader holds the pointer.</strong></p>
+<ul>
+<li><strong>EBR:</strong> readers announce an <em>epoch</em> on entry; a retired node from epoch e is freed only once every active thread has advanced past e. Cheap on the read side (one store), but a single stalled thread stops all reclamation → unbounded garbage.</li>
+<li><strong>Hazard pointers:</strong> a reader <em>publishes</em> the exact pointer it's using; a retired node is freed only if it appears in no thread's hazard list. Bounded garbage (O(threads×K)), but every read pays a store + memory fence.</li>
+</ul>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Problem: Thread A reads node X while Thread B unlinks and frees X → use-after-free</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Epoch-Based Reclamation (Fraser, 2004):</span></span>
@@ -1483,6 +1906,8 @@
 <h2 id="43-vector-clocks-hybrid-logical-clocks">43. <strong>Vector Clocks / Hybrid Logical Clocks</strong></h2>
 <p><strong>Used in:</strong> Dynamo/DynamoDB, Riak, CockroachDB (HLC), Spanner (TrueTime), causal consistency protocols</p>
 <p>Logical timestamps for ordering events in distributed systems without synchronized physical clocks.</p>
+<p><strong>The problem it solves.</strong> Wall clocks drift and skew across machines, so a physical timestamp can't reliably tell you whether event A <em>caused</em> B or they happened concurrently. Vector clocks capture <strong>causality</strong> exactly: from two vector timestamps you can tell if one happened-before the other or they're concurrent (a conflict needing resolution — e.g. sibling versions in Dynamo).</p>
+<p><strong>The core idea — one counter per node; take the elementwise max on receive.</strong> A node bumps its own entry per event and ships its whole vector with each message. On receipt you <code>max</code> elementwise (absorbing everything the sender had seen) then bump your own. Comparing two vectors elementwise then reveals order: strictly-less on all axes = happened-before; incomparable = concurrent.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Vector Clocks (Fidge/Mattern, 1988):</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Each node maintains a vector of counters, one per node:</span></span>
@@ -1497,6 +1922,13 @@
 <span class="giallo-l"><span>                                                                        │</span></span>
 <span class="giallo-l"><span>Causality: VC_a &lt; VC_b iff ∀i: VC_a[i] ≤ VC_b[i] and ∃j: VC_a[j] &lt; VC_b[j]</span></span>
 <span class="giallo-l"><span>Concurrent: neither VC_a &lt; VC_b nor VC_b &lt; VC_a  → conflict!</span></span></code></pre>
+<p><strong>Worked concurrency detection — two writes to the same key:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Start: everyone [0,0,0].</span></span>
+<span class="giallo-l"><span>Client writes via A → A stamps v1 = [1,0,0].</span></span>
+<span class="giallo-l"><span>Meanwhile client writes via B (hasn&#39;t seen A&#39;s write) → B stamps v2 = [0,1,0].</span></span>
+<span class="giallo-l"><span>Compare v1=[1,0,0] vs v2=[0,1,0]:  v1[0]&gt;v2[0] BUT v1[1]&lt;v2[1] → neither ≤ the other</span></span>
+<span class="giallo-l"><span>→ CONCURRENT → Dynamo keeps BOTH as siblings, hands both to the app to reconcile.</span></span>
+<span class="giallo-l"><span>Contrast: if B had first read A&#39;s write, B would stamp [1,1,0] &gt; [1,0,0] → clean overwrite.</span></span></code></pre>
 <p><strong>Problem:</strong> Vector clocks grow with number of nodes (O(N) per timestamp).</p>
 <p><strong>Hybrid Logical Clocks</strong> (Kulkarni et al., 2014):</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>HLC = (physical_time, logical_counter)</span></span>
@@ -1516,6 +1948,8 @@
 <h2 id="44-tournament-loser-trees">44. <strong>Tournament / Loser Trees</strong></h2>
 <p><strong>Used in:</strong> External merge sort (every database's sort operator), K-way merge in LSM compaction, priority-queue replacement</p>
 <p>Binary tree of comparisons for efficient K-way merging. Loser tree variant avoids redundant comparisons.</p>
+<p><strong>The problem it solves.</strong> Merging K sorted runs (external sort, LSM compaction) naively picks the min of K heads each step → O(K) comparisons per output element. A binary heap cuts that to O(log K) but does ~2·log K comparisons per sift. A <strong>loser tree</strong> does exactly <strong>one</strong> comparison per tree level per output — the tightest constant for K-way merge, which matters when K is 512–1024 runs.</p>
+<p><strong>The core idea — store the LOSER at each internal node; only the winner's path needs replay.</strong> A tournament of K leaves (one per run's current head) plays off; each internal node records the <em>loser</em> of its match, and the overall winner sits above the root. After you output the winner and pull the next value from its run, only the <em>single path</em> from that leaf to the root can change — replay just those log K matches against the stored losers.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>4-way merge of sorted runs: [2,5,8], [1,4,9], [3,6,7], [0,10,11]</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Loser tree (stores loser at each internal node, winner propagates up):</span></span>
@@ -1535,6 +1969,14 @@
 <span class="giallo-l"><span>Output 0, advance run[0] to next value (10):</span></span>
 <span class="giallo-l"><span>  Only replay path from leaf[0] to root: 3 comparisons for 4-way merge</span></span>
 <span class="giallo-l"><span>  (vs. 3 comparisons per element for naive tournament)</span></span></code></pre>
+<p><strong>Worked replay after outputting the winner 0:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Winner was 0 (from run[3], value 0). Output it. run[3] advances → new leaf value 10.</span></span>
+<span class="giallo-l"><span>Replay ONLY leaf[3]&#39;s path to the root, playing the new value against each stored LOSER:</span></span>
+<span class="giallo-l"><span>  level 1 node (was L:3): compare 10 vs its sibling leaf value 1 → 10 loses → store L=10 here,</span></span>
+<span class="giallo-l"><span>                          winner 1 rises.</span></span>
+<span class="giallo-l"><span>  root (was L:1): compare rising 1 vs stored loser... → 1 is the new overall winner.</span></span>
+<span class="giallo-l"><span>New winner = 1. Only log₂4 = 2 comparisons touched; the other subtree never re-examined.</span></span>
+<span class="giallo-l"><span>Loop: output 1, advance its run, replay its path, etc. → one comparison per level per item.</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>K-way merge: O(log K) comparisons per output element</li>
@@ -1553,32 +1995,56 @@
 <h2 id="45-compact-trie-double-array-trie">45. <strong>Compact Trie / Double-Array Trie</strong></h2>
 <p><strong>Used in:</strong> ICU (Unicode), MeCab (Japanese NLP), IP routing (DPDK), Linux kernel <code>fib_trie</code></p>
 <p>Extremely memory-efficient trie encoding using two parallel arrays. O(1) per trie transition.</p>
-<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Standard trie: each node has up to |Σ| child pointers → wasteful for sparse tries</span></span>
+<p><strong>The problem it solves.</strong> A standard trie node holds up to |Σ| child pointers (|Σ| = alphabet size). For ASCII that is 256 pointers × 8 bytes = 2 KB <em>per node</em>, almost all NULL for real dictionaries. The double-array trie (Aoe, <em>An Efficient Digital Search Algorithm by Using a Double-Array Structure</em>, IEEE TSE 1989) collapses every node to <strong>two integers</strong> while keeping O(1) transitions.</p>
+<p><strong>The core idea.</strong> Instead of storing pointers, store two arrays indexed by <em>state number</em> (a state = a trie node = an integer id, root = state 1):</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  BASE[s] + code(c) = t     ← where the transition from state s on char c lands</span></span>
+<span class="giallo-l"><span>  CHECK[t]          = s      ← who t&#39;s parent is (guards against collisions)</span></span></code></pre>
+<p>A transition <code>s --c--&gt; t</code> is <em>valid</em> iff <code>CHECK[BASE[s] + code(c)] == s</code>. That single equality check is the whole trie walk. BASE[s] is a per-state offset chosen at build time so that all of s's children land in currently-free slots.</p>
+<p><strong>Worked example — build a trie for <code>{"ab", "ac", "b"}</code>.</strong>
+Let code(a)=1, code(b)=2, code(c)=3. States: 1=root, 2="a", 3="b", 4="ab", 5="ac".</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Step 1: root=state 1. Its children are &#39;a&#39; and &#39;b&#39;.</span></span>
+<span class="giallo-l"><span>        Pick BASE[1]=1 so:  child &#39;a&#39; → slot 1+1=2,  child &#39;b&#39; → slot 1+2=3.</span></span>
+<span class="giallo-l"><span>        Assign state 2 to slot 2, state 3 to slot 3.  Set CHECK[2]=1, CHECK[3]=1.</span></span>
 <span class="giallo-l"></span>
-<span class="giallo-l"><span>Double-array trie (Aoe, 1989):</span></span>
-<span class="giallo-l"><span>  BASE[s] + c = t        ← transition from state s via char c lands at state t</span></span>
-<span class="giallo-l"><span>  CHECK[t] = s           ← verify that t&#39;s parent is indeed s</span></span>
+<span class="giallo-l"><span>Step 2: state 2 (&quot;a&quot;) has children &#39;b&#39;,&#39;c&#39;.</span></span>
+<span class="giallo-l"><span>        Pick BASE[2]=2 so:  &#39;b&#39; → 2+2=4,  &#39;c&#39; → 2+3=5.  (slots 4,5 free ✓)</span></span>
+<span class="giallo-l"><span>        CHECK[4]=2, CHECK[5]=2.</span></span>
 <span class="giallo-l"></span>
-<span class="giallo-l"><span>Arrays:</span></span>
-<span class="giallo-l"><span>Index: [ 0   1   2   3   4   5   6   7   8   9  ...]</span></span>
-<span class="giallo-l"><span>BASE:  [ 1   3   _   5   _   7   _   _   _   _  ...]</span></span>
-<span class="giallo-l"><span>CHECK: [-1   0   _   0   _   1   _   _   _   _  ...]</span></span>
+<span class="giallo-l"><span>Step 3: state 3 (&quot;b&quot;) is a leaf-word. state 4 (&quot;ab&quot;), 5 (&quot;ac&quot;) leaf-words.</span></span>
+<span class="giallo-l"><span>        Mark word-ends (separate bitmap, or a BASE&lt;0 convention).</span></span>
 <span class="giallo-l"></span>
-<span class="giallo-l"><span>Lookup &quot;ab&quot; (a=0, b=1):</span></span>
-<span class="giallo-l"><span>  state=0: BASE[0]+0=1, CHECK[1]=0 ✓ → state=1</span></span>
-<span class="giallo-l"><span>  state=1: BASE[1]+1=4, but CHECK[4]≠1 → not found</span></span></code></pre>
+<span class="giallo-l"><span>Resulting arrays (index = slot/state number):</span></span>
+<span class="giallo-l"><span>Index:  [ 0   1   2   3   4   5 ]</span></span>
+<span class="giallo-l"><span>BASE:   [ _   1   2   _   _   _ ]     state 1→base1, state 2→base2</span></span>
+<span class="giallo-l"><span>CHECK:  [ _   0   1   1   2   2 ]     0 = root has no parent</span></span>
+<span class="giallo-l"><span>                └─┬─┘ └──┬──┘</span></span>
+<span class="giallo-l"><span>              children   children</span></span>
+<span class="giallo-l"><span>              of root    of state 2</span></span></code></pre>
+<p><strong>Worked lookup — search <code>"ab"</code>:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  start s=1 (root)</span></span>
+<span class="giallo-l"><span>  &#39;a&#39;: t = BASE[1] + code(a) = 1 + 1 = 2;  CHECK[2]==1==s ✓  → s=2</span></span>
+<span class="giallo-l"><span>  &#39;b&#39;: t = BASE[2] + code(b) = 2 + 2 = 4;  CHECK[4]==2==s ✓  → s=4</span></span>
+<span class="giallo-l"><span>  end of key, state 4 marked word-end  → &quot;ab&quot; FOUND</span></span></code></pre>
+<p><strong>Worked lookup — search <code>"ad"</code> (code(d)=4):</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>  &#39;a&#39;: → s=2  (as above)</span></span>
+<span class="giallo-l"><span>  &#39;d&#39;: t = BASE[2] + 4 = 6;  slot 6 empty / CHECK[6]≠2  → NOT FOUND</span></span></code></pre>
+<p>The CHECK test is what makes it safe: two unrelated states may compute the <em>same</em> slot index, but only the one whose parent matches passes.</p>
+<p><strong>Collisions &amp; the build cost.</strong> When adding children of state s, if any target slot <code>BASE[s]+code(c)</code> is already occupied by an unrelated state, you must pick a different BASE[s] — which means <em>relocating</em> s's existing children to a new contiguous block (and fixing their CHECK entries). This relocation is why naive construction is O(n²)-ish; production builders (and the dynamic CEDAR variant) keep a free-slot linked list to find a fitting BASE quickly.</p>
 <p><strong>Key properties:</strong></p>
 <ul>
-<li>Two integers per state (vs. |Σ| pointers in naive trie)</li>
-<li>O(1) per character lookup (array indexing, no pointer chasing)</li>
-<li>Cache-friendly: sequential array access patterns</li>
-<li>Dynamic variant (CEDAR, Yoshinaga &amp; Kitsuregawa, 2014): supports insert/delete</li>
+<li>Two integers per state (vs. |Σ| pointers in naive trie) — ~10× smaller</li>
+<li>O(1) per character lookup (one add + one array read + one compare, no pointer chasing)</li>
+<li>Cache-friendly: BASE/CHECK are flat arrays, sequential-ish access</li>
+<li>Static build packs slots densely; lookup is read-only and branch-light</li>
+<li>Dynamic variant (CEDAR, Yoshinaga &amp; Kitsuregawa, 2014): supports insert/delete via free-list slot management</li>
 <li>HAT-trie (Askitis &amp; Sinha, 2007): hybrid hash + trie, faster than std::unordered_map for strings</li>
 </ul>
 <hr />
 <h2 id="46-sketch-structures-theta-sketch-kll-sketch">46. <strong>Sketch Structures (Theta Sketch / KLL Sketch)</strong></h2>
 <p><strong>Used in:</strong> Apache Datasketches, Druid, Snowflake, BigQuery, Presto</p>
 <p>Sub-linear space summaries enabling set operations and quantile estimation at scale.</p>
+<p><strong>The problem it solves.</strong> Exact distinct-count <em>with set operations</em> (unions/intersections of huge cohorts) needs the actual sets — infeasible across billions of rows and many segments. Theta sketches keep a bounded sample of hashes that supports <strong>union/intersection/difference</strong> with error bounds and full mergeability; KLL does the same for quantiles. Both trade a little accuracy for fixed KB-scale memory that composes across shards.</p>
+<p><strong>The core idea (Theta) — keep only hashes below a threshold θ; that fraction estimates the whole.</strong> Hash values are uniform in [0,1). If you retain all hashes &lt; θ, you've kept ≈θ fraction of <em>distinct</em> items, so |set| ≈ (# kept)/θ. Because the retained set is defined purely by the hash and θ, two sketches <strong>union</strong> by keeping the min-θ and merging, and <strong>intersect</strong> by keeping hashes present in both — set algebra on samples.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Theta Sketch (set operations):</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Concept: keep all hash values below threshold θ</span></span>
@@ -1589,6 +2055,11 @@
 <span class="giallo-l"><span>Union:     {0.1, 0.2, 0.3, 0.4}, θ=0.5 → |estimate| = 4/0.5 = 8</span></span>
 <span class="giallo-l"><span>Intersect: {}, θ=0.5 → |estimate| = 0</span></span>
 <span class="giallo-l"><span>Difference: sketch(A) - sketch(B) via inclusion-exclusion</span></span></code></pre>
+<p><strong>KLL core idea — a hierarchy of compactors that randomly drop half.</strong> Each level holds ≤k items; when full it <em>compacts</em>: sort, then keep either the even- or odd-indexed items (coin flip) and promote them to the next level with doubled weight. Randomizing which half survives makes errors cancel rather than accumulate, giving near-optimal error for the memory. Worked:</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Level 0 compactor fills to k items → sort → flip coin → keep every other item,</span></span>
+<span class="giallo-l"><span>  each now &quot;weighs 2&quot; → push to level 1. Level 1 fills → same, weight 4 → level 2...</span></span>
+<span class="giallo-l"><span>Query(q): sweep all levels, summing weights of items ≤ target until reaching rank q·N.</span></span>
+<span class="giallo-l"><span>Higher levels = coarser but rarer items → total space O((1/ε)·log log(1/δ)).</span></span></code></pre>
 <p><strong>KLL Sketch</strong> (Karnin, Lang, Liberty, 2016) — mergeable quantile sketch:</p>
 <ul>
 <li>Space: O(1/ε × log log(1/δ)) — nearly optimal</li>
@@ -1606,6 +2077,8 @@
 <h2 id="47-segment-tree-with-lazy-propagation">47. <strong>Segment Tree (with Lazy Propagation)</strong></h2>
 <p><strong>Used in:</strong> Database range aggregates, computational geometry, HFT interval queries, game physics (AABB)</p>
 <p>Supports arbitrary range queries and range updates in O(log N) per operation.</p>
+<p><strong>The problem it solves.</strong> "Sum/min/max over range [l,r]" plus "update this element" — a prefix-sum array does queries in O(1) but updates in O(N); a Fenwick tree (§25) handles sum but not min/max or <em>range</em> updates. A segment tree handles <strong>any associative aggregate</strong> with both range query and (with lazy propagation) <em>range</em> update in O(log N).</p>
+<p><strong>The core idea — each node stores the aggregate of its subrange; any query range decomposes into O(log N) node-ranges.</strong> The tree recursively halves [0,N). A query [l,r] is answered by combining the few "canonical" nodes whose ranges tile [l,r] exactly — at most 2 per level → O(log N) nodes.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Array: [1, 3, 5, 7, 2, 4, 6, 8]</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Segment tree (sum):</span></span>
@@ -1626,6 +2099,13 @@
 <span class="giallo-l"><span>Node [4,5]: lazy_add = 10</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Query/update pushes lazy values down on demand → O(log N) amortized</span></span></code></pre>
+<p><strong>Worked lazy update then query — "add 10 to [0,5]", then "sum [2,5]":</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>UPDATE add-10 to [0,5]: descend; where a node&#39;s range is FULLY inside [0,5], stamp its</span></span>
+<span class="giallo-l"><span>  lazy_add += 10 and bump its stored sum by 10·(range size), then STOP — don&#39;t recurse.</span></span>
+<span class="giallo-l"><span>  Node [0,3] (size 4): sum += 40, lazy_add=10.  Node [4,5] (size 2): sum += 20, lazy=10.</span></span>
+<span class="giallo-l"><span>QUERY sum[2,5]: descend into [0,3] → must go below it → first PUSH DOWN its lazy 10 to</span></span>
+<span class="giallo-l"><span>  children [0,1],[2,3] (add 10·size to each, set their lazy), clear parent lazy. Then read</span></span>
+<span class="giallo-l"><span>  [2,3]=12+20=... and [4,5] node → combine. Lazy is only materialized on the paths queries touch → O(log N) amortized.</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Any associative operation: sum, min, max, gcd, matrix multiply</li>
@@ -1638,6 +2118,8 @@
 <h2 id="48-treap-tree-heap">48. <strong>Treap (Tree + Heap)</strong></h2>
 <p><strong>Used in:</strong> Randomized BSTs, implicit treaps for arrays, persistent balanced trees, competitive programming</p>
 <p>Balanced BST using random priorities. Simpler than red-black trees, elegant for split/merge operations.</p>
+<p><strong>The problem it solves.</strong> Red-black/AVL trees balance via intricate rotation cases that are easy to get wrong. A treap gets <em>expected</em> balance almost for free: give each key a random priority and keep the tree a heap on priorities. Random priorities → the tree is shaped like a random BST → expected O(log N) height, with dead-simple code and O(log N) <code>split</code>/<code>merge</code> that make range operations trivial.</p>
+<p><strong>The core idea — a BST on keys that is simultaneously a heap on random priorities.</strong> The key ordering makes it a search tree; the heap-on-priority constraint pins the shape. Since priorities are random and independent of insertion order, the resulting tree is distributionally identical to inserting keys in random order → balanced w.h.p. All operations reduce to <code>split</code> (cut into keys≤x and keys&gt;x) and <code>merge</code>.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>         (K=5, P=93)          Keys form BST (left &lt; root &lt; right)</span></span>
 <span class="giallo-l"><span>          /        \          Priorities form max-heap (parent &gt; children)</span></span>
 <span class="giallo-l"><span>   (K=2, P=82)  (K=8, P=77)</span></span>
@@ -1651,6 +2133,13 @@
 <span class="giallo-l"><span>Merge(left, right):</span></span>
 <span class="giallo-l"><span>  → Combine by priority: higher priority becomes root</span></span>
 <span class="giallo-l"><span>  O(log N) expected</span></span></code></pre>
+<p><strong>Worked insert — insert (K=6, random P=88) via split+merge:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>1. split(tree, key=6) → L = all keys &lt;6, R = all keys &gt;6 (follows the search path, O(log N)).</span></span>
+<span class="giallo-l"><span>2. new node n=(6,88).  merge(L, n) then merge(result, R): at each merge, whichever root</span></span>
+<span class="giallo-l"><span>   has HIGHER priority stays on top, recurse into the appropriate child.</span></span>
+<span class="giallo-l"><span>   Because P=88 outranks some subtrees, n bubbles to the right depth automatically —</span></span>
+<span class="giallo-l"><span>   no explicit rotation cases, the heap property does the balancing.</span></span></code></pre>
+<p>Equivalently, rotation-based insert: BST-insert by key, then rotate the new node up while its priority exceeds its parent's — the two formulations are identical.</p>
 <p><strong>Implicit Treap</strong> — array with O(log N) insert/delete at any position:</p>
 <ul>
 <li>No explicit keys; position determined by subtree sizes</li>
@@ -1669,6 +2158,8 @@
 <h2 id="49-clock-clock-pro-arc-adaptive-replacement-cache">49. <strong>Clock / CLOCK-Pro / ARC (Adaptive Replacement Cache)</strong></h2>
 <p><strong>Used in:</strong> Operating system page caches, PostgreSQL buffer manager, ZFS ARC, database buffer pools</p>
 <p>Eviction policies that adapt to workload patterns, beating LRU on mixed access patterns.</p>
+<p><strong>The problem it solves.</strong> Strict LRU has two flaws: (1) it needs a lock + list-splice on <em>every</em> access (contention), and (2) it's fooled by scans — reading a big table once evicts your whole hot working set. CLOCK approximates LRU with a cheap reference bit (no per-access list surgery); ARC goes further, <em>self-tuning</em> the split between recency and frequency so scans can't blow away frequently-used pages.</p>
+<p><strong>The core idea.</strong> CLOCK: pages sit in a ring, each with a reference bit set on access; an evicting "hand" sweeps, giving any referenced page a second chance (clear bit, skip) and evicting the first unreferenced one — amortized LRU without touching a page on hit. ARC: keep <em>two</em> lists — T1 (seen once, recency) and T2 (seen ≥twice, frequency) — plus <strong>ghost lists</strong> B1/B2 remembering recently-evicted keys. A hit in a ghost list is a signal that you evicted too aggressively from that side, so ARC shifts the target boundary p toward it.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>LRU problem: a single full table scan evicts the entire working set</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>CLOCK (approximation of LRU):</span></span>
@@ -1691,6 +2182,13 @@
 <span class="giallo-l"><span>  Hit in B1 ghost → increase p (favor recency, grow T1)</span></span>
 <span class="giallo-l"><span>  Hit in B2 ghost → decrease p (favor frequency, grow T2)</span></span>
 <span class="giallo-l"><span>  Adapts online to workload: scan-resistant AND frequency-aware</span></span></code></pre>
+<p><strong>Worked CLOCK eviction sweep</strong> (need a victim; hand at slot with ref bits <code>[1,0,1,...]</code>):</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>hand@slot0: ref=1 → clear to 0, advance.  hand@slot1: ref=0 → EVICT slot1, place new page.</span></span>
+<span class="giallo-l"><span>A page touched since the hand last passed survives one more revolution → &quot;second chance&quot;.</span></span></code></pre>
+<p><strong>Worked ARC adaptation</strong> (why scans don't hurt):</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>A scan streams unique pages → they land in T1, get evicted to ghost B1, never re-referenced.</span></span>
+<span class="giallo-l"><span>Your hot pages live in T2 (≥2 hits) and are NOT displaced by T1 growth beyond p.</span></span>
+<span class="giallo-l"><span>If a real recency-heavy phase starts, hits in B1 push p up → T1 grows → adapts. No tuning.</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>ARC: self-tuning, no parameters, scan-resistant, O(1) per operation</li>
@@ -1708,6 +2206,8 @@
 <h2 id="50-conflict-free-replicated-registers-maps-d-crdts">50. <strong>Conflict-Free Replicated Registers / Maps (δ-CRDTs)</strong></h2>
 <p><strong>Used in:</strong> Redis Enterprise (Active-Active), Automerge 2.0, Electric SQL, Loro</p>
 <p>Optimized CRDTs that transmit only deltas rather than full state, reducing network cost by orders of magnitude.</p>
+<p><strong>The problem it solves.</strong> Classic state-based CRDTs (§19) converge by shipping the <em>entire</em> state on every sync — fine for a counter, ruinous for a 1 GB document edited one character at a time. δ-CRDTs ship only the small <strong>delta</strong> produced by each operation while preserving the exact same convergence guarantees, cutting bandwidth from O(state) to O(change).</p>
+<p><strong>The core idea — a delta is itself a join-irreducible fragment of the lattice.</strong> Each operation yields a δ that is a tiny CRDT state; merging δ into the full state via the same lattice <code>join</code> (⊔) has identical effect to the full-state merge. Because join is idempotent/commutative/associative (§19), deltas can be batched, reordered, or redelivered safely — anti-entropy periodically re-ships accumulated deltas to catch any dropped in real time.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Classic state-based CRDT: ship entire state on every sync</span></span>
 <span class="giallo-l"><span>  Node A sends: {counter: [A:50, B:30, C:10]}  ← 90 bytes for 3 nodes</span></span>
 <span class="giallo-l"></span>
@@ -1729,6 +2229,14 @@
 <span class="giallo-l"><span>Delta for adding item4:</span></span>
 <span class="giallo-l"><span>  Δ = {&quot;items&quot;: {add: item4, causal_context: [(A,15)]}}</span></span>
 <span class="giallo-l"><span>  Size: O(1) regardless of set size</span></span></code></pre>
+<p><strong>Worked delta ship-and-merge:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Node A adds item4 → produces δ = {items: add item4 tagged (A,15)}  (a few bytes).</span></span>
+<span class="giallo-l"><span>A ships δ (not its whole OR-Set) to B and C.</span></span>
+<span class="giallo-l"><span>B: state_B = state_B ⊔ δ → item4 appears, tagged with dot (A,15).</span></span>
+<span class="giallo-l"><span>C receives δ TWICE (retry) → second ⊔ is idempotent → item4 not duplicated.</span></span>
+<span class="giallo-l"><span>If C concurrently REMOVED item4, OR-Set add-wins + causal context decides: a remove only</span></span>
+<span class="giallo-l"><span>  cancels adds it has SEEN; the unseen (A,15) add survives → item4 stays.</span></span>
+<span class="giallo-l"><span>Dotted version vectors track which dots each replica absorbed → GC once all have them.</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Network cost: O(delta) instead of O(state) per sync</li>
@@ -1746,6 +2254,8 @@
 <h2 id="51-bw-tree-buzzword-tree">51. <strong>Bw-Tree (Buzzword Tree)</strong></h2>
 <p><strong>Used in:</strong> Microsoft SQL Server Hekaton, Azure Cosmos DB, Silo</p>
 <p>Lock-free B+-tree using delta chains and logical-to-physical page mapping. Designed for modern multi-core + flash.</p>
+<p><strong>The problem it solves.</strong> Latching a B+-tree page serializes writers and causes cache-line contention on many cores; rewriting a whole page per update is bad for flash (write amplification). The Bw-tree removes latches entirely: updates are tiny <strong>delta records</strong> prepended to a page and published with a single CAS on a <strong>mapping table</strong> slot, so writers never block and pages aren't rewritten in place.</p>
+<p><strong>The core idea — indirection through a mapping table + delta chains.</strong> Nodes reference each other by logical page id (PID), not physical pointer; the mapping table translates PID→physical address. An update builds a delta, links it in front of the current page, and CAS-swaps the mapping-table entry to point at the delta. Readers walk the delta chain then the base page. When a chain grows long, a background consolidation merges deltas into a fresh page and CASes it in.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Mapping Table (logical → physical):</span></span>
 <span class="giallo-l"><span>┌─────┬────────────┐</span></span>
 <span class="giallo-l"><span>│ PID │ Phys Addr  │</span></span>
@@ -1781,6 +2291,8 @@
 <h2 id="52-splay-tree">52. <strong>Splay Tree</strong></h2>
 <p><strong>Used in:</strong> Link-Cut trees (network flow), compression (move-to-front), memory allocators (dlmalloc), cache-like structures</p>
 <p>Self-adjusting BST that moves accessed nodes to root via rotations. Amortized O(log N) with working-set optimality.</p>
+<p><strong>The problem it solves.</strong> Balanced trees (RB/AVL) store extra metadata and treat every key equally, even though real access is skewed (some keys are hot). A splay tree stores <em>no</em> balance metadata and instead moves every accessed node to the root, so recently/frequently used keys drift near the top — giving the <strong>working-set property</strong>: repeatedly touching a small hot set costs O(log(hot-set-size)), not O(log N), automatically.</p>
+<p><strong>The core idea — "splay" the accessed node to the root with paired rotations.</strong> After finding X you rotate it up, but <em>in pairs</em> chosen by X's shape relative to its grandparent: <strong>zig-zig</strong> (X and parent same side → rotate grandparent first, then parent), <strong>zig-zag</strong> (opposite sides → two opposite rotations), <strong>zig</strong> (X is child of root → single rotation). The zig-zig pairing is what halves the depth of everything on the access path — the amortized magic that a naive rotate-to-root lacks.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Access node X → splay X to root via zig-zig, zig-zag, zig rotations:</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Before accessing 1:          After splaying 1 to root:</span></span>
@@ -1814,6 +2326,8 @@
 <h2 id="53-extendible-hashing-linear-hashing">53. <strong>Extendible Hashing / Linear Hashing</strong></h2>
 <p><strong>Used in:</strong> Berkeley DB, early MySQL ISAM, disk-based hash indexes, embedded databases</p>
 <p>Disk-friendly hash tables that grow gracefully without full rehashing.</p>
+<p><strong>The problem it solves.</strong> An in-memory hash table resizes by rehashing <em>everything</em> into a bigger array — O(N) stall. On disk that means re-reading and rewriting every page: unacceptable for a live database index. Extendible and linear hashing grow <strong>one bucket at a time</strong>, so a growth step touches a single page, giving smooth latency and no global rebuild.</p>
+<p><strong>The core idea — use a growing PREFIX of the hash so splits are local.</strong> Extendible hashing keeps a directory indexed by the top <code>d</code> bits (global depth); each bucket has a local depth ≤ d. Overflow splits just that bucket using one more hash bit and, only if its local depth was already d, doubles the <em>directory</em> (pointers, cheap) — never the data. Linear hashing drops the directory entirely: a split pointer marches through buckets, splitting them in round-robin order regardless of which overflowed, using <code>mod N</code> vs <code>mod 2N</code> to route.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Extendible Hashing:</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>Global directory (depth=2): indexes into buckets by first d bits of hash</span></span>
@@ -1827,6 +2341,13 @@
 <span class="giallo-l"><span>Bucket overflow → split ONE bucket, double directory if needed:</span></span>
 <span class="giallo-l"><span>  Bucket C splits: 10→C&#39;, 11→C&#39;&#39;</span></span>
 <span class="giallo-l"><span>  Only C&#39;s entries rehashed — everything else untouched</span></span></code></pre>
+<p><strong>Worked bucket split (extendible).</strong> Global depth d=2; bucket C (local depth 1) covers prefixes 10,11 and overflows:</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>1. C&#39;s local depth (1) &lt; global depth (2)?  YES → no directory doubling needed.</span></span>
+<span class="giallo-l"><span>   Split C into C&#39;(prefix 10) and C&#39;&#39;(prefix 11) using the 2nd hash bit; repoint dir[10]→C&#39;, dir[11]→C&#39;&#39;.</span></span>
+<span class="giallo-l"><span>   Only C&#39;s keys rehashed; A,B untouched; directory size unchanged.</span></span>
+<span class="giallo-l"><span>2. If instead C&#39;s local depth == global depth → double the DIRECTORY first (copy pointers,</span></span>
+<span class="giallo-l"><span>   d→d+1), THEN split. Doubling touches only cheap pointer entries, not data pages.</span></span>
+<span class="giallo-l"><span>Lookup is always: top-d bits index the directory → one bucket page read. O(1) I/O.</span></span></code></pre>
 <p><strong>Linear Hashing</strong> (Litwin, 1980):</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Split pointer advances linearly through buckets:</span></span>
 <span class="giallo-l"></span>
@@ -1851,6 +2372,8 @@
 <h2 id="54-packed-memory-array-pma-gapped-array">54. <strong>Packed Memory Array (PMA) / Gapped Array</strong></h2>
 <p><strong>Used in:</strong> ALEX (learned index leaves), cache-oblivious B-trees, density-based indexes</p>
 <p>Sorted array with gaps that allows O(log² N) amortized inserts while maintaining cache-friendly sequential layout.</p>
+<p><strong>The problem it solves.</strong> A sorted array gives perfect scan locality (SIMD, prefetch) but O(N) inserts (shift everything). A tree gives O(log N) inserts but scatters data (pointer-chasing scans). A PMA keeps data in a <em>single sorted array with deliberate gaps</em>, so scans stay sequential while inserts only shift within a small window — O(log² N) amortized. This is why ALEX uses PMAs at its learned-index leaves: models predict a position, gaps absorb the insert without moving the model.</p>
+<p><strong>The core idea — maintain per-level density bounds; rebalance the smallest window that's in range.</strong> Conceptually the array is a virtual binary tree of segments. Each tree level h has a density corridor [ρ_h, τ_h] (looser near leaves, tighter near root). Insert into the local segment; if that segment's density leaves its corridor, walk <em>up</em> to the smallest enclosing window whose density is back in-bounds, and evenly redistribute (re-space) that whole window. Rare large redistributions amortize against many cheap local ones.</p>
 <pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Logical sorted order: [1, 3, 5, 7, 9, 11, 13, 15]</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>PMA with gaps (density ~50-75%):</span></span>
@@ -1865,6 +2388,14 @@
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>If local density exceeds threshold → rebalance larger window (amortized)</span></span>
 <span class="giallo-l"><span>Density thresholds at each level: τ_h (upper) and ρ_h (lower)</span></span></code></pre>
+<p><strong>Worked insert with cascading rebalance — insert 6 into a nearly-full segment:</strong></p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>1. Segment [.,5,7,.] is the leaf window. Insert 6 → [5,6,7] → density e.g. 3/3 = 1.0 &gt; τ_leaf.</span></span>
+<span class="giallo-l"><span>2. Out of corridor → climb to the parent window (double the span), recompute density.</span></span>
+<span class="giallo-l"><span>   Parent [.,5,6,7,9,.,11,.] density = 6/8 = 0.75. In corridor? if ≤ τ at that level → STOP here.</span></span>
+<span class="giallo-l"><span>3. Evenly re-space that parent window&#39;s elements across its slots (restore uniform gaps):</span></span>
+<span class="giallo-l"><span>   [5 . 6 . 7 . 9 . 11 . ...]. Only that window moved — the rest of the array untouched.</span></span>
+<span class="giallo-l"><span>4. If even the whole array exceeds τ_root → grow (resize ×2) and re-space globally (rare).</span></span>
+<span class="giallo-l"><span>Amortized O(log² N): O(log N) levels × O(log N) redistribution charge per element.</span></span></code></pre>
 <p><strong>Key properties:</strong></p>
 <ul>
 <li>Sequential scan: just iterate the flat array, skip gaps (SIMD-friendly)</li>

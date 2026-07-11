@@ -204,6 +204,10 @@
         <lastmod>2026-02-10</lastmod>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/notes/programming/gpu-libraries/</loc>
+        <lastmod>2026-07-10</lastmod>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/notes/programming/rust-low-level/</loc>
         <lastmod>2026-02-10</lastmod>
     </url>
@@ -401,6 +405,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/crdt/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/cuda/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/cxl/</loc>
@@ -652,6 +659,9 @@
         <loc>https://nmbr7.github.io/tags/meta/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/metal/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/microarchitecture/</loc>
     </url>
     <url>
@@ -769,6 +779,9 @@
         <loc>https://nmbr7.github.io/tags/pwm/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/python/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/query-compilation/</loc>
     </url>
     <url>
@@ -809,6 +822,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/rocksdb/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/rocm/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/rust/</loc>
@@ -878,6 +894,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/svm/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/sycl/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/syscalls/</loc>
@@ -965,6 +984,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/volcano/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/vulkan/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/wal/</loc>
