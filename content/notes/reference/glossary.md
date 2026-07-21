@@ -332,6 +332,48 @@ Acronyms and technical terms used across research docs.
 | xGMI | Inter-Socket Global Memory Interconnect — AMD coherent link between EPYC sockets (and between MI300 GPUs); 32 GT/s at gen4-5 | [Interconnects](@/notes/hardware/interconnects.md) |
 | ZR | Coherent optical pluggable family — 400ZR/800ZR for metro distances (80-120 km unamplified) using DP-16QAM with integrated DSP | [Interconnects](@/notes/hardware/interconnects.md) |
 
+## GPU Programming Libraries
+
+| Term | Definition | Covered In |
+|---|---|---|
+| AMX | Apple Matrix coprocessor — undocumented CPU-side matrix unit (one per CPU cluster), reachable only via Accelerate (BLAS/vDSP), not from Metal; specs are third-party reverse-engineered | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| ANE | Apple Neural Engine — dedicated power-efficient NPU on Apple Silicon; reachable only through Core ML, not Metal or MLX (a closed ecosystem wall) | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| Arithmetic intensity | FLOPs per byte moved; the x-axis of the roofline model — determines whether a kernel is memory-bound (low AI) or compute-bound (high AI) | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md), [GPU/TPU Accelerator Design](@/notes/hardware/gpu_tpu_accelerator_design.md) |
+| Coalescing | Merging a warp's 32 global-memory accesses that fall in one 128 B line into a single transaction; the largest global-memory perf lever on NVIDIA GPUs | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| Cooperative matrix | `VK_KHR_cooperative_matrix` (2023) — Vulkan subgroup-scoped tensor-core/matrix-core GEMM primitive; the portable path to tensor cores outside CUDA | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| cp.async | Ampere (sm_80+) async copy global→shared bypassing the register file; overlaps load with compute; pre-Hopper software-pipelining primitive | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| CUTLASS | NVIDIA open-source C++ template GEMM/conv library and reference for programming Tensor Cores; CuTe (3.x) is its `Layout = Shape ⊗ Stride` algebra | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| DSMEM | Distributed Shared Memory — Hopper thread-block-cluster feature letting blocks on one GPC access each other's SMEM over an SM-to-SM network (~7× faster than global round-trip, vendor-stated) | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| fatbin | CUDA fat binary — container bundling multiple arch-specific cubins plus PTX for JIT fallback | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| gfx target | AMD GPU arch identifier (e.g. gfx90a=MI200/CDNA2, gfx942=MI300/CDNA3); binaries are gfx-specific — the ROCm analogue of `sm_XX` | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| HIP | Heterogeneous-compute Interface for Portability — AMD's near-1:1 CUDA-clone C++ runtime + kernel language; `hipcc` targets AMD (ROCclr/HSA) or NVIDIA (thin CUDA shim) | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| HIPIFY | ROCm CUDA→HIP source translator; hipify-perl (regex, shallow) vs hipify-clang (AST-based, accurate) | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| LDS | Local Data Share — AMD's on-chip per-CU scratchpad (~64 KB, 32 banks); the ROCm equivalent of CUDA shared memory / Metal threadgroup memory | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| MFMA | Matrix Fused Multiply-Add — AMD CDNA matrix-core instructions (incl. FP64 matrix); the ROCm analogue of NVIDIA Tensor-Core `mma`, with AMD-specific fragment layouts | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| MLX | Apple's open-source NumPy/JAX-like array framework; unified-memory native, lazy-eval (fusion at `mx.eval()`), maps to Metal kernels; mlx-lm for local LLMs | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| MSL | Metal Shading Language — Apple's C++14-based GPU kernel language | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| Occupancy | Active warps ÷ max warps per SM; limited by registers/shared-mem/block count; max occupancy ≠ max throughput (Volkov: ILP can hide latency at low occupancy) | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| PTX | Parallel Thread eXecution — NVIDIA's forward-compatible virtual ISA; JIT-compiled to SASS by the driver at load (the CUDA forward-compat mechanism) | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| ptxas | NVIDIA PTX→SASS optimizing assembler; where register allocation and scheduling happen (`-v` prints reg/smem/spill usage) | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| RCCL | ROCm Communication Collectives Library — AMD's NCCL-compatible multi-GPU collectives | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| Roofline | Williams et al. (CACM 2009) performance model: attainable FLOP/s = min(peak compute, arithmetic_intensity × peak bandwidth); ridge point separates memory- vs compute-bound | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md), [GPU/TPU Accelerator Design](@/notes/hardware/gpu_tpu_accelerator_design.md) |
+| s_waitcnt | AMD ISA instruction stalling until outstanding vector-memory / LDS+scalar / export counts drain; ROCm has no automatic memory-op dependency tracking | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| SASS | Streaming ASSembler — NVIDIA's actual per-architecture machine ISA (undocumented, changes each generation); ptxas emits it, `cuobjdump -sass` disassembles it | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| SIMD-group | Apple Metal's lockstep lane group (32-wide on Apple Silicon); the Metal analogue of a CUDA warp / AMD wavefront | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| simdgroup_matrix | Metal's on-GPU cooperative matrix-multiply primitive (8×8 tiles across a SIMD-group); Apple's tensor-core analogue | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| SPIR-V | Khronos binary intermediate IR consumed by Vulkan/OpenCL/SYCL; SPIRV-Cross transpiles it to GLSL/HLSL/MSL (how MoltenVK/wgpu retarget Metal/DX) | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| Sub-group | SYCL/Vulkan warp-equivalent lane group within a work-group; supports shuffles/reductions | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| SYCL | Khronos single-source C++17 heterogeneous-compute standard; buffer/accessor or USM memory models; DPC++ and AdaptiveCpp implementations over CUDA/HIP/Level-Zero/OpenCL backends | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| TBDR | Tile-Based Deferred Rendering — Apple GPU architecture splitting the frame into on-chip tiles; imageblocks and tile shaders exploit it for on-chip compute | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| tcgen05 | Blackwell (sm_100a) 5th-gen tensor-core MMA (UMMA); FP4/FP6 with block scaling, accumulators in dedicated Tensor Memory (TMEM); can span 2 SMs | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| TMA | Tensor Memory Accelerator — Hopper (sm_90+) hardware DMA engine for bulk multidimensional tiled global↔shared copies via a `CUtensorMap` descriptor, signaling an mbarrier on completion | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| UMA | Unified Memory Architecture — Apple Silicon's single physical LPDDR5X pool shared zero-copy by CPU/GPU/ANE (no discrete VRAM, no PCIe copies); AMD MI300A is an HBM-based UMA APU | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| USM | Unified Shared Memory — SYCL's raw-pointer memory model (`malloc_device`/`malloc_shared`/`malloc_host`); the CUDA-like alternative to the buffer/accessor model | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| Wavefront | AMD's lockstep lane group: 64 threads (GCN/CDNA) or 32 (RDNA wave32); the ROCm analogue of a CUDA warp — a top portability gotcha | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| wgmma | Hopper (sm_90a) warpgroup (4-warp/128-thread) async tensor-core MMA; operand B in SMEM; reaches higher peak than legacy `mma.sync` | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| WGSL | WebGPU Shading Language — the shader language for wgpu/WebGPU compute pipelines | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| WMMA | Warp/Wave Matrix Multiply-Accumulate — NVIDIA's portable warp-level tensor-core fragment API, and (separately) AMD RDNA3+'s consumer matrix instruction (16×16×16, no FP64) | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+
 ## Cache Eviction, Admission & Prefetching
 
 | Term | Definition | Detailed In |

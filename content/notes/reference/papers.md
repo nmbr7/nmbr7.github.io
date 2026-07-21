@@ -270,6 +270,23 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 | Shazeer, "Fast Transformer Decoding: One Write-Head is All You Need" (Multi-Query Attention) | arXiv 2019 | [GPU/TPU Accelerator Design](@/notes/hardware/gpu_tpu_accelerator_design.md) |
 | Sze et al., "Efficient Processing of Deep Neural Networks: A Tutorial and Survey" | Proceedings of the IEEE, 2017 | [GPU/TPU Accelerator Design](@/notes/hardware/gpu_tpu_accelerator_design.md) |
 
+## GPU Programming & Compute Libraries
+
+| Paper | Venue | Cited In |
+|---|---|---|
+| Williams, Waterman, Patterson, "Roofline: An Insightful Visual Performance Model for Multicore Architectures" | Comm. ACM 2009 | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| Volkov, "Better Performance at Lower Occupancy" | GTC 2010 | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| Volkov, "Understanding Latency Hiding on GPUs" | PhD thesis, UC Berkeley EECS-2016-143, 2016 | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| Nickolls, Buck, Garland, Skadron, "Scalable Parallel Programming with CUDA" | ACM Queue 2008 | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| Tillet, Kung, Cox, "Triton: An Intermediate Language and Compiler for Tiled Neural-Network Computations" | MAPL 2019 | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| Kirk, Hwu, "Programming Massively Parallel Processors" (4th ed.) | Textbook, 2022 | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| Luo et al., "Dissecting the NVIDIA Hopper Architecture through Microbenchmarking" | arXiv 2501.12084, 2025 | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| Anon., "Microbenchmarking NVIDIA's Blackwell Architecture" | arXiv 2512.02189, 2025 | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| Alpay, Heuveline, "One Pass to Bind Them: The AdaptiveCpp Single-Pass SSCP Compiler" | IWOCL 2023 | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| Anon., "Rigel: Reverse-Engineering the Metal 4.1 Tensor Compute Path on the M4 Max" | arXiv 2606.12765, 2026 | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| Anon., "Orion: Reverse-Engineering the Apple Neural Engine for LLM Inference" | arXiv 2603.06728, 2026 | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+| Anon., "Inter-APU Infinity Fabric Analysis (AMD MI300A)" | arXiv 2508.11298, 2025 | [GPU Programming Libraries](@/notes/programming/gpu_libraries.md) |
+
 ## ISA, Memory Models & Microarchitecture
 
 | Paper | Venue | Cited In |
