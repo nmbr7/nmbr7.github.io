@@ -94,7 +94,12 @@ body {
   display: flex;
   justify-content: center;
   .resume {
-    width: 60%;
+    // Fill the available width on small screens, cap on large ones, so the
+    // resume is readable on mobile instead of a tiny 60%-wide thumbnail.
+    width: 100%;
+    max-width: 820px;
+    height: auto;
+    border-radius: 4px;
   }
 }
 
