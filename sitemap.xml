@@ -15,6 +15,9 @@
         <loc>https://nmbr7.github.io/about/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/blog/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/databases/</loc>
     </url>
     <url>
@@ -206,6 +209,10 @@
     <url>
         <loc>https://nmbr7.github.io/notes/programming/gpu-libraries/</loc>
         <lastmod>2026-07-10</lastmod>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/notes/programming/optimization-techniques/</loc>
+        <lastmod>2026-07-14</lastmod>
     </url>
     <url>
         <loc>https://nmbr7.github.io/notes/programming/rust-low-level/</loc>
@@ -504,6 +511,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/full-text-search/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/gcc/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/git/</loc>
@@ -836,6 +846,9 @@
         <loc>https://nmbr7.github.io/tags/sampling/</loc>
     </url>
     <url>
+        <loc>https://nmbr7.github.io/tags/scheduling/</loc>
+    </url>
+    <url>
         <loc>https://nmbr7.github.io/tags/seccomp/</loc>
     </url>
     <url>
@@ -948,6 +961,9 @@
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/vector-search/</loc>
+    </url>
+    <url>
+        <loc>https://nmbr7.github.io/tags/vectorization/</loc>
     </url>
     <url>
         <loc>https://nmbr7.github.io/tags/vectorized-execution/</loc>

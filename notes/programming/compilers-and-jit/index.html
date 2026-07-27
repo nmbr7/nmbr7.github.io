@@ -209,6 +209,12 @@
 <p>Determine if an object's lifetime is bounded to the allocating function (doesn't escape). Non-escaping objects can be <strong>stack-allocated</strong> or <strong>scalar-replaced</strong> (fields promoted to individual SSA values). LLVM's <strong>SROA</strong> (Scalar Replacement of Aggregates) promotes <code>alloca</code>s with only GEP+load/store uses to SSA values, enabling downstream DCE and GVN. HotSpot C2 eliminates heap allocations for non-escaping objects. Wuerthinger et al. (VEE 2010) — escape analysis for Java JITs.</p>
 <h3 id="sccp-sparse-conditional-constant-propagation">SCCP (Sparse Conditional Constant Propagation)</h3>
 <p>Wegman &amp; Zadeck 1991 (TOPLAS). Combined constant propagation + unreachable code elimination using a lattice: ⊤ (unknown) → constant → ⊥ (overdefined). Worklist algorithm on SSA def-use chains: more precise than separate passes because it handles conditional branches (if known-false branch, don't propagate its definitions).</p>
+<blockquote>
+<p><strong>Deeper dives → <a href="https://nmbr7.github.io/notes/programming/optimization-techniques/"><code>optimization_techniques.md</code></a>:</strong> CSE vs value
+numbering + <code>EarlyCSE</code> (§1); SLP / load-store vectorization + GCD/Banerjee/Omega dependence
+testing (§2); straight-line strength reduction + LSR (§3); array scalarization,
+register promotion, MemorySSA-based redundant-load / dead-store elimination (§4).</p>
+</blockquote>
 <hr />
 <h2 id="3-instruction-selection">3. Instruction Selection</h2>
 <p>Map IR operations to target machine instructions. A fundamentally NP-hard problem (covering DAG with tiles); practice uses efficient heuristics.</p>
@@ -275,6 +281,13 @@
 <p>Prologue: <code>push rbp; mov rbp, rsp; sub rsp, N</code>. <strong>Frame pointer omission</strong> (FPO): use RBP as a general register instead; requires <strong>DWARF CFI</strong> (Call Frame Information) directives (<code>.cfi_def_cfa_offset</code>, <code>.cfi_offset</code>) so debuggers/unwinders can reconstruct the stack frame without RBP. LLVM emits CFI by default at <code>-O1+</code>.</p>
 <h3 id="peephole-optimization">Peephole Optimization</h3>
 <p>Small local rewrites on final instruction sequence: <code>add r, 0 → nop</code>, <code>mul r, 2 → shl r, 1</code>, <code>mov r, r → nop</code>. LLVM's <code>PeepholeOptimizer</code> pass and target-specific <code>optimizeInstruction()</code> callbacks.</p>
+<blockquote>
+<p><strong>Deeper dives → <a href="https://nmbr7.github.io/notes/programming/optimization-techniques/"><code>optimization_techniques.md</code></a>:</strong> list
+scheduling, trace / superblock / hyperblock scheduling, modulo scheduling (ResMII/RecMII,
+MRT, MVE), VLIW ISAs (Itanium/C6000/Hexagon), and loop unrolling (§5); peephole as term
+rewriting, superoptimization, and LLVM's four-level InstCombine/DAGCombine/MachineInstr/
+GlobalISel family (§6).</p>
+</blockquote>
 <hr />
 <h2 id="6-llvm-internals">6. LLVM Internals</h2>
 <h3 id="new-pass-manager-npm">New Pass Manager (NPM)</h3>

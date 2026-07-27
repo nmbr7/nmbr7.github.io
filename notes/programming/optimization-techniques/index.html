@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-GPK84X1J34"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-GPK84X1J34");
+    </script>
+    
+    <link rel="stylesheet" href="https://nmbr7.github.io/main.css" />
+    <!-- Syntax highlighting: both themes loaded; the active one is chosen by the
+         site's data-theme toggle (see inline script below), falling back to the
+         OS preference before JS runs. -->
+    <link id="giallo-light" rel="stylesheet" href="https://nmbr7.github.io/giallo-light.css" media="(prefers-color-scheme: light)" />
+    <link id="giallo-dark" rel="stylesheet" href="https://nmbr7.github.io/giallo-dark.css" media="(prefers-color-scheme: dark)" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        // Default to dark unless the user explicitly chose light.
+        var dark = stored !== 'light';
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = dark ? 'not all' : 'all';
+        if (d) d.media = dark ? 'all' : 'not all';
+      })();
+    </script>
+     
+    <link rel="dns-prefetch" href="//www.google-analytics.com/" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png?v=m2llJQPQq8"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/site_logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/site_logo.png" />
+    <link
+      rel="mask-icon"
+      href="/safari-pinned-tab.svg?v=m2llJQPQq8"
+      color="#5bbad5"
+    />
+
+    <link rel="shortcut icon" href="/site_logo.png" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="author" content="Suhailr7" />
+    <meta name="description" content="Adventurer" />
+    <title>suhailr7</title>
+  </head>
+
+  <body>
+    <div class="top-toolbar">
+  <a href="/">Home</a>
+  <a href="https://twitter.com/nmbr_7">X</a>
+  <a href="https://github.com/nmbr7">Github</a>
+  <a href="/about">About</a>
+  <button id="theme-toggle" aria-label="Toggle theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function() {
+    var stored = localStorage.getItem('theme');
+    // Default to dark unless the user explicitly chose light.
+    var isDark = stored !== 'light';
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('theme-toggle');
+      btn.addEventListener('click', function() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        var nowDark = !dark;
+        document.documentElement.setAttribute('data-theme', nowDark ? 'dark' : 'light');
+        localStorage.setItem('theme', nowDark ? 'dark' : 'light');
+        // Keep syntax-highlighting CSS in sync with the manual toggle.
+        var l = document.getElementById('giallo-light');
+        var d = document.getElementById('giallo-dark');
+        if (l) l.media = nowDark ? 'not all' : 'all';
+        if (d) d.media = nowDark ? 'all' : 'not all';
+      });
+
+    });
+  })();
+</script>
+
+    <div class="container">
+      <main>
+        
+<div class="note-layout">
+  <article class="note-page">
+    <h1 class="r-header">Optimization Techniques</h1>
+    <h1 id="compiler-optimization-techniques-deep-dive">Compiler Optimization Techniques: Deep Dive</h1>
+<p>Mechanism-level reference for the mid-level and backend optimization passes: redundancy
+elimination, vectorization, strength reduction, scalarization, instruction scheduling, loop
+unrolling, and peephole rewriting. Each technique covers the <em>algorithm</em> (not just what it
+does), pseudocode, before/after IR, and how LLVM/GCC actually implement it.</p>
+<p>This is the companion to <a href="https://nmbr7.github.io/notes/programming/compilers-and-jit/"><code>compilers_and_jit.md</code></a>, which covers the
+overall pipeline, SSA construction, instruction selection, register allocation, and JIT.
+Passes already treated in depth there (DCE, GVN, alias analysis, SROA, register allocation,
+modulo-scheduling overview) are cross-referenced, not duplicated.</p>
+<p><strong>Pass placement (LLVM).</strong> All operate on SSA-form IR (LLVM IR / GCC GIMPLE), running late
+in the optimization pipeline after inlining and scalar cleanup, before the backend — except
+the machine-level peephole/scheduling passes, which run on MachineIR post-instruction-selection.</p>
+<hr />
+<h2 id="1-redundancy-elimination-cse-value-numbering">1. Redundancy Elimination — CSE, Value Numbering</h2>
+<p>The oldest optimization family: don't compute the same thing twice.</p>
+<h3 id="1-1-available-expressions-dataflow-classical-global-cse">1.1 Available-expressions dataflow (classical global CSE)</h3>
+<p>An expression <code>x op y</code> is <strong>available</strong> at point <code>p</code> if on <em>every</em> path from entry to <code>p</code> it
+has been computed and neither <code>x</code> nor <code>y</code> has been redefined since. Forward, all-paths
+(intersection) dataflow:</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>AVAIL_in[B]  = ∩ over preds P of AVAIL_out[P]      (AVAIL_in[entry] = ∅)</span></span>
+<span class="giallo-l"><span>AVAIL_out[B] = GEN[B] ∪ (AVAIL_in[B] − KILL[B])</span></span>
+<span class="giallo-l"><span>GEN[B]  = expressions computed in B and not killed afterward in B</span></span>
+<span class="giallo-l"><span>KILL[B] = expressions using a variable assigned in B</span></span></code></pre>
+<p>Global CSE replaces an available expression's recomputation with the saved value. <strong>Local
+CSE</strong> is the single-block version — a linear walk maintaining a table of already-computed
+expressions, no dataflow needed. (Aho, Lam, Sethi, Ullman, <em>Compilers: Principles,
+Techniques, and Tools</em>, 2nd ed., 2006, §9.2.)</p>
+<h3 id="1-2-lexical-cse-vs-value-based-value-numbering">1.2 Lexical CSE vs value-based (value numbering)</h3>
+<ul>
+<li><strong>Lexical / syntactic CSE</strong>: two expressions are "the same" iff <em>textually</em> identical (same
+operator, same operand <em>names</em>). Available-expressions is lexical. It misses <code>a=b+c; d=c+b</code>
+unless commutativity-normalized, and misses equal-<em>value</em> operands with different names.</li>
+<li><strong>Value numbering (VN)</strong>: assign each computed value a <strong>value number</strong>; two expressions are
+equivalent iff their operator + operands' value numbers match. Catches copies and constant
+equalities lexical CSE misses.</li>
+</ul>
+<p>Lineage:</p>
+<ul>
+<li><strong>Local VN</strong> — Cocke &amp; Schwartz, <em>Programming Languages and Their Compilers</em>, Courant
+Institute NYU, 1970 (hash-based numbering within a block).</li>
+<li><strong>Global dataflow framework</strong> — Kildall, "A Unified Approach to Global Program
+Optimization," POPL 1973 (lattice dataflow, precise value-graph propagation; expensive).</li>
+<li><strong>Congruence-based GVN</strong> — Alpern, Wegman, Zadeck, "Detecting Equality of Variables in
+Programs," POPL 1988: partition SSA values into <strong>congruence classes</strong> by optimistic
+Hopcroft-style partition refinement; does not fully interpret control flow, so it is
+efficient but less precise than Kildall.</li>
+<li>Rosen, Wegman, Zadeck, "Global Value Numbers and Redundant Computations," POPL 1988 — ties
+GVN to redundancy elimination on SSA. Simpson, "Value-Driven Redundancy Elimination," PhD
+thesis Rice 1996 — the RPO/hash-based GVN + GVN-PRE model LLVM's classic GVN follows.</li>
+</ul>
+<h3 id="1-3-llvm-earlycse-scoped-dominator-tree">1.3 LLVM <code>EarlyCSE</code> — scoped, dominator-tree</h3>
+<p><code>EarlyCSE</code> (<code>-early-cse</code>; <code>-early-cse-memssa</code> variant) is a fast cleanup CSE, <em>not</em> full GVN.
+It performs a dominator-tree walk over a <strong><code>ScopedHashTable</code></strong>: entering a dom-tree node pushes
+a scope, leaving pops it, so entries are visible exactly within the subtree they dominate.</p>
+<ul>
+<li><strong><code>AvailableValues</code></strong> — key <code>SimpleValue</code> (an <code>Instruction*</code> hashed by opcode + operands,
+with commutative operands normalized and min/max/select canonicalized), value = canonical
+<code>Value*</code>. Hit ⇒ RAUW + delete; miss ⇒ insert.</li>
+<li><strong><code>AvailableLoads</code></strong> — key = pointer operand; value = <code>LoadValue{definingInst, generation, isAtomic, matchingType}</code>.</li>
+<li><strong><code>AvailableCalls</code></strong> — read-only calls.</li>
+<li><strong>Generation counter</strong> (<code>CurrentGeneration</code>) — a monotonic integer bumped on every
+instruction that may write memory. A load/call is reusable only if its stored generation
+equals the current one (no intervening write). With MemorySSA (§4.2),
+<code>isSameMemGeneration()</code> calls <code>getClobberingMemoryAccess()</code> for a <em>precise</em> clobber check
+instead of the coarse counter.</li>
+<li><strong>DSE</strong> — tracks <code>LastStore</code>; a store to a location matched by a later store (same
+type/atomicity, no read between) is removed.</li>
+</ul>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>EarlyCSE(node):                 # visit in dominator-tree pre-order</span></span>
+<span class="giallo-l"><span>  enter_scope(AvailableValues, AvailableLoads, AvailableCalls)</span></span>
+<span class="giallo-l"><span>  for I in node.block:</span></span>
+<span class="giallo-l"><span>     if isa&lt;Load&gt;(I):</span></span>
+<span class="giallo-l"><span>        lv = AvailableLoads[ptr(I)]</span></span>
+<span class="giallo-l"><span>        if lv and lv.generation == CurGen and types match:</span></span>
+<span class="giallo-l"><span>           RAUW(I, lv.definingInst); erase(I); continue</span></span>
+<span class="giallo-l"><span>        AvailableLoads[ptr(I)] = {I, CurGen}</span></span>
+<span class="giallo-l"><span>     elif I is store:</span></span>
+<span class="giallo-l"><span>        if LastStore to same loc, no read since: erase(LastStore)   # DSE</span></span>
+<span class="giallo-l"><span>        CurGen++; LastStore = I; AvailableLoads[ptr(I)] = {value(I), CurGen}</span></span>
+<span class="giallo-l"><span>     elif mayWriteMemory(I): CurGen++</span></span>
+<span class="giallo-l"><span>     else:                                     # pure scalar op</span></span>
+<span class="giallo-l"><span>        sv = SimpleValue(I)</span></span>
+<span class="giallo-l"><span>        if AvailableValues[sv] exists: RAUW(I, that); erase(I)</span></span>
+<span class="giallo-l"><span>        else AvailableValues[sv] = I</span></span>
+<span class="giallo-l"><span>  for child in domtree.children(node): EarlyCSE(child)</span></span>
+<span class="giallo-l"><span>  exit_scope()                                 # pops entries added in this subtree</span></span></code></pre>
+<p>Before / after (commutative-normalized):</p>
+<pre class="giallo z-code"><code data-lang="llvm"><span class="giallo-l"><span class="z-variable">%a</span><span> = </span><span class="z-keyword">add</span><span class="z-storage z-type"> i32</span><span class="z-variable"> %x</span><span>, </span><span class="z-variable">%y</span></span>
+<span class="giallo-l"><span class="z-variable">%b</span><span> = </span><span class="z-keyword">add</span><span class="z-storage z-type"> i32</span><span class="z-variable"> %y</span><span>, </span><span class="z-variable">%x</span><span class="z-comment">    ; normalized to same key as %a</span></span>
+<span class="giallo-l"><span class="z-variable">%c</span><span> = </span><span class="z-keyword">mul</span><span class="z-storage z-type"> i32</span><span class="z-variable"> %a</span><span>, </span><span class="z-variable">%b</span></span></code></pre>
+<p>→</p>
+<pre class="giallo z-code"><code data-lang="llvm"><span class="giallo-l"><span class="z-variable">%a</span><span> = </span><span class="z-keyword">add</span><span class="z-storage z-type"> i32</span><span class="z-variable"> %x</span><span>, </span><span class="z-variable">%y</span></span>
+<span class="giallo-l"><span class="z-variable">%c</span><span> = </span><span class="z-keyword">mul</span><span class="z-storage z-type"> i32</span><span class="z-variable"> %a</span><span>, </span><span class="z-variable">%a</span></span></code></pre><h3 id="1-4-gvn-vs-newgvn-global-value-based">1.4 GVN vs NewGVN (global, value-based)</h3>
+<table><thead><tr><th></th><th>EarlyCSE</th><th>GVN</th><th>NewGVN</th></tr></thead><tbody>
+<tr><td>Scope</td><td>Local, dom-tree scoped</td><td>Global (function)</td><td>Global (function)</td></tr>
+<tr><td>Equivalence</td><td>Syntactic (normalized)</td><td>Value-based (hash VN)</td><td>Value-based (congruence classes)</td></tr>
+<tr><td>Memory / loads</td><td>Generation counter or MemorySSA</td><td>memdep/MemorySSA, load PRE</td><td>MemorySSA</td></tr>
+<tr><td>Precision / cost</td><td>Cheapest; cleanup</td><td>Medium; does PRE</td><td>Highest; optimistic, costlier</td></tr>
+<tr><td>Basis</td><td>Kildall-ish scoped hash</td><td>Simpson 1996</td><td>Alpern-Wegman-Zadeck 1988 + SCCP</td></tr>
+</tbody></table>
+<p><code>GVN</code> (<code>-gvn</code>) is Simpson-style hash VN over the whole function plus load elimination / load
+PRE (§4.3) plus redundant-expression PRE, doing the removal inline. <code>NewGVN</code> (<code>-newgvn</code>)
+reimplements Alpern-Wegman-Zadeck congruence classes combined with SCCP (an <em>optimistic</em>
+partition refinement that discovers equalities across loops and is unreachable-code-aware),
+generally more precise than classic GVN. See <a href="https://nmbr7.github.io/notes/programming/compilers-and-jit/"><code>compilers_and_jit.md</code></a>
+§2 for GVN's MemorySSA integration and SCCP.</p>
+<blockquote>
+<p><strong>DCE / ADCE</strong> — see <a href="https://nmbr7.github.io/notes/programming/compilers-and-jit/"><code>compilers_and_jit.md</code></a> §2. DCE marks reachable
+side-effecting instructions and sweeps the rest; ADCE inverts (assume all dead, mark live
+backward from side effects). Not repeated here.</p>
+</blockquote>
+<hr />
+<h2 id="2-vectorization-slp-load-store-dependence-testing">2. Vectorization — SLP, Load/Store, Dependence Testing</h2>
+<p><strong>Two orthogonal axes.</strong> <em>Loop vectorization</em> exploits loop-level parallelism: iterations
+<code>i..i+VF-1</code> execute as one vector iteration (vector factor VF). <em>SLP</em> exploits data-level
+parallelism <em>within a basic block</em>: independent isomorphic scalar statements packed
+side-by-side into one SIMD op — no loop required. They are complementary; LLVM runs both. A
+third pass, LoadStoreVectorizer, is a narrow memory-only coalescer used mainly on GPUs.</p>
+<p>LLVM passes <code>LoopVectorizePass</code> and <code>SLPVectorizerPass</code> (in <code>llvm/lib/Transforms/Vectorize/</code>)
+run late, before the backend. GCC's equivalents are in <code>tree-vect-*</code> (loop + basic-block/SLP,
+all SLP-based since GCC 14).</p>
+<h3 id="2-1-slp-superword-level-parallelism">2.1 SLP (Superword-Level Parallelism)</h3>
+<p><strong>Origin.</strong> Larsen &amp; Amarasinghe, "Exploiting Superword Level Parallelism with Multimedia
+Instruction Sets," PLDI 2000 (SIGPLAN Notices 35(5):145–156). Insight: short fixed-width SIMD
+("superword") units are better targeted by finding <em>isomorphic, independent</em> scalar statements
+anywhere in a basic block and packing them, than by loop analysis. A loop is handled by
+<strong>unrolling it first</strong>, turning loop-level parallelism into intra-block SLP — so SLP subsumes
+loop vectorization for unrolled straight-line code and additionally catches parallelism that
+has no loop at all (hand-unrolled code, struct-field arithmetic).</p>
+<p>Definitions:</p>
+<ul>
+<li>A <strong>pack</strong> is an n-tuple of independent, isomorphic statements <code>⟨s1,…,sn⟩</code>, replaced by one
+SIMD op. A <strong>PackSet</strong> is a set of packs.</li>
+<li>Two statements are <strong>isomorphic</strong> if they contain the same operation in the same order.</li>
+<li><strong>Adjacent memory references</strong>: <code>a[i]</code> and <code>a[i+1]</code> reference contiguous memory — the seed.</li>
+</ul>
+<p>The four-phase algorithm:</p>
+<p><strong>Phase 1 — seed from adjacent references.</strong> Scan for pairs of memory accesses to adjacent
+addresses; each independent, alignment-consistent adjacent pair (both loads, or both stores)
+seeds a 2-element pack.</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>find_adj_refs(BB):</span></span>
+<span class="giallo-l"><span>  P = {}</span></span>
+<span class="giallo-l"><span>  for each pair (s1, s2) of memory refs in BB:</span></span>
+<span class="giallo-l"><span>    if adjacent(s1, s2) and stmts_can_pack(P, s1, s2, align):</span></span>
+<span class="giallo-l"><span>      P += {(s1, s2)}</span></span>
+<span class="giallo-l"><span>  return P</span></span></code></pre>
+<p><code>stmts_can_pack</code> checks: isomorphic, independent, s1 not already the left element of another
+pack and s2 not already the right, alignment consistent.</p>
+<p><strong>Phase 2 — extend the PackSet</strong> along data-dependence edges in <em>both</em> directions:</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>extend_packlist(P):</span></span>
+<span class="giallo-l"><span>  do:</span></span>
+<span class="giallo-l"><span>    Pprev = P</span></span>
+<span class="giallo-l"><span>    for each pack p in P:</span></span>
+<span class="giallo-l"><span>      P = follow_use_defs(P, p)     // grow toward producers (defs of p&#39;s operands)</span></span>
+<span class="giallo-l"><span>      P = follow_def_uses(P, p)     // grow toward consumers (uses of p&#39;s results)</span></span>
+<span class="giallo-l"><span>  while P != Pprev</span></span>
+<span class="giallo-l"><span>  return P</span></span></code></pre>
+<p><strong>Phase 3 — combine packs into groups.</strong> Merge packs sharing an endpoint: if <code>p1=⟨s1..sn⟩</code>
+and <code>p2=⟨sn..sm⟩</code> (last of p1 == first of p2), combine to <code>⟨s1..sm⟩</code>. The paper's example:
+<code>(1,4)</code> and <code>(4,7)</code> combine to <code>(1,4,7)</code>, building packs of width matching the SIMD register.</p>
+<p><strong>Phase 4 — schedule / codegen.</strong> Emit SIMD ops in dependence order (topological sort). Where
+a scalar value feeds a packed op, insert a <strong>pack</strong> (<code>insertelement</code>); where a packed result
+feeds scalar code, insert an <strong>unpack</strong> (<code>extractelement</code>). A dependence cycle among packs
+forces a pack back to scalars.</p>
+<p><strong>Alignment</strong> is propagated (<code>a[i]</code> alignment = base alignment + offset mod vector width);
+packs must be alignment-consistent. <strong>Cost model</strong> is <em>local, greedy</em>: keep a pack only if the
+SIMD op's benefit exceeds the pack/unpack overhead at scalar↔vector boundaries — a known
+limitation later addressed by goSLP.</p>
+<p>Before (hand-unrolled loop body) → after:</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>a[0]=b[0]+c[0]; a[1]=b[1]+c[1];        vb = vload b[0..3]</span></span>
+<span class="giallo-l"><span>a[2]=b[2]+c[2]; a[3]=b[3]+c[3]    →    vc = vload c[0..3]</span></span>
+<span class="giallo-l"><span>                                       va = vadd vb, vc</span></span>
+<span class="giallo-l"><span>                                       vstore a[0..3], va</span></span></code></pre>
+<p><strong>Loop-Aware SLP</strong> — Rosen, Nuzman, Zaks, "Loop-Aware SLP in GCC," GCC Developers' Summit
+2007. Combines loop and SLP vectorization in one framework (unroll-and-pack while keeping loop
+context). LLVM's <code>SLPVectorizer.cpp</code> header explicitly names this as its inspiration.</p>
+<h4 id="llvm-slpvectorizer-bottom-up-boupslp">LLVM <code>SLPVectorizer</code> — bottom-up (<code>BoUpSLP</code>)</h4>
+<p><code>llvm/lib/Transforms/Vectorize/SLPVectorizer.cpp</code>, driver class <code>BoUpSLP</code>. On by default at
+<code>-O2/-O3</code> (<code>-fno-slp-vectorize</code> to disable). <strong>Bottom-up</strong> = start from a seed and build a
+<strong>vectorization tree</strong> upward through use-def chains toward operands/producers (contrast
+Larsen, which seeds at memory and grows both ways).</p>
+<ul>
+<li><strong>Seeds</strong>: primarily <em>consecutive stores</em> (<code>collectSeedStores</code> groups by underlying object;
+consecutive proven via SCEV). Also horizontal <em>reductions</em> (<code>HorizontalReduction</code> matches
+<code>a+b+c+d</code> → vector partial-sum + horizontal reduce), GEP indices, PHI nodes.</li>
+<li><strong>Vectorization tree</strong> of <code>TreeEntry</code> nodes. <code>buildTree_rec</code>: all lanes must be same opcode
+and schedulable together, then recurse per operand position. Node kinds: <strong>vectorizable</strong>
+(all lanes isomorphic → real vector op) and <strong>gather</strong> (non-uniform lanes materialized by
+<code>insertelement</code> build-vector — the cost leaves). <code>reorderInputsAccordingToOpcode</code> handles
+commutative-operand alignment (LLVM's look-ahead reordering).</li>
+<li><strong>Scheduling</strong>: <code>BlockScheduling</code> / <code>ScheduleBundle</code> verifies a bundle can be legally
+scheduled contiguously before vectorizing (analogue of Larsen's Phase-4 cycle check).</li>
+<li><strong>Cost model</strong> via <code>TargetTransformInfo</code> (<code>getTreeCost</code>): vectorizable-node cost = vector-op
+cost − replaced scalar-op costs (negative = saving); <strong>gather</strong> cost = build-vector cost;
+<strong>extract</strong> cost = <code>extractelement</code> for results still used by scalar code (<code>ExternalUses</code>);
+plus shuffle and <code>getSpillCost</code> (penalizes long vector live ranges across calls). Vectorize
+iff total &lt; 0. Threshold <code>-slp-threshold</code>.</li>
+</ul>
+<p>Before (<code>clang -O1</code>) → after SLP (seed = the two consecutive stores):</p>
+<pre class="giallo z-code"><code data-lang="llvm"><span class="giallo-l"><span class="z-variable">%b0</span><span> = </span><span class="z-keyword">load</span><span class="z-storage z-type"> double</span><span>, ptr </span><span class="z-variable">%B</span><span class="z-variable">                %vb</span><span> = </span><span class="z-keyword">load</span><span> &lt;</span><span class="z-constant">2</span><span> x </span><span class="z-storage z-type">double</span><span>&gt;, ptr </span><span class="z-variable">%B</span></span>
+<span class="giallo-l"><span class="z-variable">%c0</span><span> = </span><span class="z-keyword">load</span><span class="z-storage z-type"> double</span><span>, ptr </span><span class="z-variable">%C</span><span class="z-variable">                %vc</span><span> = </span><span class="z-keyword">load</span><span> &lt;</span><span class="z-constant">2</span><span> x </span><span class="z-storage z-type">double</span><span>&gt;, ptr </span><span class="z-variable">%C</span></span>
+<span class="giallo-l"><span class="z-variable">%a0</span><span> = </span><span class="z-keyword">fadd</span><span class="z-storage z-type"> double</span><span class="z-variable"> %b0</span><span>, </span><span class="z-variable">%c0</span><span>          →    </span><span class="z-variable">%va</span><span> = </span><span class="z-keyword">fadd</span><span> &lt;</span><span class="z-constant">2</span><span> x </span><span class="z-storage z-type">double</span><span>&gt; </span><span class="z-variable">%vb</span><span>, </span><span class="z-variable">%vc</span></span>
+<span class="giallo-l"><span class="z-keyword">store</span><span class="z-storage z-type"> double</span><span class="z-variable"> %a0</span><span>, ptr </span><span class="z-variable">%A</span><span class="z-keyword">                 store</span><span> &lt;</span><span class="z-constant">2</span><span> x </span><span class="z-storage z-type">double</span><span>&gt; </span><span class="z-variable">%va</span><span>, ptr </span><span class="z-variable">%A</span></span>
+<span class="giallo-l"><span class="z-comment">; ... i64 1 versions of each ...</span></span></code></pre>
+<p>Since GCC 14 the basic-block (SLP) and loop vectorizer are unified — all vectorization is
+SLP-based (<code>tree-vect-slp.cc</code>, <code>vect_build_slp_tree</code> builds an SLP tree of <code>slp_tree</code> nodes).</p>
+<h4 id="slp-vs-loop-vectorization">SLP vs loop vectorization</h4>
+<table><thead><tr><th></th><th>Loop vectorizer</th><th>SLP vectorizer</th></tr></thead><tbody>
+<tr><td>Unit</td><td>iterations of a loop</td><td>isomorphic scalar stmts in a BB</td></tr>
+<tr><td>Requires a loop?</td><td>yes</td><td>no (straight-line code)</td></tr>
+<tr><td>Cross-iteration deps</td><td>must prove absence (dependence analysis)</td><td>irrelevant; needs independence <em>within</em> the pack</td></tr>
+<tr><td>Trip count</td><td>matters (remainder/tail loop)</td><td>N/A</td></tr>
+<tr><td>Main cost risk</td><td>strided/gather memory</td><td>gather/scatter at pack boundaries (insert/extract)</td></tr>
+<tr><td>LLVM pass</td><td><code>LoopVectorizePass</code></td><td><code>SLPVectorizerPass</code> (<code>BoUpSLP</code>)</td></tr>
+</tbody></table>
+<h4 id="recent-slp-research">Recent SLP research</h4>
+<ul>
+<li><strong>goSLP</strong> — Mendis &amp; Amarasinghe, ASPLOS 2018. Replaces greedy local packing with an
+<strong>Integer Linear Programming</strong> formulation finding the <em>globally</em> cost-optimal packing
+across the whole function. Beats LLVM's greedy SLP on SPEC. Headline distinction: <strong>global
+ILP</strong> vs LLVM/Larsen <strong>greedy local</strong>.</li>
+<li><strong>Look-Ahead SLP</strong> — Porpodas, Rocha, Góes, CGO 2018. For commutative ops where a greedy
+lane match fails, score deeper into the operand DAG to pick the reordering that keeps
+subtrees isomorphic. Now reflected in LLVM's operand-reordering heuristic.</li>
+<li><strong>VW-SLP</strong> — Porpodas et al., PACT 2018. Vector width varies at <em>instruction</em> granularity
+within one tree rather than a fixed width.</li>
+<li><strong>Super-Node SLP</strong> — Porpodas et al., CGO 2019. Handles chains mixing an operator and its
+inverse (<code>+</code>/<code>-</code>, <code>*</code>/<code>/</code>) as one commutative super-node (reassociation-aware packing).</li>
+<li>Earlier: <strong>PSLP</strong> (CGO 2015, pads non-isomorphic graphs to isomorphic) and <strong>throttled SLP</strong>
+(PACT 2015, partial-tree vectorization when full-tree is unprofitable).</li>
+</ul>
+<h3 id="2-2-load-store-vectorization">2.2 Load/Store Vectorization</h3>
+<p><code>llvm/lib/Transforms/Vectorize/LoadStoreVectorizer.cpp</code>. Coalesces <em>adjacent scalar</em> loads (or
+stores) into one wider vector load/store — four <code>load i32</code> from <code>p, p+4, p+8, p+12</code> become one
+<code>load &lt;4 x i32&gt;</code>. Unlike SLP it does <strong>not</strong> vectorize the <em>computation</em>: it assumes the
+vector's elements are extracted and used individually. It exists chiefly because on GPUs a
+single 128-bit transaction is far cheaper than four 32-bit ones (memory coalescing), and
+<code>extractelement</code> from a vector register is nearly free there.</p>
+<p>Algorithm:</p>
+<ol>
+<li><strong>Pseudo-BB split</strong> — break each block into maximal runs guaranteed to pass control to
+their successor (split at anything that could throw/not-return), so reordering memory ops
+within a pseudo-BB is safe.</li>
+<li><strong>Equivalence classes</strong> — bucket loads (separately, stores) by <code>(getUnderlyingObject(ptr), address space, element type size)</code>.</li>
+<li><strong>Adjacency proof — <code>getConstantOffset</code></strong> — for two pointers in a class, prove one is a
+constant byte offset from the other, via <strong>SCEV</strong> and GEP decomposition (subtract the two
+pointer SCEVs, check the difference is constant). Handles nested GEPs, pointer <code>select</code>s,
+pointer arithmetic recursively up to depth 3. <em>This</em> is the key distinction from SLP's
+adjacency: an SCEV constant-offset proof on addresses, not an isomorphism check on
+computation.</li>
+<li><strong>Greedy chain building</strong> — sort a class by offset, greedily assemble chains with
+pairwise-known relative offsets.</li>
+<li><strong>Three-phase chain split</strong> — (a) <strong>may-alias</strong>: split where an intervening memory op may
+alias (can't reorder across a possible alias); (b) <strong>contiguity</strong>: split at gaps so each
+sub-chain is contiguous — optionally <em>gap-fill</em> a 1–2-element gap with masked elements if
+the target supports masked load/store (TTI); (c) <strong>alignment/legality</strong>: split/trim to a
+legal element count + alignment via <code>TargetTransformInfo</code>
+(<code>isLegalToVectorizeLoadChain</code>).</li>
+<li><strong>Rewrite</strong> — N scalar loads → one <code>load &lt;N x T&gt;</code> + N <code>extractelement</code>s (dually for stores).</li>
+</ol>
+<p>Before → after (GPU-style):</p>
+<pre class="giallo z-code"><code data-lang="llvm"><span class="giallo-l"><span class="z-variable">%v0</span><span> = </span><span class="z-keyword">load</span><span class="z-storage z-type"> i32</span><span>, ptr </span><span class="z-variable">%p</span><span>+</span><span class="z-constant">0</span><span class="z-variable">            %vec</span><span> = </span><span class="z-keyword">load</span><span> &lt;</span><span class="z-constant">4</span><span> x </span><span class="z-storage z-type">i32</span><span>&gt;, ptr </span><span class="z-variable">%p</span><span>, </span><span class="z-storage z-modifier">align</span><span class="z-constant"> 16</span></span>
+<span class="giallo-l"><span class="z-variable">%v1</span><span> = </span><span class="z-keyword">load</span><span class="z-storage z-type"> i32</span><span>, ptr </span><span class="z-variable">%p</span><span>+</span><span class="z-constant">1</span><span>       →    </span><span class="z-variable">%v0</span><span> = </span><span class="z-keyword">extractelement</span><span> &lt;</span><span class="z-constant">4</span><span> x </span><span class="z-storage z-type">i32</span><span>&gt; </span><span class="z-variable">%vec</span><span>, </span><span class="z-storage z-type">i64</span><span class="z-constant"> 0</span></span>
+<span class="giallo-l"><span class="z-variable">%v2</span><span> = </span><span class="z-keyword">load</span><span class="z-storage z-type"> i32</span><span>, ptr </span><span class="z-variable">%p</span><span>+</span><span class="z-constant">2</span><span class="z-variable">            %v1</span><span> = </span><span class="z-keyword">extractelement</span><span> &lt;</span><span class="z-constant">4</span><span> x </span><span class="z-storage z-type">i32</span><span>&gt; </span><span class="z-variable">%vec</span><span>, </span><span class="z-storage z-type">i64</span><span class="z-constant"> 1</span></span>
+<span class="giallo-l"><span class="z-variable">%v3</span><span> = </span><span class="z-keyword">load</span><span class="z-storage z-type"> i32</span><span>, ptr </span><span class="z-variable">%p</span><span>+</span><span class="z-constant">3</span><span>            ... </span><span class="z-storage z-type">i64</span><span class="z-constant"> 2</span><span>, </span><span class="z-storage z-type">i64</span><span class="z-constant"> 3</span></span></code></pre>
+<p>On NVPTX this lowers to one <code>ld.global.v4.u32</code> (128-bit coalesced) instead of four
+<code>ld.global.u32</code>. AMDGPU and NVPTX backends run this pass; the "extract is cheap" assumption
+holds because GPU vector registers are addressable sub-lanes, unlike CPU SIMD where extraction
+costs a shuffle.</p>
+<table><thead><tr><th></th><th>LoadStoreVectorizer</th><th>SLPVectorizer</th></tr></thead><tbody>
+<tr><td>Vectorizes</td><td>memory access only</td><td>full computation graphs</td></tr>
+<tr><td>Element use</td><td>assumes individual use (keeps extracts)</td><td>keeps values <em>in</em> vector form through the tree</td></tr>
+<tr><td>Adjacency proof</td><td>SCEV constant-offset on addresses</td><td>isomorphism + consecutive-store SCEV</td></tr>
+<tr><td>Primary target</td><td>GPUs (coalescing; cheap extract)</td><td>CPUs (SSE/AVX/NEON)</td></tr>
+</tbody></table>
+<h3 id="2-3-data-dependence-analysis">2.3 Data Dependence Analysis</h3>
+<p>The legality oracle for vectorize/interchange/tile/unroll-and-jam. Canonical text: Allen &amp;
+Kennedy, <em>Optimizing Compilers for Modern Architectures: A Dependence-Based Approach</em>, Morgan
+Kaufmann, 2001. Direction/distance formalism: Wolfe, <em>High Performance Compilers for Parallel
+Computing</em>, 1996; Banerjee, <em>Dependence Analysis for Supercomputing</em>, Kluwer, 1988.</p>
+<p><strong>Framework.</strong> For a depth-<code>d</code> loop nest, an <strong>iteration vector</strong> <code>i=(i1,…,id)</code> identifies one
+body execution; iterations are ordered lexicographically. A <strong>dependence</strong> between two
+references to the same array in iterations <code>i</code> (source) and <code>j</code> (sink) exists if they touch
+the same location and ≥1 is a write. Types: <strong>flow/true</strong> (RAW), <strong>anti</strong> (WAR), <strong>output</strong>
+(WAW).</p>
+<ul>
+<li><strong>Distance vector</strong> <code>D = j − i</code> (e.g. <code>A[i-1]</code> vs <code>A[i]</code> → distance 1).</li>
+<li><strong>Direction vector</strong> abstracts each component to <code>&lt;</code> / <code>=</code> / <code>&gt;</code> / <code>*</code>.</li>
+<li><strong>Loop-carried at level k</strong> iff the first non-<code>=</code> direction is at position k (and is <code>&lt;</code>) —
+the dependence flows <em>across</em> iterations of loop k. <strong>Loop-independent</strong> iff all <code>=</code> (both
+accesses in the <em>same</em> iteration).</li>
+</ul>
+<p><strong>Why it gates transformations.</strong> Vectorizing/parallelizing loop k is legal iff there is <strong>no
+loop-carried dependence at level k</strong> (a <code>&lt;</code> there means iteration i+1 needs a value from i, so
+they can't be one SIMD lane group). <strong>Interchange</strong> of k, k+1 is legal iff no dependence has
+direction <code>(&lt;,&gt;)</code> in those positions. <strong>Tiling</strong> requires the fused loops be fully permutable
+(all distances non-negative). The problem reduces to: does the <strong>subscript system</strong> have an
+integer solution in bounds? For <code>A[a0+a1*i]</code> vs <code>A[b0+b1*j]</code>, a dependence exists iff
+<code>a0+a1*i = b0+b1*j</code> has an in-bounds integer solution satisfying the tested direction. Three
+tests trade precision for cost:</p>
+<p><strong>GCD test.</strong> The Diophantine equation <code>a1*i − b1*j = b0 − a0</code> has an integer solution <strong>iff
+<code>gcd(a1,b1)</code> divides <code>(b0 − a0)</code></strong>. If not → <strong>proven independent</strong>. If yes → inconclusive
+(ignores bounds/directions). Cheap first filter.</p>
+<blockquote>
+<p><code>for i: A[2*i] = A[2*i+1]</code> needs <code>2i = 2j+1</code> → <code>2i−2j=1</code>; <code>gcd(2,2)=2</code> ∤ 1 → <strong>no
+dependence</strong>, vectorizable (even ≠ odd).</p>
+</blockquote>
+<p><strong>Banerjee test.</strong> Banerjee, <em>Dependence Analysis for Supercomputing</em>, 1988. Bounds- and
+direction-aware. Form <code>h(i,j) = (a0+a1*i) − (b0+b1*j)</code>; compute its real <strong>min/max</strong> over the
+loop-bound box <em>specialized to a direction</em> (substitute the direction constraint, e.g. <code>i&lt;j</code>,
+into the bounds) using Banerjee's inequality (split each coefficient into positive/negative
+parts). If <code>0 ∉ [h_min, h_max]</code> → <strong>no dependence in that direction</strong>. Else possible (real
+relaxation ⇒ can report a spurious dependence when only a non-integer solution exists).
+Combined with GCD in practice.</p>
+<blockquote>
+<p><code>for i=1..100: A[i+100] = A[i]+1</code> needs <code>j−i=100</code> with <code>1≤i,j≤100</code>. Max of <code>j−i</code> = <code>99 &lt; 100</code> → <strong>no dependence</strong>; vectorizable even though GCD (<code>gcd(1,1)=1 | 100</code>) could not tell.</p>
+</blockquote>
+<p><strong>Omega test.</strong> Pugh, "The Omega Test," Supercomputing '91 (expanded CACM 35(8), 1992). Exact
+integer programming over <strong>Presburger arithmetic</strong>. The dependence + direction constraints
+form a linear integer equality/inequality system; Omega decides integer feasibility via
+integer-exact equality elimination (with mod-based <em>tightening</em>) and integer <strong>Fourier–Motzkin</strong>
+projection augmented with:</p>
+<ul>
+<li><strong>real shadow</strong> (FM over reals — no solution ⇒ no dependence, sound);</li>
+<li><strong>dark shadow</strong> (shrunken projection — integer solution ⇒ dependence exists, sound);</li>
+<li>an exact <strong>splinter</strong> case-split for the gap between them.</li>
+</ul>
+<p>Exact for <strong>affine</strong> subscripts + affine bounds (no false dependences <em>or</em> false
+independences), and competitive in speed with GCD/Banerjee on real code.</p>
+<blockquote>
+<p><code>for i: A[2*i] = A[2*i−2]</code> needs <code>i = j−1</code>. GCD (<code>gcd(2,2)=2 | 2</code>) and Banerjee (real
+solution) are both inconclusive; Omega proves <code>i=j−1</code> integer-feasible → <strong>true
+loop-carried flow dependence, distance 1</strong> (blocks vectorization).</p>
+</blockquote>
+<p><strong>Production compilers.</strong></p>
+<ul>
+<li><strong>LLVM</strong> <code>DependenceAnalysis.cpp</code> — Banerjee + GCD, classifying each subscript pair as
+<strong>ZIV</strong> (constants), <strong>SIV</strong> (single index — fast exact strong/weak-zero/weak-crossing
+sub-tests), or <strong>MIV</strong> (falls back to <code>banerjeeMIVtest</code>/<code>gcdMIVtest</code>). This is the
+Goff–Kennedy–Tseng "Practical Dependence Testing" (PLDI 1991) hierarchy.
+<code>LoopAccessAnalysis.cpp</code> is what the <em>vectorizer</em> consumes: SCEV-based, and where it cannot
+statically prove independence it emits <strong>runtime alias checks</strong> ("memchecks") guarding a
+vectorized loop version. <strong>Polly</strong> uses <strong>ISL</strong> (a full Presburger engine, the Omega
+lineage) for exact polyhedral dependence.</li>
+<li><strong>GCC</strong> <code>tree-data-ref.cc</code> (distance/direction vectors, subscript classification), <code>omega.cc</code>
+(Pugh's Omega, used historically by Graphite/Lambda), and vectorizer runtime alias checks in
+<code>tree-vect-data-refs.cc</code>. Non-affine subscripts (<code>A[B[i]]</code>, <code>A[i*j]</code>) fall outside all three
+tests → runtime checks or bail.</li>
+</ul>
+<hr />
+<h2 id="3-strength-reduction">3. Strength Reduction</h2>
+<p>Replace expensive ops (multiply) with cheaper ones (add/shift). Two distinct settings:
+straight-line code and induction-variable loops.</p>
+<h3 id="3-1-straight-line-strength-reduction-slsr">3.1 Straight-Line Strength Reduction (SLSR)</h3>
+<p>LLVM <code>StraightLineStrengthReduce</code> (<code>-slsr</code>). Header: "reduce arithmetic redundancy in
+straight-line code instead of loops." It targets code usually coming <em>from an unrolled loop</em>,
+where deltas between similar expressions are the same across unrolled copies and can be reused,
+turning a chain of independent multiplies into one multiply plus cheap adds.</p>
+<p><strong>Candidate forms.</strong> Expressions canonicalized into one of three, with <code>S</code> an integer
+<em>variable</em> (stride), <code>i</code> a <em>constant</em> integer (index), <code>B</code> the base:</p>
+<ol>
+<li><strong>Add:</strong> <code>B + i * S</code></li>
+<li><strong>Mul:</strong> <code>(B + i) * S</code></li>
+<li><strong>GEP:</strong> <code>&amp;B[..][i * S][..]</code> (array indexing with scaled offsets)</li>
+</ol>
+<p><strong>Basis relation.</strong> Candidate <code>C1</code> <strong>is a basis for</strong> <code>C2</code> when they share CandidateKind,
+Base, and Stride, and <code>C1</code> <strong>dominates</strong> <code>C2</code> (so the basis's value is available where <code>C2</code> is
+rewritten). A map <code>(Kind, Base, Stride) → candidates</code> finds a dominating basis quickly.</p>
+<p><strong>The three delta rewrites</strong> (verbatim from the LLVM header comment):</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Index delta (same base and stride):</span></span>
+<span class="giallo-l"><span>  S1: X = B + i  * S</span></span>
+<span class="giallo-l"><span>  S2: Y = B + i&#39; * S   =&gt;   X + (i&#39; - i) * S</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Base delta (same stride and index):</span></span>
+<span class="giallo-l"><span>  S1: X = B  + i * S</span></span>
+<span class="giallo-l"><span>  S2: Y = B&#39; + i * S   =&gt;   X + (B&#39; - B)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Stride delta (same base and index):</span></span>
+<span class="giallo-l"><span>  S1: X = B + i * S</span></span>
+<span class="giallo-l"><span>  S2: Y = B + i * S&#39;   =&gt;   X + i * (S&#39; - S)</span></span></code></pre>
+<p><code>X</code> is the basis's already-computed value; the rewrite replaces a full <code>B + i'*S</code> (which
+contains a multiply) with <code>X + &lt;delta&gt;</code>. Since <code>(i'−i)</code> is a compile-time constant in the
+index-delta case, <code>(i'−i)*S</code> is a strength-reduced small multiply (often a shift), and when
+deltas are equal across unrolled iterations the multiply degenerates to repeated adds.</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>collect_candidates(F):</span></span>
+<span class="giallo-l"><span>  for inst in F (dominator-tree order):</span></span>
+<span class="giallo-l"><span>     if matches Add/Mul/GEP form:</span></span>
+<span class="giallo-l"><span>        C = Candidate{kind, base, index (const), stride, inst}</span></span>
+<span class="giallo-l"><span>        for B in bucket[(C.kind, C.base, C.stride)]:</span></span>
+<span class="giallo-l"><span>           if B dominates C.inst:  C.basis = best(C.basis, B)</span></span>
+<span class="giallo-l"><span>        bucket[(C.kind,C.base,C.stride)].push(C)</span></span>
+<span class="giallo-l"><span>        candidates.push(C)</span></span>
+<span class="giallo-l"><span>rewrite():</span></span>
+<span class="giallo-l"><span>  for C in candidates (bases first):</span></span>
+<span class="giallo-l"><span>     if C.basis:</span></span>
+<span class="giallo-l"><span>        delta  = pick_delta_case(C, C.basis)          # index/base/stride</span></span>
+<span class="giallo-l"><span>        newval = C.basis.value + delta_expr           # add/sub + small const mul</span></span>
+<span class="giallo-l"><span>        RAUW(C.inst, newval)</span></span></code></pre>
+<p>Before (from unrolled loop) → after (index-delta, <code>%p0</code> chosen as basis, delta reused):</p>
+<pre class="giallo z-code"><code data-lang="llvm"><span class="giallo-l"><span class="z-variable">%a0</span><span>=</span><span class="z-keyword">mul</span><span class="z-variable"> %i0</span><span>,</span><span class="z-variable">%s</span><span class="z-comment">; %p0=add %base,%a0        %p0 = ...                      ; one mul retained</span></span>
+<span class="giallo-l"><span class="z-variable">%a1</span><span>=</span><span class="z-keyword">mul</span><span class="z-variable"> %i1</span><span>,</span><span class="z-variable">%s</span><span class="z-comment">; %p1=add %base,%a1   →    %d  = mul %delta_const, %s     ; (i1-i0)*S</span></span>
+<span class="giallo-l"><span class="z-variable">%a2</span><span>=</span><span class="z-keyword">mul</span><span class="z-variable"> %i2</span><span>,</span><span class="z-variable">%s</span><span class="z-comment">; %p2=add %base,%a2        %p1 = add %p0, %d</span></span>
+<span class="giallo-l"><span class="z-variable">                                         %p2</span><span> = </span><span class="z-keyword">add</span><span class="z-variable"> %p1</span><span>, </span><span class="z-variable">%d</span><span class="z-comment">              ; same delta, no new mul</span></span></code></pre>
+<p>The 2024 redesign (commit <code>f67409c</code>, PR #162930) reworked candidate selection to prefer the
+highest-benefit basis and added <strong>path compression</strong> (rewrite directly against a
+further-dominating basis) to shorten dependency chains and improve ILP. GCC's analog is
+<code>tree-ssa-strength-reduction.c</code> (Cooper, Eckhardt, Kennedy, "Redundancy Elimination
+Revisited," PACT 2008 — same <code>basis + index*stride</code> candidate families).</p>
+<h3 id="3-2-classic-loop-strength-reduction-contrast">3.2 Classic loop strength reduction (contrast)</h3>
+<p>Cocke &amp; Kennedy, "An Algorithm for Reduction of Operator Strength," CACM 20(11):850–856, 1977;
+Allen, Cocke, Kennedy, "Reduction of Operator Strength," in <em>Program Flow Analysis</em>,
+Prentice-Hall, 1981. Operates on <strong>induction variables</strong>: a basic IV <code>i</code> is incremented by a
+loop-invariant constant per iteration; a derived IV <code>j = a*i + b</code> (a, b loop-invariant) has its
+per-iteration multiply <code>a*i</code> replaced by a new IV <code>t</code> initialized to <code>a*i0 + b</code> before the loop
+and incremented by <code>a*c</code> each iteration. Region-based over the loop nesting; followed by
+<strong>linear-function test replacement</strong> rewriting the exit test in terms of the new IV so the
+original IV dies.</p>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-keyword z-control">for</span><span class="z-punctuation"> (</span><span>i</span><span class="z-keyword z-operator">=</span><span class="z-constant">0</span><span class="z-punctuation">;</span><span>i</span><span class="z-keyword z-operator">&lt;</span><span>n</span><span class="z-punctuation">;</span><span>i</span><span class="z-keyword z-operator">++</span><span class="z-punctuation">)</span><span> s </span><span class="z-keyword z-operator">+=</span><span class="z-variable"> A</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> A[i] addr = &amp;A + i*4  (a multiply/iter)</span></span></code></pre>
+<p>→</p>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span>p </span><span class="z-keyword z-operator">=</span><span class="z-keyword z-operator"> &amp;</span><span>A</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">for</span><span class="z-punctuation"> (</span><span>i</span><span class="z-keyword z-operator">=</span><span class="z-constant">0</span><span class="z-punctuation">;</span><span>i</span><span class="z-keyword z-operator">&lt;</span><span>n</span><span class="z-punctuation">;</span><span>i</span><span class="z-keyword z-operator">++</span><span class="z-punctuation">)</span><span class="z-punctuation">{</span><span> s </span><span class="z-keyword z-operator">+=</span><span class="z-keyword z-operator"> *</span><span>p</span><span class="z-punctuation">;</span><span> p </span><span class="z-keyword z-operator">+=</span><span class="z-constant"> 4</span><span class="z-punctuation">;</span><span class="z-punctuation"> }</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> t += a*c per iteration</span></span></code></pre>
+<p><strong>LLVM <code>LoopStrengthReduce</code></strong> (<code>-loop-reduce</code>) runs late (pre-codegen) on <strong>SCEV</strong>: each IV is
+a <code>SCEVAddRecExpr</code> <code>{start,+,step}&lt;loop&gt;</code>. It enumerates <strong>Formulae</strong> per use site
+(<code>Formula = BaseRegs + Scale·ScaledReg + BaseImmediate</code>), canonicalizing the current loop's
+addrec into <code>ScaledReg</code>, then solves a cost-model optimization (weights: <code>NumRegs</code>,
+<code>AddRecCost</code>, <code>NumIVMuls</code>, <code>NumBaseAdds</code>, <code>ImmCost</code>, <code>SetupCost</code>, plus TTI
+<code>isLegalAddressingMode</code> to fold offsets into addressing modes). GCC's analog is <code>ivopts</code>
+(<code>tree-ssa-loop-ivopts.c</code>). Related: Kennedy et al., "Strength Reduction via SSAPRE," CC 1998
+(SR as a variant of PRE on SSA).</p>
+<hr />
+<h2 id="4-scalarization-memory-optimization">4. Scalarization &amp; Memory Optimization</h2>
+<p>Move memory traffic into registers, and eliminate provably redundant loads/dead stores. All
+of §4.2–4.4 share one substrate: <strong>MemorySSA</strong>.</p>
+<h3 id="4-1-array-scalarization-scalar-replacement-of-array-elements">4.1 Array scalarization / scalar replacement of array elements</h3>
+<p>Carr &amp; Kennedy, "Scalar Replacement in the Presence of Conditional Control Flow," <em>Software—
+Practice &amp; Experience</em> 24(1):51–77, 1994. Promotes a <em>reused</em> array element (referenced
+multiple times, or across iterations) into a scalar register candidate, turning redundant
+memory accesses into register accesses. Reuse is detected via <strong>dependence analysis</strong> (a
+true/input dependence between two subscripted references with consistent subscript distance
+means the second can reuse a register value); across iterations, a value produced in iteration
+<code>i</code> and reused in <code>i+k</code> is carried in <code>k</code> rotating scalar temporaries initialized in a
+prologue. The 1994 contribution handles <strong>conditional control flow</strong> inside the body by
+<strong>mapping the problem onto partial redundancy elimination</strong> (PRE availability/anticipability
+dataflow), inserting loads only where needed and avoiding speculative loads on paths that don't
+need them.</p>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-keyword z-control">for</span><span class="z-punctuation"> (</span><span>i</span><span class="z-keyword z-operator">=</span><span class="z-constant">1</span><span class="z-punctuation">;</span><span>i</span><span class="z-keyword z-operator">&lt;</span><span>n</span><span class="z-punctuation">;</span><span>i</span><span class="z-keyword z-operator">++</span><span class="z-punctuation">)</span><span class="z-variable"> A</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> =</span><span class="z-variable"> A</span><span class="z-punctuation">[</span><span>i</span><span class="z-keyword z-operator">-</span><span class="z-constant">1</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> +</span><span class="z-variable"> B</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> A[i-1] reloaded each iter</span></span></code></pre>
+<p>→</p>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span>t </span><span class="z-keyword z-operator">=</span><span class="z-variable"> A</span><span class="z-punctuation">[</span><span class="z-constant">0</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">for</span><span class="z-punctuation"> (</span><span>i</span><span class="z-keyword z-operator">=</span><span class="z-constant">1</span><span class="z-punctuation">;</span><span>i</span><span class="z-keyword z-operator">&lt;</span><span>n</span><span class="z-punctuation">;</span><span>i</span><span class="z-keyword z-operator">++</span><span class="z-punctuation">)</span><span class="z-punctuation">{</span><span> t </span><span class="z-keyword z-operator">=</span><span> t </span><span class="z-keyword z-operator">+</span><span class="z-variable"> B</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span><span class="z-variable"> A</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> =</span><span> t</span><span class="z-punctuation">;</span><span class="z-punctuation"> }</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> A[i-1] load eliminated</span></span></code></pre>
+<p><strong>How LLVM does it.</strong> There is no single "scalar replacement of array elements" pass; the
+effect is a combination:</p>
+<ol>
+<li><strong><code>mem2reg</code> / SROA</strong> promotes <code>alloca</code>s to SSA via Cytron et al. dominance-frontier SSA
+construction — this handles <em>stack slots</em>, not array-element scalarization.</li>
+<li><strong>LICM register promotion</strong> (<code>LICM.cpp</code>, <code>promoteLoopAccessesToScalars</code>) is the true analog
+of Carr-Kennedy: find loads/stores to a <strong>must-alias</strong>, loop-invariant location; prove it
+safe (no aliasing clobber via MemorySSA/alias sets; dereferenceable; stores guaranteed to
+execute or the location writable so no new fault); <strong>hoist a single load into the
+preheader</strong>, <strong>sink a single store into the exits</strong>, thread the value through SSA phis.</li>
+</ol>
+<pre class="giallo z-code"><code data-lang="llvm"><span class="giallo-l"><span class="z-entity z-name">loop:</span><span class="z-entity z-name">                              preheader:</span></span>
+<span class="giallo-l"><span class="z-variable">  %v</span><span> = </span><span class="z-keyword">load</span><span class="z-storage z-type"> i32</span><span>, ptr </span><span class="z-variable">%p</span><span class="z-variable">             %v0</span><span> = </span><span class="z-keyword">load</span><span class="z-storage z-type"> i32</span><span>, ptr </span><span class="z-variable">%p</span><span class="z-comment">       ; single hoisted load</span></span>
+<span class="giallo-l"><span class="z-variable">  %n</span><span> = </span><span class="z-keyword">add</span><span class="z-storage z-type"> i32</span><span class="z-variable"> %v</span><span>, </span><span class="z-constant">1</span><span>          →    </span><span class="z-entity z-name">loop:</span></span>
+<span class="giallo-l"><span class="z-keyword">  store</span><span class="z-storage z-type"> i32</span><span class="z-variable"> %n</span><span>, ptr </span><span class="z-variable">%p</span><span class="z-variable">              %v</span><span> = </span><span class="z-keyword">phi</span><span> [</span><span class="z-variable">%v0</span><span>,</span><span class="z-variable">%preheader</span><span>],[</span><span class="z-variable">%n</span><span>,</span><span class="z-variable">%loop</span><span>]</span></span>
+<span class="giallo-l"><span class="z-variable">                                    %n</span><span> = </span><span class="z-keyword">add</span><span class="z-storage z-type"> i32</span><span class="z-variable"> %v</span><span>, </span><span class="z-constant">1</span><span class="z-comment">           ; no load/store in loop</span></span>
+<span class="giallo-l"><span class="z-entity z-name">                                   exit:</span></span>
+<span class="giallo-l"><span class="z-keyword">                                    store</span><span class="z-storage z-type"> i32</span><span class="z-variable"> %n</span><span>, ptr </span><span class="z-variable">%p</span><span class="z-comment">         ; single sunk store</span></span></code></pre>
+<p><strong>SROA vs array-element scalar replacement</strong> (the crux):</p>
+<table><thead><tr><th></th><th><strong>SROA</strong> (<code>SROA.cpp</code>)</th><th><strong>Array-element scalar replacement</strong> (Carr-Kennedy / LICM promotion)</th></tr></thead><tbody>
+<tr><td>Operates on</td><td><code>alloca</code> (aggregates: structs; arrays with constant indices)</td><td><em>any</em> location (heap/global/param) via loads/stores with predictable subscripts</td></tr>
+<tr><td>Basis</td><td>splits aggregate alloca → per-field allocas, then mem2reg</td><td>dependence/availability proves reuse; threads value through SSA phis</td></tr>
+<tr><td>Needs alias analysis?</td><td>no (alloca identity known)</td><td>yes (must prove must-alias + no clobber)</td></tr>
+<tr><td>LLVM pass</td><td><code>SROA</code> + <code>mem2reg</code></td><td><code>LICM</code> promotion (MemorySSA), <code>GVN</code> for straight-line reuse</td></tr>
+</tbody></table>
+<p>SROA is <strong>allocation-based</strong> (it knows the exact object); array-element scalar replacement is
+<strong>dependence/alias-based</strong> (it must <em>prove</em> two subscripted references touch the same element
+with no intervening write). GCC: SROA analog <code>tree-sra</code>; array-element/inter-iteration reuse
+analog <strong>predictive commoning</strong> <code>tree-predcom.c</code> (<code>-ftree-predcom</code>), plus <code>tree-ssa-loop-im</code>.</p>
+<h3 id="4-2-memoryssa-the-substrate">4.2 MemorySSA — the substrate</h3>
+<p>LLVM <code>MemorySSA</code> (docs: llvm.org/docs/MemorySSA.html; George Burgess IV &amp; Daniel Berlin).
+Replaces the older <code>MemoryDependenceAnalysis</code>. Imposes SSA on <strong>memory as a single virtual
+value</strong> (one partition — trading precision for near-linear speed; precise per-location
+partitioning would need ~N² virtual variables). Node kinds:</p>
+<ul>
+<li><strong>MemoryDef</strong> — may modify memory or impose ordering (stores, <code>memset</code>/<code>memcpy</code>, general
+calls, volatile/atomic loads, fences). Takes one operand = the memory version <em>before</em> it
+(its <strong>defining access</strong>, the nearest dominating def/phi) and <em>produces</em> a new version. Defs
+chain up the dominator tree.</li>
+<li><strong>MemoryUse</strong> — reads only (plain loads, readonly calls). One operand → the def whose value
+it reads. Produces no new version.</li>
+<li><strong>MemoryPhi</strong> — one per block where ≥2 memory versions reach it; merges reaching defs like a
+value phi.</li>
+<li><strong>liveOnEntry</strong> — sentinel def dominating everything (memory on function entry).</li>
+</ul>
+<pre class="giallo z-code"><code data-lang="llvm"><span class="giallo-l"><span class="z-comment">; 1 = MemoryDef(liveOnEntry)</span></span>
+<span class="giallo-l"><span class="z-keyword">store</span><span class="z-storage z-type"> i32</span><span class="z-constant"> 0</span><span>, ptr </span><span class="z-variable">%p</span></span>
+<span class="giallo-l"><span class="z-comment">; MemoryUse(1)</span></span>
+<span class="giallo-l"><span class="z-variable">%a</span><span> = </span><span class="z-keyword">load</span><span class="z-storage z-type"> i32</span><span>, ptr </span><span class="z-variable">%q</span></span>
+<span class="giallo-l"><span class="z-comment">; 2 = MemoryDef(1)</span></span>
+<span class="giallo-l"><span class="z-keyword">store</span><span class="z-storage z-type"> i32</span><span class="z-constant"> 1</span><span>, ptr </span><span class="z-variable">%r</span></span></code></pre>
+<p><strong>The clobber walker.</strong> <code>getClobberingMemoryAccess(MA)</code> walks <em>up</em> the def chain / through
+phis and returns the nearest access that actually <strong>clobbers</strong> the queried location — the first
+dominating def whose <code>MemoryLocation</code> may-alias the query per AA; provably-non-aliasing
+intervening defs are skipped. Results cached. This is the primitive all elimination passes call.</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>getClobbering(start, Loc):</span></span>
+<span class="giallo-l"><span>  cur = start.definingAccess</span></span>
+<span class="giallo-l"><span>  while cur is not liveOnEntry:</span></span>
+<span class="giallo-l"><span>     if cur is MemoryPhi: cur = resolve_phi(cur, Loc)   # nearest common clobber</span></span>
+<span class="giallo-l"><span>     if AA.alias(memoryLoc(cur), Loc) != NoAlias: return cur</span></span>
+<span class="giallo-l"><span>     cur = cur.definingAccess</span></span>
+<span class="giallo-l"><span>  return liveOnEntry</span></span></code></pre><h3 id="4-3-redundant-load-elimination-load-pre">4.3 Redundant load elimination &amp; load PRE</h3>
+<p>In <code>GVN</code> and <code>EarlyCSE</code>. For a load <code>L</code> at location <code>X</code>, get its clobbering access:</p>
+<ul>
+<li>clobber is a <strong>store</strong> to <code>X</code> (compatible type) → <strong>store-to-load forwarding</strong>: RAUW <code>L</code>
+with the stored value.</li>
+<li>clobber is a prior <strong>load</strong> of <code>X</code> (no intervening write) → <strong>load-to-load forwarding</strong>.</li>
+<li>GVN also forwards <code>memset</code>→load, <code>memcpy</code>-from-constant-global→load, and partially forwards
+when a wider store covers a narrower load (shifts/truncs).</li>
+</ul>
+<p><strong>Load PRE</strong> (partial redundancy elimination of loads). When a load is redundant on <em>some</em>
+paths but not all, GVN uses a non-local query to find a per-predecessor available value,
+<strong>PHI-translates</strong> the load's address into each predecessor's value space, <strong>inserts a load
+into the predecessors lacking the value</strong>, then replaces the original with a <strong>phi</strong>:</p>
+<pre class="giallo z-code"><code data-lang="llvm"><span class="giallo-l"><span class="z-entity z-name">if:</span><span class="z-keyword">   store</span><span class="z-storage z-type"> i32</span><span class="z-constant"> 42</span><span>, ptr </span><span class="z-variable">%p</span><span class="z-entity z-name">          if:</span><span class="z-keyword">   store</span><span class="z-storage z-type"> i32</span><span class="z-constant"> 42</span><span>, ptr </span><span class="z-variable">%p</span><span class="z-comment">; br %merge</span></span>
+<span class="giallo-l"><span class="z-keyword">      br</span><span class="z-variable"> %merge</span><span class="z-entity z-name">                      else:</span><span class="z-variable"> %v.pre</span><span> = </span><span class="z-keyword">load</span><span class="z-storage z-type"> i32</span><span>, ptr </span><span class="z-variable">%p</span><span class="z-comment">   ; inserted</span></span>
+<span class="giallo-l"><span class="z-entity z-name">else:</span><span class="z-keyword"> br</span><span class="z-variable"> %merge</span><span>                →           </span><span class="z-keyword">br</span><span class="z-variable"> %merge</span></span>
+<span class="giallo-l"><span class="z-entity z-name">merge:</span><span class="z-variable">%v</span><span> = </span><span class="z-keyword">load</span><span class="z-storage z-type"> i32</span><span>, ptr </span><span class="z-variable">%p</span><span class="z-entity z-name">          merge:</span><span class="z-variable">%v</span><span> = </span><span class="z-keyword">phi</span><span> [</span><span class="z-constant">42</span><span>,</span><span class="z-variable">%if</span><span>],[</span><span class="z-variable">%v.pre</span><span>,</span><span class="z-variable">%else</span><span>]  </span><span class="z-comment">; original removed</span></span></code></pre><h3 id="4-4-dead-store-elimination-memcpyopt">4.4 Dead store elimination &amp; MemCpyOpt</h3>
+<p><strong><code>DeadStoreElimination</code></strong> (<code>-dse</code>), MemorySSA-backed since D72700 (Jan 2020), default Sep 2020
+(<code>fb109c4</code>). For each killing store <code>K</code> to <code>X</code>, walk <em>upward</em> to an earlier <code>MemoryDef</code> <code>D</code>
+writing a location fully covered by <code>K</code>, verifying <strong>no <code>MemoryUse</code> between that may read <code>X</code></strong>;
+if so, delete <code>D</code>. Handles full/partial overwrites, dead stores at function end, and stores to
+non-escaping objects.</p>
+<pre class="giallo z-code"><code data-lang="llvm"><span class="giallo-l"><span class="z-keyword">store</span><span class="z-storage z-type"> i32</span><span class="z-constant"> 1</span><span>, ptr </span><span class="z-variable">%p</span><span class="z-comment">     ; dead — overwritten below, no read between</span></span>
+<span class="giallo-l"><span class="z-keyword">store</span><span class="z-storage z-type"> i32</span><span class="z-constant"> 2</span><span>, ptr </span><span class="z-variable">%p</span><span>     →   </span><span class="z-keyword">store</span><span class="z-storage z-type"> i32</span><span class="z-constant"> 2</span><span>, ptr </span><span class="z-variable">%p</span></span></code></pre>
+<p><strong><code>MemCpyOpt</code></strong> uses MemorySSA to forward <code>memcpy</code>→<code>memcpy</code>, turn store-of-load into <code>memcpy</code>,
+convert <code>memcpy</code> of a just-<code>memset</code> buffer, and do <strong>call-slot optimization</strong> (callee writes
+directly into the final destination) — all predicated on clobber checks proving no interference.</p>
+<blockquote>
+<p><strong>Alias analysis</strong> (Andersen/Steensgaard/TBAA/points-to) — see
+<a href="https://nmbr7.github.io/notes/programming/compilers-and-jit/"><code>compilers_and_jit.md</code></a> §2. MemorySSA consumes AA results for its
+clobber walk; the two are complementary layers.</p>
+</blockquote>
+<hr />
+<h2 id="5-instruction-scheduling-loop-restructuring">5. Instruction Scheduling &amp; Loop Restructuring</h2>
+<h3 id="5-1-the-vliw-model-why-the-compiler-owns-scheduling">5.1 The VLIW model — why the compiler owns scheduling</h3>
+<p>A <strong>VLIW (Very Long Instruction Word)</strong> processor issues a fixed-format word naming <em>multiple
+independent operations</em>, one per functional-unit slot, all in one cycle. Unlike a superscalar
+out-of-order core (see <a href="https://nmbr7.github.io/notes/hardware/superscalar-ooo-cpu/"><code>../hardware/superscalar_ooo_cpu.md</code></a>),
+the hardware does <strong>no</strong> dynamic dependency checking, renaming, or scheduling — in the pure
+model, no interlocks. The <em>compiler</em> guarantees packed operations are independent and that
+inter-op latencies are respected. VLIW = "software does what the OOO scheduler does, with a
+whole-program view and no runtime cost."</p>
+<p>Consequences:</p>
+<ul>
+<li><strong>Exposed latencies.</strong> A load of latency L is unreadable for L cycles; the compiler fills
+them (independent ops or NOPs). Some VLIWs expose branch delay slots (TI C6000: 5).</li>
+<li><strong>No hazard interlock</strong> (strict model) — a wrong schedule is a <em>correctness</em> bug. Real
+designs (Hexagon, later Itanium) reintroduce stop-bits/interlocks for binary portability.</li>
+<li><strong>ILP within a basic block is tiny</strong> (~1.5–2 for control-heavy integer code — Fisher's
+motivating observation), so VLIW compilers <em>must</em> schedule across branches. That is the
+reason trace/superblock/hyperblock/modulo scheduling exist. VLIW descends from <strong>horizontal
+microcode</strong> (wide microinstructions each controlling many datapath fields).</li>
+</ul>
+<h3 id="5-2-list-scheduling-the-local-kernel">5.2 List scheduling (the local kernel)</h3>
+<p>Every region method ends up calling list scheduling on a single-entry region.</p>
+<ol>
+<li><strong>Build the data-dependence DAG</strong> — nodes = ops; edges = RAW (latency = producer result
+latency), WAR/WAW (usually 0–1), and memory deps via alias analysis.</li>
+<li><strong>Priorities</strong> — <strong>critical-path height</strong> <code>h(n)</code> (longest latency-weighted path to a sink,
+highest first), or <strong>mobility/slack</strong> <code>ALAP(n) − ASAP(n)</code> (lowest first). Tie-break by
+successor count, resource scarcity, source order.</li>
+<li><strong>Cycle-by-cycle greedy issue</strong> against a <strong>resource reservation table</strong> (<code>cycle × FU</code>,
+often a per-FU pipeline FSA — LLVM <code>llvm-mca</code> and GCC's DFA scheduler both use FSA models).</li>
+</ol>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>list_schedule(DDG, resources):</span></span>
+<span class="giallo-l"><span>  for n: compute height(n), preds_remaining(n)</span></span>
+<span class="giallo-l"><span>  Ready = { n : preds_remaining(n) == 0 };  cycle = 0</span></span>
+<span class="giallo-l"><span>  while Ready or InFlight:</span></span>
+<span class="giallo-l"><span>     for n in sorted(Ready by priority):</span></span>
+<span class="giallo-l"><span>        if resources.available(n, cycle):</span></span>
+<span class="giallo-l"><span>           schedule n at cycle; resources.reserve(n, cycle); Ready.remove(n)</span></span>
+<span class="giallo-l"><span>           ready_time(succ) = cycle + latency(n-&gt;succ)  for each succ</span></span>
+<span class="giallo-l"><span>     cycle += 1</span></span>
+<span class="giallo-l"><span>     Ready += { m : all preds scheduled and ready_time(m) &lt;= cycle }</span></span></code></pre>
+<p>Forward (top-down) minimizes latency from entry; backward (bottom-up) schedules from the sink
+(good when the tail bottlenecks). The lesson it encodes: <strong>hoist long-latency ops (loads) as
+early as dependences allow, fill their shadows with independent work.</strong></p>
+<h3 id="5-3-trace-scheduling-fisher">5.3 Trace scheduling (Fisher)</h3>
+<p>Fisher, "Trace Scheduling: A Technique for Global Microcode Compaction," IEEE Trans. Comput.
+C-30(7):478–490, 1981 (commercialized in <strong>Multiflow TRACE</strong>; reference implementation is
+Ellis's <strong>Bulldog</strong>, Yale PhD 1985). Schedule a whole <strong>trace</strong> — a maximal acyclic path of
+blocks likely to execute together — as one big block, then repair off-trace paths.</p>
+<ol>
+<li><strong>Trace selection</strong> by profile weights: greedily grow the hottest path forward to the
+most-likely successor and backward to the most-likely predecessor, stopping at back-edges,
+scheduled blocks, or cold edges.</li>
+<li><strong>Schedule the trace</strong> with list scheduling, <em>ignoring</em> interior block boundaries.</li>
+<li><strong>Bookkeeping / compensation code</strong> for correctness on off-trace edges:
+<ul>
+<li><strong>Split</strong> (branch leaves the trace): an op moved <em>below</em> a branch that the off-trace path
+needed → insert a <strong>copy</strong> on the off-trace edge. Moving a side-effecting op <em>above</em> an
+exit is <strong>speculation</strong> (needs safety).</li>
+<li><strong>Join</strong> (side entry merges in): ops moved <em>above</em> the join → insert copies on the
+entering edge. Trace scheduling classically restricts side entrances (Multiflow disallowed
+them). Compensation code can <em>increase</em> code size; the win is on the dominant path.</li>
+</ul>
+</li>
+</ol>
+<h3 id="5-4-superblock-hyperblock-impact">5.4 Superblock &amp; hyperblock (IMPACT)</h3>
+<p>Hwu et al., "The Superblock," <em>J. Supercomputing</em> 7(1):229–248, 1993; Mahlke et al., "Effective
+Compiler Support for Predicated Execution Using the Hyperblock," MICRO-25, 1992.</p>
+<p><strong>Superblock</strong> = a trace with a <em>single entry and no side entrances</em> (multiple exits allowed).
+The simplification over trace scheduling: eliminate the join-repair problem by <strong>tail
+duplication</strong> — any block in the trace with a side entry is <em>duplicated</em> so the trace copy has
+only the on-trace predecessor; off-trace predecessors branch to the duplicate. Trades <strong>code
+growth</strong> for <strong>scheduling freedom</strong> (scheduler handles only the simpler downward-motion-past-
+exit / speculation case) and enables superblock-scope classical opts (CSE, LICM, unrolling).</p>
+<p><strong>Hyperblock</strong> = single-entry, multi-exit region formed by <strong>if-conversion + predication</strong>,
+merging multiple control paths (both sides of a branch) into one predicated straight-line
+region. <code>if (c) x=a; else x=b;</code> → <code>p = cmp c; (p) x=a; (!p) x=b;</code> — both ops issue, only the
+true-predicate one commits. Removes hard-to-predict branches and exposes both paths to one
+scheduler, at the cost of issue slots on the not-taken side (IMPACT heuristics exclude rarely-
+taken/hazardous/resource-heavy paths).</p>
+<table><thead><tr><th>Region</th><th>Entries</th><th>Exits</th><th>Side entries</th><th>Off-path repair</th><th>Branches</th></tr></thead><tbody>
+<tr><td>Basic block</td><td>1</td><td>1</td><td>n/a</td><td>none</td><td>none crossed</td></tr>
+<tr><td>Trace (Fisher)</td><td>1</td><td>many</td><td>allowed</td><td>split + join compensation</td><td>stay</td></tr>
+<tr><td>Superblock (Hwu)</td><td>1</td><td>many</td><td>eliminated (tail dup)</td><td>split (speculation) only</td><td>stay</td></tr>
+<tr><td>Hyperblock (Mahlke)</td><td>1</td><td>many</td><td>eliminated + if-converted</td><td>predicate-guarded</td><td>→ predicates</td></tr>
+</tbody></table>
+<p>Region scheduling / treegions (Bernstein &amp; Rodeh, "Global Instruction Scheduling for
+Superscalar Machines," PLDI 1991) generalize to tree-shaped single-entry regions, avoiding
+tail-duplication cost.</p>
+<h3 id="5-5-modulo-scheduling-software-pipelining-rau">5.5 Modulo scheduling / software pipelining (Rau)</h3>
+<p>Rau, "Iterative Modulo Scheduling," MICRO-27, 1994 (HP Labs HPL-94-115); Lam, "Software
+Pipelining," PLDI 1988 (modulo variable expansion, hierarchical reduction); original Rau &amp;
+Glaeser, MICRO-14, 1981. See <a href="https://nmbr7.github.io/notes/programming/compilers-and-jit/"><code>compilers_and_jit.md</code></a> §5 for the brief;
+the mechanism:</p>
+<p>Overlap successive iterations so a new one starts every <strong>II (Initiation Interval)</strong> cycles.
+Steady state = the <strong>kernel</strong>, preceded by a <strong>prologue</strong> (fills the pipeline) and followed by
+an <strong>epilogue</strong> (drains it).</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>Sequential (4 cyc/iter):        Pipelined, II=1:</span></span>
+<span class="giallo-l"><span> it0: A B C D                   prologue: A0 / A1 B0 / A2 B1 C0</span></span>
+<span class="giallo-l"><span> it1:         A B C D           kernel :  Ai Bi-1 Ci-2 Di-3   (1 iter/cycle)</span></span>
+<span class="giallo-l"><span> it2:                 A B C D   epilogue: drains B,C,D of last iters</span></span></code></pre>
+<p><strong>MII = max(ResMII, RecMII).</strong></p>
+<ul>
+<li><strong>ResMII</strong> (resource): per resource class, <code>ceil(uses_per_iter / instances)</code>; max over
+resources. (3 mem ops, 2 mem units → <code>ceil(3/2)=2</code>.)</li>
+<li><strong>RecMII</strong> (recurrence): for each elementary cycle <code>θ</code> in the dependence graph, <code>ceil( latency(θ) / distance(θ))</code>, max over cycles. <code>x[i]=x[i-1]+1</code> with add latency 2 →
+<code>ceil(2/1)=2</code> (the loop-carried dep bottlenecks throughput at 2 cyc/iter no matter how many
+FUs). <code>x[i]=x[i-2]+1</code> → <code>ceil(2/2)=1</code>.</li>
+</ul>
+<p><strong>Modulo Reservation Table (MRT)</strong> — <code>II</code> rows (cycle mod II) × one column per resource. An op
+at absolute cycle <code>t</code> reserves <code>MRT[t mod II][resource]</code>. <strong>Modulo constraint</strong>: no two ops
+reserve the same (cycle-mod-II, resource) slot — guaranteeing that when all iterations overlay,
+no resource is oversubscribed in steady state.</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span>for II = MII, MII+1, ...:</span></span>
+<span class="giallo-l"><span>   reset MRT; unschedule all ops</span></span>
+<span class="giallo-l"><span>   priority = height in DDG;   budget = c * num_ops</span></span>
+<span class="giallo-l"><span>   while some op unscheduled and budget-- &gt; 0:</span></span>
+<span class="giallo-l"><span>      n = highest-priority unscheduled op</span></span>
+<span class="giallo-l"><span>      t_early = max over scheduled preds p of (time(p) + latency(p,n) - II*distance(p,n))</span></span>
+<span class="giallo-l"><span>      find slot t in [t_early, t_early+II-1] with free MRT resources</span></span>
+<span class="giallo-l"><span>      if found: schedule n at t</span></span>
+<span class="giallo-l"><span>      else:                                  # forced placement (min-conflicts)</span></span>
+<span class="giallo-l"><span>         t = t_early; unschedule MRT-conflicting ops; schedule n at t</span></span>
+<span class="giallo-l"><span>   if all scheduled: emit prologue/kernel/epilogue; break</span></span></code></pre>
+<p>The eject-and-reschedule escapes local minima without exhaustive backtracking. <strong>Swing Modulo
+Scheduling</strong> (Llosa et al., PACT 1996) orders nodes to reduce register pressure — it is GCC's
+<code>-fmodulo-sched</code> (SMS).</p>
+<p><strong>Modulo Variable Expansion &amp; rotating registers.</strong> With iterations overlapped, a value from
+iteration <code>i</code> is still live when <code>i+1</code> produces its own version of the "same" register. Fixes:</p>
+<ul>
+<li><strong>MVE (Lam 1988)</strong> — unroll the kernel <code>k = ceil(liverange/II)</code> times, rename to <code>k</code>
+physical registers in rotation. Software-only; costs code size + registers.</li>
+<li><strong>Rotating register files (Itanium)</strong> — a base register decrements each kernel iteration so
+<code>r32</code> names a different physical register per iteration. <code>br.ctop</code>/<code>br.wtop</code> rotate the base
+and predicates, making MVE free <em>and</em> generating prologue/epilogue implicitly (rotating
+predicates gate which pipeline stages are active during fill/drain).</li>
+</ul>
+<h3 id="5-6-predication-speculation">5.6 Predication &amp; speculation</h3>
+<ul>
+<li><strong>Full predication</strong> (Itanium, Hexagon dot-new): nearly every op has a qualifying predicate;
+it executes but commits only if true — enables if-conversion → hyperblocks. Itanium has 64
+predicate regs set by <code>cmp</code> producing <code>(p, !p)</code>.</li>
+<li><strong>Control speculation</strong> — hoist a load <em>above</em> its guarding branch. Itanium <strong>speculative
+load <code>ld.s</code></strong> sets a <strong>NaT (Not-a-Thing)</strong> poison bit instead of faulting; a later <code>chk.s</code>
+branches to recovery if NaT is set. NaT propagates through computation.</li>
+<li><strong>Data speculation</strong> — hoist a load above a maybe-aliasing store. Itanium <strong>advanced load
+<code>ld.a</code></strong> records the address in the <strong>ALAT (Advanced Load Address Table)</strong>; a later
+<code>ld.c</code>/<code>chk.a</code> verifies no intervening store hit it, else re-executes. This does in software
+what an OOO core's memory-dependence predictor + load-store queue do in hardware.</li>
+</ul>
+<h3 id="5-7-bundle-formation-real-isas">5.7 Bundle formation &amp; real ISAs</h3>
+<p>The compiler must emit a fixed-width word every cycle, so empty slots become <strong>NOPs</strong> (code-
+size + I-cache cost — a real VLIW downside). Compression schemes:</p>
+<p><strong>Itanium / IA-64 EPIC</strong> — 128-bit <strong>bundle</strong> = 5-bit <strong>template</strong> + three 41-bit <strong>syllables</strong>:</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span> 127                                                          5 4      0</span></span>
+<span class="giallo-l"><span>+-------------+-------------+-------------+----------------------+------+</span></span>
+<span class="giallo-l"><span>| slot 2 (41) | slot 1 (41) | slot 0 (41) |                      |templ |</span></span>
+<span class="giallo-l"><span>+-------------+-------------+-------------+----------------------+------+</span></span>
+<span class="giallo-l"><span>   template selects FU types per slot + positions of stop bits &#39;;;&#39;</span></span></code></pre>
+<p>Unit types M (memory), I (integer), F (float), B (branch), L+X (long <code>movl</code>, two slots). Each
+syllable carries a 6-bit qualifying predicate. 128 GPRs (r32–r127 rotate), 64 predicate regs,
+NaT bit per GR, ALAT, rotating registers + <code>br.ctop</code> for pipelined loops.</p>
+<p><strong>TI C6000</strong> VLIW DSP — 8 FUs in 2 datapaths (<code>.L/.S/.M/.D</code> × 2). 256-bit <strong>fetch packet</strong> =
+eight 32-bit instructions; each instruction's <strong>bit 0 = <code>p</code>-bit</strong>: <code>p=1</code> = "execute in parallel
+with next" (<code>||</code>), grouping into a 1–8-instruction <strong>execute packet</strong> (no NOP padding for serial
+code):</p>
+<pre class="giallo z-code"><code data-lang="plain"><span class="giallo-l"><span> 31                                   1   0</span></span>
+<span class="giallo-l"><span>+--------------------------------------+---+</span></span>
+<span class="giallo-l"><span>|              instruction              | p |   p=1 -&gt; || with next</span></span>
+<span class="giallo-l"><span>+--------------------------------------+---+</span></span>
+<span class="giallo-l"><span>Fetch packet = [I0 I1 I2 I3 I4 I5 I6 I7]  (8 x 32b = 256b)</span></span></code></pre>
+<p>Conditional exec via 3-bit <code>creg</code> + <code>z</code> (<code>[A1] add ...</code>). <strong>Exposed delay slots</strong>: multiply 1,
+load 4, branch 5 — the compiler fills them.</p>
+<p><strong>Qualcomm Hexagon</strong> — variable-length <strong>packet</strong> of 1–4 instructions delimited by 2 parse
+bits per 32-bit instruction. <strong>Dot-new predicates / new-value operands</strong>: a predicate/register
+produced earlier <em>in the same packet</em> is consumable later in it (<code>p0=cmp...; if (p0.new) jump</code>, new-value stores <code>memw(...)=R.new</code>) — compare + dependent branch/store in one packet
+with no bubble. <strong>Hardware loops</strong> (<code>loop0</code>/<code>loop1</code>) give zero-overhead loop branches; <strong>HVX</strong>
+vectors issue in the same packet model.</p>
+<p><strong>Multiflow TRACE</strong> (historical) — 7/14/28 operations per instruction (256/512/1024-bit
+words), built by Fisher/Colwell to commercialize trace scheduling.</p>
+<p><strong>Why general-purpose VLIW lost (Itanium post-mortem):</strong> statically scheduling around
+<em>unpredictable</em> memory latency (cache misses vary at runtime) is something only dynamic OOO
+handles well; NOP/template code bloat hurt I-cache; latencies baked into binaries break cross-
+microarchitecture compatibility; OOO superscalar delivered ILP dynamically on legacy x86. VLIW
+thrives where behavior is statically predictable and power/area matter: DSPs (C6000), modem/
+vector coprocessors (Hexagon), older AMD TeraScale GPUs, ML accelerators.</p>
+<h3 id="5-8-loop-unrolling">5.8 Loop unrolling</h3>
+<p>Replicate the body <code>k</code> times (unroll factor), adjust the IV/step so <code>k</code> original iterations run
+per new iteration.</p>
+<p><strong>Benefits</strong>: amortize loop overhead (one branch + counter per <code>k</code>); expose ILP (<code>k</code>
+independent copies fill FU slots / hide latencies — <em>the</em> enabler for VLIW list scheduling and
+for SLP §2.1); enable CSE/redundant-load-elim/strength-reduction across iterations; feed modulo
+scheduling (kernel unroll for MVE) and unroll-and-jam.</p>
+<p><strong>Costs</strong>: I-cache / code-size pressure (a bloated body that no longer fits L1I can be <em>slower</em>)
+and <strong>register pressure</strong> (<code>k×</code> live ranges → spills that erase the ILP gain — the central
+tension).</p>
+<p>Kinds:</p>
+<ul>
+<li><strong>Full/complete</strong> — trip count is a small compile-time constant <code>N</code>: replace the loop with
+<code>N</code> straight-line copies, delete the branch. Only when <code>N</code> is small (code-size threshold).</li>
+<li><strong>Partial</strong> — unroll by <code>k</code> (2/4/8) keeping a loop; needs a <strong>remainder/epilogue loop</strong> for
+the <code>N mod k</code> leftover.</li>
+<li><strong>Runtime</strong> — trip count unknown: unrolled main loop + a remainder guarded by a runtime <code>N mod k</code> and a <code>N ≥ k</code> skip check.</li>
+</ul>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span>main_count </span><span class="z-keyword z-operator">=</span><span> n </span><span class="z-keyword z-operator">&amp;</span><span class="z-keyword z-operator"> ~</span><span class="z-constant">3</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">                         //</span><span class="z-comment"> n - (n % 4)</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">for</span><span class="z-punctuation"> (</span><span>i</span><span class="z-keyword z-operator">=</span><span class="z-constant">0</span><span class="z-punctuation">;</span><span> i</span><span class="z-keyword z-operator">&lt;</span><span>main_count</span><span class="z-punctuation">;</span><span> i</span><span class="z-keyword z-operator">+=</span><span class="z-constant">4</span><span class="z-punctuation">)</span><span class="z-punctuation z-definition z-comment">                //</span><span class="z-comment"> unrolled x4</span></span>
+<span class="giallo-l"><span class="z-punctuation">    {</span><span class="z-entity z-name z-function"> body</span><span class="z-punctuation">(</span><span>i</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-entity z-name z-function"> body</span><span class="z-punctuation">(</span><span>i</span><span class="z-keyword z-operator">+</span><span class="z-constant">1</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-entity z-name z-function"> body</span><span class="z-punctuation">(</span><span>i</span><span class="z-keyword z-operator">+</span><span class="z-constant">2</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-entity z-name z-function"> body</span><span class="z-punctuation">(</span><span>i</span><span class="z-keyword z-operator">+</span><span class="z-constant">3</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation"> }</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">for</span><span class="z-punctuation"> (</span><span class="z-punctuation">;</span><span> i</span><span class="z-keyword z-operator">&lt;</span><span>n</span><span class="z-punctuation">;</span><span> i</span><span class="z-keyword z-operator">++</span><span class="z-punctuation">)</span><span class="z-entity z-name z-function"> body</span><span class="z-punctuation">(</span><span>i</span><span class="z-punctuation">)</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">                    //</span><span class="z-comment"> remainder loop, &lt;4 iters</span></span></code></pre>
+<p>(Duff's device is the classic hand-coded remainder; modern compilers emit a separate remainder
+loop.)</p>
+<p><strong>Factor selection</strong> balances benefit vs register/I-cache cost: keep body ≤ a threshold; favor
+factors dividing a known trip count evenly (no remainder); match issue width / FU count; unroll
+≥ recurrence latency for pipelining; back off if estimated register pressure would spill.</p>
+<p><strong>Unroll-and-jam</strong> — for a nest, unroll the outer loop by <code>k</code> and <strong>fuse ("jam")</strong> the <code>k</code>
+inner-loop copies into one, creating register reuse across the unrolled outer iterations (the
+basis of BLAS microkernels / register blocking):</p>
+<pre class="giallo z-code"><code data-lang="c"><span class="giallo-l"><span class="z-keyword z-control">for</span><span> i step </span><span class="z-constant">2</span><span>:</span></span>
+<span class="giallo-l"><span class="z-keyword z-control">  for</span><span> j:</span></span>
+<span class="giallo-l"><span class="z-variable">     C</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-punctuation">[</span><span>j</span><span class="z-punctuation">]</span><span class="z-keyword z-operator">   +=</span><span class="z-variable"> A</span><span class="z-punctuation">[</span><span>i</span><span class="z-punctuation">]</span><span class="z-keyword z-operator">*</span><span class="z-variable">B</span><span class="z-punctuation">[</span><span>j</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span></span>
+<span class="giallo-l"><span class="z-variable">     C</span><span class="z-punctuation">[</span><span>i</span><span class="z-keyword z-operator">+</span><span class="z-constant">1</span><span class="z-punctuation">]</span><span class="z-punctuation">[</span><span>j</span><span class="z-punctuation">]</span><span class="z-keyword z-operator"> +=</span><span class="z-variable"> A</span><span class="z-punctuation">[</span><span>i</span><span class="z-keyword z-operator">+</span><span class="z-constant">1</span><span class="z-punctuation">]</span><span class="z-keyword z-operator">*</span><span class="z-variable">B</span><span class="z-punctuation">[</span><span>j</span><span class="z-punctuation">]</span><span class="z-punctuation">;</span><span class="z-punctuation z-definition z-comment">   //</span><span class="z-comment"> B[j] loaded once, reused for both i</span></span></code></pre>
+<p>Legality requires the outer loop unrollable and the jam not to reverse a loop-carried
+dependence direction between fused inner instances (checked via §2.3 dependence analysis).</p>
+<p><strong>LLVM <code>LoopUnrollPass</code></strong> (+ <code>LoopUnrollAndJamPass</code>, <code>LoopFullUnrollPass</code>). Trip counts from
+SCEV (<code>getSmallConstantTripCount</code>, <code>getSmallConstantTripMultiple</code>). Config via
+<code>TargetTransformInfo::UnrollingPreferences</code> (target hook <code>getUnrollingPreferences()</code> + CLI):
+<code>Threshold</code> (full-unroll budget), <code>PartialThreshold</code>, <code>OptSizeThreshold</code>, <code>Partial</code>, <code>Runtime</code>,
+<code>Count</code>, <code>MaxCount</code>/<code>FullUnrollMaxCount</code>, <code>AllowRemainder</code>, <code>UpperBound</code>, <code>AllowPeeling</code>,
+<code>PeelCount</code>. <code>analyzeLoopUnrollCost()</code> estimates the unrolled body (with post-unroll constant-
+folding); runtime unrolling uses <code>UnrollRuntimeLoopRemainder()</code>. Knobs: <code>-unroll-count</code>,
+<code>-unroll-threshold</code>, <code>-unroll-runtime</code>, <code>-unroll-allow-partial</code>, <code>-unroll-and-jam</code>. Metadata:
+<code>llvm.loop.unroll.enable/count/full/disable</code>, <code>llvm.loop.unroll_and_jam.count</code> (from Clang
+<code>#pragma unroll</code> / <code>#pragma clang loop unroll(...)</code>).</p>
+<p><strong>GCC</strong>: <code>-funroll-loops</code> (known/computable trip counts; implies <code>-fweb</code>,
+<code>-frename-registers</code>), <code>-funroll-all-loops</code> (even uncertain counts; usually harmful),
+<code>-fpeel-loops</code>, <code>-floop-unroll-and-jam</code>. Params: <code>--param max-unroll-times</code> (8),
+<code>max-unrolled-insns</code> (~200), <code>max-completely-peel-times</code>, <code>unroll-jam-min-percent</code>. <code>#pragma GCC unroll N</code>. RTL loop optimizer <code>loop-unroll.cc</code>; GIMPLE complete unrolling
+<code>tree-ssa-loop-ivcanon.cc</code> (<code>cunroll</code>); software pipeliner SMS <code>-fmodulo-sched</code>.</p>
+<hr />
+<h2 id="6-peephole-optimization">6. Peephole Optimization</h2>
+<p>McKeeman, "Peephole Optimization," CACM 8(7):443–444, 1965 — coined the term: slide a small
+<strong>window ("peephole")</strong> of a few consecutive instructions and replace matched patterns with
+cheaper equivalents. Retargetable classic: Davidson &amp; Fraser, "The Design and Application of a
+Retargetable Peephole Optimizer," ACM TOPLAS 2(2):191–202, 1980.</p>
+<h3 id="6-1-peephole-as-term-rewriting-the-superoptimization-link">6.1 Peephole as term rewriting; the superoptimization link</h3>
+<p>A peephole optimizer is a <strong>term-rewriting system</strong>: <code>pattern → replacement</code> applied over a
+sliding window to a fixpoint. Concerns: <strong>termination</strong> (rewrites must not loop — enforce a
+well-founded order or bounded rounds) and <strong>confluence</strong> (order-independence, usually not
+guaranteed; a worklist re-examines neighbors after each rewrite).</p>
+<p><strong>Superoptimization</strong> is the search for the <em>optimal</em> short sequence:</p>
+<ul>
+<li>Massalin, "Superoptimizer: A Look at the Smallest Program," ASPLOS 1987 — exhaustive search
+over instruction sequences, verified by testing.</li>
+<li>Bansal &amp; Aiken, "Automatic Generation of Peephole Superoptimizers," ASPLOS 2006 — <em>learn</em> a
+peephole rule database offline by enumerating short sequences + their optimal equivalents,
+then apply as a fast pass. Bridges superoptimization ↔ peephole.</li>
+<li><strong>Souper</strong> (Sasnauskas et al., 2017) — an LLVM-IR superoptimizer using an SMT solver to
+discover missing InstCombine rules. <strong>Alive2</strong> (Lopes, Lee, Hur, Liu, Regehr, PLDI 2021)
+formally verifies InstCombine transforms (catches wrong undef/poison/overflow-flag handling).</li>
+</ul>
+<h3 id="6-2-classic-transformations">6.2 Classic transformations</h3>
+<ul>
+<li><strong>Algebraic identities</strong>: <code>x*1→x</code>, <code>x+0→x</code>, <code>x&amp;x→x</code>, <code>x^x→0</code>, <code>x*0→0</code>, <code>(x&lt;&lt;a)&lt;&lt;b→x&lt;&lt;(a+b)</code>.</li>
+<li><strong>Strength reduction</strong>: <code>x*2→x&lt;&lt;1</code>, unsigned <code>x/2→x&gt;&gt;1</code>, <code>x%2^k→x&amp;(2^k-1)</code>, <code>mul by const → shift/add chains</code>.</li>
+<li><strong>Redundant pairs</strong>: <code>store r,[m]; load [m]→r</code> ⇒ drop the load; <code>mov a,b; mov b,a</code> ⇒ drop the
+second; push/pop cancellation.</li>
+<li><strong>Null/identity ops</strong>: <code>add r,0</code>, <code>mov r,r</code>, <code>or r,0</code> ⇒ delete.</li>
+<li><strong>Machine constant folding</strong>: <code>mov r,2; add r,3 → mov r,5</code>. Window-local <strong>dead store
+elimination</strong>.</li>
+<li><strong>Branch optimization</strong>: jump-to-jump chaining (<code>jmp L1; L1: jmp L2</code> → target <code>L2</code>);
+branch inversion (<code>jz L1; jmp L2; L1:</code> → <code>jnz L2</code>); unreachable-code/dead-label removal;
+branch-to-next-instruction deletion.</li>
+<li><strong>Cross-basic-block peephole</strong>: apply rules across a fall-through / single-successor edge
+(fold a compare in one block with a branch in the next), respecting CFG edges + liveness.</li>
+</ul>
+<h3 id="6-3-llvm-s-four-level-peephole-family">6.3 LLVM's four-level peephole family</h3>
+<p><strong>(a) InstCombine — the canonical IR-level peephole.</strong> <code>llvm/lib/Transforms/InstCombine/</code>.
+Worklist-driven algebraic simplification on LLVM IR. <code>visitXxx</code> per opcode (<code>visitAdd</code>,
+<code>visitICmp</code>, …) returns a replacement or edits in place; changed instrs re-queue their users.
+Rules written declaratively via the <strong><code>PatternMatch</code></strong> DSL (<code>m_Add(m_Value(A), m_ConstantInt(C))</code>, <code>m_OneUse</code>, <code>m_c_Add</code> commutative). <strong><code>SimplifyDemandedBits</code> + <code>KnownBits</code></strong>
+give bit-level reasoning to drop redundant masks. Shares rules with <strong><code>InstructionSimplify</code></strong>
+(the return-an-existing-value subset). Picks <em>canonical forms</em> (constants on the RHS, <code>sub x,C → add x,-C</code>) so later passes see uniform IR — a known correctness minefield (undef/poison/nsw/nuw),
+hence Alive2.</p>
+<p><strong>(b) DAGCombine — SelectionDAG peephole.</strong> <code>DAGCombiner.cpp</code>, run before <em>and</em> after type/op
+legalization (<code>visitADD</code>, <code>visitLoad</code>, …), folding target-independent + target-specific DAG
+patterns (<code>TargetLowering::PerformDAGCombine</code>), forming addressing modes, combining loads/stores.</p>
+<p><strong>(c) MachineInstr peephole — <code>PeepholeOptimizer</code>.</strong> <code>llvm/lib/CodeGen/PeepholeOptimizer.cpp</code>,
+on MachineIR post-ISel/pre-RA: copy propagation (<code>foldRedundantCopy</code>), <code>optimizeCompareInstr</code>
+(drop a redundant <code>cmp</code> when a prior op set the flags), <code>optimizeExtInstr</code>, <code>optimizeSelect</code>,
+address-mode folds — via <code>TargetInstrInfo</code> hooks. Neighbors: <strong><code>MachineCombiner</code></strong>
+(reassociation/FMA contraction gated by a machine-model <em>critical-path latency</em> check),
+<code>MachineCSE</code>, <code>MachineSink</code>.</p>
+<p><strong>(d) GlobalISel Combiner.</strong> <code>GlobalISel/Combiner.cpp</code> + <code>CombinerHelper</code>, rules in TableGen
+(<code>GICombineRule</code>), applied on generic MIR — the modern declarative retargetable peephole layer
+replacing hand-written SelectionDAG combines for GlobalISel targets.</p>
+<p><strong>Jump threading</strong> — distinct from window-local branch fixups. <code>JumpThreading.cpp</code> is a
+<em>global</em> SSA pass: when a value into a conditional branch is known on a specific predecessor
+edge (via <code>LazyValueInfo</code>/correlated conditions), it redirects that predecessor directly to the
+resolved successor (duplicating the block if needed). Correlated-branch threading lives here;
+trivial branch fixups + tail merging live in peephole / <code>BranchFolder.cpp</code>.</p>
+<h3 id="6-4-gcc-peephole">6.4 GCC peephole</h3>
+<ul>
+<li><strong><code>define_peephole2</code></strong> in the target <code>.md</code> — RTL pattern → replacement, matched by the
+<code>peephole2</code> pass (post-RA, can allocate scratch regs). Legacy <code>define_peephole</code> runs pre-RA.</li>
+<li><strong><code>combine</code> pass</strong> (<code>combine.cc</code>) — GCC's InstCombine analog: combines 2–4 RTL insns into one
+by substitution + <code>simplify_rtx</code>, guided by insn costs and <code>recog</code>. Most GCC RTL strength-
+reduction/identity folding happens here, alongside <code>fwprop</code> and the declarative <strong><code>match.pd</code></strong>
+GIMPLE pattern DSL (used by <code>tree-ssa-forwprop</code> / <code>gimple-match</code> — GCC's PatternMatch analog).</li>
+</ul>
+<blockquote>
+<p><strong>Register allocation</strong> — see <a href="https://nmbr7.github.io/notes/programming/compilers-and-jit/"><code>compilers_and_jit.md</code></a> §4
+(Chaitin-Briggs graph coloring, iterated register coalescing, linear scan, regalloc2,
+spilling/rematerialization). Not repeated here.</p>
+</blockquote>
+<hr />
+<h2 id="key-references">Key References</h2>
+<h3 id="redundancy-elimination">Redundancy elimination</h3>
+<ul>
+<li>Cocke, Schwartz. <em>Programming Languages and Their Compilers.</em> Courant Institute NYU, 1970.</li>
+<li>Kildall. "A Unified Approach to Global Program Optimization." POPL 1973.</li>
+<li>Alpern, Wegman, Zadeck. "Detecting Equality of Variables in Programs." POPL 1988.</li>
+<li>Rosen, Wegman, Zadeck. "Global Value Numbers and Redundant Computations." POPL 1988.</li>
+<li>Simpson. "Value-Driven Redundancy Elimination." PhD thesis, Rice University, 1996.</li>
+<li>VanDrunen, Hosking. "Value-Based Partial Redundancy Elimination." CC 2004.</li>
+</ul>
+<h3 id="vectorization-dependence-analysis">Vectorization &amp; dependence analysis</h3>
+<ul>
+<li>Larsen, Amarasinghe. "Exploiting Superword Level Parallelism with Multimedia Instruction Sets." PLDI 2000.</li>
+<li>Rosen, Nuzman, Zaks. "Loop-Aware SLP in GCC." GCC Developers' Summit 2007.</li>
+<li>Mendis, Amarasinghe. "goSLP: Globally Optimized Superword Level Parallelism Framework." ASPLOS 2018.</li>
+<li>Porpodas, Rocha, Góes. "Look-Ahead SLP: Auto-vectorization in the Presence of Commutative Operations." CGO 2018.</li>
+<li>Porpodas, Rocha, Góes. "VW-SLP: Auto-vectorization with Adaptive Vector Width." PACT 2018.</li>
+<li>Porpodas et al. "Super-Node SLP." CGO 2019. / "PSLP: Padded SLP Auto-vectorization." CGO 2015.</li>
+<li>Banerjee. <em>Dependence Analysis for Supercomputing.</em> Kluwer, 1988.</li>
+<li>Pugh. "The Omega Test: A Fast and Practical Integer Programming Algorithm for Dependence Analysis." Supercomputing '91; CACM 35(8), 1992.</li>
+<li>Goff, Kennedy, Tseng. "Practical Dependence Testing." PLDI 1991.</li>
+<li>Allen, Kennedy. <em>Optimizing Compilers for Modern Architectures.</em> Morgan Kaufmann, 2001.</li>
+<li>Verdoolaege. "isl: An Integer Set Library for the Polyhedral Model." ICMS 2010.</li>
+</ul>
+<h3 id="strength-reduction-scalar-memory-optimization">Strength reduction &amp; scalar/memory optimization</h3>
+<ul>
+<li>Cocke, Kennedy. "An Algorithm for Reduction of Operator Strength." CACM 20(11), 1977.</li>
+<li>Allen, Cocke, Kennedy. "Reduction of Operator Strength." In <em>Program Flow Analysis</em>, Prentice-Hall, 1981.</li>
+<li>Kennedy, Chow, Dahl, Liu, Lo, Streich. "Strength Reduction via SSAPRE." CC 1998.</li>
+<li>Cooper, Eckhardt, Kennedy. "Redundancy Elimination Revisited." PACT 2008.</li>
+<li>Carr, Kennedy. "Scalar Replacement in the Presence of Conditional Control Flow." Software—Practice &amp; Experience 24(1):51–77, 1994.</li>
+<li>Cytron, Ferrante, Rosen, Wegman, Zadeck. "Efficiently Computing SSA Form and the Control Dependence Graph." TOPLAS 13(4), 1991.</li>
+<li>LLVM Project. "MemorySSA." (George Burgess IV, Daniel Berlin.)</li>
+</ul>
+<h3 id="instruction-scheduling-vliw-loop-unrolling">Instruction scheduling, VLIW &amp; loop unrolling</h3>
+<ul>
+<li>Fisher. "Trace Scheduling: A Technique for Global Microcode Compaction." IEEE Trans. Comput. C-30(7):478–490, 1981.</li>
+<li>Ellis. <em>Bulldog: A Compiler for VLIW Architectures.</em> PhD thesis, Yale, 1985 (MIT Press, 1986).</li>
+<li>Colwell, Nix, O'Donnell, Papworth, Rodman. "A VLIW Architecture for a Trace Scheduling Compiler" (Multiflow TRACE). ASPLOS II, 1987.</li>
+<li>Bernstein, Rodeh. "Global Instruction Scheduling for Superscalar Machines." PLDI 1991.</li>
+<li>Hwu et al. "The Superblock: An Effective Technique for VLIW and Superscalar Compilation." J. Supercomputing 7(1):229–248, 1993.</li>
+<li>Mahlke, Lin, Chen, Hank, Bringmann. "Effective Compiler Support for Predicated Execution Using the Hyperblock." MICRO-25, 1992.</li>
+<li>Rau, Glaeser. "Some Scheduling Techniques and an Easily Schedulable Horizontal Architecture." MICRO-14, 1981.</li>
+<li>Lam. "Software Pipelining: An Effective Scheduling Technique for VLIW Machines." PLDI 1988.</li>
+<li>Rau. "Iterative Modulo Scheduling: An Algorithm for Software Pipelining Loops." MICRO-27, 1994 (HPL-94-115).</li>
+<li>Llosa, González, Ayguadé, Valero. "Swing Modulo Scheduling: A Lifetime-Sensitive Approach." PACT 1996.</li>
+<li>Fisher, Faraboschi, Young. <em>Embedded Computing: A VLIW Approach to Architecture, Compilers and Tools.</em> Morgan Kaufmann, 2005.</li>
+</ul>
+<h3 id="peephole-superoptimization">Peephole &amp; superoptimization</h3>
+<ul>
+<li>McKeeman. "Peephole Optimization." CACM 8(7):443–444, 1965.</li>
+<li>Davidson, Fraser. "The Design and Application of a Retargetable Peephole Optimizer." TOPLAS 2(2), 1980.</li>
+<li>Massalin. "Superoptimizer: A Look at the Smallest Program." ASPLOS 1987.</li>
+<li>Bansal, Aiken. "Automatic Generation of Peephole Superoptimizers." ASPLOS 2006.</li>
+<li>Sasnauskas et al. "Souper: A Synthesizing Superoptimizer." 2017.</li>
+<li>Lopes, Lee, Hur, Liu, Regehr. "Alive2: Bounded Translation Validation for LLVM." PLDI 2021.</li>
+</ul>
+<h3 id="textbooks">Textbooks</h3>
+<ul>
+<li>Aho, Lam, Sethi, Ullman. <em>Compilers: Principles, Techniques, and Tools</em>, 2nd ed. Addison-Wesley, 2006.</li>
+<li>Muchnick. <em>Advanced Compiler Design and Implementation.</em> Morgan Kaufmann, 1997.</li>
+<li>Cooper, Torczon. <em>Engineering a Compiler</em>, 2nd ed. Morgan Kaufmann, 2011.</li>
+<li>Wolfe. <em>High Performance Compilers for Parallel Computing.</em> Addison-Wesley, 1996.</li>
+</ul>
+
+  </article>
+  <aside id="note-toc" class="note-toc hidden">
+    <div class="note-toc-inner">
+      <div class="note-toc-header">
+        <span>Contents</span>
+      </div>
+      <nav></nav>
+    </div>
+  </aside>
+</div>
+<button id="toc-toggle" aria-label="Toggle contents">‹</button>
+
+<script>
+  (function() {
+    var article = document.querySelector('.note-page');
+    var nav = document.querySelector('#note-toc nav');
+    if (!article || !nav) return;
+    var headings = article.querySelectorAll('h2, h3');
+    if (!headings.length) return;
+
+    var ul = document.createElement('ul');
+    headings.forEach(function(h) {
+      var li = document.createElement('li');
+      li.className = 'toc-' + h.tagName.toLowerCase();
+      var a = document.createElement('a');
+      a.href = '#' + h.id;
+      a.textContent = h.textContent.replace(/\s*#\s*$/, '');
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    nav.appendChild(ul);
+
+    // active heading highlight + scroll TOC to follow
+    var links = nav.querySelectorAll('a');
+    var tocEl = document.getElementById('note-toc');
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          links.forEach(function(l) { l.classList.remove('toc-active'); });
+          var active = nav.querySelector('a[href="#' + entry.target.id + '"]');
+          if (active) {
+            active.classList.add('toc-active');
+            var linkTop = active.offsetTop;
+            var tocMid = tocEl.clientHeight / 2;
+            tocEl.scrollTo({ top: linkTop - tocMid, behavior: 'smooth' });
+          }
+        }
+      });
+    }, { rootMargin: '-10% 0px -80% 0px' });
+    headings.forEach(function(h) { observer.observe(h); });
+
+    var toc = document.getElementById('note-toc');
+    var toggle = document.getElementById('toc-toggle');
+    function setToc(open) {
+      toc.classList.toggle('hidden', !open);
+      toggle.classList.toggle('toc-closed', !open);
+      toggle.textContent = open ? '›' : '‹';
+      localStorage.setItem('toc-open', String(open));
+    }
+
+    setToc(localStorage.getItem('toc-open') === 'true');
+
+    toggle.addEventListener('click', function() {
+      setToc(toc.classList.contains('hidden'));
+    });
+  })();
+</script>
+
+      </main>
+    </div>
+      <script type="text/javascript">
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        window.ga = window.ga || function () {
+            (ga.q = ga.q || []).push(arguments)
+        };
+        ga.l = +new Date;
+        ga('create', 'UA-693428-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+  </body>
+</html>
