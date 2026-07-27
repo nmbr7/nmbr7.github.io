@@ -1,11 +1,24 @@
 {% extends "pageindex.html" %}
 
 {% block content %}
-<article>
+<article class="blog-post">
   <h1 class="r-header">#{{ term.name }}</h1>
-  <ul class="notes-list">
+  <ul class="topic-list tag-list">
     {% for page in term.pages %}
-      <li><a href="{{ page.permalink }}">{{ page.title }}</a></li>
+      {% set root = page.components | first | default(value="") %}
+      {% if root == "blog" %}{% set kind = "Blog" %}
+      {% elif root == "notes" %}{% set kind = "Note" %}
+      {% elif root == "security" %}{% set kind = "Security" %}
+      {% else %}{% set kind = "Page" %}{% endif %}
+      <li>
+        <div class="blog-list-head">
+          <a href="{{ page.permalink }}" class="topic-title">{{ page.title }}</a>
+          <span class="tag-kind tag-kind-{{ kind | lower }}">{{ kind }}</span>
+        </div>
+        {% if page.description %}
+        <div class="topic-desc">{{ page.description }}</div>
+        {% endif %}
+      </li>
     {% endfor %}
   </ul>
 </article>

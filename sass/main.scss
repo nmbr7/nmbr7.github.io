@@ -233,9 +233,11 @@ body {
   font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
   display: flex;
   flex-direction: row;
-  justify-content: space-evenly;
-  gap: 2px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
   font-size: large;
+  margin-top: 28px;
 }
 
 .r-row {
@@ -478,9 +480,14 @@ caption {
 }
 
 strong, b {
-  font-weight: 700;
-  letter-spacing: -0.015em;
-  font-stretch: condensed;
+  font-weight: 600;
+}
+
+// Blog posts read at the same reduced size as notes (base body font is larger).
+.blog-post {
+  font-size: 80%;
+  line-height: 1.6;
+  max-width: 100%;
 }
 
 .note-page {
@@ -1135,6 +1142,9 @@ input:focus::placeholder {
     color: #ece6da;
   }
 
+  // Slightly warm, brighter tint so bold text stands out in dark theme.
+  strong, b { color: #f2d9a8; }
+
   .logo_font_light { display: none; }
 
   a { color: #e57347; &:hover { color: #f4906a; } }
@@ -1352,6 +1362,154 @@ footer nav li {
   .topic-title { color: #f0e8d6; &:hover { color: #e57347; } }
   .topic-meta { color: #8a8276; }
   .topic-desc { color: #c5bda8; }
+}
+
+// Blog listing + post: title left, date pushed to the right, tag chips.
+.blog-list-head,
+.blog-post-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.blog-date {
+  font-family: $monospace;
+  font-size: medium;
+  color: $ink-faint;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.blog-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  justify-content: flex-end;
+}
+
+// Listing page: tags on the left.
+.blog-list .blog-tags {
+  justify-content: flex-start;
+}
+
+.blog-tag {
+  font-family: $monospace;
+  font-size: 0.75em;
+  color: $rust-dim;
+  background: rgba(183, 65, 14, 0.08);
+  border: 1px solid rgba(183, 65, 14, 0.18);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+
+// Home "Recent" list.
+.recent {
+  max-width: 520px;
+  margin: 40px auto 0;
+  text-align: left;
+}
+.recent-heading {
+  font-family: $monospace;
+  font-size: 0.7em;
+  font-style: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: $ink-faint;
+  margin: 0 0 14px;
+  text-align: center;
+  // Embossed look — a light top highlight and dark bottom shadow.
+  text-shadow:
+    0 1px 1px rgba(245, 240, 232, 0.85),
+    0 -1px 1px rgba(28, 26, 23, 0.15);
+}
+.recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    padding: 9px 0;
+    border-bottom: 1px solid rgba(43, 36, 24, 0.1);
+    &:last-child { border-bottom: none; }
+  }
+
+  // Badge sits in a fixed-width column so titles line up.
+  .tag-kind {
+    width: 52px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  // Title takes the middle, pushing the date to the right edge.
+  .recent-link { flex: 1; }
+}
+.recent-link {
+  font-family: $monospace;
+  font-size: 0.95rem;
+  color: $ink;
+  text-decoration: none;
+  &:hover { color: $rust; }
+}
+.recent-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.recent-date {
+  font-family: $monospace;
+  font-size: 0.7rem;
+  color: $ink-faint;
+  white-space: nowrap;
+}
+// Smaller type badge in the home recent list.
+.recent-list .tag-kind {
+  font-size: 0.55rem;
+  padding: 1px 6px;
+}
+
+// Content-type badge on tag pages (Blog / Note / Security / Page).
+.tag-kind {
+  font-family: $monospace;
+  font-size: 0.7em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: $ink-faint;
+  border: 1px solid rgba(43, 36, 24, 0.2);
+  border-radius: 4px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tag-kind-blog { color: $rust-dim; border-color: rgba(183, 65, 14, 0.3); }
+.tag-kind-security,
+.tag-kind-ctf { color: #3a6b7a; border-color: rgba(58, 107, 122, 0.35); }
+
+:root[data-theme="dark"] {
+  .blog-date { color: #8a8276; }
+  .blog-tag {
+    color: #e57347;
+    background: rgba(229, 115, 71, 0.1);
+    border-color: rgba(229, 115, 71, 0.25);
+  }
+  .tag-kind { color: #8a8276; border-color: rgba(255,255,255,0.15); }
+  .tag-kind-blog { color: #e57347; border-color: rgba(229, 115, 71, 0.3); }
+  .tag-kind-security,
+  .tag-kind-ctf { color: #6fb3c4; border-color: rgba(111, 179, 196, 0.35); }
+  .recent-list li { border-bottom-color: rgba(255,255,255,0.08); }
+  .recent-link { color: #ece6da; &:hover { color: #e57347; } }
+  .recent-date { color: #8a8276; }
+  .recent-heading {
+    color: #8a8276;
+    text-shadow:
+      0 1px 1px rgba(0, 0, 0, 0.5),
+      0 -1px 1px rgba(255, 255, 255, 0.06);
+  }
 }
 
 $reference: #3a6b7a;

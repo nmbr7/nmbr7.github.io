@@ -1,0 +1,42 @@
+{% extends "pageindex.html" %}
+{% import "_macros.html" as macros %}
+
+{% block content %}
+<article class="blog-post">
+  <h1 class="r-header">{{ section.title }}</h1>
+
+  {# Merge blog posts and CTF writeups into one list, newest first. #}
+  {% set_global entries = [] %}
+  {% for page in section.pages %}{% if page.date %}{% set_global entries = entries | concat(with=page) %}{% endif %}{% endfor %}
+  {% set security = get_section(path="security/_index.md") %}
+  {% for page in security.pages %}{% if page.date %}{% set_global entries = entries | concat(with=page) %}{% endif %}{% endfor %}
+  {% set entries = entries | sort(attribute="date") | reverse %}
+
+  <ul class="topic-list blog-list">
+    {% for page in entries %}
+      <li>
+        <div class="blog-list-head">
+          <a href="{{ page.permalink }}" class="topic-title">{{ page.title }}</a>
+          <span class="blog-date">{{ macros::nicedate(daynum=page.day, date=page.date) }}</span>
+        </div>
+        {% if page.taxonomies.tags %}
+        <div class="blog-tags">
+          {% for t in page.taxonomies.tags %}
+          <a class="blog-tag" href="{{ get_taxonomy_url(kind="tags", name=t) }}">{{ t }}</a>
+          {% endfor %}
+        </div>
+        {% elif page.extra.tag %}
+        <div class="blog-tags">
+          {% for t in page.extra.tag | split(pat=",") %}
+          <span class="blog-tag">{{ t | trim }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if page.description %}
+        <div class="topic-desc">{{ page.description }}</div>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+</article>
+{% endblock content %}

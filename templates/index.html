@@ -45,9 +45,9 @@
       <div class="bio">
       {% include "snippets/logo.html" %}
       <h2>  🅂🅄🄷🄰🄸🄻 🅡➐  </h2>
-      <h4> ᴅᴇsɪɢɴ - ʙᴜɪʟᴅ - ʙʀᴇᴀᴋ - sᴇᴄᴜʀᴇ </h4>
       <div class='main-row'>
       <a class='h-link' href="/resources">Resources</a>
+      <a class='h-link' href="/blog">Blog</a>
       <a class='h-link' href="https://twitter.com/nmbr_7">X</a>
       <a class='h-link' href="https://github.com/nmbr7">Github</a> 
       <a class='h-link' href="/about">About</a>
@@ -55,7 +55,40 @@
       </div>
     </div>
         </header>
-    
+
+    {# Gather recent items across blog, notes, and security, newest first. #}
+    {% set_global recent = [] %}
+    {% set blog = get_section(path="blog/_index.md") %}
+    {% for p in blog.pages %}{% if p.date %}{% set_global recent = recent | concat(with=p) %}{% endif %}{% endfor %}
+    {% set notes = get_section(path="notes/_index.md") %}
+    {% for sub_path in notes.subsections %}
+      {% set sub = get_section(path=sub_path) %}
+      {% for p in sub.pages %}{% if p.date %}{% set_global recent = recent | concat(with=p) %}{% endif %}{% endfor %}
+    {% endfor %}
+    {% set security = get_section(path="security/_index.md") %}
+    {% for p in security.pages %}{% if p.date %}{% set_global recent = recent | concat(with=p) %}{% endif %}{% endfor %}
+    {% set recent = recent | sort(attribute="date") | reverse %}
+
+    {% if recent %}
+    <section class="recent">
+      <h3 class="recent-heading">Recent</h3>
+      <ul class="recent-list">
+        {% for p in recent | slice(end=7) %}
+        {% set root = p.components | first | default(value="") %}
+        {% if root == "blog" %}{% set kind = "Blog" %}
+        {% elif root == "notes" %}{% set kind = "Note" %}
+        {% elif root == "security" %}{% set kind = "CTF" %}
+        {% else %}{% set kind = "Page" %}{% endif %}
+        <li>
+          <span class="tag-kind tag-kind-{{ kind | lower }}">{{ kind }}</span>
+          <a href="{{ p.permalink }}" class="recent-link">{{ p.title }}</a>
+          <span class="recent-date">{{ p.date | date(format="%-d %b %Y") }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
     </main>
   </div>
   {% block teaser %}

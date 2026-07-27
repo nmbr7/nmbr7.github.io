@@ -141,6 +141,11 @@ Determine if an object's lifetime is bounded to the allocating function (doesn't
 ### SCCP (Sparse Conditional Constant Propagation)
 Wegman & Zadeck 1991 (TOPLAS). Combined constant propagation + unreachable code elimination using a lattice: ⊤ (unknown) → constant → ⊥ (overdefined). Worklist algorithm on SSA def-use chains: more precise than separate passes because it handles conditional branches (if known-false branch, don't propagate its definitions).
 
+> **Deeper dives → [`optimization_techniques.md`](@/notes/programming/optimization_techniques.md):** CSE vs value
+> numbering + `EarlyCSE` (§1); SLP / load-store vectorization + GCD/Banerjee/Omega dependence
+> testing (§2); straight-line strength reduction + LSR (§3); array scalarization,
+> register promotion, MemorySSA-based redundant-load / dead-store elimination (§4).
+
 ---
 
 ## 3. Instruction Selection
@@ -226,6 +231,12 @@ Prologue: `push rbp; mov rbp, rsp; sub rsp, N`. **Frame pointer omission** (FPO)
 
 ### Peephole Optimization
 Small local rewrites on final instruction sequence: `add r, 0 → nop`, `mul r, 2 → shl r, 1`, `mov r, r → nop`. LLVM's `PeepholeOptimizer` pass and target-specific `optimizeInstruction()` callbacks.
+
+> **Deeper dives → [`optimization_techniques.md`](@/notes/programming/optimization_techniques.md):** list
+> scheduling, trace / superblock / hyperblock scheduling, modulo scheduling (ResMII/RecMII,
+> MRT, MVE), VLIW ISAs (Itanium/C6000/Hexagon), and loop unrolling (§5); peephole as term
+> rewriting, superoptimization, and LLVM's four-level InstCombine/DAGCombine/MachineInstr/
+> GlobalISel family (§6).
 
 ---
 

@@ -575,20 +575,61 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 | Submarine Networks / Business Wire, "Hibernia Express achieves record transatlantic latency under 58.95 ms" | Press release, 2015 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
 | McKay Brothers / PR Newswire, "Transatlantic Latency Slashed for Quincy Extreme Data" (Aurora→Slough 34.619 ms; Aurora→Frankfurt 36.917 ms) | Press release, 2016 | [Low-Latency Trading](@/notes/hardware/low_latency_trading.md) |
 
+## Compiler Optimization & Code Generation
+
+| Paper | Venue | Cited In |
+|---|---|---|
+| Allen, Cocke, Kennedy, "Reduction of Operator Strength" | In *Program Flow Analysis*, Prentice-Hall, 1981 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Alpern, Wegman, Zadeck, "Detecting Equality of Variables in Programs" | POPL 1988 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Banerjee, "Dependence Analysis for Supercomputing" | Kluwer, 1988 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Bansal, Aiken, "Automatic Generation of Peephole Superoptimizers" | ASPLOS 2006 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Bernstein, Rodeh, "Global Instruction Scheduling for Superscalar Machines" | PLDI 1991 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Carr, Kennedy, "Scalar Replacement in the Presence of Conditional Control Flow" | Software—Practice & Experience 24(1), 1994 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Cocke, Kennedy, "An Algorithm for Reduction of Operator Strength" | CACM 20(11), 1977 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Cooper, Eckhardt, Kennedy, "Redundancy Elimination Revisited" | PACT 2008 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Davidson, Fraser, "The Design and Application of a Retargetable Peephole Optimizer" | ACM TOPLAS 2(2), 1980 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Ellis, "Bulldog: A Compiler for VLIW Architectures" | PhD thesis, Yale, 1985 (MIT Press 1986) | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Fisher, "Trace Scheduling: A Technique for Global Microcode Compaction" | IEEE Trans. Comput. C-30(7), 1981 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Goff, Kennedy, Tseng, "Practical Dependence Testing" | PLDI 1991 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Hwu et al., "The Superblock: An Effective Technique for VLIW and Superscalar Compilation" | J. Supercomputing 7(1), 1993 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Kennedy, Chow, Dahl, Liu, Lo, Streich, "Strength Reduction via SSAPRE" | CC 1998 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Kildall, "A Unified Approach to Global Program Optimization" | POPL 1973 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Lam, "Software Pipelining: An Effective Scheduling Technique for VLIW Machines" | PLDI 1988 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Larsen, Amarasinghe, "Exploiting Superword Level Parallelism with Multimedia Instruction Sets" | PLDI 2000 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Llosa, González, Ayguadé, Valero, "Swing Modulo Scheduling: A Lifetime-Sensitive Approach" | PACT 1996 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Lopes, Lee, Hur, Liu, Regehr, "Alive2: Bounded Translation Validation for LLVM" | PLDI 2021 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Mahlke, Lin, Chen, Hank, Bringmann, "Effective Compiler Support for Predicated Execution Using the Hyperblock" | MICRO-25, 1992 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Massalin, "Superoptimizer: A Look at the Smallest Program" | ASPLOS 1987 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| McKeeman, "Peephole Optimization" | CACM 8(7), 1965 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Mendis, Amarasinghe, "goSLP: Globally Optimized Superword Level Parallelism Framework" | ASPLOS 2018 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Porpodas, Rocha, Góes, "Look-Ahead SLP: Auto-vectorization in the Presence of Commutative Operations" | CGO 2018 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Pugh, "The Omega Test: A Fast and Practical Integer Programming Algorithm for Dependence Analysis" | Supercomputing '91; CACM 35(8), 1992 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Rau, "Iterative Modulo Scheduling: An Algorithm for Software Pipelining Loops" | MICRO-27, 1994 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Rosen, Wegman, Zadeck, "Global Value Numbers and Redundant Computations" | POPL 1988 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Sasnauskas et al., "Souper: A Synthesizing Superoptimizer" | arXiv, 2017 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Simpson, "Value-Driven Redundancy Elimination" | PhD thesis, Rice University, 1996 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+
+---
+
 ## Textbooks & Reference Works
 
 | Paper | Venue | Cited In |
 |---|---|---|
+| Allen, Kennedy, "Optimizing Compilers for Modern Architectures: A Dependence-Based Approach" | Morgan Kaufmann, 2001 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
+| Cooper, Torczon, "Engineering a Compiler" (2nd ed.) | Morgan Kaufmann, 2011 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
 | Dally, Towles, "Principles and Practices of Interconnection Networks" | Textbook (Morgan Kaufmann 2003) | [GPU/TPU Accelerator Design](@/notes/hardware/gpu_tpu_accelerator_design.md), [Interconnects](@/notes/hardware/interconnects.md) |
 | Duato, Yalamanchili, Ni, "Interconnection Networks: An Engineering Approach" | Textbook (Morgan Kaufmann 2003) | [Interconnects](@/notes/hardware/interconnects.md) |
+| Fisher, Faraboschi, Young, "Embedded Computing: A VLIW Approach to Architecture, Compilers and Tools" | Morgan Kaufmann, 2005 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
 | Gregg, "BPF Performance Tools" | Addison-Wesley, 2019 | [Linux Expert Syscalls](@/notes/os/linux_expert_syscalls.md) |
 | Gregg, "Systems Performance" (2nd ed.) | Addison-Wesley, 2020 | [Linux Expert Syscalls](@/notes/os/linux_expert_syscalls.md) |
 | Hennessy, Patterson, "Computer Architecture: A Quantitative Approach" (6th ed.) | Textbook | [GPU/TPU Accelerator Design](@/notes/hardware/gpu_tpu_accelerator_design.md), [ISA Critical Instructions](@/notes/hardware/isa_critical_instructions.md) |
 | Kerrisk, "The Linux Programming Interface" | No Starch Press, 2010 | [Linux Expert Syscalls](@/notes/os/linux_expert_syscalls.md) |
 | Love, "Linux Kernel Development" (3rd ed.) | Addison-Wesley, 2010 | [Linux Expert Syscalls](@/notes/os/linux_expert_syscalls.md) |
+| Muchnick, "Advanced Compiler Design and Implementation" | Morgan Kaufmann, 1997 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
 | Navarro, "Succinct Data Structures" | Cambridge University Press, 2016 | [Data Structures](@/notes/programming/data_structures.md) |
 | Weste, Harris, "CMOS VLSI Design: A Circuits and Systems Perspective" | Textbook | [GPU/TPU Accelerator Design](@/notes/hardware/gpu_tpu_accelerator_design.md) |
+| Wolfe, "High Performance Compilers for Parallel Computing" | Addison-Wesley, 1996 | [Optimization Techniques](@/notes/programming/optimization_techniques.md) |
 
 ---
 
-*Last updated: 2026-06-04*
+*Last updated: 2026-07-14*

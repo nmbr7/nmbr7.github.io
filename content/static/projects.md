@@ -10,6 +10,15 @@ render = true
     <span class="timeline-year">2026</span>
     <div class="timeline-dot"></div>
     <div class="timeline-content">
+      <div class="timeline-title"><a href="https://github.com/nmbr7/turboreview" target="_blank">turboreview</a></div>
+      <div class="timeline-desc">Terminal code-review TUI for staged and working-tree changes, written in Rust.</div>
+    </div>
+  </div>
+
+  <div class="timeline-item">
+    <span class="timeline-year">2026</span>
+    <div class="timeline-dot"></div>
+    <div class="timeline-content">
       <div class="timeline-title"><a href="https://github.com/nmbr7/turbohex" target="_blank">turbohex</a></div>
       <div class="timeline-desc">TUI hex-viewer with customizable decode UI and Wasm plugin system, written in Rust.</div>
     </div>
