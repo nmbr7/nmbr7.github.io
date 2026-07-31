@@ -167,11 +167,13 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 | Fischer, Lynch, Paterson, "Impossibility of Distributed Consensus with One Faulty Process" (FLP) | JACM 1985 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md), [Deterministic Simulation Testing](@/notes/distributed/deterministic_simulation_testing.md) |
 | Gafni, Lamport, "Disk Paxos" | Distributed Computing, 2003 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md) |
 | Gilbert, Lynch, "Brewer's Conjecture and the Feasibility of Consistent, Available, Partition-Tolerant Web Services" | SIGACT News 2002 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md) |
+| Goodhope et al., "Building LinkedIn's Real-time Activity Data Pipeline" | IEEE Data Engineering Bulletin, 2012 | [Kafka Internals](@/notes/distributed/kafka_internals.md) |
 | Howard, Malkhi, Spiegelman, "Flexible Paxos: Quorum Intersection Revisited" | OPODIS 2016 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md) |
 | Howard, Mortier, "Paxos vs Raft: Have We Reached Consensus on Distributed Consensus?" | HotCloud 2020 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md) |
 | Huang et al., "TiDB: A Raft-based HTAP Database" | VLDB 2020 | [Disaggregated Storage](@/notes/database/disaggregated_storage.md), [Distributed Consensus](@/notes/distributed/distributed_consensus.md) |
 | Hunt, Konar, Junqueira, Reed, "ZooKeeper: Wait-free Coordination for Internet-scale Systems" | USENIX ATC 2010 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md) |
 | Junqueira, Reed, Serafini, "Zab: High-performance Broadcast for Primary-backup Systems" | DSN 2011 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md) |
+| Kleppmann, "Designing Data-Intensive Applications", ch. 11 (Stream Processing) | O'Reilly, 2017 | [Kafka Internals](@/notes/distributed/kafka_internals.md) |
 | Kreps, Narkhede, Rao, "Kafka: A Distributed Messaging System for Log Processing" | NetDB Workshop, 2011 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md), [Kafka Internals](@/notes/distributed/kafka_internals.md) |
 | Lamport, "Fast Paxos" | Distributed Computing, 2006 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md) |
 | Lamport, "Generalized Consensus and Paxos" | MSR Technical Report, 2005 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md) |
@@ -183,7 +185,7 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 | Mao, Junqueira, Marzullo, "Mencius: Building Efficient Replicated State Machines for WANs" | OSDI 2008 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md) |
 | Moraru, Andersen, Kaminsky, "There Is More Consensus in Egalitarian Parliaments" (EPaxos) | SOSP 2013 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md) |
 | Oki, Liskov, "Viewstamped Replication: A New Primary Copy Method" | PODC 1988 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md) |
-| Ongaro, Ousterhout, "In Search of an Understandable Consensus Algorithm" (Raft) | USENIX ATC 2014 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md) |
+| Ongaro, Ousterhout, "In Search of an Understandable Consensus Algorithm" (Raft) | USENIX ATC 2014 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md), [Kafka Internals](@/notes/distributed/kafka_internals.md) |
 | Santos, Schiper, "Optimizing Paxos with Batching and Pipelining" | Theoretical Computer Science, 2012 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md) |
 | Shapiro, Preguica, Baquero, Zawirski, "Conflict-free Replicated Data Types" | SSS 2011 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md), [Data Structures](@/notes/programming/data_structures.md) |
 | Taft et al., "CockroachDB: The Resilient Geo-Distributed SQL Database" | SIGMOD 2020 | [Distributed Consensus](@/notes/distributed/distributed_consensus.md), [CockroachDB Optimizer Rules](@/notes/database/cockroachdb_optimizer_rules.md) |
@@ -632,4 +634,4 @@ Deduplicated index of papers referenced across research docs. Sorted alphabetica
 
 ---
 
-*Last updated: 2026-07-14*
+*Last updated: 2026-07-29*
